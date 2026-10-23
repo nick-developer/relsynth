@@ -1,0 +1,335 @@
+version: 1
+name: chinook
+source:
+  kind: sqlite
+  path: Chinook.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  Album:
+    role: entity
+    columns:
+      AlbumId:
+        type: id
+      Title:
+        type: text
+      ArtistId:
+        type: id
+    primary_key: AlbumId
+  Artist:
+    role: entity
+    columns:
+      ArtistId:
+        type: id
+      Name:
+        type: text
+    primary_key: ArtistId
+  Customer:
+    role: entity
+    columns:
+      CustomerId:
+        type: id
+      FirstName:
+        type: pii
+        pii:
+          generator: person_name
+      LastName:
+        type: pii
+        pii:
+          generator: person_name
+      Company:
+        type: pii
+        pii:
+          generator: pattern
+      Address:
+        type: pii
+        pii:
+          generator: pattern
+      City:
+        type: categorical
+      State:
+        type: categorical
+      Country:
+        type: categorical
+      PostalCode:
+        type: pii
+        pii:
+          generator: pattern
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      Fax:
+        type: pii
+        pii:
+          generator: phone
+      Email:
+        type: pii
+        pii:
+          generator: email
+      SupportRepId:
+        type: id
+    primary_key: CustomerId
+  Employee:
+    role: entity
+    columns:
+      EmployeeId:
+        type: id
+      LastName:
+        type: pii
+        pii:
+          generator: person_name
+      FirstName:
+        type: pii
+        pii:
+          generator: person_name
+      Title:
+        type: categorical
+      ReportsTo:
+        type: id
+      BirthDate:
+        type: date
+      HireDate:
+        type: date
+      Address:
+        type: pii
+        pii:
+          generator: pattern
+      City:
+        type: categorical
+      State:
+        type: constant
+      Country:
+        type: constant
+      PostalCode:
+        type: pii
+        pii:
+          generator: pattern
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      Fax:
+        type: pii
+        pii:
+          generator: phone
+      Email:
+        type: pii
+        pii:
+          generator: email
+    primary_key: EmployeeId
+  Genre:
+    role: entity
+    columns:
+      GenreId:
+        type: id
+      Name:
+        type: categorical
+    primary_key: GenreId
+    mode: copy
+  Invoice:
+    role: entity
+    columns:
+      InvoiceId:
+        type: id
+      CustomerId:
+        type: id
+      InvoiceDate:
+        type: date
+      BillingAddress:
+        type: lookup
+        lookup: CustomerId.Address
+      BillingCity:
+        type: lookup
+        lookup: CustomerId.City
+      BillingState:
+        type: lookup
+        lookup: CustomerId.State
+      BillingCountry:
+        type: lookup
+        lookup: CustomerId.Country
+      BillingPostalCode:
+        type: lookup
+        lookup: CustomerId.PostalCode
+      Total:
+        type: float
+    primary_key: InvoiceId
+    key_order: InvoiceDate
+  InvoiceLine:
+    role: fact
+    columns:
+      InvoiceLineId:
+        type: id
+      InvoiceId:
+        type: id
+      TrackId:
+        type: id
+      UnitPrice:
+        type: lookup
+        lookup: TrackId.UnitPrice
+      Quantity:
+        type: integer
+    primary_key: InvoiceLineId
+    fact:
+      anchor: Invoice
+      partner: Track
+  MediaType:
+    role: entity
+    columns:
+      MediaTypeId:
+        type: id
+      Name:
+        type: categorical
+    primary_key: MediaTypeId
+    mode: copy
+  Playlist:
+    role: entity
+    columns:
+      PlaylistId:
+        type: id
+      Name:
+        type: categorical
+    primary_key: PlaylistId
+    mode: copy
+  PlaylistTrack:
+    role: fact
+    columns:
+      PlaylistId:
+        type: id
+      TrackId:
+        type: id
+    unique:
+    - - PlaylistId
+      - TrackId
+    fact:
+      anchor: Playlist
+      partner: Track
+  Track:
+    role: entity
+    columns:
+      TrackId:
+        type: id
+      Name:
+        type: text
+      AlbumId:
+        type: id
+      MediaTypeId:
+        type: id
+      GenreId:
+        type: id
+      Composer:
+        type: text
+      Milliseconds:
+        type: integer
+      Bytes:
+        type: integer
+      UnitPrice:
+        type: float
+    primary_key: TrackId
+relationships:
+- child: Album
+  child_key: ArtistId
+  parent: Artist
+  parent_key: ArtistId
+- child: Customer
+  child_key: SupportRepId
+  parent: Employee
+  parent_key: EmployeeId
+- child: Employee
+  child_key: ReportsTo
+  parent: Employee
+  parent_key: EmployeeId
+  kind: self_reference
+- child: Invoice
+  child_key: CustomerId
+  parent: Customer
+  parent_key: CustomerId
+- child: InvoiceLine
+  child_key: TrackId
+  parent: Track
+  parent_key: TrackId
+- child: InvoiceLine
+  child_key: InvoiceId
+  parent: Invoice
+  parent_key: InvoiceId
+- child: PlaylistTrack
+  child_key: TrackId
+  parent: Track
+  parent_key: TrackId
+- child: PlaylistTrack
+  child_key: PlaylistId
+  parent: Playlist
+  parent_key: PlaylistId
+- child: Track
+  child_key: MediaTypeId
+  parent: MediaType
+  parent_key: MediaTypeId
+- child: Track
+  child_key: GenreId
+  parent: Genre
+  parent_key: GenreId
+- child: Track
+  child_key: AlbumId
+  parent: Album
+  parent_key: AlbumId
+rules:
+- table: Invoice
+  type: aggregate
+  column: Total
+  agg: sum
+  from: InvoiceLine
+  of: UnitPrice * Quantity
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'PlaylistTrack: composite primary key [''PlaylistId'', ''TrackId''] (declared); kept as a unique key'
+- 'Album.Title: text (near-unique labels or titles (mean 4.0 words): generated as short text; declare pii if they
+  name people or organisations)'
+- 'Artist.Name: text (near-unique labels or titles (mean 3.3 words): generated as short text; declare pii if they
+  name people or organisations)'
+- 'Customer.FirstName: pii (name matches person_name)'
+- 'Customer.LastName: pii (name matches person_name)'
+- 'Customer.Company: pii (near-unique strings: treated as an identifier)'
+- 'Customer.Address: pii (name matches pattern)'
+- 'Customer.PostalCode: pii (name matches pattern)'
+- 'Customer.Phone: pii (name matches phone)'
+- 'Customer.Fax: pii (name matches phone)'
+- 'Customer.Email: pii (name matches email)'
+- 'Employee.LastName: pii (name matches person_name)'
+- 'Employee.FirstName: pii (name matches person_name)'
+- 'Employee.BirthDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'Employee.HireDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'Employee.Address: pii (name matches pattern)'
+- 'Employee.State: constant (a single value)'
+- 'Employee.Country: constant (a single value)'
+- 'Employee.PostalCode: pii (name matches pattern)'
+- 'Employee.Phone: pii (name matches phone)'
+- 'Employee.Fax: pii (name matches phone)'
+- 'Employee.Email: pii (name matches email)'
+- 'Genre.Name: categorical (labels of a small reference table)'
+- 'Invoice.InvoiceDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'Track.Name: text (near-unique labels or titles (mean 3.0 words): generated as short text; declare pii if they
+  name people or organisations)'
+- 'Track.Composer: text (long-tail labels (38% of rows hold values seen fewer than 5 times, mean 3.5 words): generated
+  as short text; declare pii if they name people)'
+- 'Genre: 25 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'MediaType: 5 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'Playlist: 18 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'Invoice.BillingAddress: lookup CustomerId.Address (equal on 100.0% of 412 sampled rows; 1.7% expected by chance)'
+- 'Invoice.BillingCity: lookup CustomerId.City (equal on 100.0% of 412 sampled rows; 2.0% expected by chance)'
+- 'Invoice.BillingPostalCode: lookup CustomerId.PostalCode (equal on 100.0% of 412 sampled rows; 2.0% expected by
+  chance)'
+- 'Invoice.BillingCountry: lookup CustomerId.Country (equal on 100.0% of 412 sampled rows; 9.7% expected by chance)'
+- 'Invoice.BillingState: lookup CustomerId.State (equal on 100.0% of 412 sampled rows; 25.3% expected by chance)'
+- 'InvoiceLine.UnitPrice: lookup TrackId.UnitPrice (equal on 100.0% of 2,240 sampled rows; 90.6% expected by chance)'
+- 'Invoice.Total = sum(UnitPrice * Quantity) of InvoiceLine: aggregate inferred (holds for every one of 400 parents
+  checked)'
+- 'Invoice: keys numbered in the order of InvoiceDate (non-decreasing on 100.0% of 411 consecutive sampled keys,
+  50.9% by chance)'
+- 'InvoiceLine: role fact (anchor Invoice, partner Track); check the anchor is the ''one'' side whose row counts
+  should be preserved'
+- 'PlaylistTrack: role fact (anchor Playlist, partner Track); check the anchor is the ''one'' side whose row counts
+  should be preserved'

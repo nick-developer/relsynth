@@ -1,0 +1,102 @@
+# relsynth model specification (one file = technical model + business model).
+# Draft it with:  python -m relsynth introspect --source <db url | sqlite:file.db | csv:folder> --out spec.yaml
+# Then edit only what introspection cannot know (marked BUSINESS below) and run:
+#   python -m relsynth validate spec.yaml
+name: retail_demo
+source:                      # where the real data is read from
+  kind: csv                  # csv | sqlite | sqlalchemy
+  path: ./data               # csv folder (one <table>.csv per table) or sqlite file
+  # url: postgresql+psycopg2://user:pw@host/db   # kind: sqlalchemy (Oracle, MS SQL, Postgres, ...)
+  # schema: sales            # optional schema name
+target:                      # where synthetic data is written (same table structure)
+  kind: csv
+  path: ./synthetic
+
+tables:
+  region:
+    mode: copy               # BUSINESS: small public reference table, copied as is
+    primary_key: region_id
+    columns:
+      region_id: id
+      country: categorical
+
+  customer:
+    primary_key: customer_id
+    columns:
+      customer_id: id
+      region_id: id
+      age: {type: integer, min: 18, max: 100}
+      income: {type: float, min: 0, decimals: 2}
+      segment: categorical     # or a stated law: {type: categorical, distribution: {kind: categorical, probabilities: {a: 0.7, b: 0.3}}}
+      email: {type: pii, pii: {generator: email}}        # never learned; format only
+
+  product:
+    primary_key: product_id
+    columns:
+      product_id: id
+      price: {type: float, min: 0}
+      category: categorical
+
+  sales:
+    role: fact               # BUSINESS: event table (rows per customer x product)
+    primary_key: sale_id
+    fact:
+      anchor: customer       # rows are generated per anchor row (scales with customers)
+      partner: product       # second dimension of the block model
+      time_column: sale_date
+      time_bucket: month     # day | week | month | quarter | year
+      condition_on_parents: true   # condition measures on parent attributes (default true)
+    columns:
+      sale_id: id
+      customer_id: id
+      product_id: id
+      sale_date: date
+      quantity: {type: integer, min: 1}
+      unit_price: {type: float, min: 0}
+      total: float
+
+  # v0.7 options (see docs/spec-reference.md for every key, recipes and a runnable example):
+  #   mode: copy                       on every dimension -> copy dimensions, synthesise only the facts
+  #   unknown_members: [-1]            placeholder rows facts point at (kept, never modelled)
+  #   scd: {type: 2, natural_key: code, valid_from: start_date, valid_to: end_date}
+  #   bridge: {group: customer_id, weight: weight, decimals: 4}
+  #   group_effects: [{column: unit_price, by: [product_id.category, sale_date]}]
+  #   link_affinity: [{match: [customer_id.region_id, store_id.region_id]}]
+
+  ticket:
+    role: fact
+    primary_key: ticket_id
+    columns:
+      ticket_id: id
+      customer_id: id
+      category: categorical
+      body:
+        type: text
+        text: {condition_on: category, order: 3}         # BUSINESS: text depends on category
+
+  employee:
+    primary_key: employee_id
+    columns:
+      employee_id: id
+      manager_id: id
+      salary: {type: float, min: 0}
+
+relationships:               # TECHNICAL: read from the catalog's foreign keys
+- {child: customer, child_key: region_id, parent: region}
+- {child: sales, child_key: customer_id, parent: customer}
+- {child: sales, child_key: product_id, parent: product}
+- {child: ticket, child_key: customer_id, parent: customer}
+- {child: employee, child_key: manager_id, parent: employee, kind: self_reference}   # hierarchy
+
+rules:                       # BUSINESS: pandas expression syntax, columns of one table
+- {table: sales, type: derive, expr: "total = quantity * unit_price"}
+- {table: customer, type: check, expr: "age >= 18"}
+
+synthesis:                   # everything here is optional; defaults shown in docs/input-spec.md
+  seed: 7
+  scale:
+    default: 1.0
+    tables: {customer: 2.0}  # 2x customers -> 2x sales; facts are never scaled directly
+  segments:
+    default_cap: 8
+    tables: {product: 12}

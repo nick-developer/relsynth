@@ -1,0 +1,111 @@
+%=====================================================================
+\section{Data warehouses with order headers (v0.5)}\label{sec:v05}
+The third real database was a sales data warehouse (AdventureWorks DW: 27 tables, 1.05 million rows; composite keys, a composite foreign key into a fact, order numbers stored on the lines, three role-playing date keys per order, amounts that are identities of other columns, a running stock balance). Its first two runs exposed 38 findings (report: \texttt{realdata/adventureworks/README.md}). This section states the model changes that remove their causes and the properties they rely on. Scenario S10 (a sales warehouse with known truth) reproduces each structure; checks C43--C45 test them.
+
+\subsection{Identifying the data model}
+A drafted model is a set of dependencies found in samples: unique column combinations (keys), inclusion dependencies (links), functional dependencies (lookups, order headers), algebraic constraints (derive rules) and order dependencies (running balances). Each candidate is accepted only by the following test.
+
+\begin{proposition}[Significance of a discovered dependency]\label{prop:signif}
+Let a candidate dependency hold on $s$ of $n$ eligible sampled rows, and let $p_0$ be the probability that it holds on one row by chance: the collision probability $\sum_v p_v^2$ of the column for an equality with another column, $\sum_v p_v^{m}$ over the value shares of a determined column for a functional dependency checked on groups of $m$ rows, and the agreement rate with a randomly permuted input for algebraic and cumulative rules. Introspect accepts the candidate iff $n\ge30$, $s/n\ge0.999$ and $P(\mathrm{Bin}(n,p_0)\ge s)\le\alpha=10^{-9}$. With $M$ candidates tested, the probability of accepting any dependency that holds only by chance is at most $M\alpha$ (Bonferroni); on AdventureWorks $M<10^5$, so at most $10^{-4}$. A rule that is true on the whole table is accepted with probability $\to1$ as soon as $n\,\mathrm{KL}(1\|p_0)=-n\log p_0>\log(1/\alpha)+O(\log n)$, i.e.\ about $21/(-\log p_0)$ rows.
+\end{proposition}
+\begin{proof}
+Under the null each row agrees independently with probability at most $p_0$, so the binomial tail bounds the false-acceptance probability of one test; the union bound gives $M\alpha$. If the rule holds on every row, $s=n$ and the tail is $p_0^n$, which is $\le\alpha$ iff $n\ge\log(1/\alpha)/(-\log p_0)$.
+\end{proof}
+\noindent The fixed threshold used before (chance share below 0.5) rejected true rules on skewed columns (89\% of reseller lines carry no discount, so the discount-rate lookup has $p_0=0.89$; with $n=20{,}000$ the tail is $10^{-1000}$) and accepted chance agreements on small samples. Samples are simple random samples drawn with a seeded generator from the table's primary key (Section~\ref{sec:v05}, C44: two runs give the same spec); groups (orders, products) are read whole as cluster samples for within-group rules. Personal and free-text columns are candidates for lookups too: a billing address equal to the customer's address on every row is a functional dependency like any other, and generating it as a lookup copies the synthetic customer's generated address, which keeps both the identity and the privacy (an earlier v0.5 draft excluded them and lost this rule on Chinook).
+
+\begin{proposition}[Order headers: lossless split]\label{prop:header}
+Let a fact $F$ with a document number $d$ satisfy the functional dependency $d\to H$ for a set of header columns $H$. Then $F=\pi_{d,H}(F)\bowtie\pi_{d,L}(F)$ for the remaining columns $L$ (Heath 1971). Generating $\pi_{d,H}$ as an entity (one row per document, with its own links) and the lines as a fact anchored on it, then joining, gives synthetic data in which every document has exactly one header and line numbers $1..n$ by construction; the scale rule applies to documents per customer and lines per document.
+\end{proposition}
+\begin{proof}
+Heath's theorem: a decomposition along a functional dependency whose left side is a key of one component is lossless. The synthetic header table has one row per document by construction, so the join repeats it on each line.
+\end{proof}
+
+\begin{proposition}[Offset keys]\label{prop:offset}
+Let $b$ and $k$ be keys into one parent whose order column $o$ is injective (a calendar). The map $(b,k)\mapsto(b,\,o(k)-o(b))$ is a bijection from pairs of parent rows onto pairs (row, attainable gap). Modelling the gap as an attribute therefore loses nothing, keeps the gap distribution (ship $=$ order $+7$ days on 100\% of rows) exactly, and a draw whose $o(b)+\text{gap}$ is not an order value of the parent is outside the support of the source; redrawing it (Proposition~\ref{prop:refill}) gives the model conditioned on the support.
+\end{proposition}
+\begin{proof}
+Given $b$, $k\mapsto o(k)-o(b)$ is injective because $o$ is; its inverse is the lookup of $o(b)+\text{gap}$.
+\end{proof}
+
+\subsection{Generating dependent records}
+\begin{proposition}[Redraw instead of delete]\label{prop:refill}
+Let the rows of a fact be independent given their anchors, row $i\sim Q(\cdot\mid a_i)$, and let $V$ be the set of valid rows (rules, unique keys, offsets landing on a parent row). The law that keeps the number of rows per anchor and puts all mass on valid rows, closest to $Q$ in Kullback--Leibler divergence, is $\prod_iQ(\cdot\mid a_i,V)$, and redrawing each invalid row from $Q(\cdot\mid a_i)$ until it is valid samples it exactly. Deleting invalid rows instead conditions the counts as well: a customer's expected number of kept rows is multiplied by $Q(V\mid a_i)$.
+\end{proposition}
+\begin{proof}
+For a product reference measure and the constraint that each factor lives on $V$, the I-projection factorises and each factor is $Q(\cdot\mid a_i)$ restricted to $V$ and renormalised (Csisz\'ar 1975). Rejection sampling from $Q(\cdot\mid a_i)$ returns exactly that restriction. Under deletion the number of kept rows of anchor $i$ is binomial with success probability $Q(V\mid a_i)$.
+\end{proof}
+\noindent On AdventureWorks deletion removed 57{,}750 of 60{,}398 internet sales (a unique key over an order number drawn as a 200-level category) and 46{,}224 of 60{,}855 reseller sales (date checks over independently drawn keys). Both causes are now modelled (Propositions~\ref{prop:header}, \ref{prop:offset}); leftovers after the last round are deleted, counted and scored (\texttt{rows\_removed\_share} $\le0.01$, doctor D23).
+
+\begin{proposition}[Shares of copied rows]\label{prop:shares}
+Rows $d$ of a copied table in segment $k$ receive $c_d$ links. Model their rates as $\lambda_d\sim\mathrm{Gamma}(a_k,\beta_k)$, $c_d\mid\lambda_d\sim\mathrm{Pois}(\lambda_d)$, with $a_k$ estimated by moments, $a_k=\bar c^2/(s^2-\bar c)$ when $s^2>\bar c$ and $a_k=\infty$ otherwise. Drawing each row's share from the posterior $\mathrm{Gamma}(c_d+a_k)$ and the synthetic counts from the resulting Poisson gives counts whose marginal law over rows equals the source's (negative binomial with the fitted $a_k$). The previous plug-in, shares $\propto\mathrm{Gamma}(c_d+1/m_k)$, adds the source's Poisson noise a second time: on a calendar with 4.6 orders per day the variance/mean of orders per day became about 2 instead of 1.
+\end{proposition}
+\begin{proof}
+If $\lambda\sim\pi$ and $c\mid\lambda\sim p(c\mid\lambda)$, then a draw $\lambda^*\sim\pi(\cdot\mid c)$ is again distributed as $\pi$ (the data-averaged posterior equals the prior), so $c^*\mid\lambda^*$ has the marginal law of $c$. With $a=1/m$ the posterior mean of $\lambda$ is about $c$, and $c^*\sim\mathrm{Pois}(\approx c)$ has variance $\mathrm{Var}(c)+\mathbb E c$.
+\end{proof}
+
+\begin{proposition}[Per-row segments need data per row]\label{prop:perrow}
+If a copied table with $m$ rows keeps one segment per row, every segment $k$ of an entity linked to it carries $m$ free rates $\eta_{k\cdot}$. Splitting one segment into two adds $m$ rates; under the Gamma prior each costs an Occam factor of order $\tfrac12\log(1+n_{kd}/\beta)$ in the collapsed marginal, so a split that the data support by a log-likelihood gain $G$ is rejected when $G<\tfrac m2\overline{\log(1+n_{kd}/\beta)}$. With few links per row this blocks every split of the other side (S10: the products collapsed from four categories to two segments, and the price--category and buyer--category dependences were lost). Rows are therefore kept as segments only when each relation carries at least \texttt{min\_rows\_per\_segment} links per row; otherwise the copied table is clustered like any entity and its rows keep their own shares (Proposition~\ref{prop:shares}): a degree-corrected block model (Karrer and Newman 2011), whose cost per extra segment is $K_{\mathrm{copied}}$ rates instead of $m$.
+\end{proposition}
+\begin{proof}
+Laplace approximation of the Gamma--Poisson marginal of one block: $\log p(C\mid E)=\log p(C\mid\hat\eta)-\tfrac12\log(1+E/\beta)+O(1)$.
+\end{proof}
+
+\begin{proposition}[Tied header segments]\label{prop:tied}
+Let the header entity $H$ take its parent's segment, $z_j=z_{p(j)}$. The Gibbs full conditional of a parent row $i$ is
+\[ P(z_i=k\mid\cdot)\propto\pi_k\,f(x_i\mid k)\prod_{r\ni i}L_r(i,k)\;\mathrm{Pois}(m_i\mid\mu_k)\prod_{j:p(j)=i}f(x_j\mid k)\prod_{r\ni j}L_r(j,k), \]
+which the sampler evaluates by summing the children's row log-likelihoods into their parent's row. The collapsed merge score of a parent partition adds the children's attribute and relation marginals under the induced partition and no partition prior of their own. The model of lines given the customer is then the one the unsplit fact had (rates per customer segment and product segment), while documents keep their own header columns and line counts.
+\end{proposition}
+\begin{proof}
+The children's segments are a deterministic function of $z_i$, so changing $z_i$ changes every factor that involves $z_j$, $p(j)=i$; all other factors do not depend on $z_i$. The partition of the children is not a free variable, so it has no prior.
+\end{proof}
+\noindent Without the tie the header segments collapsed to one or two (about two lines per order give little evidence per order) and product choice stopped depending on the customer (S10: share of bikes in segment C orders 0.24 instead of 0.03; with the tie 0.07; check C43).
+
+\begin{proposition}[Running balances]\label{prop:cumulative}
+A cumulative rule $y_t=y_{t-1}+s_t$ within groups is generated from the steps. If every source group opens at the same value ($y_1-s_1=c$ on 99.9\% of groups) the synthetic groups open at $c$. If the source balance is never negative and the step subtracts a column ($s=a-b$), the subtracted column is reduced to $\min(b,\,y_{t-1}+a-\text{floor})$, the rule of an account that cannot pay out more than it holds; then $y_t\ge$ floor on every row and the identity still holds.
+\end{proposition}
+\begin{proof}
+Induction over $t$: if $y_{t-1}\ge$ floor and $y_{t-1}+a-b<$ floor, the reduced $b'=y_{t-1}+a-\text{floor}\in[0,b)$ gives $y_t=$ floor.
+\end{proof}
+
+\subsection{Run time of the segment merge}
+\begin{proposition}[Merge from block statistics]\label{prop:mergestats}
+Every term of the collapsed merge score (attributes, Poisson and occupancy blocks, counts, trees, tied children) depends on the partition $z$ of the merged entity only through statistics that are sums over rows within segments. Merging segments $a,b$ adds row $b$ of each statistic to row $a$ along the axes indexed by that entity. Scoring a candidate therefore costs $O(K\cdot K_{\mathrm{other}})$ per relation instead of a pass over its rows, and gives the same value (checked to $2\times10^{-16}$ relative on S4, S7--S10).
+\end{proposition}
+\begin{proof}
+Block counts, sums of measures and segment sizes are additive over the rows of a segment; the remaining factors (e.g.\ $E=n_1n_2^\top$, $T=A\,m_2^\top$) are products of additive statistics and are formed after merging.
+\end{proof}
+\begin{proposition}[Merge gain from two slices]\label{prop:mergegain}
+Call a term of the merge score separable in entity $e$ if it equals $\sum_k g(S_{k\cdot})+h(\sum_k S_{k\cdot})$, where $S_{k\cdot}$ is the slice of its statistics for segment $k$ of $e$. Attribute terms, segment sizes, link, single-count, tied-count and occupancy terms (without a per-stratum prior) are separable; tree terms and links of an entity to itself are not. For a separable term the gain of merging $a$ and $b$ is $g(S_{a\cdot}+S_{b\cdot})-g(S_{a\cdot})-g(S_{b\cdot})$, i.e.\ the term evaluated on the two slices merged minus on the two slices apart, at cost $O(K_{\mathrm{other}})$ instead of $O(K\,K_{\mathrm{other}})$.
+\end{proposition}
+\begin{proof}
+Merging changes only rows $a,b$ of each sliced statistic, and leaves their column sums, hence $h$, unchanged.
+\end{proof}
+\noindent Checked against full rescoring on 537 candidates of five scenarios and every entity of AdventureWorks (largest relative difference $1.5\times10^{-10}$, same best pair everywhere). On AdventureWorks the merge took more than 8 minutes when rescoring over rows (stopped), 276 s from block statistics, and 84 s with two-slice gains; the customer table carries 709 segments because it is stratified by its 655 geographies.
+
+\subsection{Structural zeros, mandatory participation and hierarchies}
+\begin{proposition}[Structural zeros in an occupancy fact]\label{prop:structzero}
+Let a nested fact's key require that a partner column equals a column of its anchor (a cell's template equals the filing's template). Pairs with different values are impossible. In the occupancy model put group codes $g_i$ on anchors and $h_j$ on partners and replace every count of pairs at risk by eligible pairs: $T_{kl}=\sum_g N^{(1)}_{kg}N^{(2)}_{lg}$, and the non-present pairs of row $i$ by the partners of its own group. This is the quasi-independence model of a table with structural zeros (Goodman 1968). Sampling only eligible pairs then needs no deletion, and $\mathbb E$[rows per anchor] equals the source's within each block, whereas the full-grid model underestimates $p_{kl}$ by the share of ineligible pairs and loses those rows when they are deleted.
+\end{proposition}
+\begin{proof}
+Under the full-grid model $\hat p_{kl}=E_{kl}/(A_km_l)$, while only $T_{kl}\le A_km_l$ pairs can occur; drawing on the eligible pairs with $\hat p=E/T$ gives $\mathbb E=E$ in every block. The statistics $N^{(1)}$, $N^{(2)}$ are additive over segments, so Proposition~\ref{prop:mergestats} still applies.
+\end{proof}
+\noindent On the bi schema 784--1{,}088 reported values (1.2--1.6\%) were deleted in every earlier version; now none are.
+
+\begin{proposition}[Mandatory participation in an occupancy fact]\label{prop:occminone}
+If every source anchor has at least one row (an order header always has lines) and the fitted model expects at least 3 anchors without pairs, $\sum_i\prod_l(1-p_{z_il})^{m_l}\ge3$, the pairs of each active anchor are drawn conditioned on at least one being present, by redrawing empty anchors (rejection) and, for anchors still empty after 20 rounds, by the sequential method below; both are exact for the zero-truncated law. The rates are then fitted for that law: in segment $k$ the free rates ($0<p_{kl}<1$) are scaled by the $c_k$ that solves
+\[\sum_{i:z_i=k}\frac{\mu_i(c_k)}{1-P_{0,i}(c_k)}=\sum_{i:z_i=k}n_i,\qquad \mu_i(c)=\sum_l c\,p_{kl}m_l,\quad P_{0,i}(c)=\prod_l(1-c\,p_{kl})^{m_l},\]
+with $n_i$ the observed pairs of anchor $i$ ($m_l$ replaced by the anchor's eligible partners under Proposition~\ref{prop:structzero}).
+\end{proposition}
+\begin{proof}
+For any count $N\ge0$, $\mathbb E[N\mid N\ge1]=\mathbb E[N\,\mathbf 1\{N\ge1\}]/P(N\ge1)=\mathbb E[N]/(1-P_0)$, exactly for the Poisson-binomial count of an anchor's pairs. The left side increases in $c$ (the zero-truncated mean of a sum of Bernoullis increases with each success probability), so the root is unique and found by bisection. This is the method-of-moments estimator of the truncated model; in the Poisson limit it is the maximum-likelihood estimator of the zero-truncated Poisson. Rates fitted without it give $\mathbb E[N\mid N\ge1]=\bar n/(1-P_0)$, too high by the factor $1/(1-P_0)$.
+\end{proof}
+\noindent\emph{Sequential draw.} With the partner blocks in a fixed order and $P_{0l}=(1-p_l)^{m_l}$, the first non-empty block is $l^*$ with probability $(1-P_{0l^*})\prod_{l<l^*}P_{0l}/(1-P_0)$, its count is binomial truncated at zero, later blocks are unconditioned binomials, and partners are uniform within blocks. This factorises the conditional law exactly, and its cost does not depend on $P_0$; rejection alone needs $1/(1-P_0)$ rounds, unbounded when an anchor segment always has exactly one pair (then $c_k\to0$ and the law tends to one pair with block probabilities $\propto p_lm_l$).
+\noindent Without it about 15\% of AdventureWorks internet orders received no line and vanished (23{,}565 orders instead of 27{,}659, 2.54 lines per order instead of 2.18), and with them 12\% of the customers' only purchases. Conditioning alone restored the orders but gave 2.46 lines per order (11\% too many lines, 67{,}994 instead of 60{,}398): the fitted rates already averaged the source's 2.18 lines over orders that all had lines. With the rates fitted for the truncated law the run gives 27{,}659 orders, 2.18 lines per order and 60{,}250 lines (source 60{,}398); the scale factors range from 0.000 (segments of one-line orders, drawn by the sequential method) to 2.4 (a value above 1 means the posterior draw of the rates sat below the segment's observed mean). On simulated data with known rates (Check C43) the uncorrected rates overstate the pairs per anchor by 20--25\%, the corrected ones are within 4\% (sampling noise) over 16 seeds.
+
+\begin{proposition}[Hierarchies generated level by level]\label{prop:treelevels}
+Let a self-reference be a multi-type Galton--Watson process whose type is the node's segment and depth, with rates $\lambda_{kd}$ and child-segment probabilities $\psi_{kd}$. Given the numbers $n_{k'd}$ of nodes of each type at depth $d$, the parents of the depth-$d$ nodes of segment $k'$ are i.i.d.\ among the depth-$(d-1)$ nodes with probabilities $\propto w_i\lambda_{z_i,d-1}\psi_{z_i,d-1}(k')$ ($w_i$ the node's frailty). The generator therefore fixes $\mathrm{round}(s\,n_{kd})$ and draws the parents; size, depth profile and composition match the source at every scale.
+\end{proposition}
+\begin{proof}
+Independent Poisson counts conditioned on their total are multinomial with probabilities proportional to their means; children of type $k'$ of node $i$ are Poisson with mean $w_i\lambda_{z_i,d-1}\psi_{z_i,d-1}(k')$, independently over $i$.
+\end{proof}
+\noindent The rates by level have the prior $\mathrm{Gamma}(\lambda_k,1)$ (one pseudo-node at the segment's rate). Before, the process was conditioned on its size only: on AdventureWorks a segment mixing managers and staff grew chains to depth 7 (source 4), and the 18-person sales branch (one vice-president, three managers, 14 representatives) vanished in most draws with one decision near the root; with it went the quotas of the sales staff (finding F38: 6 quota rows instead of 163). Level by level, three seeds give 17--18 sales representatives (source 17), and the scorecard of the employee table passes 58--59 of 59.

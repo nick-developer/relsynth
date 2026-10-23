@@ -1,0 +1,211 @@
+version: 1
+name: shop
+source:
+  kind: sqlite
+  path: shop.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  album:
+    role: entity
+    columns:
+      album_id:
+        type: id
+      album_title:
+        type: categorical
+    primary_key: album_id
+    mode: copy
+  customer:
+    role: entity
+    columns:
+      customer_id:
+        type: id
+      city:
+        type: categorical
+      state:
+        type: categorical
+      country:
+        type: categorical
+      tier:
+        type: categorical
+      rep_id:
+        type: id
+    primary_key: customer_id
+    dimensions:
+    - key: city
+      columns:
+      - state
+      - country
+      anchor: state
+  genre:
+    role: entity
+    columns:
+      genre_id:
+        type: id
+      genre:
+        type: categorical
+    primary_key: genre_id
+    mode: copy
+  invoice:
+    role: entity
+    columns:
+      invoice_id:
+        type: id
+      customer_id:
+        type: id
+      billing_country:
+        type: lookup
+        lookup: customer_id.country
+      total:
+        type: float
+    primary_key: invoice_id
+  invoice_line:
+    role: fact
+    columns:
+      line_id:
+        type: id
+      invoice_id:
+        type: id
+      track_id:
+        type: id
+      unit_price:
+        type: lookup
+        lookup: track_id.unit_price
+      quantity:
+        type: integer
+    primary_key: line_id
+    fact:
+      anchor: invoice
+      partner: track
+  playlist:
+    role: entity
+    columns:
+      playlist_id:
+        type: id
+      playlist:
+        type: categorical
+    primary_key: playlist_id
+    mode: copy
+  playlist_track:
+    role: fact
+    columns:
+      playlist_id:
+        type: id
+      track_id:
+        type: id
+    unique:
+    - - playlist_id
+      - track_id
+    fact:
+      anchor: playlist
+      partner: track
+  staff:
+    role: entity
+    columns:
+      staff_id:
+        type: id
+      title:
+        type: categorical
+      reports_to:
+        type: id
+      office:
+        type: categorical
+      hire_year:
+        type: integer
+    primary_key: staff_id
+  track:
+    role: entity
+    columns:
+      track_id:
+        type: id
+      album_id:
+        type: id
+      genre_id:
+        type: id
+      milliseconds:
+        type: integer
+      unit_price:
+        type: float
+      composer:
+        type: text
+    primary_key: track_id
+    dimensions:
+    - key: album_id
+      columns:
+      - genre_id
+      anchor: album_id
+relationships:
+- child: customer
+  child_key: rep_id
+  parent: staff
+  parent_key: staff_id
+- child: invoice
+  child_key: customer_id
+  parent: customer
+  parent_key: customer_id
+- child: invoice_line
+  child_key: invoice_id
+  parent: invoice
+  parent_key: invoice_id
+- child: invoice_line
+  child_key: track_id
+  parent: track
+  parent_key: track_id
+- child: playlist_track
+  child_key: playlist_id
+  parent: playlist
+  parent_key: playlist_id
+- child: playlist_track
+  child_key: track_id
+  parent: track
+  parent_key: track_id
+- child: staff
+  child_key: reports_to
+  parent: staff
+  parent_key: staff_id
+  kind: self_reference
+- child: track
+  child_key: album_id
+  parent: album
+  parent_key: album_id
+- child: track
+  child_key: genre_id
+  parent: genre
+  parent_key: genre_id
+rules:
+- table: invoice
+  type: aggregate
+  column: total
+  agg: sum
+  from: invoice_line
+  of: unit_price * quantity
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'playlist_track: unique key [''playlist_id'', ''track_id''] (declared)'
+- 'album.album_title: categorical (labels of a small reference table)'
+- 'genre.genre: categorical (labels of a small reference table)'
+- 'playlist.playlist: categorical (labels of a small reference table)'
+- 'track.composer: text (long-tail labels (80% of rows hold values seen fewer than 5 times, mean 3.5 words): generated
+  as short text; declare pii if they name people)'
+- 'album: 60 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'genre: 30 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'playlist: 12 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'invoice.billing_country: lookup customer_id.country (equal on 100.0% of 1,000 sampled rows; 28.4% expected by
+  chance)'
+- 'invoice_line.unit_price: lookup track_id.unit_price (equal on 100.0% of 4,032 sampled rows; 81.1% expected by
+  chance)'
+- 'customer: city (26 values) determines state, country on at least 99.9% of the sampled rows; generated through
+  a copied dimension of their observed combinations, state modelled with the other columns and city drawn within
+  it'
+- 'track: link album_id (60 values) determines genre_id on at least 99.9% of the sampled rows; album_id is drawn
+  as a link and genre_id read from its observed pairs'
+- 'invoice.total = sum(unit_price * quantity) of invoice_line: aggregate inferred (holds for every one of 400 parents
+  checked)'
+- 'invoice_line: role fact (anchor invoice, partner track); check the anchor is the ''one'' side whose row counts
+  should be preserved'
+- 'playlist_track: role fact (anchor playlist, partner track); check the anchor is the ''one'' side whose row counts
+  should be preserved'

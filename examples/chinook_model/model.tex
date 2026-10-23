@@ -1,0 +1,341 @@
+\documentclass[10pt]{article}
+\usepackage[margin=2cm,landscape=false]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\begin{document}
+\title{Data model: chinook}
+\date{}
+\maketitle
+\small
+
+Exported by relsynth export-model (format 1); fit seed 7; 3 posterior draws plus the posterior mean in model.json.
+
+\section*{Verification}
+
+7 of 7 checks pass; every condition of the propositions holds.
+
+FAIL: a condition under which a proposition holds is violated.  WARN: a convergence diagnostic of an MCMC block (the model is valid; a longer chain gives more certain draws).
+
+{\footnotesize\begin{longtable}{p{3.2cm}p{1cm}p{7.2cm}p{4.2cm}}
+check & result & detail & proved by \\ \hline
+parameter supports (mean and 3 draws) & ok & every probability vector is on the simplex, every probability in [0, 1], every rate $\geq$ 0, every quantile function non-decreasing & proper conjugate posteriors: Props 'Block-rate posterior', 'Spike-and-slab Bernoulli', 'Sparse Dirichlet, exact inclusion', 'Posterior mean of a segment marginal' \\
+copula correlation matrices (4 parameter sets) & ok & symmetric, unit diagonal, positive semi-definite; smallest eigenvalue 5.28e-03 & Sklar's theorem; Props 'Marginal preservation', 'The sampler targets the copula posterior' \\
+tree Employee: size and depth & ok & mean-matrix spectral radius 0.578 (subcritical); the forest is generated conditioned on its 3 level x segment counts, so its size and depth are those of the source (scaled) whatever the radius & Props 'Generation sizes, finiteness and expected size', 'Hierarchy of a given size', 'Hierarchies generated level by level' \\
+InvoiceLine: scale rule & ok & every block with a positive rate has source partner rows (m\_l \textgreater{} 0); 0 blocks without & Prop. 'Scale rule' (eta* = eta m\_l / m*\_l keeps rows per anchor under resizing) \\
+PlaylistTrack: scale rule & ok & every block with a positive rate has source partner rows (m\_l \textgreater{} 0); 0 blocks without & Prop. 'Scale rule' (eta* = eta m\_l / m*\_l keeps rows per anchor under resizing) \\
+latent-segment Gibbs sampler: stationarity & ok & last 15 of 30 final sweeps (after the merge and a burn-in of half the final sweeps; the partition is the last one): split R-hat of the attribute log-likelihood 0.936, Geweke z n/a (stationary: R-hat $\leq$ 1.1, abs(z) \textless{} 3) & blocked Gibbs sampler (layer 1 algorithms paper, Algorithm 3); Geweke (1992); Gelman et al. (2013) \\
+copula MCMC: convergence & ok & 20 of 20 chains pass: every correlation has split R-hat $\leq$ 1.1 or a Monte Carlo standard error $\leq$ 0.01 on the Fisher-z scale (largest R-hat 1.096, largest standard error 0.1684) & Prop. 'Rank likelihood with parameter expansion'; split R-hat (Gelman et al. 2013); fixed-width stopping (Jones et al. 2006; Flegal, Haran \& Jones 2008) \\
+\end{longtable}}
+
+\textbf{Replica against the source} (scorecard of \texttt{relsynth} on the replica's output, posterior mean, same checks as \texttt{relsynth run}):
+
+\begin{itemize}
+\item replica scorecard: 139/140 checks pass
+\item replica rows: Artist 275, Employee 8, Genre 25, MediaType 5, Playlist 18, Album 347, Customer 59, Invoice 412, Track 3,503, InvoiceLine 2,178, PlaylistTrack 8,710
+\item seconds: 1.5
+\end{itemize}
+
+\section*{1. The generative model}
+
+A synthetic database D* is a draw from the posterior predictive distribution
+
+\begin{verbatim}
+theta ~ p(theta | D, z),   D* ~ p(D* | theta)
+\end{verbatim}
+where z are the latent segments fitted by the blocked Gibbs sampler (one segment per
+row of every entity table) and theta collects every parameter block below.  All
+blocks are conjugate given z, so p(theta | D, z) is a product of the closed-form
+posteriors listed here; draw m of model.json is the theta that \texttt{relsynth run} uses
+for synthetic dataset m.  Tables are generated parents first (section 3).
+
+\textbf{Entity table e} (n\_e rows, K\_e segments)
+
+\begin{verbatim}
+pi_e ~ Dirichlet(1 / K_e + counts of rows per segment)               (segment shares)
+segment sizes: n*_e pi_e rounded by largest remainder, n*_e = scale x n_e
+row i of segment k: its modelled columns x_i ~ copula_k (below)
+\end{verbatim}
+A self-referencing table (a parent-child tree) is a multi-type Galton-Watson
+process typed by (segment, depth):
+
+\begin{verbatim}
+lam_{k,d} ~ Gamma(c lam_k + children of depth-d nodes of segment k, c + those nodes)
+psi_{k,d} ~ Dirichlet(c psi_k + child-segment counts)
+the forest is drawn with round(scale x n_{k,d}) nodes of segment k at depth d; a
+node of depth d picks its parent at depth d-1 with probability
+proportional to w_i lam_{k_i,d-1} psi_{k_i,d-1}(k)   (w_i ~ Gamma(alpha_k, alpha_k) frailty)
+\end{verbatim}
+\textbf{Columns of a table given a group g} (a segment for entities, a segment block
+for facts): a Gaussian copula with correlation matrix R\_g over the latent
+normal scores of the modelled columns, and one marginal per column:
+
+\begin{verbatim}
+R_g ~ p(R | ranks)  (LKJ(eta) prior, rank likelihood; MCMC draws kept)
+discrete column:   p_g ~ Dirichlet(a p_coarse + level counts of the group)
+continuous column: F_g ~ DP(a + n_g, (a F_coarse + sum_i delta_{x_i}) / (a + n_g))
+                   (Bayesian bootstrap of the group mixed with its coarse group's law;
+                    stored as 49 quantile knots)
+null share:        discrete q_g ~ Beta(a q_coarse + nulls, a (1 - q_coarse) + non-nulls),
+                   continuous q_g ~ Beta(1 + nulls, 1 + non-nulls)
+                   (with point masses at 0 and 1 under the structural prior)
+sampling: Z ~ N(0, R_g), U = Phi(Z), x_j = F_j^{-1}(U_j)  (null when U_j < q_j)
+\end{verbatim}
+Columns joined into one categorical (functional dependencies, strongly
+associated pairs) are one discrete column over their observed combinations.
+
+\textbf{Many-to-one link child $\rightarrow$ parent}
+
+\begin{verbatim}
+eta_{kl} ~ Gamma(1/2 + links from segment k to segment l, b + n_k m_l),  b = 1 / (2 x overall link rate)
+           (with a point mass at 0 under the structural prior)
+phi_{k.} = eta_{k.} m_. / sum_l eta_{kl} m_l           (parent segment law of a child of segment k)
+p_null,k ~ Beta(nulls of segment k + small prior, non-nulls + 1)
+parent row within segment l: by degree weight w_j (Gamma(alpha_l, alpha_l) frailty,
+alpha_l by the method of moments when the counts are over-dispersed), or by the
+DP posterior predictive of the counts per parent row (Bayesian bootstrap of the
+source counts with mass a on Poisson(mean)), conditioned on the segment's total
+\end{verbatim}
+\textbf{Facts}
+
+\begin{verbatim}
+single dimension:  rows of anchor row i ~ Poisson(lam_{z_i} w_i), lam_k ~ Gamma(a + rows, b + anchors)
+                   (or 1 + Poisson, or the DP count law)
+Poisson block:     N_{kl} ~ Poisson(eta*_{kl} W1_k W2_l), eta_{kl} ~ Gamma(a + C_{kl}, b + E_{kl}),
+                   E_{kl} = n_k m_l, eta* = eta m_l / m*_l (scale rule), rows by weight within the blocks
+occupancy:         anchor active ~ Bernoulli(pi_k), pair present ~ Bernoulli(p*_{kl}),
+                   pi_k ~ Beta(a + active, b + inactive), p_{kl} ~ Beta(a + present, b + absent pairs at risk)
+                   (+ point masses at 0 and 1), mu ~ Gamma(a_m + extra rows, b_m + present pairs),
+                   p* = min(1, p m_l / m*_l); rows per present pair 1 + Poisson(mu)
+further keys:      segment of the dimension row ~ P(. | block) ~ sparse Dirichlet
+                   backed off to the more informative block dimension
+time column:       period ~ theta_{z_i}, theta_k ~ Dirichlet(period counts + 2 x global profile),
+                   uniform within the period; null with q ~ Beta(1 + nulls, 1 + rest)
+columns:           the block's copula and marginals; blocks with few rows use the
+                   coarse group of the more informative dimension; parent attributes
+                   (condition_on_parents) enter as observed copula coordinates
+                   (conditional normal)
+\end{verbatim}
+\textbf{Computed columns}: lookups (a parent's column through a key), derived columns
+(expressions) and aggregates (a parent column computed from its children) are
+deterministic functions of the generated columns, evaluated in dependency order.
+
+\section*{2. This dataset's model (posterior means)}
+
+\subsection*{Artist (entity, 275 rows)}
+Segments: K = 2; shares 0.955, 0.045
+
+
+\subsection*{Employee (entity, 8 rows)}
+Segments: K = 5; shares 0.133, 0.133, 0.356, 0.133, 0.244
+
+Strata: segments nested in Title (5 strata); a row's stratum columns follow from its segment.
+
+Tree Employee.ReportsTo$\rightarrow$Employee: 3 levels, nodes per level 1, 2, 5.
+
+Columns (3 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item BirthDate: continuous (date); median 1966-08-06, 5\%-95\% 1947-09-19 to 1973-08-29
+\item HireDate: continuous (date); median 2003-07-25, 5\%-95\% 2002-04-01 to 2004-03-04
+\item City: discrete, 3 levels; Calgary: 0.616, Lethbridge: 0.253, Edmonton: 0.131
+\end{itemize}
+Strongest latent correlations (pooled): BirthDate \textasciitilde{} HireDate -0.22, BirthDate \textasciitilde{} City +0.00, HireDate \textasciitilde{} City +0.00
+
+Groups with their own marginals: 5; own copulas: 0.
+
+
+
+\subsection*{Genre (entity, 25 rows)}
+Copied reference table: its rows are kept as they are; 25 latent segments (one per row when small) carry its links.
+
+
+\subsection*{MediaType (entity, 5 rows)}
+Copied reference table: its rows are kept as they are; 5 latent segments (one per row when small) carry its links.
+
+
+\subsection*{Playlist (entity, 18 rows)}
+Copied reference table: its rows are kept as they are; 18 latent segments (one per row when small) carry its links.
+
+
+\subsection*{Album (entity, 347 rows)}
+Segments: K = 8; shares 0.259, 0.069, 0.164, 0.107, 0.098, 0.035, 0.066, 0.202
+
+Link ArtistId $\rightarrow$ Artist: parent segment law phi (degree weights); null share by segment 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
+
+
+{\footnotesize\begin{longtable}{lll}
+ & 0 & 1 \\ \hline
+0 & 1.000 & 0.000 \\
+1 & 1.000 & 0.000 \\
+2 & 0.394 & 0.606 \\
+3 & 0.652 & 0.348 \\
+4 & 0.967 & 0.033 \\
+5 & 0.935 & 0.065 \\
+6 & 1.000 & 0.000 \\
+7 & 0.536 & 0.464 \\
+\end{longtable}}
+
+
+\subsection*{Customer (entity, 59 rows)}
+Segments: K = 1; shares 1.000
+
+Columns (1 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item City|State|Country: discrete, 53 levels; (Prague, null, Czech Republic): 0.034, (São Paulo, SP, Brazil): 0.034, (Mountain View, CA, USA): 0.034, (Berlin, null, Germany): 0.034
+\end{itemize}
+Groups with their own marginals: 1; own copulas: 0.
+
+
+Link SupportRepId $\rightarrow$ Employee: parent segment law phi (degree weights); null share by segment 0.000
+
+
+{\footnotesize\begin{longtable}{llllll}
+ & 0 & 1 & 2 & 3 & 4 \\ \hline
+0 & 0.000 & 0.000 & 1.000 & 0.000 & 0.000 \\
+\end{longtable}}
+
+
+\subsection*{Invoice (entity, 412 rows)}
+Segments: K = 8; shares 0.133, 0.148, 0.126, 0.131, 0.119, 0.245, 0.032, 0.066
+
+Columns (1 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item InvoiceDate: continuous (date); median 2011-06-23, 5\%-95\% 2009-03-26 to 2013-09-27
+\end{itemize}
+Groups with their own marginals: 8; own copulas: 0.
+
+
+Link CustomerId $\rightarrow$ Customer: parent segment law phi (DP counts given the total); null share by segment 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
+
+
+{\footnotesize\begin{longtable}{ll}
+ & 0 \\ \hline
+0 & 1.000 \\
+1 & 1.000 \\
+2 & 1.000 \\
+3 & 1.000 \\
+4 & 1.000 \\
+5 & 1.000 \\
+6 & 1.000 \\
+7 & 1.000 \\
+\end{longtable}}
+
+
+\subsection*{Track (entity, 3,503 rows)}
+Segments: K = 52; shares 0.046, 0.077, 0.056, 0.080, 0.053, 0.025, 0.009, 0.024, 0.007, 0.029, 0.047, 0.060, 0.057, 0.038, 0.003, 0.009, 0.014, 0.052, 0.052, 0.043 ...
+
+Strata: segments nested in MediaTypeId, GenreId (38 strata); a row's stratum columns follow from its segment.
+
+Columns (3 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item Milliseconds: continuous (integer); median 2.556e+05, 5\%-95\% 1.419e+05 to 1.571e+06
+\item Bytes: continuous (integer); median 8.108e+06, 5\%-95\% 3.742e+06 to 2.103e+08
+\item UnitPrice: discrete, 2 levels; 0.99: 0.939, 1.99: 0.061
+\end{itemize}
+Strongest latent correlations (pooled): Milliseconds \textasciitilde{} Bytes +0.88, Bytes \textasciitilde{} UnitPrice +0.02, Milliseconds \textasciitilde{} UnitPrice +0.01
+
+Groups with their own marginals: 52; own copulas: 16.
+
+
+Link AlbumId $\rightarrow$ Album: parent segment law phi (every parent has a child (1 + Poisson)); null share by segment 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
+
+
+52 x 8 matrix; 416 positive entries, range 1.2e-299 to 1
+
+
+
+\subsection*{InvoiceLine (fact, poisson model, anchor Invoice, partner Track)}
+Block rates eta (anchor segment x partner segment):
+
+
+8 x 52 matrix; 416 positive entries, range 1e-300 to 0.0245
+
+
+Conditioned on parent columns: Track.Milliseconds, Track.Bytes, Invoice.InvoiceDate.
+
+Columns (4 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item Quantity: discrete, 1 levels; 1: 1.000
+\item \_\_aux\_\_TrackId.Milliseconds (parent column, conditioning only): continuous (integer); median 2.564e+05, 5\%-95\% 1.427e+05 to 1.136e+06
+\item \_\_aux\_\_TrackId.Bytes (parent column, conditioning only): continuous (integer); median 8.105e+06, 5\%-95\% 3.891e+06 to 1.724e+08
+\item \_\_aux\_\_InvoiceId.InvoiceDate (parent column, conditioning only): continuous (date); median 2011-06-24, 5\%-95\% 2009-03-20 to 2013-09-29
+\end{itemize}
+Strongest latent correlations (pooled): \_\_aux\_\_TrackId.Milliseconds \textasciitilde{} \_\_aux\_\_TrackId.Bytes +0.87, \_\_aux\_\_TrackId.Milliseconds \textasciitilde{} \_\_aux\_\_InvoiceId.InvoiceDate +0.00, \_\_aux\_\_TrackId.Bytes \textasciitilde{} \_\_aux\_\_InvoiceId.InvoiceDate -0.00, Quantity \textasciitilde{} \_\_aux\_\_TrackId.Milliseconds +0.00, Quantity \textasciitilde{} \_\_aux\_\_InvoiceId.InvoiceDate +0.00
+
+Groups with their own marginals: 71; own copulas: 0.
+
+
+
+\subsection*{PlaylistTrack (fact, occupancy model, anchor Playlist, partner Track)}
+Anchor activity pi by segment: 1.000, 0.000, 1.000, 0.000, 1.000, 0.000, 0.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000
+
+Presence probabilities p (anchor segment x partner segment); multiplicity by none:
+
+
+18 x 52 matrix; 368 positive entries, range 0.00684 to 1
+
+
+Conditioned on parent columns: Track.Milliseconds, Track.Bytes.
+
+Columns (2 modelled; table-level marginals):
+
+
+\begin{itemize}
+\item \_\_aux\_\_TrackId.Milliseconds (parent column, conditioning only): continuous (integer); median 2.56e+05, 5\%-95\% 1.398e+05 to 1.135e+06
+\item \_\_aux\_\_TrackId.Bytes (parent column, conditioning only): continuous (integer); median 8.102e+06, 5\%-95\% 3.59e+06 to 1.701e+08
+\end{itemize}
+Strongest latent correlations (pooled): \_\_aux\_\_TrackId.Milliseconds \textasciitilde{} \_\_aux\_\_TrackId.Bytes +0.88
+
+Groups with their own marginals: 83; own copulas: 0.
+
+
+
+\section*{3. Generation order}
+
+Artist $\rightarrow$ Employee $\rightarrow$ Genre $\rightarrow$ MediaType $\rightarrow$ Playlist $\rightarrow$ Album $\rightarrow$ Customer $\rightarrow$ Invoice $\rightarrow$ Track $\rightarrow$ InvoiceLine $\rightarrow$ PlaylistTrack
+
+\section*{4. Computed columns}
+
+\begin{itemize}
+\item Invoice.BillingAddress = CustomerId.Address
+\item Invoice.BillingCity = CustomerId.City
+\item Invoice.BillingState = CustomerId.State
+\item Invoice.BillingCountry = CustomerId.Country
+\item Invoice.BillingPostalCode = CustomerId.PostalCode
+\item InvoiceLine.UnitPrice = TrackId.UnitPrice
+\item Invoice.Total = sum(UnitPrice * Quantity) over InvoiceLine by InvoiceId
+\end{itemize}
+
+\section*{5. Replicating the synthesis}
+
+\begin{itemize}
+\item Exactly, with relsynth: \texttt{python run\_model.py} (the calls of \texttt{relsynth run}; same spec, same seed, bit-identical output).
+\item On your own, without relsynth: \texttt{python replicate.py model.json --out replica/ [--draw 0|mean] [--seed 7] [--scale 1.0] [--reference DIR]} (numpy, pandas, scipy).  It draws the core process of section 1 from the exported posterior draws.
+\end{itemize}
+
+What replicate.py leaves to the engine:
+
+\begin{itemize}
+\item Album: Title (text, identifiers and sequences; the engine's text and identifier models are not exported because they encode source strings)
+\item Artist: Name (text, identifiers and sequences; the engine's text and identifier models are not exported because they encode source strings)
+\item Customer: FirstName, LastName, Company, Address, PostalCode, Phone, Fax, Email (text, identifiers and sequences; the engine's text and identifier models are not exported because they encode source strings)
+\item Employee: LastName, FirstName, Address, PostalCode, Phone, Fax, Email (text, identifiers and sequences; the engine's text and identifier models are not exported because they encode source strings)
+\item Track: Name, Composer (text, identifiers and sequences; the engine's text and identifier models are not exported because they encode source strings)
+\item Invoice: keys numbered in the order of InvoiceDate (engine only)
+\end{itemize}
+\end{document}

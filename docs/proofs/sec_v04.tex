@@ -1,0 +1,95 @@
+%=====================================================================
+\section{Small operational databases (v0.4)}\label{sec:v04}
+The second real database was a small operational schema (11 tables, 15{,}607 rows: artists, albums, tracks, genres, media types, playlists, customers, employees, invoices and invoice lines; the catalog declares every key). It exercises situations that neither the fake scenarios nor the reporting model did: counts per parent that sit on a few fixed values (every customer has exactly 7 invoices; invoices have 1, 2, 4, 6, 9 or 14 lines), hierarchies of categorical columns (city, state, country), a hierarchy of 8 people of whom only 3 serve customers, price points (0.99, 1.99), long-tail labels (composers), a genre list just above the stratification limit, empty reference rows (playlists without tracks) and parents that always have children (every album has a track). Scenario S9 (a small shop with known truth) reproduces each of them; checks C35--C41 test the results below on it.
+
+\subsection{Rows per parent}
+\begin{proposition}[Count-model evidence]\label{prop:countbf}
+Let $t_1,\dots,t_n$ be the counts of one segment. Under $\mathrm{DP}(a,G_0)$ with $G_0=\mathrm{Poisson}(\bar t)$ the marginal is the P\'olya-urn product
+\[ p_{\mathrm{DP}}(t_{1:n})=\prod_{i=1}^n\frac{a\,g_0(t_i)+\#\{j<i:t_j=t_i\}}{a+i-1}, \]
+which does not depend on the order of the counts. The engine compares $\log p_{\mathrm{DP}}-\tfrac12\log n$ with the Schwarz scores of Poisson ($\tfrac12\log n$) and negative binomial ($\log n$) at their maximum likelihood, summed over segments, and uses the DP (posterior predictive: Bayesian bootstrap of the observed counts with mass $a/(n+a)$ on $G_0$) when the DP wins by a factor of at least 100. (a) If the truth $F$ has finite support and is not in the parametric family, $\tfrac1n\log\mathrm{BF}\to\mathrm{KL}(F\|G^\star)>0$ for the best parametric $G^\star$, so the DP is chosen with probability $\to1$. (b) Under a parametric truth every first occurrence of a value costs the DP $\log\{(a+i-1)/(a\,g_0(t_i))\}$, i.e.\ about $\log n$ per distinct value, while later occurrences approach the empirical frequency; the parametric score pays a fixed $\tfrac d2\log n$. The DP is then chosen only when the counts repeat a small set of values far more than any Poisson or NB mixture allows.
+\end{proposition}
+\begin{proof}
+The urn product is the Blackwell--MacQueen joint law of an exchangeable sequence, hence symmetric. (a) The urn predictive converges to $F$ (Ferguson 1973), so $\tfrac1n\log p_{\mathrm{DP}}\to\mathbb E_F\log F$; the parametric maximum likelihood gives $\tfrac1n\log\to\mathbb E_F\log G^\star$; penalties are $O(\log n)$. (b) Term by term from the urn product.
+\end{proof}
+\noindent\emph{Check C35}: in 70 Poisson, NB and two-segment data sets the DP is never chosen; in 20 sets with counts on $\{1,2,4,6,9\}$ or constant it always is; the marginal is invariant under permutation. On the real database: lines per invoice $\log\mathrm{BF}=254$, invoices per customer 101 (DP chosen); albums per artist $-17$, tracks per album $-92$ (not chosen).
+
+\begin{proposition}[Counts conditioned on a segment total]\label{prop:condcounts}
+Let $M$ parents of one segment receive $R$ children in total (from the block model, which keeps how child segments choose parent segments). Drawing the parents' counts from $\pi(N)\propto\prod_i f(N_i)\,\mathbf 1\{\sum_iN_i=R\}$, with $f$ the DP predictive of Proposition~\ref{prop:countbf}, by repeatedly picking random disjoint pairs $(i,j)$ and redrawing $N_i$ from $f(x)f(s-x)$, $x=0..s$, with $s=N_i+N_j$, leaves $\pi$ invariant and is irreducible; the chain converges to $\pi$ from any start. When $f$ is Poisson, $\pi$ is the multinomial $(R;1/M,\dots,1/M)$. For a fact with two parents, drawing rows per anchor from the DP predictive and then each row's partner segment with probability $\propto\eta^*_{kl}W_{2l}$ changes only the law of the anchor total: under the Poisson block model, given the total, the split over partner segments is exactly this multinomial (Proposition~\ref{prop:split}), and the scale rule is kept.
+\end{proposition}
+\begin{proof}
+$\pi(N_i,N_j\mid N_{-ij})\propto f(N_i)f(N_j)\mathbf 1\{N_i+N_j=s\}$ is the exact full conditional of the pair, so each update is a Gibbs step. $f>0$ on $0..R$ because of the mass $a/(n+a)$ on the Poisson base, so any allocation reaches any other by moving one unit at a time between pairs. Independent Poisson variables with equal means, conditioned on their sum, are multinomial with equal cells.
+\end{proof}
+\noindent\emph{Check C36}: with a Poisson $f$, $N_1$ over 4000 draws has TVD 0.019 from Binomial$(10,\tfrac14)$; every draw sums to $R$; with observed counts all 7, every count is 7.
+
+\begin{proposition}[Mandatory participation]\label{prop:mandatory}
+If every one of $n$ parents has at least one child while the fitted Poisson rates leave $E_0=\sum_ie^{-\mu_i}\ge3$ parents empty in expectation, the Poisson model gives the observed ``no empty parent'' probability $\prod_i(1-e^{-\mu_i})\le e^{-E_0}\le e^{-3}\approx0.05$. The engine then uses the shifted model $N=1+M$: for links between entities, each parent of a segment first receives one child (while the segment's rows last), the rest follow the usual weights; for facts, rows per anchor are $1+\mathrm{Poisson}(\max(\mu-1,0))$, which keeps the mean.
+\end{proposition}
+\begin{proof}
+$1-x\le e^{-x}$. Given a total $R\ge M$, assigning one child to each parent and the remaining $R-M$ by the multinomial of the weights is the conditional law of $1+M_i$ with $M$ multinomial.
+\end{proof}
+
+\begin{proposition}[Copied anchors keep their activity]\label{prop:copiedactive}
+A copied table reappears row for row, each row its own segment. Whether such a row takes part in an occupancy fact at all (a playlist with no tracks) is a property of that known unit, so its activity is set to the observed indicator rather than drawn from a Beta posterior based on one observation; its pairs are still drawn from the block probabilities.
+\end{proposition}
+\begin{proof}
+Conditioning on the unit's identity: the posterior predictive of an observed unit's own fixed attribute is a point mass at its observed value. A Beta$(a+A,b+1-A)$ draw from a single observation would make an empty playlist active with probability about $a/(a+b+1)$, and its tracks would then come from the prior (the shop data: 2140 rows in a playlist that has none).
+\end{proof}
+
+\subsection{Hierarchies of categorical columns}
+\begin{proposition}[Dependency groups]\label{prop:fd}
+For categorical columns $a,b$ (null a level of its own) let $M_0$: $b$ i.i.d.\ Dirichlet(1)-categorical, and $M_1$: the first row of each level of $a$ draws $b$ from the same law and every later row repeats that value with probability $1-\varepsilon$ ($\varepsilon=10^{-3}$). (i) If $a$ has no repeated level, $\log\mathrm{BF}=0$, so a near-unique column never determines another. (ii) If $b$ is independent of $a$, each repeated row agrees with probability $\sum_lp_l^2<1$ and $\log\mathrm{BF}\to-\infty$ linearly in the number of repeats. (iii) Columns linked by decisive dependencies are joined into one categorical over their observed combinations only if the combinations are no more than the levels of the finest member (plus $\lceil10^{-3}n\rceil$ exceptions). Then the joint releases the information of that one column, every synthetic row satisfies the dependency, and no unseen combination (a city in the wrong country) can be generated.
+\end{proposition}
+\begin{proof}
+(i) Without repeats $M_1$ and $M_0$ assign the same Dirichlet-multinomial marginal to the same values. (ii) Each repeat contributes $\log(1-\varepsilon)-\log p_{b}$ when it agrees and $\log\{\varepsilon/(L-1)\}-\log p_b$ otherwise; under independence the expected contribution is $\sum_lp_l\{p_l\log(1-\varepsilon)+(1-p_l)\log(\varepsilon/(L-1))\}-\sum_lp_l\log p_l$, which is negative for $\varepsilon\le10^{-3}$ unless $b$ is nearly constant. (iii) The joint codec's levels are the observed combinations, in bijection with the finest member's levels when the dependencies are exact; its Dirichlet posterior puts mass only on them.
+\end{proof}
+\noindent\emph{Check C37}: on the shop data the group (city, state, country) is found, every synthetic customer's state and country follow its city, the independent tier stays out, $\log\mathrm{BF}=-4851$ for independent columns and $0$ for a unique determinant. Distance-to-closest-record keeps one column per group (the others add no information), so a table whose only attributes are one geographic hierarchy is not flagged as copied.
+
+\subsection{Tiny parents}
+\begin{proposition}[Strata from an own column]\label{prop:attrstrata}
+An entity with fewer than $2\times$\texttt{min\_rows\_per\_segment} rows has one latent segment, so it cannot learn which of its rows receive children. For such an entity, each categorical column $c$ with $2\le L_c<n$ levels is scored by $\sum_r\max\{0,\log\mathrm{BF}_r(c)\}-\log(\#\text{candidates}\times\#\text{relations})$, where $\mathrm{BF}_r$ compares a Poisson--Gamma model of children per row in relation $r$ with one rate per level of $c$ against one pooled rate (Gamma$(\tfrac12,\tfrac12/\bar y)$ prior). If the best score exceeds $\log100$, the levels of $c$ become strata with one segment each, $c$ is set from the segment, and the table is generated with its observed stratum counts (scaled). Children then go only to strata that had children, up to the structural prior (Proposition~\ref{prop:zoib}), and generating with fixed stratum counts is exact conditioning on the sufficient statistic of the composition.
+\end{proposition}
+\begin{proof}
+The Poisson--Gamma marginal is $\frac{b^a}{\Gamma(a)}\frac{\Gamma(a+\sum y)}{(b+n)^{a+\sum y}}\prod\frac1{y!}$; the BF is a ratio of such marginals. A relation the levels do not explain is given score 0, not a negative one, because the stratified model contains the pooled one for that relation (equal rates across strata). Given the counts, all arrangements of an exchangeable categorical sample are equally likely, so a uniform permutation of the scaled counts is the conditional law.
+\end{proof}
+
+\begin{proposition}[Hierarchy of a given size]\label{prop:treesize}
+Every non-hierarchical entity is generated with exactly $\mathrm{round}(s\,n)$ rows; a multi-type Galton--Watson forest has a random size whose relative spread is large when the forest has few roots (one root: the size is a geometric-like variable). Repeating the branching process until $|T|=\mathrm{round}(s\,n)$ (within 1\% for large forests, and with the stratum counts of Proposition~\ref{prop:attrstrata} for tiny ones) draws from the process conditioned on its size, by rejection.
+\end{proposition}
+\begin{proof}
+Rejection with acceptance indicator $\mathbf 1\{|T|=t\}$ samples the conditional law (Proposition~\ref{prop:rules}); the expected number of attempts is $1/P(|T|=t)$. When no attempt in the budget is accepted, the closest draw is used and the deviation is reported.
+\end{proof}
+\noindent\emph{Check C38}: the shop's staff (8 rows) is stratified by office (agents' branch), all synthetic customers are served by sales agents, the staff has 8 rows with the source's stratum counts, one root and no cycle. \emph{Check C10} still compares the size formula with the unconditioned process.
+
+\subsection{Stratification by larger code lists}
+\begin{proposition}[Code lists that explain links]\label{prop:partner}
+A copied parent with more levels than \texttt{stratify\_max\_levels} is used as a stratifier when its levels explain how many children the entity's rows have (Poisson--Gamma, as above) or which partners they meet in two-parent facts: a symmetric Dirichlet-multinomial over partner rows per level against one pooled, each relation contributing $\max\{0,\log\mathrm{BF}\}$, minus $\log(\#\text{relations})$, above $\log100$. Segments are nested in the strata, so a block of a fact that pairs a partner row with a segment of one genre never generates tracks of another genre.
+\end{proposition}
+\begin{proof}
+The Dirichlet-multinomial marginal is exact for exchangeable partner draws within a level; the comparison is a ratio of marginals. Nesting: Proposition~\ref{prop:strata}.
+\end{proof}
+\noindent\emph{Check C39}: the shop's playlists hold only tracks of their own genres; with genre (30 levels) as stratum the share of synthetic playlist rows with a genre the playlist never has is at most 2\% (82\% before).
+
+\subsection{Values}
+\begin{proposition}[Tail levels and few-valued numbers]\label{prop:tail}
+(a) A categorical with more than \texttt{max\_levels} levels models the rarest as one level. Decoding that level by a Bayesian bootstrap over the tail levels seen in at least $k$ rows (default 5) gives each of them the marginal of the full Dirichlet posterior restricted to those levels; levels seen in fewer than $k$ rows are never released, and the placeholder is never written. (b) An integer or decimal column with at most 30 distinct values is modelled as an ordered categorical on those values, so no value between them is generated.
+\end{proposition}
+\begin{proof}
+(a) Aggregation property: if $(p_1,\dots,p_K,p_O)\sim\mathrm{Dir}(\alpha_1,\dots,\alpha_K,\sum_{j\in O}\alpha_j)$ and, independently, $w\sim\mathrm{Dir}(\alpha_j,j\in O)$, then $(p_1,\dots,p_K,p_Ow)\sim\mathrm{Dir}(\alpha_1,\dots,\alpha_K,\alpha_j,j\in O)$. (b) A continuous Bayesian-bootstrap marginal interpolates its quantile knots, so it puts positive mass between two atoms (the shop's prices came out as 1.54 or 4.26); a categorical marginal is supported on its levels.
+\end{proof}
+\noindent Aggregates are rounded to the precision of the stored column (a sum of prices is stored to the cent); without this, totals $5.9399\ldots$ and $5.94$ count as different values in every comparison. \emph{Checks C39, C41}: lines per invoice stay on $\{1,2,4,6,9\}$, every customer has 5 invoices, totals equal the sum of their lines to the cent, prices are 0.99 or 1.99, the empty playlist stays empty, the shop scorecard passes; a categorical's tail decodes only to levels seen in at least 5 rows.
+
+\paragraph{Labels.} The text model removes every token seen in fewer than $k$ rows (Section~\ref{sec:text}). For names and titles most words are unique to their row; when fewer than half of the rows keep a word after that removal, the model could only recombine punctuation and filler words (``, \&''), so it generates surrogate labels (``Artist 04217'') instead; otherwise generated texts must contain a word and may not open or close on punctuation or leave a bracket open (a rejection step, as in Proposition~\ref{prop:rules}). Identifiers without a format shared by 5 rows (company names, street addresses) are surrogate labels too, and person-name columns give first or last names according to the column. \emph{Check C41}.
+
+\begin{proposition}[Evidence for a grain]\label{prop:grainev}
+Let a table have $n$ rows whose columns $(A,B)$ are drawn independently with level probabilities $p_a$, $q_b$. The number of row pairs that agree on $(A,B)$ has mean $\lambda=\binom n2\sum_a p_a^2\sum_b q_b^2$, and $\hat\lambda=\binom n2\,\hat S_A\hat S_B$ with $\hat S_A=\sum_a c_a(c_a-1)/(n(n-1))$ estimates it; each factor is unbiased for its sum of squares. When the probabilities are small, the count is approximately Poisson($\lambda$) (Chen--Stein), so a table with no repeated pair gives a likelihood ratio of about $e^{\lambda}$ for ``each pair occurs at most once'' against independence. The doctor proposes a unique key only when $\hat\lambda\ge10$ ($e^{-10}<5\cdot10^{-5}$). Below that, regular counts are reported as a property of the source and nothing is changed.
+\end{proposition}
+\begin{proof}
+$\mathbb E[c_a(c_a-1)]=n(n-1)p_a^2$ for a multinomial count, which gives unbiasedness. Two rows agree with probability $\sum_{a,b}(p_aq_b)^2=\sum p_a^2\sum q_b^2$, so linearity over the $\binom n2$ pairs gives $\lambda$. The Poisson limit for the number of matching pairs (the birthday problem) is Theorem~1 of \cite{agg}: the total variation distance is at most $\min(1,1/\lambda)\,(b_1+b_2)$, and both terms vanish when $\max_{a,b}p_aq_b\to0$. \emph{Check C42} (pair count within 0.3\% of Monte Carlo, plug-in within 0.2\%, $P(0)$ within 0.01 of $e^{-\lambda}$).
+\end{proof}
+On the music store, lines of an invoice never repeat a track, but with 2240 lines spread over 3503 tracks only $\hat\lambda=0.9$ repeats were expected, so this is not evidence of a rule; on the playlists, $\hat\lambda=2241$ and the grain is real.
+
+\subsection{Introspection}
+Type inference now uses the table's context: a bare \texttt{name} is a person's name only in a table with personal columns; near-unique labels of a small table that is not a party (genres, media types) are reference labels; near-unique labels of a party table (reporters, customers, staff: a lexicon of party nouns) are identifiers; other near-unique or long-tail multi-word labels (titles, composers: at least 20\% of rows hold values seen fewer than 5 times) are short text. Columns equal to a parent's column on 99.9\% of rows (null equal to null) become \texttt{lookup} columns; parent columns equal to a count, a sum or a sum of products of child columns become \texttt{aggregate} rules; the anchor of a fact is the parent whose name the fact extends and whose keys it covers. A column named like a key whose parent the names do not reveal is listed as a question (surrogate keys of most tables share the range $1..n$, so values alone cannot decide). \emph{Check C40}.
+
+\subsection{Defaults (v0.4)}
+\texttt{facts.count\_model\_bf} 100; \texttt{marginals.fd\_bf} 100; \texttt{segments.attribute\_strata} \texttt{auto} (a table name to column map forces one); mandatory participation at $E_0\ge3$; tree size tolerance 1\%.

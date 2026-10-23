@@ -1,0 +1,88 @@
+All 79 of 79 checks pass (507 of 507 individual assertions). Each row names the property it tests; the per-assertion values are in \texttt{checks/results.md}.
+
+\begin{longtable}{@{}l p{8.2cm} p{3.6cm} c r@{}}
+\caption{Layer 2 checks on fake data with known ground truth.}\label{tab:results}\\
+\toprule
+Id & Check & Property & Items & Pass \\ \midrule \endfirsthead
+\toprule Id & Check & Property & Items & Pass \\ \midrule \endhead
+C00 & Layer 1 algorithm checks still pass & Layer 1 paper, Table 4 & 1/1 & yes \\
+C01 & Copula synthesis preserves every marginal (mixed types, nulls) & Prop. 1, 2 & 8/8 & yes \\
+C02 & Posterior of the latent correlation covers the true copula & Prop. 3 (Alg. 2 of layer 1) & 4/4 & yes \\
+C03 & Missingness that depends on other columns is reproduced & Prop. 2 (null as lowest latent bin) & 4/4 & yes \\
+C04 & Single-table privacy: no copies, distance to closest record & Sec. 9 & 3/3 & yes \\
+C05 & Star schema: latent segments of both dimensions are recovered & Prop. 4 (identifiability up to relabelling) & 2/2 & yes \\
+C06 & Star schema: block rates eta\_kl inside their posterior intervals & Prop. 5 & 2/2 & yes \\
+C07 & Rows per customer follow the fitted Poisson mixture (Poisson splitting) & Prop. 6 & 3/3 & yes \\
+C08 & Scale rule: resizing the partner keeps rows per anchor; resizing the anchor scales the fact & Prop. 7 (layer 1 scale rule) & 4/4 & yes \\
+C09 & Snowflake: segments recovered at every level and carried down the chain & Prop. 8 & 7/7 & yes \\
+C10 & Self-referencing tree: multi-type Galton-Watson fit and finiteness; level-conditioned generator & Props. 9, 10, 54 & 5/5 & yes \\
+C11 & Self-referencing tree: synthetic hierarchy is valid and matches the source shape & Prop. 10, Sec. 6 & 5/5 & yes \\
+C12 & Temporal fact: segment-specific seasonality recovered and reproduced & Prop. 11 & 4/4 & yes \\
+C13 & Text: proper predictive distribution, no rare content leaks, class signal kept & Prop. 12, 13 & 6/6 & yes \\
+C14 & Enterprise schema end to end: integrity, rules, full scorecard & Sec. 7, Prop. 14 & 4/4 & yes \\
+C15 & Rejection sampling for business rules gives the exact conditional law & Prop. 14 & 2/2 & yes \\
+C16 & Gamma frailty gives the negative-binomial variance mu + mu\^{}2/alpha & Prop. 6 (degree correction) & 2/2 & yes \\
+C17 & Dirichlet-process marginal posterior: mean is (a F0 + n Fn)/(a + n) & Prop. 2 & 1/1 & yes \\
+C18 & Same seed gives an identical synthetic database & Sec. 7 (reproducibility) & 1/1 & yes \\
+C19 & Doctor: finds planted spec errors from the bundle alone and the fixes improve the result & Sec. 8 (diagnostics loop) & 6/6 & yes \\
+C20 & Rule language: three-valued logic, SQL null semantics and string functions & Prop. 15 (three-valued rules) & 9/9 & yes \\
+C21 & Structural (spike-and-slab) priors: samplers match the exact posterior & Props. 17-19 (spike-and-slab priors) & 13/13 & yes \\
+C22 & Empirical-Bayes slabs: Beta-binomial concentration recovered, shrinkage lowers error & Props. 20-21 (empirical-Bayes slabs) & 4/4 & yes \\
+C23 & Dropping duplicate rows of a unique key is exact conditioning on presence & Prop. 24 (unique keys) & 2/2 & yes \\
+C24 & Pair model selection: occupancy for grain data, Poisson for count data & Prop. 22 (repeat test) & 4/4 & yes \\
+C25 & Rank copula: the fit depends on the order of the data only & Prop. 28 (rank likelihood) & 3/3 & yes \\
+C26 & Reporting scenario end to end: grain, keys, aggregates, rules, scorecard & Props. 16, 23, 25, 26 combined (S8); Prop. 52 (structural zeros) & 8/8 & yes \\
+C27 & Reporting scenario: omitted and partial filings reproduced & Props. 18, 27 (grouped zeros, nested refinement) & 3/3 & yes \\
+C28 & Reporting scenario: open rows repeat, closed items never do & Props. 21, 24 (multiplicity, unique keys) & 3/3 & yes \\
+C29 & Grain entity scales with its anchor and stays unique & Prop. 23 (grain entities) & 4/4 & yes \\
+C30 & Introspect drafts keys, links and grains from PascalCase warehouse names & Sec. 12 (introspect) & 6/6 & yes \\
+C31 & Doctor proposes the missing grain from the bundle alone & Sec. 12 (doctor D03, D21) & 2/2 & yes \\
+C32 & Computed columns are filled on the source and stored ones are audited & Prop. 16 (computed columns) & 4/4 & yes \\
+C33 & Posterior predictive draws: redraw gives spread that covers the source & Prop. 30 (posterior predictive) & 3/3 & yes \\
+C34 & Rare columns are kept out of the copula and the chain converges & Prop. 29 (rare columns) & 3/3 & yes \\
+C35 & Count-model choice by Bayes factor: DP only for counts no Poisson/NB mixture explains & Prop. 32 (count-model evidence) & 3/3 & yes \\
+C36 & DP counts given a total: the pairwise Gibbs sampler draws the exact conditional & Prop. 33 (conditioned counts) & 3/3 & yes \\
+C37 & Functional dependencies: city -> state -> country kept exactly, no extra disclosure & Prop. 36 (dependency groups) & 5/5 & yes \\
+C38 & Tiny parent: strata by its own column keep who receives children; hierarchy keeps its size & Props. 37, 38 (attribute strata, conditioned tree) & 4/4 & yes \\
+C39 & Small shop end to end: invoices per customer, lines per invoice, lookups, aggregates, precision & Props. 32-35, 39, 40 with Prop. 16 (S9) & 10/10 & yes \\
+C40 & Introspect on a CSV shop: lookups, aggregate with a product, anchors, grains, party tables, questions & Sec. 12 (introspect) & 8/8 & yes \\
+C41 & Evaluator limits hold their nominal level on small and clustered samples; no placeholder leaks & Sec. 10 (evaluation), Prop. 40 (tail levels) & 5/5 & yes \\
+C42 & Doctor proposes a grain only when independence would have produced repeats & Prop. 41 (grain evidence) & 5/5 & yes \\
+C43 & Sales warehouse end to end: one header per order, lines 1..n, date gaps, identities, stock, who buys what & Props. 43-45, 48, 49, 53 (headers, offsets, refill, tied segments, running balances, mandatory lines) & 18/18 & yes \\
+C44 & Introspect on the sales warehouse (SQLite, declared keys): calendar, headers, offsets, lookups, identities, running balance, first purchase; same spec twice & Prop. 42 (significance of discovered rules) & 10/10 & yes \\
+C45 & Same seed gives the same data in a new process; per-row shares keep count dispersion & Prop. 46 (posterior-draw shares of copied rows) & 3/3 & yes \\
+C46 & Warehouse catalog regressions: binary columns, composite keys, partly declared links, order header, validation, money TVD, pooled level after reordering & Findings F01-F08, F22-F24 of the AdventureWorks log & 10/10 & yes \\
+C47 & Introspect drafts reference tables, keyed and mapped lookups, views, line numbers from 0, date gaps, implied dimensions, ratio columns, cross-table rules and key order & Props. 55-58; findings K01-K16 of the Contoso run & 16/16 & yes \\
+C48 & Synthesis keeps views, keyed and mapped lookups, implied dimensions, ratio factors, date gaps, line numbers, key order and cross-table rules exactly, without biasing the marginals & Props. 55-59 & 26/26 & yes \\
+C49 & Building blocks: date functions, keyed lookups across date storage, ratio factors at the coarsest precision, computed-column cycles, file formats & Props. 55-58; findings K03, K09, K14, K15 & 8/8 & yes \\
+C50 & Introspect on Parquet files without declared keys and with renamed columns: line keys, the view with its renamed columns, the dimension code not asked as a foreign key; the view rebuilt exactly & Props. 55, 60; findings K02, K04, K15 & 7/7 & yes \\
+C51 & Links under a rule across two parents: exact draws per row keep the rule on every row, the source's cell margin, and the source's law of each parent within its cell & Props. 59, rake; finding K10 & 4/4 & yes \\
+C52 & Conditional inclusion on a fact's anchor: facts that only reference some parent rows (quotas only for sales staff) never reference the excluded rows, and keep their row counts & Prop. anchorincl; AW finding (quotas linked to non-sales staff) & 15/15 & yes \\
+C53 & Labels nested in a coarser code (cities in states): drafted as whole-value text within the code; synthetic cities sit in their source states, with no label held by fewer than 3 source rows & Prop. nested; finding K17 & 4/4 & yes \\
+C54 & DP row counts under mandatory participation: the base measure 1 + Poisson keeps every parent with a child, with the same mean, in unconditional and total-conditioned draws & Prop. mandatory DP; finding K18 & 5/5 & yes \\
+C55 & A small dimension with no label to anchor on anchors itself: the code stays modelled (keeps its dependence on the other columns) and the columns it determines are read by its value & Prop. dimension (self-anchored); finding R6 & 3/3 & yes \\
+C56 & Conditional inclusion on an occupancy fact's partner: order lines never reference products that are never sold (null price), even when one segment mixes them with sold products, and keep lines per order & Prop. anchorincl (partner side); AW regression (one reseller line on a product without a price) & 6/6 & yes \\
+C57 & One posterior draw per dataset: a dataset is reproducible from its index; across datasets the spread of a share and of rows per parent is posterior plus sampling variance (about twice the sampling variance), and about the sampling variance alone in posterior-mean mode & Prop. postpred (v0.7) & 6/6 & yes \\
+C58 & A rule that holds on most rows (an age on a reference date) is found by the interval sweep and synthesised as a mixture: the share that keeps the rule and the offsets of the rest match the source & Prop. soft (v0.7) & 5/5 & yes \\
+C59 & A value shared by all rows of a group (a daily price factor per product category) is found by introspect and drawn once per group: every synthetic group has one factor, and the factor law matches & Prop. groupfx (v0.7) & 4/4 & yes \\
+C60 & Two links that point at parents in the same area more often than chance (customer and store) are found by introspect and synthesised as a diagonal-inflated mixture: the same-area share matches and the country rule still holds & Prop. affinity (v0.7) & 5/5 & yes \\
+C61 & Participation of parents in an entity's link is a hurdle: the share of customers without an order matches the source (half of them, and none when every customer has one) & Prop. hurdle (v0.7) & 9/9 & yes \\
+C62 & A latent segment never mixes parent rows that may have children with rows that never do (only sales staff have quotas): the eligibility column stratifies the segments, so the children per eligible parent match the source in every dataset, even with one segment allowed & Prop. strata (v0.7) & 4/4 & yes \\
+C63 & A type 2 slowly changing dimension (versions of a product code with valid-from/to dates and a current flag) is found by introspect and synthesised per natural key: version counts match, stable attributes repeat across versions, each version ends the day before the next starts and only the latest is open & Prop. scd2 (v0.7) & 10/10 & yes \\
+C64 & An unknown member (key -1, 'Unknown') that facts point at is found by introspect, kept out of the model, copied, and referenced with the source's share & Prop. unknown (v0.7) & 3/3 & yes \\
+C65 & A bridge with allocation weights (accounts of a customer, weights summing to 1) is found by introspect; synthetic weights sum to 1 in every group and keep their spread & Prop. bridge (v0.7) & 3/3 & yes \\
+C66 & Recipes of the specification: copy every dimension and synthesise only the fact; draw a column from a stated distribution; name the anchor of a role-playing fact by its key column & spec-reference.md (v0.7) & 7/7 & yes \\
+C67 & The specification is strict: a misspelt key anywhere is an error with the closest valid key, and every spec drafted or written for the earlier tests still validates & schema.py (v0.7) & 2/2 & yes \\
+C68 & The annotated example of the specification reference (every v0.7 option in one spec) validates, runs, and keeps each option's property & spec-reference.md (v0.7) & 8/8 & yes \\
+C69 & Optimised kernels compute exactly what they replace & Prop. 'Exact kernels': same IEEE operations in the same order and the same random stream & 8/8 & yes \\
+C70 & Keys and links identified from the data, declared keys hidden & Props. 'Inclusion by chance' and 'Randomness bound': no false link; every missed link is asked & 6/6 & yes \\
+C71 & Identification statistics: chance inclusion, randomness, forest test & Props. 'Inclusion by chance', 'Randomness bound', 'Chance of a forest' & 11/11 & yes \\
+C72 & Exported model: verified, strict JSON, draws are the engine's datasets & Props. 'Exported draw m is the parameter of dataset m' and 'Verification conditions' & 12/12 & yes \\
+C73 & Standalone replica: keys, sizes and fidelity & Prop. 'The replica samples the core generative process' & 10/10 & yes \\
+C74 & Posterior blocks agree with Stan & Props. 'Block-rate posterior', 'Spike-and-slab Bernoulli', 'Rank likelihood with parameter expansion' & 1/1 & yes \\
+C75 & v0.9 engine: pooled weights, exact conditioning, coverage, warnings & Section 'v0.9' propositions & 14/14 & yes \\
+C76 & v0.9 scorecard calibration and fidelity statistics & Props. 'ppnull', 'sidak' & 14/14 & yes \\
+C77 & v0.9 identification: permutation forest test, chance inclusion & Props. 'forestperm', 'stringchance' & 14/14 & yes \\
+C78 & v0.9 input, output and security hardening & Spec reference & 28/28 & yes \\
+\bottomrule
+\end{longtable}

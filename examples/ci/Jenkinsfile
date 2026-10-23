@@ -1,0 +1,26 @@
+// Jenkinsfile: Oracle source, CSV extract for downstream jobs, using the relsynth image.
+// Credentials: 'oracle-readonly' (secret text: the password).
+pipeline {
+  agent { docker { image 'relsynth:1.0.0'; args '--entrypoint=' } }
+  triggers { cron('H 3 * * *') }
+  options { timeout(time: 2, unit: 'HOURS') }
+  environment { ORA_PASSWORD = credentials('oracle-readonly') }
+  stages {
+    stage('Check') {
+      steps { sh 'relsynth check synthetic/spec.yaml --connect --json' }
+    }
+    stage('Synthesise') {
+      steps {
+        sh '''relsynth run synthetic/spec.yaml --target csv:out/ --fail-under 0.98 \
+                --bundle diagnostics_bundle.json --report scorecard.md --json > run.json'''
+      }
+    }
+    stage('Export the model') {
+      steps { sh 'relsynth export-model synthetic/spec.yaml --out model/ --formats json,md,py' }
+    }
+  }
+  post {
+    always { archiveArtifacts artifacts: 'run.json, scorecard.md, diagnostics_bundle.json, out/**, model/**', allowEmptyArchive: true }
+    failure { sh 'relsynth doctor diagnostics_bundle.json --spec synthetic/spec.yaml --report doctor.md || true' }
+  }
+}

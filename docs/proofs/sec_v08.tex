@@ -1,0 +1,106 @@
+%=====================================================================
+\section{Identification from the data, exact speed-ups and the exported model (v0.8)}\label{sec:v08}
+Version 0.8 identifies keys and links from the data when the catalog declares none, makes the engine faster without changing a single output bit, corrects two run-length rules that the Contoso data showed to be wrong, and exports the fitted model as a self-contained mathematical object (\texttt{relsynth export-model}). Checks C69--C74 test this section.
+
+\subsection{Keys and links from the data}
+No schema template, naming list or known database is used: the evidence is the values, and optionally the column and table names weighted by how rare each word is in the database at hand (inverse token frequency, so words every table carries count for nothing; \texttt{--evidence data} switches names off). Primary keys are unique column combinations scored as in holistic key detection (Jiang and Naumann 2020). A link is a unary inclusion dependency $c\subseteq K$ with inclusion share $\sigma\ge0.95$; it counts as evidence only when it is unlikely by chance.
+
+\begin{proposition}[Inclusion by chance]\label{prop:inclchance}
+Let the $v\ge3$ distinct integer values of $c$ that lie in $K$ have extremes $a<b$, let $w=b-a+1$ and let $k=|K\cap[a,b]|$. Under the null that, given the extremes, the other $v-2$ distinct values are a uniform draw without replacement from the $w-2$ interior integers, the probability that all of them fall in $K$ is
+\[P=\binom{k-2}{v-2}\Big/\binom{w-2}{v-2}\;\le\;d^{\,v-2},\qquad d=k/w.\]
+A key that fills its range ($d=1$, a surrogate $1..N$) gives $P=1$: inclusion in it is no evidence at all, and the decision falls to the other features (randomness, coverage, names) or to a question.
+\end{proposition}
+\begin{proof}
+The extremes are keys because every value counted lies in $K$. A uniform $(v-2)$-subset of the $w-2$ interior points lies in the $k-2$ interior keys with the hypergeometric probability shown. Each factor $(k-2-i)/(w-2-i)\le k/w$ for $k\le w$, which gives the bound.
+\end{proof}
+
+\begin{proposition}[Randomness bound]\label{prop:randomness}
+Let $u_1,\dots,u_m\in[0,1]$ be the quantile positions of the child values in the sorted parent key and $F_m$ their empirical distribution. Then $W_1(F_m,U(0,1))=\int_0^1|F_m(x)-x|\,dx\le\frac12$, with equality only for a point mass at 0 or 1, so $R=1-2W_1\in[0,1]$. If the child values are a random sample of the key, $R\to1$ as $m\to\infty$.
+\end{proposition}
+\begin{proof}
+For a point mass, $W_1(\delta_a,U)=\int_0^1|a-x|dx=\frac{a^2+(1-a)^2}2\le\frac12$, with equality at $a\in\{0,1\}$. Any $F$ on $[0,1]$ is a mixture $\int\delta_a\,d\mu(a)$, and $|F(x)-x|=|\int(\mathbf 1[a\le x]-x)\,d\mu(a)|\le\int|\mathbf 1[a\le x]-x|\,d\mu(a)$; integrating over $x$ gives $W_1(F,U)\le\int W_1(\delta_a,U)\,d\mu\le\frac12$. For a random sample, $W_1(F_m,U)\to0$ almost surely (Glivenko--Cantelli on a bounded interval). The implementation integrates $|F_m(x)-x|$ exactly piece by piece.
+\end{proof}
+
+\begin{proposition}[Chance of a forest]\label{prop:forest}
+A table of $n$ rows with $r\ge1$ null pointers, whose other $m=n-r$ pointers are drawn independently and uniformly from the $n$ keys (a self-pointer counting as a top), has pointers that form a forest with probability
+\[p(n,r)=\frac{r+1}{n}\Bigl(1+\frac1n\Bigr)^{m-1}\;\le\;\frac{e\,(r+1)}{n}.\]
+In v0.8 a forest was accepted as evidence of a self-reference when $p(n,r)\le0.01$; otherwise the link needed other evidence (names, Proposition~\ref{prop:inclchance}) or was asked. \emph{v0.9:} $p(n,r)$ is the chance under \emph{uniform} pointers, which a code column (values $1..3$ in a table of 2{,}000 rows, its few targets pointing at themselves) does not follow; the decision now uses the permutation test of Proposition~\ref{prop:forestperm}, and $p(n,r)$ remains as reported context.
+\end{proposition}
+\begin{proof}
+A rooted forest on $n$ labelled vertices with a given set of $k$ roots is a map from the other $n-k$ vertices to all $n$ vertices without cycles; there are $k\,n^{n-k-1}$ of them (Cayley's formula for forests). Let $s$ of the $m$ non-null pointers point to their own row; the other $m-s$ then form a forest rooted at the $r+s$ tops. Summing over $s$ and dividing by the $n^m$ maps,
+\[p=\sum_{s=0}^m\binom ms\frac{(r+s)\,n^{m-s-1}}{n^m}=\frac1n\Bigl[r\Bigl(1+\tfrac1n\Bigr)^m+\frac mn\Bigl(1+\tfrac1n\Bigr)^{m-1}\Bigr]=\frac{r+1}n\Bigl(1+\tfrac1n\Bigr)^{m-1},\]
+using $\sum_s\binom ms x^s=(1+x)^m$ and $\sum_s s\binom ms x^s=mx(1+x)^{m-1}$ with $x=1/n$, and $r(1+\frac1n)+\frac mn=r+1$. Finally $(1+\frac1n)^{m-1}\le e^{(m-1)/n}\le e$.
+\end{proof}
+\noindent The earlier documentation said that a random mapping ``almost surely has a cycle''; that holds only without null pointers. With $r$ tops the chance is about $e(r+1)/n$: 0.51 for Chinook's 8 employees with one top, 0.018 for AdventureWorks' 296 employees with one top. From values alone both are now asked instead of being accepted on weak evidence; with names, AdventureWorks' is found (its key words recur across the database) and Chinook's is still asked, and the declared catalog settles both when it has them. \emph{Check C71} verifies the three statistics against simulation and exact integrals; \emph{check C70} hides every declared key and link of the retail database and finds 8 of 8 links with names and 0 false links in both modes, with a question for each link that values alone cannot establish.
+
+\noindent A column whose name shares a word with at least half of this database's primary-key names (learnt from the keys found, such as \emph{id} or \emph{key}) and whose values all lie in another table's key is asked about when its values do not establish the parent; with \texttt{--evidence data} names are not read and only the value evidence above applies.
+
+\subsection{Exact speed-ups}
+\begin{proposition}[Exact kernels]\label{prop:kernels}
+Each of the following replaces an expression by code that performs the same IEEE-754 operations on each element in the same order and consumes the same random numbers, so outputs and the state of every random stream are bit-identical: (a) the Gaussian log-likelihood $L_{ik}\mathrel{+}=a_{kj}-\frac12(x_{ij}-\mu_{kj})^2/s^2_{kj}$ computed column by column (compiled when Numba is installed); (b) count tables by one \texttt{bincount} instead of \texttt{add.at} (integer counts are exact in floating point below $2^{53}$); (c) Dirichlet rows: NumPy draws $\Dir(\alpha)$ for $\max_j\alpha_j\ge0.1$ (corrected in v0.9: the v0.8 text said $\min$; below that NumPy switches to stick-breaking) as standard gammas $g_j$ in order, multiplied by $1/\sum_jg_j$, which is reproduced in one call; (d) categorical draws $\texttt{choice}(n,p)$ as \texttt{searchsorted} of the normalised cumulative sum at one uniform per draw; (e) the Gumbel-max draw $\arg\max_k(\ell_k-\log(-\log u_k))$ in one buffer; (f) the occupancy likelihood of a row computed only from the terms that row uses (a present pair or the absence term), the others never being read; (g) frequency counts by value instead of by row (Kish effective size, canonical spellings).
+\end{proposition}
+\begin{proof}
+(a), (e) and (g) evaluate identical expressions on identical operands; (b) integer arithmetic; (c) and (d) follow NumPy's \texttt{Generator.dirichlet} and \texttt{Generator.choice} algorithms (uniforms drawn one per call equal those drawn as a vector, since \texttt{random(n)} consumes the stream in the same order); (f) the unread terms do not enter any output.
+\end{proof}
+\noindent \emph{Check C69} compares every kernel with the expression it replaces (and with a frozen copy of the previous occupancy code). On Contoso the fit is 2.5 times faster (Gibbs 3.7 times), sampling 2.1 times and evaluation 2.0 times, with every output file identical before the run-length changes below. Stan, Cython and C extensions were weighed: the remaining time is in vectorised NumPy calls already running compiled code, and the one loop that dominated (the Gaussian log-likelihood) is compiled by Numba when present; Stan is used for verification (Proposition~\ref{prop:stan}), not for production sampling, where its general-purpose NUTS sampler would be slower than the conjugate updates.
+
+\subsection{Run-length control, corrected}
+The Contoso fit with v0.7 settings left 3 of 56 copula chains and the final Gibbs phase with split $\hat R>1.1$. Two causes were found and fixed.
+
+\begin{proposition}[Fixed-width stopping for correlation chains]\label{prop:fixedwidth}
+Let a chain of correlation matrices have kept draws $C^{(1)},\dots,C^{(T)}$, $T\ge100$, and let $\hat\sigma_{ij}$ be the batch-means standard error (batch size $\lfloor\sqrt T\rfloor$) of the mean of $z_{ij}=\operatorname{atanh}C_{ij}$. Stop when every entry has split $\hat R\le1.1$ or $\hat\sigma_{ij}\le\varepsilon=0.01$, and $\log\det C$ has split $\hat R\le1.1$ or standard error $\le2p\varepsilon$. (i) For a polynomially ergodic chain the batch-means estimator is consistent, so $\bar z_{ij}$ is within $2\varepsilon$ of its posterior mean with probability about 0.95 (Jones, Haran, Caffo and Neath 2006; Flegal, Haran and Jones 2008). (ii) An error $\delta$ on the $z$ scale changes the conditional variance $1-\rho^2$ by a relative amount of at most $2|\rho|\delta\le2\delta$, uniformly in $\rho$, which is why the tolerance is set on the Fisher $z$ scale: near $\rho=\pm1$ a fixed tolerance on $\rho$ itself would be too loose.
+\end{proposition}
+\begin{proof}
+(i) Markov chain central limit theorem with a consistent variance estimator. (ii) $d(1-\rho^2)/(1-\rho^2)=-2\rho\,d\rho/(1-\rho^2)=-2\rho\,dz$.
+\end{proof}
+\noindent Split $\hat R$ is scale-free: a nearly deterministic pair (Contoso's birthday and age, $\rho=-0.9989$, posterior s.d.\ $10^{-4}$) drifts by $10^{-4}$ and shows $\hat R=1.6$ although no synthetic value can reflect that drift; its standard error on the $z$ scale is 0.003. The fixed-width branch is what accepts such a chain; it needs at least 100 kept draws so that the batch means are not computed on a chain shorter than its autocorrelation.
+
+\begin{proposition}[Rare columns per estimation sample]\label{prop:raresample}
+Proposition~\ref{prop:rare} applied to the sample a copula is fitted on: a column with fewer than $m$ non-modal rows in a segment's sample ($m=$\texttt{marginals.min\_dependence\_rows}, default 5), which are also at most 1\% of that sample, is kept independent of the other columns in that segment. Within the segment the joint law of that column with any other changes by at most 2\% in total variation.
+\end{proposition}
+\begin{proof}
+Proposition~\ref{prop:rare} with the segment's sample as the population and $q\le0.01$.
+\end{proof}
+\noindent A column can be nearly constant within a segment although it is not in the whole table: Contoso's customer country took a second value on 3 of the 1{,}500 sampled rows of one segment, and those 3 rows sat at the extreme longitudes. The correlations of that column are then a function of 3 rows (quasi-separation in a probit model), the posterior is weakly identified and the chain wandered ($\hat R=2.6$ after 3{,}000 iterations, chain means of one correlation from $-0.12$ to $-0.65$ over 4 seeds). The rule fixes it (3 rows are 0.2\% of the sample). The 1\% bound keeps the rule away from small segments, where a handful of rows is a sizeable share and independence would cost more than it saves; one segment of 28 still has a column (country, 16 and 2 rows away from the mode) whose correlations mix slowly, and the export reports it as a warning with the column pairs and the setting that removes it.
+
+\begin{proposition}[Burn-in after the merge]\label{prop:mergeburn}
+The merge step moves the segment chain to a new partition (a deterministic map of the state), after which the blocked Gibbs sampler (layer 1, Algorithm 3) needs a burn-in. The final phase is therefore monitored on the second half of its sweeps and extended in blocks while the split $\hat R$ of the attribute log-likelihood exceeds 1.1 (up to \texttt{gibbs.max\_final\_iterations}); the partition used is the last state, so the window changes only when the chain stops, not the kernel.
+\end{proposition}
+\begin{proof}
+Discarding an initial segment of a chain does not change its stationary law; the stopping rule reads only past states.
+\end{proof}
+\noindent On Contoso the log-likelihood falls for about 25 sweeps after the merge and is then flat: monitoring the whole final phase gave $\hat R=1.23$ and a Geweke $z$ of 8 even after 120 sweeps; monitoring its second half gives $\hat R=1.00$ and $|z|<2$ after 60 sweeps.
+
+\subsection{The exported model}
+\texttt{relsynth export-model spec.yaml} writes \texttt{model.json} (structure, posterior mean and $M$ posterior draws of every parameter block, strict JSON), \texttt{model.md} and \texttt{model.pdf} (the generative model with this database's numbers and the verification table), \texttt{replicate.py} with \texttt{relsynth\_expr.py} (a standalone sampler needing NumPy, pandas and SciPy) and \texttt{run\_model.py} (the engine's own calls).
+
+\begin{proposition}[Exported draw $m$ is the parameter of dataset $m$]\label{prop:exportdraw}
+Draw $m$ of \texttt{model.json} is computed by the engine's parameter draw with the parameter stream of dataset $m$ (Proposition~\ref{prop:postpred}), so it equals the $\theta^{(m)}$ from which \texttt{relsynth run} generates dataset $m$; \texttt{run\_model.py} performs the calls of \texttt{relsynth run} and reproduces its output byte for byte.
+\end{proposition}
+\begin{proof}
+Same function, same seed sequence child, same order of draws; JSON writes floats by their shortest round-trip representation, which parses back to the same double.
+\end{proof}
+\noindent \emph{Checks C72 and C73}: draws equal the engine's parameters for every dataset index tested; 18 of 18 files of two datasets are identical.
+
+\begin{proposition}[Verification conditions]\label{prop:verify}
+Before the model is written, each parameter set (the mean and every draw) is checked against the conditions under which the generative process is defined and the propositions apply: (i) every probability vector on the simplex, every probability in $[0,1]$, every rate non-negative and every quantile function non-decreasing (proper conjugate posteriors, Propositions~\ref{prop:eta}, \ref{prop:zoib}, \ref{prop:sparsedir}, \ref{prop:dp}); (ii) every copula correlation matrix symmetric with unit diagonal and positive semi-definite, the condition of Sklar's theorem for a Gaussian copula (Propositions~\ref{prop:pit}, \ref{prop:copula}); (iii) every block with a positive rate has source partner rows, the condition of the scale rule (Proposition~\ref{prop:scale}); (iv) hierarchies drawn from level counts, so their size is finite whatever the spectral radius of the offspring matrix (Propositions~\ref{prop:treesize}, \ref{prop:treelevels}); (v) the Markov chains stationary by Propositions~\ref{prop:mergeburn} and \ref{prop:fixedwidth}. A failure of (i)--(iv) is reported at the top of \texttt{model.md} and makes \texttt{export-model} exit with an error status; (v) is reported as a warning, because the draws are still states of the right chains.
+\end{proposition}
+\begin{proof}
+Each condition is a hypothesis of the proposition cited.
+\end{proof}
+
+\begin{proposition}[The replica samples the core generative process]\label{prop:replica}
+Given $\theta$, \texttt{replicate.py} draws: entity segment sizes by largest remainder of $n\pi$; latent segments; attributes from the segment's Gaussian copula and marginals (given parent attributes, from the conditional normal with the given latent values uniform on their bins); hierarchies from the level-by-segment counts; links by segment and degree weight or DP counts; fact rows by the Poisson block or occupancy model; time columns from the anchor segment's period profile; then sequences, offset keys, lookups, derived columns and aggregates with the engine's own expression evaluator. Each step draws from the same conditional law as the engine, so the replica's output has the engine's law for the parts it covers; it is not bit-identical (different random streams). The parts it does not cover are listed in \texttt{replica\_scope} (rules imposed by rejection or moves, slowly changing versions, affinity and participation moves, group effects, text and identifier models, nested facts and virtual dimensions).
+\end{proposition}
+\begin{proof}
+Step by step, the laws are those of Propositions~\ref{prop:pit}, \ref{prop:copula}, \ref{prop:eta}, \ref{prop:treelevels}, \ref{prop:time} and \ref{prop:computed} given $\theta$.
+\end{proof}
+\noindent \emph{Check C73}: no orphan keys and entity sizes exact on S9, S10 and S11; replica scorecards 104/105, 139/143 and 85/91 (the misses are the engine-only parts in the scope list).
+
+\begin{proposition}[Independent check with Stan]\label{prop:stan}
+For the rate, occupancy, category, segment-attribute and copula blocks, the engine's posterior draws and those of a Stan program written in textbook form (prior and likelihood only) agree in mean within four Monte Carlo standard errors and in standard deviation within 20\%.
+\end{proposition}
+\begin{proof}
+By computation (\texttt{relsynth.stancheck}); the two implementations share no code.
+\end{proof}
+\noindent \emph{Check C74}: 11 of 11 parameters agree (the check is skipped when Stan is not installed).

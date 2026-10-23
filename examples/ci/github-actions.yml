@@ -1,0 +1,57 @@
+# Refresh a synthetic copy of the sales database every night, and on every change
+# to the spec; fail when quality drops.  Copy to .github/workflows/ in your repo.
+#
+# Secrets: PROD_READONLY_PASSWORD (read-only account on the source) and
+# TEST_DB_URL (complete URL of the target, with its password).
+name: synthetic-data
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  push:
+    paths: ["synthetic/spec.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PGPASSWORD: ${{ secrets.PROD_READONLY_PASSWORD }}
+      TEST_DB_URL: ${{ secrets.TEST_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install "relsynth[postgres]==1.0.0"
+
+      - name: Validate the spec and the connection
+        run: relsynth check synthetic/spec.yaml --connect --json
+
+      - name: Generate, load and score
+        run: |
+          relsynth run synthetic/spec.yaml \
+            --target-url-env TEST_DB_URL \
+            --fail-under 0.98 \
+            --bundle diagnostics_bundle.json --report scorecard.md --json > run.json
+
+      - name: Explain failures
+        if: failure()
+        run: relsynth doctor diagnostics_bundle.json --spec synthetic/spec.yaml --report doctor.md || true
+
+      - name: Scorecard in the job summary
+        if: always()
+        run: cat scorecard.md doctor.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-data-diagnostics
+          path: |
+            run.json
+            scorecard.md
+            doctor.md
+            diagnostics_bundle.json

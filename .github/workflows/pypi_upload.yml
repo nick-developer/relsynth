@@ -1,0 +1,58 @@
+name: pypi_upload
+
+# Publishes a GitHub release to PyPI. Nothing is uploaded unless the complete
+# CI suite (lint, unit, integration on the three database servers, the wheel
+# smoke test and the statistical check suite) passes for the released commit.
+#
+# Uses PyPI trusted publishing (no API token): on pypi.org add a trusted publisher
+# for this repository with workflow "pypi_upload.yml" and environment "pypi".
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      science:
+        description: "Also run the statistical check suite (about an hour)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-upload-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    with:
+      science: ${{ github.event_name == 'release' || inputs.science }}
+
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The release tag matches the package version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=$(python3 -c "import re, pathlib; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)', pathlib.Path('src/relsynth/_version.py').read_text()).group(1))")
+          echo "tag=$TAG  package=$VERSION"
+          [ "${TAG#v}" = "$VERSION" ] || { echo "::error::release tag $TAG does not match package version $VERSION"; exit 1; }
+
+  publish:
+    needs: [ci, check-version]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/relsynth/
+    permissions:
+      id-token: write            # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist/ }
+      - uses: pypa/gh-action-pypi-publish@release/v1

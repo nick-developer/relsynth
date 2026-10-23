@@ -1,0 +1,148 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1"          # weekly: the statistical check suite
+  workflow_dispatch:
+    inputs:
+      science:
+        description: "Run the statistical check suite (about an hour)"
+        type: boolean
+        default: false
+  workflow_call:                 # pypi_upload.yml runs the whole suite before publishing
+    inputs:
+      science:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: bandit -q -c pyproject.toml -r src
+      - run: pip-audit --skip-editable
+
+  unit:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - { os: windows-latest, python: "3.12" }
+          - { os: macos-latest, python: "3.12" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}" }
+      - run: pip install -e ".[dev]"
+      - run: pytest -m "not science" --ignore=tests/integration --cov=relsynth --cov-report=xml -q
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        with: { name: coverage, path: coverage.xml }
+
+  integration:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: relsynth, POSTGRES_PASSWORD: RelSynthTest1, POSTGRES_DB: relsynth }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U relsynth" --health-interval 5s --health-retries 30
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "RelSynth_Test1!", MSSQL_PID: Developer }
+        ports: ["1433:1433"]
+      oracle:
+        image: gvenzl/oracle-free:23-slim
+        env: { ORACLE_PASSWORD: RelSynthTest1, APP_USER: relsynth, APP_USER_PASSWORD: RelSynthTest1 }
+        ports: ["1521:1521"]
+        options: >-
+          --health-cmd healthcheck.sh --health-interval 10s --health-retries 60
+    env:
+      RELSYNTH_TEST_PG_URL: postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
+      RELSYNTH_TEST_MSSQL_URL: "mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
+      RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # The runner image already registers packages.microsoft.com (microsoft-prod.list,
+      # keyring microsoft-prod.gpg); adding a second entry for it with another keyring
+      # makes apt refuse every source list ("Conflicting values set for option Signed-By").
+      - name: ODBC Driver 18 for SQL Server
+        run: |
+          if odbcinst -q -d -n "ODBC Driver 18 for SQL Server" >/dev/null 2>&1; then
+            echo "ODBC Driver 18 for SQL Server is already installed"; exit 0
+          fi
+          if ! grep -rqs "packages.microsoft.com" /etc/apt/sources.list /etc/apt/sources.list.d/; then
+            curl -fsSL -o /tmp/packages-microsoft-prod.deb \
+              "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+            sudo dpkg -i /tmp/packages-microsoft-prod.deb
+          fi
+          sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+          odbcinst -q -d -n "ODBC Driver 18 for SQL Server"
+      - run: pip install -e ".[dev]"
+      - name: Wait for SQL Server
+        run: |
+          python - <<'EOF'
+          import os, time, sqlalchemy as sa
+          from relsynth.connectors.sql import resolve_url
+          url = resolve_url(os.environ["RELSYNTH_TEST_MSSQL_URL"])
+          for _ in range(60):
+              try:
+                  sa.create_engine(url).connect().close(); break
+              except Exception as e:
+                  err = e; time.sleep(5)
+          else:
+              raise SystemExit(f"SQL Server did not accept connections: {err}")
+          EOF
+      - run: pytest tests/integration -q
+
+  build:
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install build twine
+      - run: rm -rf dist && python -m build     # dist/ is in the repository: build from a clean folder
+      - run: twine check dist/*
+      - name: Smoke test the wheel in a clean environment
+        run: |
+          python -m venv /tmp/v && /tmp/v/bin/pip install "$(ls dist/*.whl)"
+          /tmp/v/bin/relsynth version --json
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist/ }
+
+  science:
+    if: github.event_name == 'schedule' || inputs.science
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]" datasketches
+      - run: pytest -m science -q

@@ -1,0 +1,119 @@
+%=====================================================================
+\section{Review: pooling, exact conditioning and calibrated limits (v0.9)}\label{sec:v09}
+Version 0.9 is a review of the whole engine. Its common thread is a pattern found in the issues of earlier runs: \emph{many units, each with its own fixed prior, threshold or test, and no pooling or multiplicity control}, give a steady trickle of small errors that no single unit shows. Examples are structural blocks drawn free in complete relations (bi B7), small segments given empty parents (AdventureWorks customers without a sale), a maximum over 48 cells compared with a fixed $z=3$ (Contoso), a forest test whose null does not fit code columns, and per-check limits whose family produces false failures. The propositions below give the corrected models, samplers and limits. Checks \texttt{v09\_core.py} (14), \texttt{v09\_eval.py} (14), \texttt{v09\_ident.py} (14) and \texttt{v09\_io.py} (28), run as C75--C78, test this section.
+
+\subsection{Structural blocks pooled across a relation}
+\begin{proposition}[Learned structural weights]\label{prop:structpool}
+Let the rows $k$ of a relation fall in groups $g$ (rows that share their structure; an ungrouped row is a group of its own), and let block $(k,l)$ have $S_{kl}$ successes in $T_{kl}$ trials. Column $l$ of group $g$ has an indicator $G_{gl}\in\{0,1,s\}$ with weights $w$: structural zero (every block of the group-column has $p=0$), structural one ($p=1$), or free; $w\sim\Dir(\kappa\pi)$, $\pi=(\pi_s/2,\pi_s/2,1-\pi_s)$, exchangeable over the relation's group-columns. In a free group-column of two or more rows each block has its own indicator $H_{kl}$ with the fixed weights $\pi$ (as in v0.7--v0.8); a one-row group-column is its block ($H=G$). A free block has $p_{kl}\sim\mathrm{Beta}(a_k,b_k)$. With $m_0=\mathbf 1[S=0]$, $m_1=\mathbf 1[S=T]$, $m_s=B(a_k+S,b_k+T-S)/B(a_k,b_k)$ for one block and $\bar m=\sum_h\pi_h m_h$:
+(a) the blocked Gibbs sampler that draws, given $w$, each $G_{gl}$ with
+\[P(G_{gl}=0)\propto w_0\prod_{k\in g}m_0(S_{kl},T_{kl}),\quad P(G_{gl}=1)\propto w_1\prod_{k\in g}m_1,\quad P(G_{gl}=s)\propto w_s\prod_{k\in g}\bar m(S_{kl},T_{kl}),\]
+and then $w\sim\Dir(\kappa\pi+n(G))$, leaves the posterior of $(w,G)$ invariant, with the $H$ integrated out;
+(b) an indicator without exposure ($T=0$ throughout) has all marginals equal to 1, so it is independent of the data and integrates out exactly: running the chain on exposed group-columns only has the same stationary law for $w$, and mixes faster;
+(c) the draw of a dataset decides each group-column with the last $w$ of the chain and, inside a free group-column, each block with $\pi$ (\texttt{grouped\_zoib\_draw}); $\kappa=3$ by default (\texttt{structure.structural\_pooling}); $\kappa=0$ restores the fixed weights $\pi$ of v0.7--v0.8 everywhere.
+\end{proposition}
+\begin{proof}
+(a) Given $w$ the likelihood of group-column $(g,l)$ under $G=0$ or $G=1$ is the product of its blocks' spike likelihoods; under $G=s$ the blocks' indicators are independent with weights $\pi$, and summing them out gives $\prod_k\bar m$, which does not depend on $w$. Given the $G$, $w$ has the Dirichlet--multinomial conjugate posterior. Both are full conditionals of the model with $H$ summed out, so the Gibbs sampler leaves that posterior invariant. (b) With $T=0$ every marginal is 1, so the indicator's conditional is $w$ itself and its factor in the posterior of $w$ sums to 1 over its values. (c) is a definition; given $G=s$, drawing $H$ with $\pi$ is its exact conditional.
+\end{proof}
+\noindent \emph{Why only the group level is learned.} The group-columns are the units the draw decides on, and they are exchangeable within a relation; the blocks inside a free group-column are not exchangeable with them, because their indicators also absorb how the segments mix rows of different structure. An earlier version learned one $w$ from both levels. On bi (real data) the many partial blocks inside free group-columns drove $w_1$ to 0.14 (0 in one relation), so complete blocks with one or two trials were drawn from the slab with probability up to 0.6, and 4--7\% of the reported values were lost (cardinality KS 0.26--0.46 against a limit of 0.12). With the row level kept at $\pi$, the expected number of present pairs equals that of fixed weights (62{,}498 against 62{,}481 of 62{,}761 observed in bi's largest relation), and $w_1$ learned on grouped thin rows equals the share of complete group-columns ($0.290$ against $0.292$, \texttt{t\_zoib\_pooling}). In a relation whose 112 observed blocks are all complete (bi-like, ungrouped), fixed weights drew a free block somewhere in 99.7\% of datasets (5.56 free blocks per dataset); learned weights draw 0.00. Data drawn from the model itself recover its weights within 3 posterior standard deviations. In the reporting scenario a filed header form is complete in 99.8\% of datasets and 0.01\% of item values carry another version (C26, C27); \texttt{t\_fixed\_weights\_option} shows that $\kappa=0$ gives back v0.8's exact structure.
+
+\begin{proposition}[The slab is estimated from partial entries]\label{prop:partialslab}
+The free component of Prop.~\ref{prop:structpool} must put little mass where the spikes are for the weights to be identified (George and McCulloch 1993). The empirical-Bayes slab of row $k$ (Kleinman's moment estimator) is therefore estimated from the entries with $0<S<T$ only, the entries that only a free block explains; a row with fewer than three such entries takes the slab estimated from the partial entries of the whole relation (rows exchangeable a level up), and $\mathrm{Beta}(a_0,b_0)$ is kept only when the relation itself has fewer than three. Up to v0.8 complete entries ($S=T$) entered the estimate, so a row of complete entries had a slab concentrated near 1, indistinguishable from the structural one: with weights learned from the data, complete blocks moved to the slab and were drawn with $p\approx0.99$ (a header form not complete in 2\% of filings).
+\end{proposition}
+\begin{proof}
+The moment estimator is that of Prop.~\ref{prop:structpool}'s slab restricted to entries whose likelihood under both spikes is zero, so the estimate is a function of the free blocks only. If the slab has mass $\epsilon$ within $\delta$ of 1, a complete block of $T$ trials has slab marginal at least $\epsilon(1-\delta)^T$, and the posterior odds of one against free are $w_1/(w_s\,m_s)$, which tend to $w_1/w_s$ as the slab concentrates at 1: the data then cannot move the weights between the two components.
+\end{proof}
+
+\subsection{Counts, inclusion and participation}
+\begin{proposition}[P\'olya-urn marginal in closed form]\label{prop:dpclosed}
+For counts $t_1..t_n$ under $\mathrm{DP}(a,F_0)$ with $F_0=\mathrm{Poisson}(\lambda)$, $f_0$ its pmf, let $m_x$ be the multiplicity of value $x$ and $b_x=a f_0(x)$. Then
+\[\log p(t)=\sum_x\Bigl[\log b_x+\log\Gamma(b_x+m_x)-\log\Gamma(b_x+1)\Bigr]-\log\frac{\Gamma(a+n)}{\Gamma(a)}.\]
+\end{proposition}
+\begin{proof}
+By the urn, draw $i$ equals $x$ with probability $(b_x+c)/(a+i)$, $c$ the earlier copies of $x$. The numerators for the $m_x$ copies of $x$ multiply to $\prod_{c=0}^{m_x-1}(b_x+c)=b_x\Gamma(b_x+m_x)/\Gamma(b_x+1)$ and the denominators to $\Gamma(a+n)/\Gamma(a)$. Computing $\log b_x$ directly avoids the underflow of $a f_0(x)$ far in the Poisson tail, which made v0.8 return $-\infty$ (and a spurious Bayes factor) for a single large count.
+\end{proof}
+
+\begin{proposition}[Inclusion grid for the sparse Dirichlet]\label{prop:sdgrid}
+In Prop.~\ref{prop:sparsedir}'s representation the auxiliary $u\in(0,1)$ has density $\propto u^{A_o-1}(1-u)^{n-1}\prod_j(1+\rho u^{\alpha_j})$. With $y=\log(-\log u)$ the density of $y$ is
+\[g(y)\propto\exp\bigl(A_o\ell+(n-1)\log(1-e^{\ell})+y\bigr)\prod_j\bigl(1+\rho e^{\alpha_j\ell}\bigr),\qquad\ell=-e^{y},\]
+which decays like $\exp(-A_oe^{y})$ as $y\to\infty$ and like $e^{ny}$ as $y\to-\infty$; a grid on $[-60,40]$ holds all but a negligible mass for every $A_o\ge10^{-12}$ and $n\ge1$.
+\end{proposition}
+\begin{proof}
+$u=\exp(-e^y)$, $|du/dy|=u\,e^y$, which gives $g$. As $y\to\infty$, $\ell\to-\infty$ and the factor $u^{A_o}=e^{A_o\ell}$ dominates; as $y\to-\infty$, $1-u=1-e^{\ell}\sim e^{y}$, so $(1-u)^{n-1}e^{y}\sim e^{ny}$. The v0.8 grid on $\mathrm{logit}\,u$ decays only like $e^{A_oy}$ at $-\infty$ and lost most of the mass for small $A_o$.
+\end{proof}
+\noindent Check \texttt{t\_sparse\_dirichlet} compares the sampler's expected number of included unobserved levels with the exact posterior $P(|J|=j)\propto\binom mj\rho^j\Gamma(A_o+j\alpha)/\Gamma(A_o+j\alpha+n)$ in three regimes.
+
+\begin{proposition}[Pooled participation prior]\label{prop:particippool}
+The shares $s_{0t}$ of parents without children in the segments $t$ of a link are exchangeable: $s_{0t}\sim\mathrm{Beta}(cm,c(1-m))$ with $m=(\sum Z+\frac12)/(\sum N+1)$ and $c$ by the Beta--binomial moment estimator in $[1,10^4]$; the per-dataset draw is $s_{0t}\sim\mathrm{Beta}(cm+Z_t,c(1-m)+N_t-Z_t)$. When no source parent is empty, $E[s_{0t}]\le(\frac12/(\sum N+1))\,c/(c+N_t)\cdot(1+o(1))$, instead of $1/(N_t+2)$ under the flat per-segment prior of v0.7--v0.8.
+\end{proposition}
+\begin{proof}
+Conjugacy gives the posterior. With $Z=0$ and $\tau^2\le0$ the estimator gives $c=10^4$, and the posterior mean is $cm/(c+N_t)$.
+\end{proof}
+\noindent The flat prior gave every small segment about $1/(N_t+2)$ of empty parents, which is the 3\% of AdventureWorks customers without a sale reported since v0.5; the fake order warehouse now has every customer with an order in every dataset (\texttt{t\_mandatory\_participation}).
+
+\begin{proposition}[Covering mandatory parents]\label{prop:cover}
+When every parent needs at least $\mu$ children, the parent segments of the child rows are drawn i.i.d.\ from $\phi_{z}$ and accepted when every segment $t$ receives $N_t\ge\mu M_t$ rows (rejection, up to \texttt{rules.max\_rejection\_rounds} times): an accepted draw has exactly the conditional law given the constraint. If no draw is accepted, rows are moved from segments with a surplus, the row moving from $s$ to $t$ chosen with probability proportional to $\phi_{z,t}/\phi_{z,s}$, until every deficit is filled; this moves exactly the total deficit and changes nothing when the constraint already holds.
+\end{proposition}
+\begin{proof}
+Rejection sampling from a product law restricted to an event yields the restricted law. The repair stops when every $N_t\ge\mu M_t$; each move lowers one deficit by one and never takes a source below its own need, so the number of moves is $\sum_t(\mu M_t-N_t)^+$.
+\end{proof}
+
+\subsection{Exact conditioning on rules}
+\begin{proposition}[Rules are checked on the draws that are kept]\label{prop:hidden}
+Let a fact row be $X=(Y,D)$ with $Y$ the modelled columns and $D$ the independent per-row draws (stated distributions, soft-rule indicators and offsets, group-effect priorities). Rejection per row that redraws $(Y,D)$ of invalid rows, keeps $(Y,D)$ of valid ones and evaluates the rules on that same $(Y,D)$ yields rows with law $Q(X\mid\text{valid})$. v0.8 drew $D$ afresh on a copy for the check and again for the output, so the output's $D$ was independent of the check: rows with $\mathrm{qty}<2$ under the rule $\mathrm{qty}\ge2$ (415 of 1{,}978 in the probe) were output.
+\end{proposition}
+\begin{proof}
+Each row's accepted value is the first valid one in an i.i.d.\ sequence from $Q$, which has law $Q(\cdot\mid\text{valid})$. The proof needs the checked and the returned value to be the same draw. The engine stores $D$ in hidden columns with a per-row mask, draws only rows whose mask is unset (new or redrawn rows), and drops the hidden columns at the end of the dataset; recomputing a frame (as the SCD step does) reuses them.
+\end{proof}
+
+\begin{proposition}[Unique keys over a link and attributes]\label{prop:mixedkeys}
+The attributes of an entity's rows are drawn before its links. A unique key made of links and modelled attributes is therefore a constraint on the links given the attributes, and the Metropolis--Hastings kernel of the link moves (independence proposals from each row's own factor, accepted iff the new state is valid) targets the product law restricted to it, as for keys over links only. Attribute redraws in the finishing step keep it as part of their rejection.
+\end{proposition}
+\begin{proof}
+Given the attributes, the key's attribute part is fixed, so the set of valid link assignments is a fixed set; the acceptance ratio of an independence proposal from $Q_i$ restricted to a fixed set is 1 on valid states, as in the keys-over-links case.
+\end{proof}
+\noindent v0.8 kept keys made only of links (link moves) or only of attributes (finishing), and silently ignored mixed keys of entities (26 duplicates of (product, balance) in \texttt{t\_unique\_moves\_fast}).
+
+\subsection{Copula sample size}
+\begin{proposition}[Pooled copula sample]\label{prop:pooledcells}
+The posterior standard deviation of a latent correlation fitted on $n_{\rm fit}$ rows is $\approx(1-\rho^2)/\sqrt{n_{\rm fit}}$ (measured 0.0171, 0.009, 0.0047 for $n=3$k, 12k, 48k). The pooled copula of a table of $n$ rows and $p$ columns is now fitted on $\max(2\,\mathrm{cap},\lfloor C/p^2\rfloor)$ rows, $C=$\,\texttt{copula.pooled\_cells} ($10^6$), within the $O(np^2)$ cost of Prop.~\ref{prop:fixedwidth}'s sampler, so that the dataset-to-dataset spread of a weak correlation is not several times its sampling error.
+\end{proposition}
+\begin{proof}
+The rank likelihood's Fisher information for $\rho$ is $n/(1-\rho^2)^2$ to first order (Hoff 2007), and each sweep costs $O(np^2)$, so $C/p^2$ rows fix the cost per sweep.
+\end{proof}
+\noindent Contoso's join association $z=3.57$ (Quantity against order date) was a single dataset's posterior draw of $+0.021$ for a correlation whose posterior mean is $-0.022$, fitted on 3{,}000 of 224{,}000 rows.
+
+\subsection{Identification}
+\begin{proposition}[Permutation test of a forest]\label{prop:forestperm}
+Let $T(\pi)=1$ when the column's pointers permuted by $\pi$ (nulls included) form a forest. Under the null that the column's values are exchangeable over the rows, $p=(1+\#\{b\le B:T(\pi_b)=1\})/(B+1)$ with $\pi_1..\pi_B$ uniform permutations satisfies $P(p\le\alpha)\le\alpha$ for every $\alpha$. The engine uses $B=199$, $\alpha=0.01$ (smallest $p=0.005$), stops early once $p>\alpha$ is certain, and accepts the self-reference when $p\le\alpha$; otherwise it asks when no row points to itself.
+\end{proposition}
+\begin{proof}
+Under exchangeability the observed column is one more draw from the permutation distribution, so its rank among the $B+1$ values is uniform (ties broken in its favour), which gives the stated $p$-value its validity (Phipson and Smyth 2010). Stopping when $1+\#>\alpha(B+1)$ only skips draws that cannot change the decision.
+\end{proof}
+\noindent A code column with values $1..3$ in a 2{,}000-row table was accepted as a hierarchy in 124 of 200 samples under Prop.~\ref{prop:forest}'s uniform null; with the permutation test, 0 of 60.
+
+\begin{proposition}[Inclusion of strings by chance]\label{prop:stringchance}
+Let the $v\ge3$ distinct child strings in $K$ use the length set $\mathcal L$ and character classes $\Sigma$ (capitals, small letters, digits, each counted if used, plus every other character seen), $A=|\Sigma|$, $w=\sum_{L\in\mathcal L}A^L$ and $k=|K\cap\Sigma^{\mathcal L}|$. Under the null that the $v$ values are a uniform draw without replacement from the code space, $P=\binom kv/\binom wv\le(k/w)^v$ ($P=1$ when $k\ge w$; $P=1$ for $v\le2$). Inclusion is evidence when $P\le10^{-6}$.
+\end{proposition}
+\begin{proof}
+Hypergeometric, as Prop.~\ref{prop:inclchance}, with the bound from $(k-i)/(w-i)\le k/w$. v0.8 returned $P=0$ for any three strings, so three section codes $\{A,B,C\}$ inside grades $A..F$ were a link; now $\log_{10}P=-2.11$.
+\end{proof}
+
+\noindent \textbf{Names need values.} For a link between two tables, names count as evidence only with randomness $R\ge R_{\rm crit}(v)=\min(0.5,1-2/\sqrt v)$ over the $v$ included values, or $P\le10^{-6}$; the same $R_{\rm crit}$ replaces the fixed 0.6 of the question rule. $R_{\rm crit}(v)$ lies below the simulated 0.1\% quantile of $R$ for random samples of $v=5,10,20,50$ values. Composite keys and self-references are now confirmed on the whole table, not on a sample.
+
+\subsection{Calibrated limits of the scorecard}
+\begin{proposition}[Posterior-predictive null of a distribution difference]\label{prop:ppnull}
+Let the synthetic sample of size $m$ be drawn from a Bayesian bootstrap of the real sample of size $n$ (the posterior predictive of a saturated model). For each $x$, $E[F_{\rm syn}(x)\mid\text{real}]=F_n(x)$ and
+\[\mathrm{Var}\bigl(F_{\rm syn}(x)-F_n(x)\mid\text{real}\bigr)=F_n(x)\bigl(1-F_n(x)\bigr)\Bigl(\frac1{n+1}+\frac1m\Bigr).\]
+The two-sample effective size $1/(2/n+1/m)$ of v0.8 therefore overstated the null spread by $\sqrt{(2/n+1/m)/(1/(n+1)+1/m)}$ ($\approx1.22$ at $n=m$); KS, TVD, null-share, association and join limits now use $1/(n+1)+1/m$ with the effective (Kish) sizes.
+\end{proposition}
+\begin{proof}
+With Dirichlet$(1,\dots,1)$ weights $W$, $G(x)=\sum_iW_i\mathbf 1[x_i\le x]$ has mean $F_n(x)$ and variance $F_n(1-F_n)/(n+1)$ (the variance of a sum of $\Dir(1^n)$ components over a subset of size $nF_n$). Given $G$, $F_{\rm syn}(x)$ is a binomial share with variance $G(1-G)/m$, whose expectation is $F_n(1-F_n)(1-\frac1{n+1})/m$; to first order the total is as stated.
+\end{proof}
+
+\begin{proposition}[Maximum over a family]\label{prop:sidak}
+For $K$ centred Gaussian statistics $Z_1..Z_K$ with unit variances and any correlations, $P(\max_k|Z_k|\le z)\ge\prod_kP(|Z_k|\le z)$ (\v{S}id\'ak 1967). The limit $z_K=\Phi^{-1}\bigl(1-\frac12(1-(1-\alpha)^{1/K})\bigr)$ therefore keeps the family's false-failure rate at most $\alpha$; for $K=48$ and $\alpha=0.01$, $z_K=3.71$ (v0.8 used 3 for the maximum over up to 48 cells).
+\end{proposition}
+\begin{proof}
+\v{S}id\'ak's inequality, and $\prod_kP(|Z_k|\le z_K)=(1-(1-(1-\alpha)^{1/K}))^K=1-\alpha$.
+\end{proof}
+\noindent The same correction is used for the worst association pair and across tables for the discriminator, whose null standard deviation is bounded by that of one fold's Mann--Whitney AUC, $\sqrt{(n+1)/(3n^2)}$ (within a fold the scores come from a model fitted on the other fold, so the Mann--Whitney null law is exact; the mean of two correlated folds has at most that variance). Novel combinations use the Good--Turing missing mass $N_1/n$ with Esty's variance (Good 1953; Esty 1983), and unequal expected cardinalities compare binomially thinned counts (thinning a Poisson count keeps it Poisson, R\'enyi 1956). The scorecard reports the expected number of false failures, $\sum\alpha_i$, so a run of 1{,}303 checks is read against about $0.01\times1303\approx13$ expected chance failures.

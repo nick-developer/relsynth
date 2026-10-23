@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relsynth"
+dynamic = ["version"]
+description = "Bayesian synthetic data for relational databases: star and snowflake schemas, keys, business rules and privacy, fitted in-database for large tables."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-Proprietary"
+authors = [{ name = "nick-developer" }]
+keywords = ["synthetic data", "relational databases", "Bayesian", "privacy", "data warehouse", "test data"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.11",
+    "SQLAlchemy>=2.0.25",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
+mssql = ["pyodbc>=5.0"]
+mssql-pymssql = ["pymssql>=2.2.8"]
+oracle = ["oracledb>=2.0"]
+parquet = ["pyarrow>=14"]
+speed = ["numba>=0.59"]
+all = ["relsynth[postgres,mssql,oracle,parquet]"]
+dev = [
+    "relsynth[all]",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+    "build>=1.2",
+]
+
+[project.scripts]
+relsynth = "relsynth.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "relsynth._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+relsynth = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m 'not science'"
+markers = [
+    "postgres: needs a live PostgreSQL (RELSYNTH_TEST_PG_URL)",
+    "mssql: needs a live SQL Server (RELSYNTH_TEST_MSSQL_URL)",
+    "oracle: needs a live Oracle Database (RELSYNTH_TEST_ORACLE_URL)",
+    "slow: end-to-end runs that take more than a few seconds",
+    "science: the statistical check suite C00-C78 (about an hour; run with -m science)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pyarrow.*",
+]
+
+[tool.coverage.run]
+source = ["relsynth"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "S", "UP", "I"]
+ignore = [
+    "E731",   # lambdas are used as small key functions
+    "E741",   # mathematical names (l, I) follow the papers
+    "B023",   # loop variables are bound through default arguments where it matters
+    "B905",   # zip() without strict= is intended (equal lengths by construction)
+    "S101",   # assert is used for internal invariants in the numerical code
+    "S311",   # random module is not used for security; numpy Generators are seeded on purpose
+    "UP006", "UP007", "UP035",
+    "I001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+# human-readable diagnosis messages and generated reference text
+"src/relsynth/doctor.py" = ["E501"]
+"src/relsynth/schema.py" = ["E501"]
+# fake-data generators (wide literal specs) and the generators of the reference docs
+"tests/fakedata/**" = ["S", "B", "E501", "E401"]
+"docs/*.py" = ["E501"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101", "B311"]

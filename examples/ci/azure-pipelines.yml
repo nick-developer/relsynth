@@ -1,0 +1,34 @@
+# azure-pipelines.yml: SQL Server source, synthetic copy into a test database.
+# Pipeline variables (secret): MSSQL_PASSWORD, TEST_DB_URL.
+schedules:
+  - cron: "0 2 * * *"
+    displayName: nightly
+    branches: { include: [main] }
+    always: true
+
+trigger:
+  paths: { include: [synthetic/spec.yaml] }
+
+pool: { vmImage: ubuntu-latest }
+
+steps:
+  - task: UsePythonVersion@0
+    inputs: { versionSpec: "3.12" }
+  - script: |
+      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+      echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+      sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+      pip install "relsynth[mssql]==1.0.0"
+    displayName: Install relsynth and ODBC Driver 18
+  - script: relsynth check synthetic/spec.yaml --connect --json
+    displayName: Validate the spec
+    env: { MSSQL_PASSWORD: $(MSSQL_PASSWORD) }
+  - script: >
+      relsynth run synthetic/spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98
+      --bundle $(Build.ArtifactStagingDirectory)/diagnostics_bundle.json
+      --report $(Build.ArtifactStagingDirectory)/scorecard.md --json
+    displayName: Generate, load and score
+    env: { MSSQL_PASSWORD: $(MSSQL_PASSWORD), TEST_DB_URL: $(TEST_DB_URL) }
+  - publish: $(Build.ArtifactStagingDirectory)
+    artifact: synthetic-data-diagnostics
+    condition: always()

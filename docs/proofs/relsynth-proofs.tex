@@ -1,0 +1,496 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs,tabularx,array,longtable}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\newtheorem{proposition}{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Pois}{\operatorname{Pois}}
+\newcommand{\Cat}{\operatorname{Cat}}
+\newcommand{\Dir}{\operatorname{Dir}}
+\newcommand{\DP}{\operatorname{DP}}
+\newcommand{\Ga}{\operatorname{Gamma}}
+\newcommand{\Mult}{\operatorname{Mult}}
+\newcommand{\LKJ}{\operatorname{LKJ}}
+\newcommand{\TN}{\operatorname{TN}}
+
+\title{relsynth: Statistical Guarantees and Checks for Relational Synthetic Data\\[2pt]
+\large Mixed types, star and snowflake schemas, self-referencing hierarchies, temporal facts and text}
+\author{Data Synthesisation project}
+\date{5 October 2026; additions up to v1.0, 19 October 2026\\[2pt]\small Builds on \texttt{algorithms.pdf} (layer 1). Code: \texttt{src/relsynth}; checks: \texttt{legacy/checks/run\_checks.py} (C00--C78) and \texttt{tests/}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Layer 1 fixed the methods and their complexity. This document states, for the most common synthesis situations, what the implemented model guarantees and proves it, then names the numerical check that verifies each statement on fake data with known ground truth (checks C00--C68; Table~\ref{tab:results}). Version 0.3 (Section~\ref{sec:v03}) adds what the first real-database run required: grains (unique keys made of foreign keys), structural zeros, computed columns (lookups, derives, aggregates), nullable keys, a rank-likelihood copula and posterior predictive draws. The situations are: one table with mixed column types and missing values; star schemas; snowflake chains; self-referencing hierarchies; time-stamped facts; free text; business rules; and an enterprise schema combining all of them. Section~\ref{sec:real} gives the checks that need no ground truth, which are the ones the local scripts run on real data, and Section~\ref{sec:doctor} the diagnostics loop that turns their output into spec fixes. Sections~\ref{sec:v04}--\ref{sec:v06} add what the next three real databases required. Section~\ref{sec:v07} makes every synthetic dataset a draw from the posterior predictive distribution and adds rules that hold on most rows, group effects, link affinity, participation hurdles, cannot-link strata, type 2 slowly changing dimensions, unknown members and bridges (checks C57--C68). Sections~\ref{sec:v08} and \ref{sec:v09} add identification from the data, the exported model and a review of pooling and multiplicity (C69--C78). Section~\ref{sec:v10} (v1.0) fits fact tables larger than memory from statistics computed inside the database and proves that this leaves the relational model unchanged and the attribute models an exact posterior given a uniform sample.
+\end{abstract}
+
+\tableofcontents
+
+%=====================================================================
+\section{Setting and notation}\label{sec:setting}
+A database has entity tables $e$ (rows $u\in U_e$, $n_e=|U_e|$) and fact tables $f$. Each entity row has a latent segment $z_u\in\{1..K_e\}$. Links are of five kinds (layer~1, Algorithm~3): \emph{edges} (many-to-one between entities, e.g.\ product$\to$category), \emph{facts} with an anchor $e_1$ and a partner $e_2$, \emph{extra} fact dimensions, \emph{single-dimension} facts, and \emph{trees} (self-references). Column values are mapped to a model space by a codec: discrete columns to codes $0..V-1$, continuous columns to reals (dates to days). $\Phi,\phi$ are the standard normal cdf and density.
+
+The implementation follows the layer~1 pseudocode, with the changes listed in Section~\ref{sec:changes}. Every proposition below names the check that tests it.
+
+%=====================================================================
+\section{One table with mixed types}\label{sec:single}
+
+\paragraph{Model.} Within a segment (or the whole table), $\mathbf z\sim\mathcal N_p(0,C)$ and $x_j=F_j^{-1}(\Phi(z_j))$ with $F_j^{-1}(u)=\inf\{x:F_j(x)\ge u\}$. A missing value is the lowest ``level'' of the latent scale: with null rate $q_j$,
+\begin{equation}\label{eq:nullmap}
+x_j=\begin{cases}\text{null}, & \Phi(z_j)<q_j,\\ G_j^{-1}\!\big((\Phi(z_j)-q_j)/(1-q_j)\big), & \text{otherwise,}\end{cases}
+\end{equation}
+where $G_j$ is the distribution of the non-null values.
+
+\begin{proposition}[Marginal preservation]\label{prop:pit}
+If $C$ has unit diagonal, then for every $j$ the synthetic $x_j$ has exactly the distribution $q_j\delta_{\text{null}}+(1-q_j)G_j$, whatever $C$ is. In particular the null rate is $q_j$ and discrete columns have their level probabilities exactly.
+\end{proposition}
+\begin{proof}
+$z_j\sim\mathcal N(0,1)$, so $U=\Phi(z_j)$ is uniform on $(0,1)$ (probability integral transform). $P(\text{null})=P(U<q_j)=q_j$. Given $U\ge q_j$, $V=(U-q_j)/(1-q_j)$ is uniform, and $P(G_j^{-1}(V)\le x)=P(V\le G_j(x))=G_j(x)$ by the Galois inequality $G^{-1}(v)\le x\iff v\le G(x)$, which holds for any cdf, including step functions.
+\end{proof}
+\noindent\emph{Check C01}: KS or total-variation distance between real and synthetic, per column, is within the two-sample critical value at the 1\% level (Section~\ref{sec:thresholds}).
+
+\paragraph{Bayesian marginals.} The synthesiser draws $F_j$ from its posterior, so that synthetic data reflect estimation uncertainty (posterior predictive synthesis):
+\begin{itemize}
+\item discrete: $\mathbf p\sim\Dir(\mathbf c+a\,\mathbf p_0)$ with exact level counts $\mathbf c$ and $\mathbf p_0$ the parent marginal (the whole table for a segment);
+\item continuous: Dirichlet-process posterior $F\sim\DP\big(a+n,\ (aF_0+\sum_i\delta_{x_i})/(a+n)\big)$, drawn as $F=V\cdot\sum_iw_i\delta_{x_i}+(1-V)F_0$ with $w\sim\Dir(1,\dots,1)$ (Bayesian bootstrap, Rubin 1981) and $V\sim\mathrm{Beta}(n,a)$;
+\item null rate: $q\sim\mathrm{Beta}(n_\text{null}+a q_0,\ n-n_\text{null}+a(1-q_0))$.
+\end{itemize}
+
+\begin{proposition}[Posterior mean of a segment marginal]\label{prop:dp}
+Under the draws above, $\E[F(t)\mid\text{data}]=\big(aF_0(t)+nF_n(t)\big)/(a+n)$ for every $t$, where $F_n$ is the empirical cdf of the segment. Small segments are therefore shrunk towards the parent marginal, large ones follow their own data.
+\end{proposition}
+\begin{proof}
+$\E[V]=n/(n+a)$, $\E[\sum_iw_i\mathbf 1\{x_i\le t\}]=F_n(t)$ because $\E w_i=1/n$, and $V$ is independent of $w$. The draw is the stick-breaking-free representation of the DP posterior (Ferguson 1973): the posterior base measure is the stated mixture, and the $\DP(a+n,\cdot)$ restricted to the atoms gives Dirichlet weights proportional to $(1,\dots,1,a)$, which is what $(Vw,1-V)$ is.
+\end{proof}
+{\sloppy\noindent\emph{Check C17} (400 draws, closed form within 0.03). The prior strength $a$ is \texttt{marginals.dirichlet\_prior} (default 0.25: a segment of 6 rows keeps 96\% of its own distribution).\par}
+
+\paragraph{Correlation.} Stage 2 of layer 1's Algorithm~2: latent bins $(\ell_{ij},u_{ij}]$ from the full-data marginals, data augmentation $z_{ij}\mid\cdot\sim\TN(\mu_{ij},\sigma_j^2;\ell_{ij},u_{ij})$, and Metropolis on the C-vine partial correlations with the LKJ$(\eta)$ prior.
+
+\begin{proposition}[The sampler targets the copula posterior]\label{prop:copula}
+The chain alternating (i) the column-wise truncated-normal updates of $Z$ and (ii) Metropolis--Hastings steps on $y=\operatorname{atanh}(w)$ with target $\pi(y)=\sum_k(b_k-1)\log(1-w_k^2)-\tfrac n2\log|C|-\tfrac12\operatorname{tr}(C^{-1}Z^\top Z)+\sum_k\log(1-w_k^2)$ (up to constants, $b_k$ the LKJ Beta shapes) has the joint posterior $p(C,Z\mid\text{bins})$ as its invariant law.
+\end{proposition}
+\begin{proof}
+(i) is an exact Gibbs step: given $C$ and the other columns, $z_{ij}$ is normal with mean $-\sum_{k\ne j}\Omega_{jk}z_{ik}/\Omega_{jj}$ and variance $1/\Omega_{jj}$ ($\Omega=C^{-1}$), restricted to its bin. (ii) The C-vine map $w\mapsto C$ is a bijection from $(-1,1)^{p(p-1)/2}$ onto correlation matrices, and under $\LKJ(\eta)$ the $w_k$ are independent with $(w_k+1)/2\sim\mathrm{Beta}(b_k,b_k)$ (Lewandowski, Kurowicka and Joe 2009); $\log(1-w_k^2)$ in $\pi$ combines the Beta density and the Jacobian $dw/dy=1-w^2$. Random-walk MH with a symmetric proposal leaves $\pi$ invariant; the adaptive proposal covariance is frozen after the burn-in, so the post-burn-in chain is an ordinary MH chain (Haario, Saksman and Tamminen 2001). A Gibbs/MH cycle of kernels each invariant for the joint law is invariant for it.
+\end{proof}
+\noindent\emph{Check C02}: on 4,000 rows from a known 7-dimensional copula with a binary, a 4-level nominal, an ordinal, a date and a 12\%-missing column, 20 of 21 true correlations fall in the 99\% posterior intervals; posterior means are within 0.08; split $\hat R\le1.1$.
+
+\begin{remark}[Dependent missingness]\label{rem:null}
+Because the null is the lowest latent bin of its column, $P(\text{null}_j\mid x_k)$ inherits the dependence of $z_j$ on $z_k$: missingness that is monotone in another column is reproduced (Check C03: $P(\text{cholesterol missing}\mid\text{age quartile})$ within 0.025). Non-monotone missingness needs a separate missingness indicator column, which the spec can add.
+\end{remark}
+
+\begin{remark}[Nominal columns]\label{rem:nominal}
+A Gaussian copula needs an order on nominal levels. Two devices keep dependence:
+(a) levels are ordered by the mean normal score of the most associated other column (largest correlation ratio), which makes the main dependence monotone;
+(b) two low-cardinality categoricals with Cram\'er's $V\ge0.3$ and at most 64 joint levels are modelled as one categorical over their combinations, i.e.\ a Dirichlet--categorical clique as in a Bayesian network (layer~1 item~4). By Proposition~\ref{prop:pit} their joint law is then reproduced exactly.
+\end{remark}
+
+%=====================================================================
+\section{Star schemas}\label{sec:star}
+For a fact $f$ between anchor $e_1$ and partner $e_2$, the count of rows for the pair $(u,v)$ is $c(u,v)\sim\Pois(\eta_{z_uz_v})$ independently.
+
+\begin{proposition}[Identifiability of segments]\label{prop:ident}
+Let $m_l$ be the number of partner rows in segment $l$, and suppose the vectors $r_k=(\eta_{kl}m_l)_{l}$ are pairwise distinct. Then, given the partner partition, the anchor partition is identified up to relabelling from the expected row-statistic profiles $\E[C^{\mathrm{row}}_{u\cdot}]=r_{z_u}$, and the conditional of $z_u$ concentrates on the true segment as the row's total count grows.
+\end{proposition}
+\begin{proof}
+$C^{\mathrm{row}}_{ul}=\sum_{v:z_v=l}c(u,v)\sim\Pois(\eta_{z_ul}m_l)$, independent over $l$. Distinct $r_k$ give distinct laws of $C^{\mathrm{row}}_{u\cdot}$, so the map $k\mapsto$ law is injective and the partition is determined up to a permutation of labels. For the posterior: by layer~1 Proposition~1, $\log p(z_u=k)-\log p(z_u=k')=\sum_l[C^{\mathrm{row}}_{ul}\log(\eta_{kl}/\eta_{k'l})-(\eta_{kl}-\eta_{k'l})m_l]+O(1)$. Its expectation under $z_u=k$ equals $\sum_l m_l\,\mathrm{KL}(\Pois(\eta_{kl})\|\Pois(\eta_{k'l}))>0$ times the exposure, and it grows linearly in $m_l$ while its standard deviation grows as $\sqrt{m_l}$.
+\end{proof}
+\noindent\emph{Check C05}: with caps of 8, the sampler and merge recover 4 customer segments (ARI 0.98) and 3 product segments (ARI 1.0).
+
+\begin{proposition}[Block-rate posterior]\label{prop:eta}
+Given the partitions, $\eta_{kl}\mid\cdot\sim\Ga(a+C^{\mathrm{blk}}_{kl},\ b+n_km_l)$, with mean $\to C^{\mathrm{blk}}_{kl}/(n_km_l)$ and coefficient of variation $(a+C^{\mathrm{blk}}_{kl})^{-1/2}$.
+\end{proposition}
+\begin{proof}
+Gamma--Poisson conjugacy over the $n_km_l$ independent pair counts of the block, whose sum is $C^{\mathrm{blk}}_{kl}$; zero pairs enter through the exposure only.
+\end{proof}
+\noindent\emph{Check C06}: all 12 true block rates lie in their 99\% posterior intervals.
+
+\begin{proposition}[Splitting and degree correction]\label{prop:split}
+(a) Drawing $N\sim\Pois(\eta\,W_1W_2)$ rows for a block and assigning each to $(u,v)$ with probabilities $\omega_u/W_1\cdot\omega'_v/W_2$ ($W_1=\sum\omega_u$, $W_2=\sum\omega'_v$) gives independent $c(u,v)\sim\Pois(\eta\,\omega_u\omega'_v)$.
+(b) If $\omega_u\sim\Ga(\alpha,\alpha)$, the number of rows of an anchor row with expected count $\mu$ is negative binomial with $\E=\mu$ and $\Var=\mu+\mu^2/\alpha$.
+(c) Rescaling the $\omega$ of a segment to sum to the segment size leaves every block's expected total unchanged, so the scale rule (Proposition~\ref{prop:scale}) stays exact.
+\end{proposition}
+\begin{proof}
+(a) Poisson colouring: a Poisson total thinned multinomially gives independent Poisson cells with means $\eta W_1W_2\cdot\omega_u\omega'_v/(W_1W_2)$. (b) $\E[N\mid\omega]=\mu\omega$, so $\E N=\mu$ and $\Var N=\E\Var(N\mid\omega)+\Var\E(N\mid\omega)=\mu+\mu^2/\alpha$. (c) The expected total is $\eta W_1W_2$, and after rescaling $W_1=n_k$, $W_2=m_l$ as without frailty.
+\end{proof}
+The frailty (a degree-corrected block model, Karrer and Newman 2011) is switched on per segment when the dispersion index of per-row totals exceeds 1.5 and the segment has at least 30 rows. \emph{Checks C07} (rows-per-customer distribution within the KS critical value; repeated-pair share equal) \emph{and C16} (variance formula within 2\%).
+
+\begin{proposition}[Scale rule]\label{prop:scale}
+With $\eta^*_{kl}=\eta_{kl}m_l/m^*_l$, the expected number of rows per anchor row is unchanged when any table is resized; resizing the anchor by $s$ multiplies the fact's expected size by $s$.
+\end{proposition}
+\begin{proof}
+Layer~1, Proposition~4: $\sum_l\eta^*_{kl}m^*_l=\sum_l\eta_{kl}m_l$. With $n^*_k=sn_k$, $\E N^*=\sum_{kl}\eta^*_{kl}n^*_km^*_l=s\sum_{kl}\eta_{kl}n_km_l$.
+\end{proof}
+\noindent\emph{Check C08}: products $\times2$ and $\times0.5$ keep rows per customer within 4\%; customers $\times2$ doubles the fact (2.03).
+
+%=====================================================================
+\section{Snowflake chains and joins}\label{sec:snow}
+An edge child$\to$parent is the same Poisson block model with $c(u,v)\in\{0,1\}$. At synthesis each child row picks its parent segment from $\varphi_{kt}\propto\eta_{kt}m_t$, then a parent inside the segment (with frailty weights).
+
+\begin{proposition}[Chained segments compose]\label{prop:chain}
+For a chain fact$\to$product$\to$category$\to$department, the synthetic law of the department segment of a fact row with product segment $l$ is $\sum_t\varphi^{(p\to c)}_{lt}\varphi^{(c\to d)}_{ts}$. If the source satisfies the Markov property ``a row's ancestor two levels up depends on the row only through its parent's segment'', then every joint law of a fact attribute and an ancestor attribute is reproduced in expectation.
+\end{proposition}
+\begin{proof}
+Each synthetic step draws the next segment from $\varphi$ given the current segment only, so the chain of segments is a Markov chain whose transition matrices are the fitted $\varphi$; the two-step law is their product (Chapman--Kolmogorov). Attributes are drawn given their own row's segment. Under the stated Markov property the source has the same factorisation, so the joint law of (fact attribute, ancestor attribute) is $\sum$ over segment paths of the product of the same factors.
+\end{proof}
+
+\paragraph{Fact measures that depend on a parent's value.} Segments carry a parent's attributes only coarsely; a sale amount that follows the product's own price needs more. For every fact, continuous attributes of its parents (at most two per parent) are joined onto the fact rows and enter the fact's copula as conditioning columns $a$. At synthesis the parent is chosen first; its synthetic attribute values give $z_a$, and the fact's own columns are drawn from $z_r\mid z_a\sim\mathcal N(C_{ra}C_{aa}^{-1}z_a,\ C_{rr}-C_{ra}C_{aa}^{-1}C_{ar})$, which is the exact Gaussian conditional, so Proposition~\ref{prop:pit} holds for the pair (fact column, parent column) jointly.
+
+\noindent\emph{Check C09}: segments of department, category and customer are recovered (ARI 1.0, 1.0, 0.997). Three-hop statistics (share of sales by department division, mean amount per division, Spearman correlation of amount with the product's price) fall inside the posterior predictive spread of 20 synthetic databases ($|z|\le3$; the amount--price correlation is 0.909 real vs 0.910 synthetic).
+
+%=====================================================================
+\section{Self-referencing hierarchies}\label{sec:tree}
+A self-reference (employee$\to$manager) is a multi-type Galton--Watson process: a node of type $k$ has $N\sim\Pois(\lambda_k)$ children (with optional Gamma frailty), each of type $l$ with probability $\psi_{kl}$; roots have types $\Cat(\pi^{\mathrm{root}})$. Let $M_{kl}=\lambda_k\psi_{kl}$ be the mean matrix.
+
+\begin{proposition}[Generation sizes, finiteness and expected size]\label{prop:gw}
+Let $r$ be the row vector of expected root counts per type and $Z_n$ the vector of type counts in generation $n$. Then $\E Z_n=rM^n$. If the spectral radius $\rho(M)<1$, every tree is finite almost surely and $\E|T|=r(I-M)^{-1}\mathbf 1$.
+\end{proposition}
+\begin{proof}
+$\E[Z_{n+1}\mid Z_n]=Z_nM$ by linearity over parents, so $\E Z_n=rM^n$ by induction. If $\rho(M)<1$ then $\sum_nM^n=(I-M)^{-1}$ converges, so $\E\sum_n Z_n\mathbf 1=r(I-M)^{-1}\mathbf 1<\infty$, and a non-negative variable with finite mean is finite a.s.
+\end{proof}
+
+\begin{proposition}[Fit and validity]\label{prop:treefit}
+(a) Given the types, the posteriors are $\psi_k\sim\Dir(\tfrac12+B_{k\cdot})$ with $B_{kl}$ the number of type-$k$ parents' type-$l$ children, and $\lambda_k\sim\Ga(a+\sum_{u:z_u=k}N_u,\ b+n_k)$. (b) Nodes at even depth are conditionally independent given nodes at odd depth, so the two-colour blocked Gibbs sweep is valid. (c) Synthesis generates each node once, as the child of an already generated node, so the synthetic hierarchy is a forest: every non-root has exactly one existing parent and there are no cycles. Growth stops at a maximum depth (by default the deepest level of the source, so no node is deeper than any source node; \texttt{trees.max\_depth} overrides it).
+\end{proposition}
+\begin{proof}
+(a) Multinomial--Dirichlet and Poisson--Gamma conjugacy. (b) The type of $u$ appears only in factors with its parent and its children, whose depths have the other parity. (c) By construction of the breadth-first generation.
+\end{proof}
+\noindent\emph{Checks C10, C11}: types recovered (ARI 1.0); $\rho(\hat M)$ within 0.05 of the source tree's realised value and below 1; the formula for $\E|T|$ agrees with 300 simulations within three standard errors; synthetic hierarchies have no cycles and no dangling managers; the depth histogram passes a posterior predictive check against 40 re-simulations ($p\ge0.05$); children-per-node KS 0.016; grade given depth within 0.10.
+
+\begin{remark}
+Near-critical hierarchies ($\rho(M)$ close to 1, as in the test tree: managers managing managers with mean 0.9) have depth profiles that vary a lot between realisations. A fixed tolerance on the depth histogram is then wrong; the posterior predictive check (Gelman, Meng and Stern 1996) is the right test, and is what the evaluator uses.
+\end{remark}
+
+%=====================================================================
+\section{Temporal facts}\label{sec:time}
+Rows carry a time bucket $b$ (day/week/month/quarter/year). Following layer~1's design, $c(u,v,b)\sim\Pois(\eta_{kl}\lambda_{kb}\Delta_b)$ with $\sum_b\lambda_{kb}\Delta_b=\sum_b\Delta_b$.
+
+\begin{proposition}[Seasonality by multinomial thinning]\label{prop:time}
+Given a block total $N_{kl}$, bucket counts are $\Mult(N_{kl};\ \theta_{k\cdot})$ with $\theta_{kb}\propto\lambda_{kb}\Delta_b$; the posterior of the profile is $\theta_k\sim\Dir(\theta_0+n_{k\cdot})$ with $n_{kb}$ the source rows of anchor segment $k$ in bucket $b$. Synthesis that draws a bucket per row from $\theta_k$, then a uniform instant inside the bucket, therefore has the time law of the model.
+\end{proposition}
+\begin{proof}
+Independent Poisson cells conditioned on their sum are multinomial with probabilities proportional to their means; the factor $\eta_{kl}$ cancels. Dirichlet--multinomial conjugacy gives the posterior.
+\end{proof}
+\noindent\emph{Check C12}: two customer segments with opposite seasonality are recovered (ARI 0.995); fitted monthly profiles are within TVD 0.05 of the true ones; the synthetic monthly histogram is within 0.03 overall and 0.04 within each plan.
+
+%=====================================================================
+\section{Text}\label{sec:text}
+Free-text columns use a class-conditional hierarchical Dirichlet back-off $n$-gram model (MacKay and Peto 1995). With $h_n$ the last $n$ tokens, $c$ the value of the conditioning column (or the row's segment) and $p_G$ the add-one global unigram,
+\begin{equation}\label{eq:lm}
+p_c(w\mid h_n)=\frac{n_c(h_n,w)+\beta\,p_c(w\mid h_{n-1})}{n_c(h_n)+\beta},\qquad p_c(w\mid h_0)=\frac{n_c(w)+\beta\,p_G(w)}{n_c+\beta}.
+\end{equation}
+
+\begin{proposition}[Proper predictive]\label{prop:lm}
+For every class and context, $p_c(\cdot\mid h_n)$ is a probability distribution on the vocabulary, and it is the posterior predictive of a Dirichlet prior with mean $p_c(\cdot\mid h_{n-1})$ and concentration $\beta$ on the next-token distribution after $h_n$.
+\end{proposition}
+\begin{proof}
+Induction on $n$: $p_G$ sums to one; if $p_c(\cdot\mid h_{n-1})$ does, the numerator of \eqref{eq:lm} sums to $n_c(h_n)+\beta$. The second statement is Dirichlet--multinomial conjugacy. Contexts never seen use the shorter context, which is the same formula with zero counts.
+\end{proof}
+
+\begin{proposition}[Memorisation guards]\label{prop:guard}
+Let $k$ be \texttt{min\_token\_rows} and $L$ \texttt{max\_copy\_ngram}. (a) Every token in synthetic text occurs in at least $k$ distinct source rows. (b) No synthetic text contains a run of $L$ tokens that occurs in fewer than $k$ source rows, nor equals a source text shared by fewer than $k$ rows. (c) Accepted texts are distributed as the model law conditioned on the guard event.
+\end{proposition}
+\begin{proof}
+(a) Rarer tokens are removed from the vocabulary before counting, so they have probability zero. (b) Candidates that violate the rule are rejected. (c) Rejection sampling: a candidate is accepted with probability $\mathbf 1\{\text{guard}\}$, so accepted draws have density proportional to $p\cdot\mathbf 1\{\text{guard}\}$. After \texttt{max\_retries} failures the cell is left empty rather than emitting a violating text.
+\end{proof}
+Emails and long digit runs are replaced by typed placeholders before training and refilled with fresh values. These guards bound verbatim memorisation; they are not differential privacy. For DP text the layer~1 route (Private Evolution over a foundation model, Xie et al.\ 2024) stays the option, and the same guards apply to its output. \emph{Check C13}: the predictive sums to one within $10^{-9}$ over 125 random contexts; none of the uniquely named tickets' names appears; no rare token or rare 8-gram is copied; a classifier trained on synthetic tickets predicts the real ticket category as well as one trained on real tickets (ratio 1.0).
+
+%=====================================================================
+\section{Business rules and the whole schema}\label{sec:rules}
+Rules come from the spec: \texttt{derive} rules (\texttt{total = quantity * unit\_price - discount}) are computed after sampling; \texttt{check} rules are enforced by redrawing the attributes of violating rows from the same model (same segment and parents).
+
+\begin{proposition}[Rules by rejection]\label{prop:rules}
+If a row's attributes are drawn from $p$ and redrawn until the check $A$ holds, the result has law $p(\cdot\mid A)$, and the expected number of draws is $1/p(A)$. Derived columns satisfy their equation exactly.
+\end{proposition}
+\begin{proof}
+Standard rejection sampling with acceptance indicator $\mathbf 1_A$; the number of draws is geometric with success probability $p(A)$.
+\end{proof}
+\noindent\emph{Checks C14, C15}: on the 9-table enterprise schema (regions, customers, stores, a three-level product hierarchy, a 4-dimension sales fact with dates, tickets with text, and an employee hierarchy) the full scorecard passes, all 9 foreign keys resolve, derived totals are exact and no check rule is violated; on a test distribution the redrawn sample matches the exact truncated law (KS 0.003). \emph{Check C18}: the same seed gives a bit-identical database.
+
+\paragraph{Reference tables.} Small lookup tables (regions, departments) are usually not personal data and their individual rows matter (one region is far bigger than another). A table with \texttt{mode: copy} is kept as is; each of its rows is its own fixed segment, so Proposition~\ref{prop:eta} then models every child's choice of that exact parent, which reproduces each parent's popularity. Introspection proposes this for tables of at most 100 rows whose parents are also copied.
+
+%=====================================================================
+\section{Grain, structural zeros and computed columns (v0.3)}\label{sec:v03}
+The first real-database run (a business model of a supervisory reporting framework: reporters, submissions, templates, cells and reported values) failed in ways the fake scenarios had not exercised: duplicate reports per reporter and date, duplicate values on fixed cells, templates filed partially or twice, values in cells of the wrong framework version, and a stored count that no longer matched the rows it counts. None of these is specific to that model. Each comes from one of four general situations: a table has a \emph{grain} (a unique key made of foreign keys); a combination of parents is \emph{structurally absent} (never allowed) rather than rare; a column is \emph{computed} from other tables; or a key is \emph{partly null}. This section gives the model for each and proves what it guarantees. Scenario S8 (a generic reporting model with known truth: reporters, periods, two framework versions, forms with sheets, items with open rows, omitted and partial filings, an aggregate and a derived status) tests them together.
+
+\subsection{Rules and computed columns}
+Rules are parsed into a restricted syntax tree (no attribute access, no calls outside a fixed list), evaluated column-wise with null semantics. The string functions (\texttt{regex\_replace}, \texttt{regex\_match}, \texttt{substr}, \texttt{concat}, \texttt{upper}, \texttt{lower}, \texttt{strip}, \texttt{length}) require constant patterns.
+
+\begin{proposition}[Three-valued rules agree with the database]\label{prop:k3}
+Logical connectives are evaluated in Kleene's strong three-valued logic, comparisons with a null are unknown, \texttt{where} takes its else branch on unknown, functions of a null are null, and a \texttt{check} fails only when it evaluates to false. These are the semantics of SQL \texttt{AND}, \texttt{OR}, \texttt{NOT}, \texttt{CASE} and \texttt{CHECK}; hence a row accepted by a database \texttt{CHECK} constraint is accepted by the same rule here, and conversely.
+\end{proposition}
+\begin{proof}
+SQL defines \texttt{AND}/\texttt{OR}/\texttt{NOT} by the strong Kleene truth tables (ISO/IEC 9075-2, 8.20) and a \texttt{CHECK} constraint as violated only when its condition is false. The evaluator implements exactly these tables elementwise (unknown is a third value, not false), so both evaluations agree row by row.
+\end{proof}
+\noindent\emph{Check C20}: the three connectives on all nine pairs of truth values, nulls in \texttt{where}, \texttt{between}, \texttt{concat} and \texttt{regex\_replace}, and refusal of non-constant patterns and of calls outside the list.
+
+A column is \emph{computed} when it is a \texttt{lookup} (\texttt{fk.col}, possibly several hops), a \texttt{derive} rule, or an \texttt{aggregate} rule (count, sum, min, max, mean, exists or count of distinct values of the child rows that reference the row, through a plain or a composite key). Computed columns form a directed dependency graph $G$: $c\to c'$ when the rule of $c'$ reads $c$.
+\begin{proposition}[Computed columns are exact]\label{prop:computed}
+(a) If $G$ is acyclic, the fixed-point pass of \texttt{prepare\_source} fills every computed column missing from the source, each with the value of its rule on the final inputs, and reports, for each stored computed column, the share of rows where the stored value differs from its rule. (b) On the synthetic database every computed column is recomputed after the tables it reads are generated (aggregates and the derives that read them last, then lookups and derives of the dependent tables again), so every derive, lookup and aggregate identity holds exactly. If $G$ has a cycle, the columns on it are reported and no value is invented.
+\end{proposition}
+\begin{proof}
+(a) Each pass visits tables in foreign-key order and computes a column once all columns it reads exist; a column at depth $d$ of $G$ is therefore filled by pass $d+1$, and a pass without progress certifies that the remaining columns lie on or above a cycle. Values are computed from the final inputs because inputs are filled before readers. (b) Generation never samples a computed column; the late recomputation runs in topological order of $G$ restricted to synthetic tables, so each value equals its rule applied to the final values it reads.
+\end{proof}
+\noindent\emph{Checks C26, C32}: on S8 the missing \texttt{form\_code} is filled from its rule, 10\% planted mismatches in a stored count are reported as 0.0976 (the planted share), and on the synthetic data the count, the derived status and the form code match their rules on every row.
+
+\subsection{Structural zeros}
+A real schema has combinations that never occur because they are not allowed (a cell of another framework version, a header item missing from a filed form, a null in a mandatory column), mixed with combinations that are merely rare. A Beta or Dirichlet prior gives every combination positive probability, so with enough synthetic rows the forbidden ones appear. A spike-and-slab prior separates the two.
+
+\begin{proposition}[Spike-and-slab Bernoulli]\label{prop:zoib}
+Let $p\sim\tfrac{\pi_s}{2}\delta_0+\tfrac{\pi_s}{2}\delta_1+(1-\pi_s)\,\mathrm{Beta}(a,b)$ and $S\mid p\sim\mathrm{Bin}(T,p)$. The posterior is
+\[
+p\mid S\;\propto\;\tfrac{\pi_s}{2}[S=0]\,\delta_0+\tfrac{\pi_s}{2}[S=T]\,\delta_1+(1-\pi_s)\tfrac{B(a+S,\,b+T-S)}{B(a,b)}\,\mathrm{Beta}(a+S,\,b+T-S),
+\]
+with mean $w_1+w_2\,\frac{a+S}{a+b+T}$ for the normalised weights $w_0,w_1,w_2$. The same holds for a null rate (\texttt{\_null\_rate}) and for each occupancy probability (\texttt{zoib\_draw}).
+\end{proposition}
+\begin{proof}
+Bayes' rule with a mixture prior: each component's posterior weight is its prior weight times its marginal likelihood; the binomial coefficient is common to all three and cancels; the point masses have likelihood $[S=0]$ and $[S=T]$, the slab $B(a+S,b+T-S)/B(a,b)$.
+\end{proof}
+
+When the rows $k$ of a group $g$ (the segments of one stratum, e.g.\ the submissions of one framework version) share the structure, the evidence must be pooled: each row alone may have seen a combination only a few times.
+\begin{proposition}[Grouped structural support]\label{prop:grouped}
+Let $G_{gl}\in\{\text{all zero},\text{all one},\text{free}\}$ with prior $(\tfrac{\pi_s}{2},\tfrac{\pi_s}{2},1-\pi_s)$, $p_{kl}=0$ (resp.\ 1) for all $k\in g$ if $G_{gl}$ is all zero (all one), and $p_{kl}$ independent with the prior of Proposition~\ref{prop:zoib} if free. Then $P(G_{gl}\mid S)\propto\big(\tfrac{\pi_s}{2}\prod_{k}[S_{kl}=0],\ \tfrac{\pi_s}{2}\prod_k[S_{kl}=T_{kl}],\ (1-\pi_s)\prod_k m_{kl}\big)$ with $m_{kl}$ the per-row marginal of Proposition~\ref{prop:zoib}, and given ``free'' the $p_{kl}$ follow their per-row posteriors. \texttt{grouped\_zoib\_draw} samples this posterior exactly. In particular, a combination never observed in a group is absent from every row of the group with posterior probability tending to 1 as the number of rows with exposure ($T_{kl}\ge1$) grows, even when every $T_{kl}$ stays bounded.
+\end{proposition}
+\begin{proof}
+The likelihood factorises over $k$ given $G_{gl}$; under the two pooled states it is the product of indicators, under ``free'' the product of per-row marginals because the $p_{kl}$ are independent. Given ``free'', the posterior of $(p_{kl})_k$ factorises, which is what the per-row draw returns. For the limit: if all $S_{kl}=0$ and $T_{kl}\ge1$, then $m_{kl}=\tfrac{\pi_s}{2}+(1-\pi_s)B(a,b+T_{kl})/B(a,b)\le\tfrac{\pi_s}{2}+(1-\pi_s)\tfrac{b}{a+b}<1$, because $B(a,b+T)/B(a,b)$ decreases in $T$ and equals $b/(a+b)$ at $T=1$. So $\prod_km_{kl}\to0$ geometrically while the ``all zero'' weight $\pi_s/2$ is constant. A group without exposure gets its prior back ($m_{kl}=1$, both indicators hold).
+\end{proof}
+\noindent This is used for the occupancy probabilities $p_{kl}$ and for the anchor activity $\pi$ (which parents have any rows) with the strata as groups.
+
+\begin{proposition}[Sparse Dirichlet, exact inclusion]\label{prop:sparsedir}
+Let each level $j$ be structurally absent with prior probability $\pi_s$ independently, $p_J\sim\Dir(\alpha_J)$ on the included set $J$, and counts $c\sim\Mult(n,p)$. Observed levels are included; for the set $Z$ of unobserved levels, with $\rho=(1-\pi_s)/\pi_s$, $A_o=\sum_{c_j>0}\alpha_j$,
+\[
+P(J\cap Z=I\mid c)\;\propto\;\rho^{|I|}\,\frac{\Gamma(A_o+\alpha_I)}{\Gamma(A_o+\alpha_I+n)},\qquad \alpha_I=\textstyle\sum_{j\in I}\alpha_j,
+\]
+and with an auxiliary $u\in(0,1)$ of density $\propto u^{A_o-1}(1-u)^{n-1}\prod_{j\in Z}(1+\rho u^{\alpha_j})$, the indicators $[j\in J]$ are independent given $u$ with probabilities $\rho u^{\alpha_j}/(1+\rho u^{\alpha_j})$. \texttt{sparse\_dirichlet\_draw} samples $u$ by inverse cdf on a grid of $\operatorname{logit}u$, then $J$, then $p_J\sim\Dir(c_J+\alpha_J)$.
+\end{proposition}
+\begin{proof}
+The Dirichlet-multinomial likelihood is $\frac{n!}{\prod c_j!}\frac{\Gamma(A_J)}{\Gamma(A_J+n)}\prod_{j\in J}\frac{\Gamma(\alpha_j+c_j)}{\Gamma(\alpha_j)}$; unobserved levels contribute factor 1 to the product, giving the display. Since $\Gamma(x)/\Gamma(x+n)=B(x,n)/\Gamma(n)=\Gamma(n)^{-1}\int_0^1u^{x-1}(1-u)^{n-1}du$, the joint of $(u,I)$ is $\propto u^{A_o-1}(1-u)^{n-1}\prod_{j\in I}\rho u^{\alpha_j}$, whose $I$-marginal is the display and whose conditional factorises over $j$. Given $J$, conjugacy gives the Dirichlet.
+\end{proof}
+\noindent The earlier one-level-at-a-time Bayes factor is exact only when one level is unobserved; with five unobserved levels it under-stated absence by up to 0.07 (rejection reference), which is why it was replaced. \emph{Check C21}: zoib, grouped zoib, sparse Dirichlet (one and five unobserved levels) and null rates agree with exact posteriors obtained by rejection sampling from the generative model (all within Monte Carlo error, e.g.\ 0.857 vs 0.857, 3.242 vs 3.228 absent levels).
+
+\subsection{Partial pooling}
+\begin{proposition}[Empirical-Bayes Beta slab]\label{prop:ebbeta}
+For row $k$ of a block matrix of presence counts, on its supported entries ($S_{kl}>0$) let $m=\sum S/\sum T$ and $\hat\tau^2=\widehat{\Var}(S_l/T_l)-\overline{m(1-m)/T_l}$. If $p_{kl}\sim\mathrm{Beta}(cm,c(1-m))$ with $S_{kl}\sim\mathrm{Bin}(T_{kl},p_{kl})$, then $\hat c=m(1-m)/\hat\tau^2-1$ is the moment estimator of $c$ (Kleinman 1973): as the number of entries grows it converges to $c$ up to a relative error $O(1/\bar T)$. The slab $\mathrm{Beta}(\hat cm,\hat c(1-m))$, bounded to $\hat c\in[1,10^4]$, shrinks entries whose rates differ only by binomial noise towards $m$ and leaves real differences.
+\end{proposition}
+\begin{proof}
+$\E[S/T]=m$ and $\Var(S/T)=\E\Var(S/T\mid p)+\Var(p)=\E[p(1-p)]/T+\Var(p)$ with $\Var(p)=m(1-m)/(c+1)$ and $\E p(1-p)=m(1-m)-\Var p$. Hence $\Var(S/T)-m(1-m)/T=\Var(p)\,(1-1/T)$, so $\hat\tau^2\to\Var(p)(1+O(1/\bar T))$ by the law of large numbers, and $c=m(1-m)/\Var(p)-1$ gives the limit of $\hat c$ by continuity. The bounds keep the prior proper and stop $\hat\tau^2\le0$ (no excess variance) from producing an infinite $c$.
+\end{proof}
+
+\begin{proposition}[Multiplicities: spike-and-slab Poisson]\label{prop:mult}
+Excess rows $X_g$ over $E_g$ present pairs of a group $g$ (partner, anchor or block) have prior $\lambda_g\sim\pi_s\delta_0+(1-\pi_s)\Ga(a_m,b_m)$ and $X_g\mid\lambda_g\sim\Pois(\lambda_gE_g)$. The collapsed marginal is $\pi_s[X_g=0]+(1-\pi_s)\frac{b_m^{a_m}\Gamma(a_m+X_g)}{\Gamma(a_m)(b_m+E_g)^{a_m+X_g}}$ per group (up to a factor common to all groupings), the grouping with the highest product of these over its groups is chosen, and $b_m$ is set so that the slab mean $a_m/b_m$ equals $\sum_{X_g>0}X_g/\sum_{X_g>0}E_g$: the groups with $X_g>0$ are certainly in the slab, so pooling the spikes into the mean would dilute it.
+\end{proposition}
+\begin{proof}
+Each present pair $i$ of group $g$ has $x_i\sim\Pois(\lambda_g)$, so the likelihood is $\lambda_g^{X_g}e^{-\lambda_gE_g}/\prod_ix_i!$; Poisson-Gamma conjugacy gives the slab marginal shown and the mixture follows as in Proposition~\ref{prop:zoib}. The factor $\prod_i1/x_i!$ is the same for every grouping of the same pairs, so comparing groupings is a Bayes-factor comparison. Groups with $X_g>0$ have zero spike likelihood, so they belong to the slab; selecting on $X_g>0$ raises the estimate by at most the factor $1/(1-(b_m/(b_m+E_g))^{a_m})$, which is close to 1 for the exposures used.
+\end{proof}
+\noindent\emph{Checks C22, C28}: the concentration is recovered (median 20.5 for true 20), shrinkage lowers the error of $p$ by 27\%, homogeneous rates pool almost fully; S8 open rows repeat 4.10 times on average (truth 4) and the partner grouping is selected.
+
+\subsection{Grain}
+\begin{proposition}[Repeat test]\label{prop:repeat}
+Under the degree-corrected Poisson model with $\lambda_{ij}=r_is_j/N$ (plug-in row and column totals), the number of pairs with two or more rows is a sum of independent Bernoulli variables with probabilities $q_{ij}=1-e^{-\lambda_{ij}}(1+\lambda_{ij})$, so $z=(\text{obs}-\sum q)/\sqrt{\sum q(1-q)}$ is asymptotically standard normal (Lyapunov). Under an occupancy model with a unique key, obs $=0$. The engine selects occupancy when $z<-4$ and $\sum q\ge10$, or when a unique key on the pair is declared.
+\end{proposition}
+\begin{proof}
+Counts of distinct pairs are independent Poisson variables; $P(\text{count}\ge2)=q_{ij}$; the variances are bounded and their sum diverges with the number of pairs, which is Lyapunov's condition.
+\end{proof}
+\begin{remark}
+A block structure on top of the degree correction concentrates the rates, and $q(\lambda)\approx\lambda^2/2$ is convex, so it tends to raise the expected repeats: the rank-one reference is the conservative choice. On S8 the filing and value tables give $z=-29$ and $z=-61$; the S2 sales fact keeps the Poisson model (check C24).
+\end{remark}
+
+\begin{proposition}[Grain entities]\label{prop:grainent}
+Let an entity table $R$ have a unique key $(a,b)$ of two foreign keys to $A$ and $B$. The model: pair $(a,b)$ is present with probability $p_{z_az_b}$ (occupancy, priors of Propositions~\ref{prop:grouped} and \ref{prop:ebbeta}), and the row's own segment is drawn from $P(z\mid z_a,z_b)\propto\pi_z\,\phi^A_{z z_a}\phi^B_{z z_b}$. Then (a) $R^*$ has no duplicate key; (b) the expected number of rows is $\sum_{a,b}p_{z_az_b}$, which scales with $s_A s_B$ when $A,B$ are scaled by $s_A,s_B$ (a copied $B$ has $s_B=1$); (c) the segment draw is the exact conditional of a latent class model in which $z_a$ and $z_b$ are independent given $z$.
+\end{proposition}
+\begin{proof}
+(a) Each pair is generated at most once. (b) Linearity of expectation over the $n_An_B$ pairs, whose segment frequencies are preserved by scaling (Proposition~\ref{prop:scale}). (c) Bayes' rule with prior $\pi$ and the two conditionally independent likelihood factors.
+\end{proof}
+\noindent\emph{Checks C26, C29}: no duplicate report at scale 1 or 2; reports per reporter 7.675 (real 7.650) at scale 2 with the periods copied.
+
+\begin{proposition}[Unique keys: de-duplication is exact conditioning]\label{prop:unique}
+Let a pair be present with probability $p$ and, when present, carry $M=1+N$ rows with exchangeable attributes. Keeping the first row of each pair gives (a) presence exactly $\mathrm{Bern}(p)$, (b) kept attributes with exactly the law of one row. For a filtered key (\texttt{unique: \{columns, where\}}) the same holds on the rows that satisfy the filter, which the occupancy model generates with multiplicity one; rows outside the filter (open rows) keep their multiplicity.
+\end{proposition}
+\begin{proof}
+(a) $\{M\ge1\}=\{\text{present}\}$. (b) By exchangeability the first row has the marginal law of any row and does not depend on $N$.
+\end{proof}
+\noindent\emph{Checks C23, C28}: presence 0.3522 for $p=0.35$ (within 3 s.d.) and KS 0.005 for the kept rows; on S8 no closed item is ever duplicated while open rows keep their multiplicity.
+
+\begin{proposition}[Strata]\label{prop:strata}
+Let every segment of an entity belong to exactly one level of a stratum key (e.g.\ the framework version of a submission). (a) Setting the key from the segment makes every synthetic (segment, level) pair one that occurs in the real data. (b) With the strata as groups in Proposition~\ref{prop:grouped}, a partner never seen with a level is absent from that level with posterior probability tending to 1 as the level's exposed segments grow; for grain entities the segment draw is also restricted to segments compatible with both parents' levels, which is exact.
+\end{proposition}
+\begin{proof}
+(a) The key is a function of the segment. (b) Proposition~\ref{prop:grouped}; the restriction of the segment draw puts zero probability outside the compatible set.
+\end{proof}
+\noindent\emph{Check C26}: the item$\to$version link of S8 is never declared, yet every synthetic value uses an item of its report's version (share 1.0).
+
+\begin{proposition}[Nullable extra keys]\label{prop:nullfk}
+Let a fact row have anchor and partner keys and further keys that may be null. If rows with a null extra key are dropped before fitting, the fitted occupancy targets $P(\text{present},\ \text{key}\ne\text{null}\mid\text{block})$ instead of $P(\text{present}\mid\text{block})$, a bias by the factor $P(\text{key}\ne\text{null}\mid\text{block})$ that varies across blocks. Treating null as one more level of the extra key's distribution, $P(\text{segment or null}\mid\text{block})$ with the prior of Proposition~\ref{prop:sparsedir}, removes it.
+\end{proposition}
+\begin{proof}
+$P(\text{present},\text{key}\ne\text{null})=P(\text{present})P(\text{key}\ne\text{null}\mid\text{present, block})$. With null as a level the likelihood of each row factorises into the pair term and the extra-key term on all rows, so both are fitted on the full data.
+\end{proof}
+\noindent S8 found this: 84\% of its values have no code, the earlier fit kept only coded values and generated 5{,}027 rows instead of 31{,}817. With the fix, 31{,}622 (check C26).
+
+\begin{proposition}[Nested refinement]\label{prop:nested}
+When a fact is nested in a parent fact (values inside a filing, through a composite key), the parent-fact rows inherit their block from the parent model and are refined into sub-segments inside each block with the hierarchical prior $p_{k'l}\sim\mathrm{Beta}(c\mu_{kl},c(1-\mu_{kl}))$, $c=2$, centred on the block's rate $\mu_{kl}$. The collapsed score of a partition is a sum of per-segment Beta-binomial terms, so a merge of two sub-segments changes only their terms and merges in different blocks are independent.
+\end{proposition}
+\begin{proof}
+Given the block, sub-segments have independent rates under the prior; integrating them out gives a product over sub-segments and partner segments of $B(c\mu+S,c(1-\mu)+T-S)/B(c\mu,c(1-\mu))$.
+\end{proof}
+\noindent Without the centring, unrelated cells penalised every split and each block collapsed to one segment; with it, partial and complete filings are separated. \emph{Check C27}: declared-not-filed and partial filings match within sampling error.
+
+\subsection{Dependence and posterior predictive draws}
+\begin{proposition}[Rank likelihood with parameter expansion]\label{prop:rank}
+Let $\mathcal D(Y)=\{Z:z_{ij}<z_{i'j}\text{ whenever }y_{ij}<y_{i'j}\}$. (a) $P(Z\in\mathcal D(Y)\mid C)$ depends on $Y$ only through the within-column ranks, so the posterior of $C$ is invariant to increasing transformations of any column. (b) $\mathcal D$ is invariant to positive rescaling of columns, so with $\Sigma=DCD$ ($D$ diagonal) and $\Sigma\sim\mathrm{IW}(p+1,I)$ (uniform marginal priors on every correlation, Barnard, McCulloch and Meng 2000) the Gibbs sampler $Z\mid\Sigma$ (truncated normals within the rank bounds), $\Sigma\mid Z\sim\mathrm{IW}(p+1+n,I+Z^\top Z)$ has the posterior of $C$ as the law of $D^{-1}\Sigma D^{-1}$ (Hoff 2007). (c) Extending the chain in blocks until split $\hat R\le1.1$ and discarding the first half of the post-burn-in draws keeps every draw a state of the same chain.
+\end{proposition}
+\begin{proof}
+(a) $\mathcal D(Y)$ is defined by order relations only. (b) $P(Z\in\mathcal D\mid\Sigma)=P(D^{-1}Z\in\mathcal D\mid C)$ because $D^{-1}Z\sim\mathcal N(0,C)$ and $D^{-1}\mathcal D=\mathcal D$; the IW update is conjugate for $Z$ given $\Sigma$. (c) Run-length control does not change the transition kernel; stopping by a diagnostic can bias finite runs (Cowles, Roberts and Rosenthal 1999), which the half-discard and the R2 drift check bound in practice.
+\end{proof}
+\noindent The implementation starts from the normal scores of the bins' mid-ranks, so the whole chain is a function of the bin order: \emph{check C25} finds the draws bit-identical after a strictly increasing transform of every column, error 0.034 against the true correlations, $\hat R=1.00$; on the real submissions table $\hat R$ fell from 1.58 to below 1.1.
+
+\begin{proposition}[Rare columns kept independent]\label{prop:rare}
+Let column $X$ take a value other than its mode with probability $q$. For any $Y$, $\mathrm{TV}(P_{XY},P_X\otimes P_Y)\le q(2-q)\le2q$. Hence sampling $X$ independently of the other columns (given the segment) when fewer than $m$ rows are non-modal ($\hat q<m/n$, default $m=5$) changes every joint law involving $X$ by at most $2m/n$ in total variation, while the copula correlations of such a column are not identified by the data.
+\end{proposition}
+\begin{proof}
+$\mathrm{TV}=\frac12\sum_xP(x)\|P_{Y\mid x}-P_Y\|_1$. For the mode $x_0$, $P_{Y\mid x_0}-P_Y=\sum_{x\ne x_0}P(x)(P_{Y\mid x_0}-P_{Y\mid x})$ has norm at most $2q$; for the other values the norm is at most 2. So $\mathrm{TV}\le\frac12[(1-q)2q+2q]=q(2-q)$.
+\end{proof}
+\noindent\emph{Check C34}: the resubmission flag of S8 (3 rows) is sampled independently; $\hat R=0.99$.
+
+\begin{proposition}[Posterior predictive draws]\label{prop:ppc}
+Given the fitted partitions, \texttt{redraw()} draws all structural parameters (segment weights, block, occupancy and activity probabilities, multiplicity rates) from their conditional posteriors; sampling after each redraw gives draws from the posterior predictive distribution of table sizes and link counts conditional on the partitions. Posterior predictive $p$-values are conservative (concentrated near $\tfrac12$ under the model), so extreme values signal misfit (Gelman, Meng and Stern 1996).
+\end{proposition}
+\begin{proof}
+Composition: $\theta\sim p(\theta\mid\text{data},z)$ then $D^*\sim p(D\mid\theta,z)$ gives $D^*\sim p(D\mid\text{data},z)$.
+\end{proof}
+\noindent\emph{Check C33}: over 20 redraws of S8 the number of values has s.d.\ 498 and $p$-values 0.35 and 0.55 for values and reports.
+
+\subsection{Privacy on coarse tables}
+\begin{proposition}[Distances with an atom at zero]\label{prop:dcr}
+When the real rows duplicate each other (a coarse table: a few low-cardinality columns), the leave-one-out distance distribution is $a_r\delta_0+(1-a_r)G_r$ with $a_r>0.05$, its 5th percentile is 0 and the ratio of 5th percentiles is undefined. Writing the synthetic distances as $a_s\delta_0+(1-a_s)G_s$, the pair of tests (i) exact-match rate $a_s\le\max(0.01,2a_r)$ and (ii) 5th-percentile ratio of $G_s$ to $G_r$ at least 0.5 compares both parts of the mixture and reduces to the original test when $a_r$ is small.
+\end{proposition}
+\begin{proof}
+A mixture law is determined by its weight and its components; each test compares one of them. For $a_r<0.05$ the 5th percentile is attained in $G_r$ and the original ratio applies.
+\end{proof}
+\noindent The earlier code compared synthetic distances including the atom with the real positive part only, and so failed every coarse table (S8 reports: ratio 0 although the exact-match rate was within its limit).
+
+\subsection{Defaults}
+$\pi_s=0.9$ for occupancy, activity, null-rate and category-level priors, i.e.\ a combination that is absent from the data is a priori more likely to be forbidden than rare (\texttt{structure.structural\_prior}). Copula mode \texttt{rank} with chain extension up to 600 iterations, $\hat R$ target 1.1. Rare columns: $m=5$. Grain inference in \texttt{introspect}: a pair of foreign keys without duplicates where the chance-expected number of repeats $n(n-1)/(2\cdot\text{space})$ is at least 10.
+
+\input{sec_v04.tex}
+\input{sec_v05.tex}
+\input{sec_v06.tex}
+\input{sec_v07.tex}
+\input{sec_v08.tex}
+\input{sec_v09.tex}
+\input{sec_v10.tex}
+
+%=====================================================================
+\section{Evaluation thresholds}\label{sec:thresholds}
+A synthetic sample of size $m$ drawn from a model fitted on $n$ real rows deviates from the real sample by the real sample's own noise plus the fit's noise plus the synthetic sampling noise, so the effective size for two-sample tests is $n_\text{eff}=(2/n+1/m)^{-1}$. The scorecard uses: the two-sample KS critical value $\sqrt{-\tfrac12\log(\alpha/2)}\,n_\text{eff}^{-1/2}$ at $\alpha=1\%$ (at least 0.08); for categorical columns $2.5$ times the expected TVD, $\tfrac12\sum_l\sqrt{2p_l(1-p_l)/(\pi n_\text{eff})}$ (at least 0.08); for association differences $2.5\,n_\text{eff}^{-1/2}$ (at least 0.15); for joins, the size of the ancestor table rather than the number of joined rows, since a join repeats each ancestor row. Without this, a table of 12 departments fails on noise alone, as the first runs showed. Since v0.3, rows whose level occurs in fewer than \texttt{suppress\_small\_counts} rows are left out of association pairs (a single record's coincidence is not a dependence the model should copy, and copying it would be a disclosure), the correlation ratio between a categorical and a numeric column is computed on ranks, and rows per partner are compared after rescaling by the realised size of the grand anchor (tree and grain tables have random sizes). Grain metrics report the duplicate rate of each unique key, the share of repeated pairs, and the share of synthetic rows whose combination of two reference keys never occurs in the real data where the real data covers its combinations densely. Since v0.4 every limit is at least the sampling limit of the quantity it tests: null-rate differences use $2.5\sqrt{p(1-p)/n_\text{eff}}$; an association pair uses the rows that carry information on it (non-null rows, and for a categorical the rows away from its mode: a flag set on 5 rows has 5 such rows, however long the table); joined columns use Kish's effective size $(\sum w)^2/\sum w^2$ of the ancestor rows weighted by how many fact rows each carries; tree fan-out and attribute-by-depth use the KS and TVD limits at the tree's size. Check C41 measures the false-alarm rate of the null-rate and association limits on independent samples from one law (0 of 400 at $n=59$).
+
+%=====================================================================
+\section{Checks without ground truth (real data)}\label{sec:real}
+On real data the segments and parameters are unknown, so recovery checks are replaced by checks that need none. \texttt{local/replicate\_checks.py} runs them where the data lives and writes only aggregates:
+\begin{description}
+\item[R1] the scorecard of Section~\ref{sec:thresholds} (marginals, dependence, discriminator AUC, joins, cardinalities, trees, time, text, privacy, rules);
+\item[R2] copula convergence: split $\hat R$ of every correlation and of $\log\det C$, and the largest change of a correlation between chain halves (and the Metropolis acceptance in \texttt{bayes} mode);
+\item[R3] posterior predictive checks (Proposition~\ref{prop:ppc}, a parameter redraw before each copy): for rows per parent, share of parents without rows, dispersion, tree depth and leaves, busiest-month share and fact means, the real value must lie within $3$ standard deviations of $D$ synthetic copies (or within 3\%);
+\item[R4] the scale rule (Proposition~\ref{prop:scale}) on the user's own schema;
+\item[R5] structural validity: FK integrity and acyclic hierarchies;
+\item[R6] stability: agreement (ARI) of segmentations from two seeds, the real-data stand-in for recovery;
+\item[R7] reproducibility.
+\end{description}
+\paragraph{Privacy.} For entity tables with at least 3 modelled columns and 50 rows: exact-copy rate (at most $\max(1\%,\,2\times$ the real table's own duplicate rate$)$) and the distance-to-closest-record ratio, the 5th percentile of synthetic-to-real distances over the 5th percentile of real-to-real leave-one-out distances, in rank-normal and one-hot space (at least 0.5; on coarse tables split as in Proposition~\ref{prop:dcr}). Direct identifiers never pass through the model (\texttt{pii} columns are regenerated from formats). \emph{Check C04}: no copies, ratio 0.98, no shared emails.
+
+\paragraph{Rehearsal.} \texttt{local/make\_sqlite\_demo.py} loads the enterprise scenario into SQLite with declared keys; introspection then drafts the spec from the catalog alone (Section~\ref{sec:doctor}).
+
+%=====================================================================
+\section{Diagnostics loop}\label{sec:doctor}
+The bundle holds the spec (credentials masked), a column profile without values or level names, the model summary, the scorecard, the replication checks and any error traceback. \texttt{relsynth doctor} applies rules D01--D22 and R2--R6, each mapping a failed metric plus profile evidence to a cause and a spec patch (for example: a categorical column that is 95\% e-mail addresses $\to$ \texttt{pii}; all segments occupied and checks on that table failing $\to$ double the cap; rare text copied $\to$ raise $k$, shorten $L$; rows per parent too dispersed and a small parent table $\to$ frailty or copy mode). Version 0.3 adds: rows per parent \emph{less} dispersed than Poisson $\to$ a grain, with the unique key proposed from the profile's key candidates (D03, D21); a broken unique key (D18); repeated pairs (D19); combinations of reference keys the real data never has (D20, stratify); a stored computed column that disagrees with its rule (D22); and slow copula mixing $\to$ rank mode, longer chains, then a higher rare-column threshold (D07). Reference tables in copy mode are exempt from the leak rules. Issues whose cause is in the code (failed steps, broken foreign keys) are marked \emph{engine} and come back to the project with their traceback. \texttt{relsynth tune} loops run $\to$ doctor $\to$ apply.
+
+\noindent\emph{Check C19}: four planted spec errors in the enterprise schema (email declared categorical, segment cap 1, text guards off, hierarchy depth capped at 3) are all identified from the bundle alone; tuning removes all four and raises the scorecard from 117/129 to 122/122 within three rounds.
+
+%=====================================================================
+\section{Changes to layer 1 found while building and testing}\label{sec:changes}
+\begin{enumerate}
+\item \textbf{Measures conditional on parents.} Segment-level means (layer~1's $m_{kl}$) lose the link between a sale amount and the product's own price; parent attributes are now conditioning columns of the fact copula (Section~\ref{sec:snow}).
+\item \textbf{Degree correction.} Pure Poisson blocks under-disperse rows per parent; Gamma frailties, rescaled within segments (Proposition~\ref{prop:split}(c)), fix this without breaking the scale rule. Estimating a frailty needs $\ge30$ rows in the segment: an estimate from 6 executives once killed most synthetic hierarchies.
+\item \textbf{Segment marginals} use a Dirichlet-process posterior instead of falling back to the table marginal below a row threshold, and a weak prior ($a=0.25$): with $a=2$, 7\% of synthetic rows in a 6-row segment took the wrong level.
+\item \textbf{Small tables} draw segment labels by largest-remainder allocation of $n^*\pi$ rather than multinomially, and reference tables can be copied.
+\item \textbf{Strongly dependent categoricals} are modelled jointly (Remark~\ref{rem:nominal}); nominal levels are ordered by their most associated column.
+\item \textbf{Columns constant within a segment} are excluded from that segment's copula, whose correlations they cannot inform.
+\item \textbf{Trees} use posterior predictive checks and a depth limit from the data.
+\item \textbf{Text guards} count rows, not occurrences, so common phrases are allowed and rare details are not.
+\item \textbf{(v0.3) Grain.} A unique key of two foreign keys makes a table an occupancy model of its parents' product, not a Poisson count (Propositions~\ref{prop:repeat}--\ref{prop:unique}).
+\item \textbf{(v0.3) Structural zeros} in every prior that gives a combination positive mass: occupancy, activity, null rates, category levels and extra keys (Propositions~\ref{prop:zoib}--\ref{prop:sparsedir}), pooled within strata.
+\item \textbf{(v0.3) Computed columns} are computed, never sampled, on both sides (Proposition~\ref{prop:computed}).
+\item \textbf{(v0.3) Nullable keys} are a level, not a reason to drop the row (Proposition~\ref{prop:nullfk}).
+\item \textbf{(v0.3) Copula}: the rank likelihood with parameter expansion replaces Metropolis on vine partial correlations as the default, with chain extension by $\hat R$, and rare columns are kept out (Propositions~\ref{prop:rank}, \ref{prop:rare}).
+\item \textbf{(v0.4) Rows per parent} are chosen between Poisson/NB and a DP by Bayes factor, for facts and for links between entities, and DP counts of entity links are drawn given the segment totals (Propositions~\ref{prop:countbf}, \ref{prop:condcounts}); parents that always have children use $1+$Poisson (Proposition~\ref{prop:mandatory}).
+\item \textbf{(v0.4) Categorical hierarchies} are joint categoricals over their observed combinations (Proposition~\ref{prop:fd}).
+\item \textbf{(v0.4) Tiny tables} are stratified by an own column and generated with their stratum counts; hierarchies are conditioned on their size (Propositions~\ref{prop:attrstrata}, \ref{prop:treesize}).
+\item \textbf{(v0.4) Values}: few-valued numbers are categoricals on their values, tail levels never leak a placeholder, aggregates keep the stored precision (Proposition~\ref{prop:tail}).
+\end{enumerate}
+
+%=====================================================================
+\section{Limitations and open items}\label{sec:limits}
+\begin{itemize}
+\item \textbf{Copula mixing} is solved by the parameter-expanded rank sampler (Proposition~\ref{prop:rank}); \texttt{bayes} mode (vine Metropolis) remains available and still mixes slowly for near-deterministic pairs.
+\item \textbf{Structure the data cannot show.} A rule that holds in every real row but is not declared (e.g.\ ``a filed form always has its header items'') is reproduced statistically, not exactly (S8: 99.8\%). Declaring it as a check rule makes it exact (Proposition~\ref{prop:rules}).
+\item \textbf{Within-segment dependence is Gaussian.} Non-monotone relations inside a segment are captured only through more segments. ClavaDDPM and TabDDPM remain the baselines to compare against on real data (layer~1 item~9).
+\item \textbf{Text is $n$-gram based}: fluent for templated enterprise text (tickets, notes), weak for long free prose. The foundation-model route needs a model endpoint inside the data perimeter.
+\item \textbf{The prototype is in memory.} Layer~1's in-database statistics (GROUP BY pushdown, sketches) are the layer~3 path to $10^8$-row facts; every quantity the model uses is already an aggregate of that form.
+\item \textbf{Formal DP} (layer~1 Algorithm~6) is not wired into this prototype; the privacy checks here are empirical.
+\item \textbf{Four real databases so far} (the reporting model, Chinook, AdventureWorks DW, Contoso V2). Their generic lessons are built in and tested on S8--S11 and C57--C68; other real schemas will test other situations.
+\item \textbf{Unknown members on facts} are restored under a missing-at-random assumption (Proposition~\ref{prop:unknown}); when unknown references depend on other columns the member should be modelled as an ordinary row.
+\item \textbf{The frailty shape} is an empirical-Bayes (moment) estimate, not a posterior draw; the participation hurdle (Proposition~\ref{prop:hurdle}) corrects the zero share it can miss.
+\item \textbf{Stated column distributions} are drawn independently of the other columns.
+\item \textbf{Hierarchies of a handful of rows} (8 employees) are learned from one example of each relation. Even with strata and size conditioning, about one draw in five places a manager under the wrong person; the reproducible fix is to declare the hierarchy as reference data if it is not confidential.
+\item \textbf{Regularities the source generator imposed} (each track bought at most twice, cells spread evenly over submissions) are under-dispersion on the partner side; the engine models counts per anchor, not per partner, and reports these.
+\end{itemize}
+
+%=====================================================================
+\section{Results}\label{sec:results}
+\input{results_table.tex}
+
+\begin{thebibliography}{99}\small
+\bibitem{ferguson} T.~Ferguson (1973). A Bayesian analysis of some nonparametric problems. \emph{Ann.\ Statist.} 1.
+\bibitem{rubin} D.~Rubin (1981). The Bayesian bootstrap. \emph{Ann.\ Statist.} 9.
+\bibitem{lkj} D.~Lewandowski, D.~Kurowicka, H.~Joe (2009). Generating random correlation matrices based on vines and extended onion method. \emph{J.\ Multivar.\ Anal.} 100.
+\bibitem{hoff} P.~Hoff (2007). Extending the rank likelihood for semiparametric copula estimation. \emph{Ann.\ Appl.\ Stat.} 1.
+\bibitem{agg} R.~Arratia, L.~Goldstein, L.~Gordon (1990). Poisson approximation and the Chen--Stein method. \emph{Statist.\ Sci.} 5.
+\bibitem{fk} D.~Feldman, D.~Kowal (2025). Bayesian Gaussian copula with auxiliary marginal quantiles. \emph{Bayesian Analysis}.
+\bibitem{haario} H.~Haario, E.~Saksman, J.~Tamminen (2001). An adaptive Metropolis algorithm. \emph{Bernoulli} 7.
+\bibitem{kemp} C.~Kemp et al.\ (2006). Learning systems of concepts with an infinite relational model. \emph{AAAI}.
+\bibitem{kn} B.~Karrer, M.~Newman (2011). Stochastic blockmodels and community structure in networks. \emph{Phys.\ Rev.\ E} 83.
+\bibitem{athreya} K.~Athreya, P.~Ney (1972). \emph{Branching Processes}. Springer.
+\bibitem{gms} A.~Gelman, X.-L.~Meng, H.~Stern (1996). Posterior predictive assessment of model fitness via realized discrepancies. \emph{Statistica Sinica} 6.
+\bibitem{mp} D.~MacKay, L.~Peto (1995). A hierarchical Dirichlet language model. \emph{Natural Language Engineering} 1.
+\bibitem{xie} C.~Xie et al.\ (2024). Differentially private synthetic data via foundation model APIs 2: text. \emph{ICML}.
+\bibitem{liuwu} J.~Liu, Y.~Wu (1999). Parameter expansion for data augmentation. \emph{JASA} 94.
+\bibitem{snoke} J.~Snoke et al.\ (2018). General and specific utility measures for synthetic data. \emph{JRSS A} 181.
+\bibitem{kleene} S.~C.~Kleene (1952). \emph{Introduction to Metamathematics}. North-Holland.
+\bibitem{kleinman} J.~Kleinman (1973). Proportions with extraneous variance: single and independent samples. \emph{JASA} 68.
+\bibitem{bmm} J.~Barnard, R.~McCulloch, X.-L.~Meng (2000). Modeling covariance matrices in terms of standard deviations and correlations. \emph{Statistica Sinica} 10.
+\bibitem{crr} M.~Cowles, G.~Roberts, J.~Rosenthal (1999). Possible biases induced by MCMC convergence diagnostics. \emph{J.\ Statist.\ Comput.\ Simul.} 64.
+\bibitem{mb} T.~Mitchell, J.~Beauchamp (1988). Bayesian variable selection in linear regression. \emph{JASA} 83.
+\bibitem{ospina} R.~Ospina, S.~Ferrari (2010). Inflated beta distributions. \emph{Statistical Papers} 51.
+\bibitem{rrr} T.~Raghunathan, J.~Reiter, D.~Rubin (2003). Multiple imputation for statistical disclosure limitation. \emph{J.\ Official Statist.} 19.
+\bibitem{rk} J.~Reiter, S.~Kinney (2012). Inferentially valid, partially synthetic data: generating from posterior predictive distributions not necessary. \emph{J.\ Official Statist.} 28.
+\bibitem{hrw} J.~Hu, J.~Reiter, Q.~Wang (2018). Dirichlet process mixture models for modeling and generating synthetic versions of nested categorical data. \emph{Bayesian Analysis} 13.
+\bibitem{goodman} L.~Goodman (1968). The analysis of cross-classified data: independence, quasi-independence, and interactions in contingency tables with or without missing entries. \emph{JASA} 63.
+\bibitem{mullahy} J.~Mullahy (1986). Specification and testing of some modified count data models. \emph{J.\ Econometrics} 33.
+\bibitem{shental} N.~Shental, A.~Bar-Hillel, T.~Hertz, D.~Weinshall (2003). Computing Gaussian mixture models with EM using equivalence constraints. \emph{NIPS}.
+\bibitem{parciak} M.~Parciak et al.\ (2024). Measuring approximate functional dependencies: a comparative study. \emph{ICDE}.
+\bibitem{kimball} R.~Kimball, M.~Ross (2013). \emph{The Data Warehouse Toolkit}, 3rd ed. Wiley.
+\end{thebibliography}
+\end{document}
