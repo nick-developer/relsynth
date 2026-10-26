@@ -576,7 +576,8 @@ def assess_quality(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | 
     """The calibrated 2.0 quality report of synthetic tables (relsynth.quality.assess).
     real: the tables the model was fitted on (default: the spec's source);
     holdout: real tables the model did not see, for TSTR/TRTS (default: an internal
-    split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS."""
+    split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS
+    (scale defaults to the spec's synthesis.scale)."""
     from .data import coerce
     from .evaluate import evaluate as _evaluate
     from .quality import assess
@@ -591,6 +592,9 @@ def assess_quality(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | 
     base = _evaluate(s, real, syn, privacy=privacy, sample_log=getattr(synthetic, "sample_log", None),
                      real_stats=stats)
     hold = None if holdout is None else {t: coerce(df, s["tables"][t]) for t, df in dict(holdout).items()}
+    config = dict(config or {})
+    if config.get("scale") is None:
+        config["scale"] = s["synthesis"]["scale"]       # the size the synthetic data was drawn at
     raw = assess(s, real, syn, holdout=hold, base=base, config=config)
     return QualityReport(raw, EvaluationReport(base))
 

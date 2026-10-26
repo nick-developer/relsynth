@@ -44,6 +44,7 @@ DEFAULTS = {
     "mt_targets": {},             # {parent table: column} multi-table utility targets
     "tolerances": {},             # {metric id: floor}
     "calibrate": True,            # False: tolerances only (fast; no null limits)
+    "scale": None,                # expected synthetic/real size: a number or {default, tables}; None = 1
     "seed": 0,
 }
 
@@ -198,10 +199,12 @@ def _relationship_checks(b, spec, real, syn, rng):
         if not len(real[p]) or not len(syn[p]):
             continue
         cr = mt.counts_per_parent(real[p], pk, real[c], fk)
-        cs = mt.counts_per_parent(syn[p], pk, syn[c], fk)
+        f = fanout_factor(spec, cfg, p, c)
+        cs = mt.counts_per_parent(syn[p], pk, syn[c], fk) / f
         law = mt.fanout_law(cr, cs)
         if not law:
             continue
+        law["scale_factor"] = f
         bench[name] = 1 - float(ks_2samp(cr, cs).statistic)
         b.details.setdefault("_relationships", {})[name] = law
         ids = cal.cluster_ids(spec, real, p)
@@ -212,14 +215,20 @@ def _relationship_checks(b, spec, real, syn, rng):
             hs.append((mk.sum(), (~mk).sum()))
         sizes = (len(cr), len(cs))
         ssz = (int(np.mean([h[0] for h in hs])), int(np.mean([h[1] for h in hs]))) if R else None
-        for metric, key in (("fanout_w1_rel", "w1_rel_mean"), ("fanout_zero_share_diff", "zero_share_diff"),
-                            ("fanout_dispersion_log_ratio", "dispersion_log_ratio")):
-            b.add(metric, {"relationship": name}, law[key], [n[key] for n in nulls] if R else None, sizes, ssz)
+        # resized tables: counts are compared per unit of the expected rate (Prop. 110); the share of
+        # childless parents and the dispersion are not invariant under resizing and are not checked
+        keys = (("fanout_w1_rel", "w1_rel_mean"),) if f != 1 else (
+            ("fanout_w1_rel", "w1_rel_mean"), ("fanout_zero_share_diff", "zero_share_diff"),
+            ("fanout_dispersion_log_ratio", "dispersion_log_ratio"))
+        note = f"synthetic counts divided by the scale factor {f:g}" if f != 1 else None
+        for metric, key in keys:
+            b.add(metric, {"relationship": name}, law[key], [n[key] for n in nulls] if R else None, sizes, ssz, note)
     for name, gp, gpk, p, ppk, fk1, c, fk2 in mt.two_hop_chains(spec):
         if not len(real[gp]) or not len(syn[gp]):
             continue
         cr = mt.grandchild_counts(real, gp, gpk, p, ppk, fk1, c, fk2)
-        cs = mt.grandchild_counts(syn, gp, gpk, p, ppk, fk1, c, fk2)
+        f = fanout_factor(spec, cfg, gp, c)
+        cs = mt.grandchild_counts(syn, gp, gpk, p, ppk, fk1, c, fk2) / f
         law = mt.fanout_law(cr, cs)
         if not law:
             continue
@@ -230,7 +239,8 @@ def _relationship_checks(b, spec, real, syn, rng):
             nulls.append(mt.fanout_law(cr[mk], cr[~mk]))
             hs.append((mk.sum(), (~mk).sum()))
         b.add("fanout2_w1_rel", {"path": name}, law["w1_rel_mean"], [n["w1_rel_mean"] for n in nulls] if R else None,
-              (len(cr), len(cs)), (int(np.mean([h[0] for h in hs])), int(np.mean([h[1] for h in hs]))) if R else None)
+              (len(cr), len(cs)), (int(np.mean([h[0] for h in hs])), int(np.mean([h[1] for h in hs]))) if R else None,
+              f"synthetic counts divided by the scale factor {f:g}" if f != 1 else None)
     return bench
 
 
@@ -286,7 +296,8 @@ def _detection_checks(b, spec, real, syn, holdout, rng):
         if len(real[p]) < 20 or len(syn[p]) < 20:
             continue
         fr, kinds = mt.aggregated(spec, real, p)
-        fs, _ = mt.aggregated(spec, syn, p)
+        factors = {name: fanout_factor(spec, cfg, p, c) for name, pp, _k, c, _f in mt.relations(spec) if pp == p}
+        fs, _ = mt.aggregated(spec, syn, p, factors)
         acc = mt.detection_accuracy(fr, fs, kinds, cfg["classifier"], max_rows=mr, seed=cfg["seed"])
         bench[p] = acc
         draws = []
@@ -367,16 +378,52 @@ def resolve_config(config=None):
         raise ValueError("classifier must be 'logistic' or 'xgboost'")
     if not 0.5 < float(cfg["confidence"]) < 1 or not 0.5 < float(cfg["area_confidence"]) < 1:
         raise ValueError("confidence levels must be between 0.5 and 1")
+    sc = cfg["scale"]
+    if sc is None:
+        sc = {"default": 1.0, "tables": {}}
+    elif isinstance(sc, (int, float)) and not isinstance(sc, bool):
+        sc = {"default": float(sc), "tables": {}}
+    elif isinstance(sc, dict) and set(sc) <= {"default", "tables"}:
+        sc = {"default": float(sc.get("default", 1.0)), "tables": {str(k): float(v) for k, v in (sc.get("tables") or {}).items()}}
+    else:
+        raise ValueError("scale must be a number or {default: number, tables: {table: number}}")
+    if sc["default"] <= 0 or any(v <= 0 for v in sc["tables"].values()):
+        raise ValueError("scale factors must be positive")
+    cfg["scale"] = sc
     return cfg
 
 
-def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True):
+def table_scale(spec, cfg, t, _seen=()):
+    """Expected synthetic/real row ratio of table t under cfg['scale'], by the
+    engine's scale rule: copied tables keep their rows, a fact table follows
+    its anchor (rows per anchor are preserved), any other table takes its own
+    factor or the default."""
+    T = spec["tables"][t]
+    sc = cfg["scale"]
+    if T.get("mode") == "copy":
+        return 1.0
+    if t in sc["tables"]:
+        return sc["tables"][t]
+    anchor = (T.get("fact") or {}).get("anchor")
+    if T.get("role") == "fact" and anchor in spec["tables"] and anchor not in _seen:
+        return table_scale(spec, cfg, anchor, _seen + (t,))
+    return sc["default"]
+
+
+def fanout_factor(spec, cfg, parent, child):
+    """Expected change of the child rows per parent row when the tables are
+    resized (1 when both keep their size ratio)."""
+    return table_scale(spec, cfg, child) / table_scale(spec, cfg, parent)
+
+
+def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True, privacy=None):
     """The 2.0 quality report of synthetic tables against real ones.
 
     spec: a resolved spec dict; real, syn: {table: DataFrame}; holdout: real
     tables the generator did not see (for TSTR/TRTS), optional; base: the 1.0
     report from relsynth.evaluate (computed when None and scorecard=True);
-    config: overrides of DEFAULTS."""
+    config: overrides of DEFAULTS; privacy: the reference to (or the whole of)
+    the privacy report of the same data, copied as is (RFC T06-02)."""
     cfg = resolve_config(config)
     rng = np.random.default_rng(cfg["seed"])
     b = _Builder(cfg)
@@ -393,6 +440,7 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
     checks = [c for c in old if c["area"] != "privacy"] + b.checks
     used = sorted({c["metric"] for c in b.checks})
     sc = (base or {}).get("scorecard", {})
+    extra = {"privacy": privacy} if privacy is not None else {}
     return {
         "$schema": SCHEMA_ID, "schema_version": SCHEMA_VERSION, "relsynth_version": __version__,
         "created_utc": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -415,6 +463,7 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
                     "score per hop count; C2ST-Agg accuracy per parent table and its maximum)"}},
         "metrics": {m: {k: v for k, v in METRICS[m].items()} for m in used},
         "details": _clean(b.details),
+        **extra,
     }
 
 

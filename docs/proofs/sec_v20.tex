@@ -54,10 +54,23 @@ For any spec and data, the items of \texttt{evaluate()} in v2.0 are those of v1.
 \texttt{evaluate.py} is unchanged in v2.0; \texttt{assess} reads its report without modifying it and copies each item, adding only an area (\texttt{registry.SCORECARD\_AREAS}). \texttt{test\_report\_validates\_and\_keeps\_the\_scorecard} checks the copy item by item, and the real-database regression compares the scorecards of \texttt{main} and the 2.0 branch for the same seed.
 \end{proof}
 
+\subsection{Resized synthetic databases}
+A synthetic database drawn at scale $s\neq1$ has another number of rows per parent wherever the parent and the child are resized differently: the engine keeps copied tables, resizes other entities by their factor and keeps the rows per anchor of a fact (\texttt{quality.report.table\_scale}). With $s_t$ the expected size ratio of table $t$, the expected change of rows per parent along a relationship $p\leftarrow c$ is $f=s_c/s_p$, and along a path $g\leftarrow p\leftarrow c$ it is $s_c/s_g$. The report divides the synthetic per-parent counts by $f$ before the fan-out, 2-hop and C2ST-Agg comparisons.
+
+\begin{proposition}[Rate-normalised fan-out]\label{prop:ratenorm}
+Let the children of a parent with rate $\lambda$ be Poisson with mean $\lambda$ in the real database and $f\lambda$ in the synthetic one, with $\lambda\sim G$ in both. Then $N^*/f$ and $N$ have the same mean and the same law of conditional means, and
+\[ W_1\big(\mathcal{L}(N^*/f),\mathcal{L}(N)\big)\big/\mathbb{E}N \;\le\; (1+f^{-1/2})\big/\sqrt{\mathbb{E}N}. \]
+The share of parents without children and the dispersion $\mathrm{Var}/\mathrm{mean}$ are not invariant: $P(N^*=0)=\mathbb{E}e^{-f\lambda}$ and $\mathrm{Var}(N^*/f)/\mathbb{E}N = 1/f+\mathrm{Var}(\lambda)/\mathbb{E}\lambda$.
+\end{proposition}
+\begin{proof}
+$\mathbb{E}[N^*/f\mid\lambda]=\lambda=\mathbb{E}[N\mid\lambda]$. Couple $N$ and $N^*$ through the same $\lambda$: $W_1\le\mathbb{E}|N^*/f-N|\le\mathbb{E}|N^*/f-\lambda|+\mathbb{E}|N-\lambda|\le\mathbb{E}\sqrt{\lambda/f}+\mathbb{E}\sqrt{\lambda}\le(1+f^{-1/2})\sqrt{\mathbb{E}\lambda}$ by Cauchy--Schwarz and Jensen; divide by $\mathbb{E}N=\mathbb{E}\lambda$. The zero share and the variance follow from the Poisson law given $\lambda$ and the law of total variance.
+\end{proof}
+\noindent So when $f\neq1$ the report keeps the relative Wasserstein checks of the fan-out on the normalised counts and drops the zero-share and dispersion checks, whose null value is not zero; it records $f$ in the check's note. The bound is an upper bound: when parents have few children each ($\mathbb{E}N$ small) a resized database can fail the fan-out Wasserstein check even if the generator is exact, which C80 measures. At $f=1$ nothing changes.
+
 \subsection{Checks}
 \begin{description}
 \item[C79] (Props.~\ref{prop:splitnull}, \ref{prop:pitcurve}, \ref{prop:arearule}) Null calibration: two independent draws of the fixed-law shop database (\texttt{tests/fakedata/quality\_null.py}: customers with latent segments, negative-binomial orders, order lines whose products follow the segment), with every tolerance set to $0$ so that only the calibrated limit decides. The false-failure rate over all new checks must stay at or below the nominal 1\% (with binomial slack), and no area may fail more often than its nominal 1\%.
-\item[C80] The same with synthetic samples twice and half the real size ($\kappa$ rescaling).
+\item[C80] (Props.~\ref{prop:splitnull}, \ref{prop:ratenorm}) The same with synthetic samples twice and half the real size, drawn by the engine's scale rule (customers and products resized, regions copied): $\kappa$ rescaling and rate-normalised fan-out.
 \item[C81] Power: each planted defect (income shifted by 30\%, ages shuffled, orders relinked to other customers, half the customers' orders moved to the others) fails the fidelity area, and each is caught by the metric family that targets it (marginal distances, marginal tables, $k$-hop trends, fan-out law).
 \item[C82] The 1.0 scorecard inside the report equals the scorecard of \texttt{evaluate()} item by item (Prop.~\ref{prop:carry}).
 \end{description}

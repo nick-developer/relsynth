@@ -5,7 +5,7 @@ depend on the seed, so two seeds give two independent draws of the same law:
 the null hypothesis of every quality check.  `defects` derives databases that
 break one property each, to test that the checks see it.
 
-    region (8, fixed) <- customer (1200 x scale) <- orders <- lines -> product (150)
+    region (8, copied) <- customer (1200 x scale) <- orders <- lines -> product (150 x scale)
 
 Customers carry a latent segment that drives age, income, region, the number
 of orders (negative binomial) and which products their lines buy; order
@@ -31,11 +31,11 @@ AFFINITY = np.array([[3.0, 1.0, 1.0, .5, .5], [1.0, 2.0, .5, 2.0, 1.0], [.5, 1.0
 N_PROD = 150
 
 
-def _products():
-    rng = np.random.default_rng(12345)              # the catalogue is part of the law
-    cat = rng.choice(len(CAT_LEVELS), N_PROD, p=CAT_P)
+def _products(n=N_PROD):
+    rng = np.random.default_rng(12345)              # the catalogue is part of the law (at scale 1)
+    cat = rng.choice(len(CAT_LEVELS), n, p=CAT_P)
     price = np.round(np.exp(rng.normal(2.5 + 0.3 * cat, 0.4)), 2)
-    return pd.DataFrame({"product_id": np.arange(1, N_PROD + 1), "category": np.array(CAT_LEVELS)[cat],
+    return pd.DataFrame({"product_id": np.arange(1, n + 1), "category": np.array(CAT_LEVELS)[cat],
                          "price": price}), cat
 
 
@@ -69,7 +69,7 @@ def spec():
 def shop(seed=0, scale=1.0):
     rng = np.random.default_rng(seed)
     n = int(round(1200 * scale))
-    prod, pcat = _products()
+    prod, pcat = _products(int(round(N_PROD * scale)))   # resized like relsynth resizes a dimension
     region = pd.DataFrame({"region_id": np.arange(1, 9), "region_name": [f"R{i}" for i in range(1, 9)]})
     z = rng.choice(K, n, p=SEG_P)
     reg = np.array([rng.choice(8, p=REGION_P[k]) for k in z]) + 1
@@ -92,7 +92,7 @@ def shop(seed=0, scale=1.0):
     w = AFFINITY[z[ou[lo]]][:, pcat]                # (lines, products) affinity weights
     w = w / w.sum(1, keepdims=True)
     pick = (rng.random(len(lo))[:, None] > w.cumsum(1)).sum(1)
-    pick = np.minimum(pick, N_PROD - 1)
+    pick = np.minimum(pick, len(prod) - 1)
     qty = 1 + rng.poisson(8.0 / prod.price.to_numpy()[pick])
     disc = np.where(rng.random(len(lo)) < 0.3, np.round(rng.uniform(0, 0.3, len(lo)), 2), np.nan)
     lines = pd.DataFrame({"line_id": np.arange(1, len(lo) + 1), "order_id": orders.order_id.to_numpy()[lo],

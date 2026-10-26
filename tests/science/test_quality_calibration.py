@@ -36,11 +36,11 @@ def _db(seed, scale=1.0):
 
 def _null_run(reps, scale):
     """False failures of the new checks (tolerances 0) and of the areas over
-    `reps` pairs of independent draws."""
+    `reps` pairs of independent draws; the second is drawn at `scale`."""
     fails, total, by_metric, area_fail = 0, 0, collections.Counter(), collections.Counter()
     for r in range(reps):
         rep = assess(SPEC, _db(5000 + 2 * r), _db(5001 + 2 * r, scale), scorecard=False,
-                     config={"tolerances": NO_TOLERANCE, "seed": r})
+                     config={"tolerances": NO_TOLERANCE, "seed": r, "scale": scale})
         for c in rep["checks"]:
             total += 1
             fails += not c["pass"]

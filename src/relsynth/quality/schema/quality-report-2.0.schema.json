@@ -27,6 +27,9 @@
         "mt_targets": {"type": "object", "additionalProperties": {"type": "string"}},
         "tolerances": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}},
         "calibrate": {"type": "boolean"},
+        "scale": {"type": "object", "required": ["default", "tables"], "properties": {
+          "default": {"type": "number", "exclusiveMinimum": 0},
+          "tables": {"type": "object", "additionalProperties": {"type": "number", "exclusiveMinimum": 0}}}},
         "seed": {"type": "integer"}
       }
     },
@@ -53,6 +56,19 @@
       }
     },
     "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "privacy": {
+      "description": "Optional link to the privacy report of roadmap thread T06 (RFC T06-02): a reference by path and sha256 with its verdict per release context, or the whole report. Privacy is never folded into the quality vector.",
+      "oneOf": [
+        {"type": "object", "required": ["schema", "path", "sha256", "verdicts"], "properties": {
+          "schema": {"const": "relsynth.privacy-report/1"},
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "verdicts": {"type": "object", "additionalProperties": {"enum": ["pass", "review", "fail", "blocked"]}}}},
+        {"type": "object", "required": ["schema", "report"], "properties": {
+          "schema": {"const": "relsynth.privacy-report/1"},
+          "report": {"type": "object"}}}
+      ]
+    },
     "privacy_passthrough": {"type": "array", "items": {"$ref": "#/$defs/check"},
                             "description": "1.0 privacy items, reported without an area; privacy semantics belong to T06."},
     "scorecard_1": {

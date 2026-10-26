@@ -184,9 +184,10 @@ def hop_trends(spec, real, other, max_hops=2, max_rows=20000, seed=0):
 
 
 # ---------------------------------------------------------------- aggregation detection
-def aggregated(spec, tables, parent):
+def aggregated(spec, tables, parent, factors=None):
     """The parent table's attribute columns plus, per child relationship, the
-    child count, the mean of each numeric child column and the number of
+    child count (divided by factors[relationship] when the tables were
+    resized), the mean of each numeric child column and the number of
     distinct values of each categorical child column (SyntheRela's C2ST-Agg
     features).  Returns (frame, feature kinds {column: categorical?})."""
     pk = spec["tables"][parent]["primary_key"]
@@ -200,7 +201,7 @@ def aggregated(spec, tables, parent):
             continue
         ch = tables[c]
         k = keystr(ch[fk])
-        df[f"{name}:count"] = pd.Series(key).map(k.value_counts()).fillna(0).to_numpy()
+        df[f"{name}:count"] = pd.Series(key).map(k.value_counts()).fillna(0).to_numpy() / (factors or {}).get(name, 1.0)
         kinds[f"{name}:count"] = False
         for x in attribute_columns(spec, c):
             cat = is_categorical(spec, c, x, ch[x])

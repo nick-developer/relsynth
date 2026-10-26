@@ -96,6 +96,9 @@ SETTINGS = {
     "mt_targets": "`{parent table: column}` multi-table utility targets",
     "tolerances": "`{metric id: floor}` practical tolerances",
     "calibrate": "`false`: limits are the tolerances only (fast, no null calibration)",
+    "scale": "expected synthetic/real size: a number or `{default, tables}` as in the spec's `synthesis.scale` "
+             "(copied tables keep their size, facts follow their anchor). Per-parent counts are divided by the "
+             "expected change of rows per parent (Prop. 110). `None`: 1, or the spec's scale in `assess_quality`",
     "seed": "seed of every sample, split and fold",
 }
 
