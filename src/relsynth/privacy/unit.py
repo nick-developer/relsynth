@@ -184,7 +184,8 @@ def _mode(s: pd.Series):
     if s.empty:
         return np.nan
     vc = s.astype(str).value_counts()
-    return vc.index[0]
+    # ties go to the smallest value, so the mode does not depend on row order
+    return min(vc.index[vc.to_numpy() == vc.iloc[0]])
 
 
 def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2) -> pd.DataFrame:

@@ -26,7 +26,7 @@ DEFAULTS = {
     "unit": None,                     # person table; detected when omitted
     "sensitive": [],                  # profile columns whose values must not be inferable
     "quasi_identifiers": None,        # profile columns a recipient may know; default: the unit table's attributes
-    "split": {"control": 0.2, "reference": 0.2, "seed": 0, "max_people": 20000},
+    "split": {"control": 0.4, "reference": 0.2, "seed": 0, "max_people": 20000},
     "confidence": 0.95,
     "attacks": {
         "record_isolation": {"modes": ["univariate", "multivariate"], "n_attacks": 500, "n_cols": 3},
