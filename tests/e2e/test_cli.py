@@ -74,6 +74,12 @@ def test_run_writes_data_bundle_and_report(capsys, tmp_path, spec_file):
     assert abs(len(cust) - 750) <= 1                     # --set reached the engine
     code, j, _ = jcli(capsys, "evaluate", spec_file, "--synthetic", f"csv:{tmp_path / 'out'}", "--no-privacy")
     assert code == 0 and j["scorecard"]["total"] > 0
+    qcfg = tmp_path / "q.yaml"
+    qcfg.write_text("null_splits: 3\nmulti_splits: 3\n")
+    code, j, _ = jcli(capsys, "evaluate", spec_file, "--synthetic", f"csv:{tmp_path / 'out'}", "--no-privacy",
+                      "--quality", str(tmp_path / "q.json"), "--quality-config", str(qcfg))
+    assert code == 0, j
+    assert j["quality"]["verdict"]["rule"] and (tmp_path / "q.json").exists()
     code, j, _ = jcli(capsys, "doctor", bundle)
     assert code == 0 and "issues" in j
 

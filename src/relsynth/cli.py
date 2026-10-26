@@ -292,7 +292,25 @@ def cmd_evaluate(a, out):
     missing = [t for t in r["tables"] if t not in syn]
     if missing:
         raise SpecError("synthetic data lacks tables: " + ", ".join(missing))
-    rep = evaluate(s, syn, privacy=not a.no_privacy)
+    if a.quality:
+        from .api import assess_quality
+        from .spec import read_yaml
+        cfg = read_yaml(a.quality_config) if a.quality_config else None
+        hold = None
+        if a.holdout:
+            with from_spec(parse_source(a.holdout), Path(".")) as conn:
+                hold = {t: conn.read_table(t) for t in r["tables"] if conn.has_table(t)}
+        q = assess_quality(s, syn, holdout=hold, config=cfg, privacy=not a.no_privacy)
+        q.to_json(a.quality)
+        rep = q.scorecard
+        out.put(quality={k: q.vector[k] for k in ("fidelity", "utility", "integrity", "verdict")})
+        for k in ("fidelity", "utility", "integrity"):
+            v = q.vector[k]
+            out.line(f"{k}: {v['passed']}/{v['checks']} passed, {v['failed']} failed "
+                     f"({v['allowed_failures']} allowed) -> {'pass' if v['pass'] else 'FAIL'}")
+        out.line(f"quality report -> {a.quality}")
+    else:
+        rep = evaluate(s, syn, privacy=not a.no_privacy)
     if a.output:
         rep.to_json(a.output)
     out.put(scorecard={"passed": rep.passed, "total": rep.total, "score": rep.score, "failed": rep.failed})
@@ -497,6 +515,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-privacy", action="store_true", help="skip distance-to-closest-record checks")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    s.add_argument("--quality", metavar="FILE",
+                   help="also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON")
+    s.add_argument("--quality-config", metavar="YAML", help="settings of the 2.0 report (see docs/metrics.md)")
+    s.add_argument("--holdout", metavar="LOC", help="real tables the model did not see, for TSTR/TRTS")
     s.set_defaults(fn=cmd_evaluate)
 
     s = sub.add_parser("doctor", help="causes and spec fixes for a run's failures")

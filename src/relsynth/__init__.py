@@ -18,15 +18,15 @@ from . import doctor as _doctor_module  # noqa: F401
 from . import evaluate as _evaluate_module  # noqa: F401
 from . import introspect as _introspect_module  # noqa: F401
 from . import verify as _verify_module  # noqa: F401
-from .api import (Diagnosis, EvaluationReport, FittedModel, RunResult, Spec, SyntheticData, clone_schema, connect,
-                  doctor, evaluate, export_model, fit, introspect, ping, profile, run, sample, tune, validate_spec,
-                  verify)
+from .api import (Diagnosis, EvaluationReport, FittedModel, QualityReport, RunResult, Spec, SyntheticData, clone_schema,
+                  connect, doctor, evaluate, export_model, fit, introspect, ping, profile, assess_quality, run, sample, tune,
+                  validate_spec, verify)
 from .engine import Synthesizer
 from .errors import EngineError, QualityGateError, RelsynthError, SourceError
 from .spec import SpecError, dump_spec, load_spec
 from .verify import VerifyReport
 
-__all__ = ["__version__", "Spec", "FittedModel", "SyntheticData", "EvaluationReport", "RunResult", "Diagnosis",
-           "introspect", "validate_spec", "fit", "sample", "evaluate", "run", "doctor", "tune", "export_model", "verify",
-           "clone_schema", "profile", "ping", "connect", "Synthesizer", "VerifyReport", "load_spec", "dump_spec",
-           "RelsynthError", "SpecError", "SourceError", "EngineError", "QualityGateError"]
+__all__ = ["__version__", "Spec", "FittedModel", "SyntheticData", "EvaluationReport", "QualityReport", "RunResult",
+           "Diagnosis", "introspect", "validate_spec", "fit", "sample", "evaluate", "assess_quality", "run", "doctor", "tune",
+           "export_model", "verify", "clone_schema", "profile", "ping", "connect", "Synthesizer", "VerifyReport",
+           "load_spec", "dump_spec", "RelsynthError", "SpecError", "SourceError", "EngineError", "QualityGateError"]

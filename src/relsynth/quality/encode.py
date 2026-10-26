@@ -91,10 +91,9 @@ def feature_matrix(real, other, spec, t, cols, max_levels=20, quadratic=True):
     for c in cols:
         if is_categorical(spec, t, c, real[c]):
             a, b, k = codes(real[c], other[c], True, max_levels=max_levels)
-            ea, eb = np.eye(k)[a] / np.sqrt(2), np.eye(k)[b] / np.sqrt(2)
-            keep = ea.sum(0) + eb.sum(0) > 0
-            fr.append(ea[:, keep])
-            fo.append(eb[:, keep])
+            # every code gets a column, so that the layout depends on the real column only
+            fr.append(np.eye(k)[a] / np.sqrt(2))
+            fo.append(np.eye(k)[b] / np.sqrt(2))
         else:
             xa, xb = _num(real[c]), _num(other[c])
             za, zb = rank_normal(xa, xa), rank_normal(xa, xb)
@@ -104,9 +103,8 @@ def feature_matrix(real, other, spec, t, cols, max_levels=20, quadratic=True):
             if quadratic:
                 parts_a.append(za ** 2 - 1)
                 parts_b.append(zb ** 2 - 1)
-            if na.any() or nb.any():
-                parts_a.append(na.astype(float))
-                parts_b.append(nb.astype(float))
+            parts_a.append(na.astype(float))
+            parts_b.append(nb.astype(float))
             fr.append(np.column_stack(parts_a))
             fo.append(np.column_stack(parts_b))
     if not fr:
