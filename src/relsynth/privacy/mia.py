@@ -284,14 +284,15 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
         clf = _fit_logistic(F[tr], y[tr].astype(float))
         stat = np.array([TargetFeatures.lira_stat(f) for f in F])
         lr = _lira(stat[tr], y[tr])
-        for name, sc_tr, sc_te in (("classifier", clf(F[tr]), clf(F[te])), ("lira", lr(stat[tr]), lr(stat[te]))):
+        for name, sc_te in (("classifier", clf(F[te])), ("lira", lr(stat[te]))):
             a, se = auc_delong(sc_te, y[te])
             row[f"{name}_auc"] = a
             row[f"{name}_auc_ci"] = auc_interval(a, se, level)
             # pooled scores: calibration half of the test shadows sets thresholds, the other half counts
             P = pooled_scores[name]
             half = len(sc_te) // 2
-            P[0].extend(sc_te[:half]); P[1].extend(y[te][:half]); P[2].extend(sc_te[half:]); P[3].extend(y[te][half:])
+            for part, vals in zip(P, (sc_te[:half], y[te][:half], sc_te[half:], y[te][half:])):
+                part.extend(vals)
         rows.append(row)
     tab = pd.DataFrame(rows).set_index("target")
     pooled = {}

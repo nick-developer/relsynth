@@ -21,7 +21,7 @@ CRITERIA = {
     "membership": ("Membership", "Can someone tell whether a given person's data was used?"),
 }
 VERDICT = {
-    "pass": "PASS: every attack stays below its limit, with the safety margin of the upper confidence bound.",
+    "pass": "PASS: every attack stays below its limit, with the safety margin of the upper confidence bound.",  # nosec B105
     "review": "REVIEW: at least one limit lies inside a confidence interval. More attacks (or more people) are "
               "needed to decide, or the release needs a reviewer's sign-off.",
     "fail": "FAIL: at least one attack is above its limit even at its lower confidence bound. Do not release to "

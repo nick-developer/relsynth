@@ -25,8 +25,9 @@ from .engine import Synthesizer
 from .errors import EngineError, QualityGateError, RelsynthError, SourceError
 from .spec import SpecError, dump_spec, load_spec
 from .verify import VerifyReport
+from . import privacy  # noqa: E402  (rs.privacy.assess, rs.privacy.write_report)
 
 __all__ = ["__version__", "Spec", "FittedModel", "SyntheticData", "EvaluationReport", "RunResult", "Diagnosis",
            "introspect", "validate_spec", "fit", "sample", "evaluate", "run", "doctor", "tune", "export_model", "verify",
            "clone_schema", "profile", "ping", "connect", "Synthesizer", "VerifyReport", "load_spec", "dump_spec",
-           "RelsynthError", "SpecError", "SourceError", "EngineError", "QualityGateError"]
+           "RelsynthError", "SpecError", "SourceError", "EngineError", "QualityGateError", "privacy"]
