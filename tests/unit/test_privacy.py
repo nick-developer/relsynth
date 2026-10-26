@@ -231,6 +231,8 @@ def test_assess_report_and_contexts(star, tmp_path):
     assert "C000" not in md and "C000" not in Path(paths["html"]).read_text()     # no real keys in the report
     j = json.loads(Path(paths["json"]).read_text())
     _validate(j)
+    ref = report.reference(paths["json"])
+    assert len(ref["sha256"]) == 64 and ref["verdicts"]["public"] == "blocked"
 
 
 def test_assess_with_dp_is_not_blocked(star):

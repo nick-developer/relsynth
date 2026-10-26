@@ -286,3 +286,15 @@ def write_report(rep: dict, folder) -> dict:
     paths["md"].write_text(to_markdown(rep), encoding="utf-8")
     paths["html"].write_text(to_html(rep), encoding="utf-8")
     return {k: str(v) for k, v in paths.items()}
+
+
+def reference(json_path) -> dict:
+    """The reference form a quality report embeds (RFC-T06-02, accepted by T05):
+    schema, path, sha256 of the JSON file and the verdict per context."""
+    import hashlib
+    p = Path(json_path)
+    raw = p.read_bytes()
+    rep = json.loads(raw)
+    return {"schema": rep.get("schema", "relsynth.privacy-report/1"), "path": str(p),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "verdicts": {k: v["verdict"] for k, v in rep["contexts"].items()}}
