@@ -12,6 +12,7 @@ import relsynth as rs
 rep = rs.privacy.assess("spec.yaml", "privacy.yaml")
 rs.privacy.write_report(rep, "privacy_report")        # privacy_report.json, .md, .html
 rep["contexts"]["internal"]["verdict"]                # 'pass' | 'review' | 'fail' | 'blocked'
+rs.privacy.reference("privacy_report/privacy_report.json")   # embedded by the quality report: schema, sha256, verdicts
 ```
 
 The report never shows a real key. People are named by salted hashes (`P-3f2a…`) that the operator can recompute from the split seed and the key list.
