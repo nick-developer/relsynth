@@ -119,6 +119,18 @@ def test_profiles_ignore_keys_and_row_order(star):
     assert "sales.n_rows" in p1 and not any(c.endswith("_id") for c in p1.columns)
 
 
+def test_profiles_follow_the_real_column_kinds(star):
+    t, s = star
+    u = U.resolve(s, "customer")
+    p1 = U.profiles(s, u, t)
+    num = next(c for c in t["sales"].columns if c.endswith("_id") is False and t["sales"][c].dtype.kind in "if")
+    # a release that writes a numeric column as text still gets the real profile columns
+    t2 = dict(t, sales=t["sales"].assign(**{num: t["sales"][num].astype(str)}))
+    p2 = U.profiles(s, u, t2, kinds=p1.attrs["kinds"])
+    assert list(p2.columns) == list(p1.columns)
+    assert f"sales.{num}.mean" in p2 and f"sales.{num}.mode" not in U.profiles(s, u, t)
+
+
 # ---------------------------------------------------------------- criteria
 def test_copy_release_is_caught_and_fresh_release_is_not():
     pop = _people(6000)
