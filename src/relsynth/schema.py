@@ -48,6 +48,11 @@ S = {
                          "as they are."),
         "engine_options": ("map", None, "SQLAlchemy engine options (pool_size, pool_recycle, ...)."),
         "format": ("csv | parquet", "csv", "File format written (target of kind files)."),
+        "engine": ("auto | duckdb | pandas", "auto", "Folders: what computes the statistics and samples of "
+                   "pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the "
+                   "needed columns into memory (the 1.0 path); auto is duckdb when it is installed."),
+        "duckdb": ("map", None, "Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory "
+                   "(where larger-than-memory sorts and groupings spill)."),
     },
     "target": {
         "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy", "csv",

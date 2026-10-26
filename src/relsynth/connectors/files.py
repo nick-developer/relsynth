@@ -21,14 +21,23 @@ from .base import WRITE_MODES, ColumnInfo, Connector, TableInfo, match_table
 log = logging.getLogger("relsynth.connectors")
 
 CSV_CHUNK = 200_000
+#: statistics and samples of pushed-down facts: duckdb (in SQL over the files), pandas
+#: (in memory, column by column, as in 1.0), auto (duckdb when installed)
+ENGINES = ("auto", "duckdb", "pandas")
 
 
 class FileConnector(Connector):
     """A folder of table files.  fmt (csv or parquet) is the format written; any
     of the supported formats is read."""
 
-    def __init__(self, path, fmt: str = "csv", null_values=None, create: bool = False):
+    def __init__(self, path, fmt: str = "csv", null_values=None, create: bool = False, engine: str = "auto",
+                 duckdb: dict | None = None):
         self.root = Path(path)
+        if engine not in ENGINES:
+            raise ValueError(f"file engine must be one of {', '.join(ENGINES)}")
+        self.engine_name = engine
+        self.duckdb_settings = dict(duckdb or {})
+        self._duck = None
         if fmt not in ("csv", "parquet"):
             raise ValueError("file format must be csv or parquet")
         self.fmt = fmt
@@ -40,6 +49,32 @@ class FileConnector(Connector):
 
     def location(self):
         return str(self.root)
+
+    @property
+    def duck(self):
+        """The DuckDB engine over this folder (None with engine pandas, or auto
+        without DuckDB installed)."""
+        if self._duck is None and self.engine_name != "pandas":
+            from .duckfiles import DuckDBFiles, available
+            if available():
+                self._duck = DuckDBFiles(self, self.duckdb_settings)
+            elif self.engine_name == "duckdb":
+                raise ImportError("engine: duckdb needs the duckdb and duckdb-engine packages")
+        return self._duck
+
+    @property
+    def pushdown(self) -> bool:
+        return self.duck is not None
+
+    def stats(self, table):
+        if self.duck is not None:
+            return self.duck.stats(table)
+        return super().stats(table)
+
+    def close(self):
+        if self._duck is not None:
+            self._duck.close()
+            self._duck = None
 
     # ------------------------------------------------------------ catalog
     def files(self) -> dict[str, Path]:
@@ -113,7 +148,11 @@ class FileConnector(Connector):
                                usecols=columns)
 
     def sample(self, table, n, seed=7, key=None):
-        """Bernoulli(n / rows) sample drawn while streaming the file (seeded)."""
+        """A Bernoulli(n / rows) sample: with DuckDB, rows whose seeded SHA-256 hash
+        falls below n / rows (as on the database servers); with pandas, drawn while
+        streaming the file (seeded)."""
+        if self.duck is not None:
+            return self.duck.sample(table, n, seed=seed, key=key)
         total = self.count(table)
         if total <= n:
             return self.read_table(table), True
@@ -161,6 +200,8 @@ class FileConnector(Connector):
             app = mode == "append" and path.exists()
             df.to_csv(path, index=False, mode="a" if app else "w", header=not app)
         self._counts.pop(table, None)
+        if self._duck is not None:
+            self._duck.refresh()
         return len(df)
 
     def write_tables(self, spec, tables, mode="replace", structure="infer", source=None):
