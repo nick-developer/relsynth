@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased (2.0 development)
+
+### Added
+
+- **IR 2.0** (`relsynth.ir`): one versioned, modality-neutral document of a data estate: entities with a shape (record, document, node, edge, event) and role; nested objects, arrays with length laws and polymorphic variants with a discriminator; composite, surrogate and natural keys; references, hierarchies, one-to-one and derived links, including from nested paths; graph edges with properties; valid time, event time and SCD2 versioning; containers, partitions with Iceberg-style transforms and sort orders; hard and soft rules; privacy roles, public entities and the privacy unit. Python object model, generated JSON Schema (draft 2020-12) and [reference](docs/ir-reference.md); [guide](docs/ir-guide.md); [ADR 0001](docs/adr/0001-canonical-ir.md); five examples in `examples/ir/` (MongoDB, DynamoDB single table, property graph, Iceberg, event stream).
+- **Loss-free 1.0 conversion.** Every command and `Spec` read IR documents as well as 1.0 specs; an IR document lowered for the engine gives the same synthetic data as the 1.0 spec it came from (Proposition 106; all eleven golden specs of the four real databases give byte-identical output).
+- **`relsynth ir`** commands: `migrate` (with proof of identity), `validate`, `convert --to ir|v1 [--strict]`, `privacy`, `odcs`, `from-odcs`, `openlineage`, `schema`; `introspect --format ir`.
+- **Privacy unit tracing**: reference paths from every entity to the unit, owned/context/unrelated status, cross-unit links, and per-record owners on data (Propositions 107–108).
+- **Standards**: ODCS v3.2.0 export and v3.0–3.2 import (exact round trip through `customProperties`); OpenLineage Schema, DatasetType, Documentation, Tags and ColumnLineage facets.
+- Extra `relsynth[ir]` (jsonschema) for the JSON Schema check.
+
+### Deprecation policy
+
+- 2.x reads 1.0 specs and IR 2.x documents alike. Reading a 1.0 spec warns from 3.0 at the earliest and stops no earlier than 4.0 and 24 months after 2.0. `relsynth ir migrate` stays in every release.
+
 ## 1.0.0 
 
 The first packaged release: a pip-installable library and command-line tool built on the v0.2–v0.9 engine.

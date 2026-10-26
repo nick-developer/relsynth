@@ -138,8 +138,32 @@ Every other fact is eligible, including nested facts, facts split into order hea
 
 A pushed fact costs memory proportional to the number of distinct key tuples plus the sample, instead of rows times columns. On AdventureWorks DW, all ten eligible facts were pushed, including the 776,286-row inventory fact with its running balance. Peak memory fell from 2.1 GiB to 1.6 GiB with 30,000-row samples, and the scorecard and every domain check (amount identities, order headers, running balances, date offsets) agreed with the in-memory run. See [pushdown.md](pushdown.md).
 
-## 4. References
+## 4. The IR (2.0): Propositions 106–108
 
+Version 2.0 describes the data by one modality-neutral document, the IR ([guide](ir-guide.md)). The engine still runs the relational 1.0 spec $\lambda(E)$ that an IR document $E$ lowers to; a 1.0 spec $s$ lifts to $\ell(s)$; $\nu$ is `spec.normalise`. Full proofs are in [proofs/sec_v20.tex](proofs/sec_v20.tex).
+
+### Proposition 106 (Loss-free conversion and identical output)
+
+For every 1.0 spec $s$ the 1.0 key schema accepts, $\nu(\lambda(\ell(s)))=\nu(s)$, so the IR document and the spec give the same model and the same synthetic data for the same seed.
+
+*Proof sketch.* $\ell$ and $\lambda$ are field-by-field inverses on the 1.0 keys (the table in `ir/v1.py`); fields that $\ell$ derives are values $\nu$ fills in the same way; order is kept. The engine reads only $\nu(s)$, the data and the seed. ∎ Checked on all eleven golden specs and S1–S11, and by comparing the synthetic output of the four real databases byte by byte.
+
+### Proposition 107 (Ownership along reference paths)
+
+Under referential integrity, the composition of many-to-one and one-to-one references along a path from entity $A$ to the unit $U$ maps each record to at most one unit. If the reference graph is acyclic, the records of $A$ owned by unit $u$ are the union over the simple paths that `privacy.trace` returns, and a record has at most as many owners as paths. ∎
+
+### Proposition 108 (Removing a unit keeps referential integrity)
+
+If the reference graph is acyclic and no hierarchy or excluded reference points into an owned record, removing a set of units with all their owned records leaves every non-null reference resolvable. Otherwise the offending references are the cross-unit links that `trace` reports. ∎
+
+## 5. References
+
+- Bitol project (Linux Foundation AI & Data). Open Data Contract Standard v3.0–3.2.
+- OpenLineage project. Dataset facets: Schema 1-2-0, DatasetType 1-0-1, Documentation 1-1-0, Tags 1-0-0, ColumnLineage 1-2-0.
+- Apache Iceberg table specification, partition transforms.
+- M.-A. Baazizi, D. Colazzo, G. Ghelli, C. Sartiani (2019). Parametric schema inference for massive JSON datasets. *VLDB Journal* 28.
+- K. Cai, X. Xiao, G. Cormode (2023). PrivLava: synthesizing relational data with foreign keys under differential privacy. *SIGMOD*.
+- N. Ponomareva et al. (2026). How to DP-fy your data: a practical guide to generating synthetic data with differential privacy. *JAIR* 86. arXiv:2512.03238.
 - P. J. Acklam (2003). An algorithm for computing the inverse normal cumulative distribution function.
 - D. B. Rubin (1976). Inference and missing data. *Biometrika* 63(3).
 - P. D. Hoff (2007). Extending the rank likelihood for semiparametric copula estimation. *Annals of Applied Statistics* 1(1).
