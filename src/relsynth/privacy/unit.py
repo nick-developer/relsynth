@@ -158,11 +158,13 @@ def _with_parents(spec, t, df, tables, skip: set, hops: int, prefix=""):
     out = pd.DataFrame(cols, index=df.index)
     if hops <= 0:
         return out
-    for r in _single_fks(spec):
-        if r["child"] != t or r["parent"] in skip or r["parent"] not in tables:
-            continue
+    fks = [r for r in _single_fks(spec) if r["child"] == t and r["parent"] not in skip and r["parent"] in tables]
+    many = {p for p in {r["parent"] for r in fks} if sum(r["parent"] == p for r in fks) > 1}
+    for r in fks:
         par = tables[r["parent"]].drop_duplicates(r["parent_key"]).set_index(r["parent_key"])
-        sub = _with_parents(spec, r["parent"], par, tables, skip | {t}, hops - 1, f"{r['parent']}.")
+        # a parent reached through several keys (order, due and ship date) is named by its key
+        name = f"{r['child_key']}:{r['parent']}" if r["parent"] in many else r["parent"]
+        sub = _with_parents(spec, r["parent"], par, tables, skip | {t}, hops - 1, f"{name}.")
         if sub.empty:
             continue
         joined = sub.reindex(df[r["child_key"]].to_numpy())
@@ -188,8 +190,34 @@ def _mode(s: pd.Series):
     return min(vc.index[vc.to_numpy() == vc.iloc[0]])
 
 
-def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2) -> pd.DataFrame:
-    """One row per person (index: the unit key), see the module docstring."""
+def _group_mode(pid: pd.Series, v: pd.Series) -> pd.Series:
+    """Most frequent value per person, ties to the smallest value (as _mode),
+    computed with one sort instead of a Python call per person."""
+    d = pd.DataFrame({"p": pid.to_numpy(), "v": v.astype(str).where(v.notna()).to_numpy()}).dropna()
+    if d.empty:
+        return pd.Series(dtype=object)
+    n = d.groupby(["p", "v"], sort=False).size().rename("n").reset_index()
+    n = n.sort_values(["p", "n", "v"], ascending=[True, False, True], kind="mergesort")
+    return n.drop_duplicates("p").set_index("p")["v"]
+
+
+def distinct_columns(prof: pd.DataFrame) -> list[str]:
+    """Columns that are not a one-to-one recoding of an earlier column (a
+    name in three languages, a code and its label): factorize() gives two such
+    columns the same codes, so they repeat information and would weigh it
+    double in every distance."""
+    seen, keep = set(), []
+    for c in prof.columns:
+        h = hash(pd.factorize(prof[c], use_na_sentinel=True)[0].tobytes())
+        if h not in seen:
+            seen.add(h)
+            keep.append(c)
+    return keep
+
+
+def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, dedupe: bool = False) -> pd.DataFrame:
+    """One row per person (index: the unit key), see the module docstring.
+    dedupe drops one-to-one recodings of earlier columns (distinct_columns)."""
     U = tables[unit.table]
     base = _with_parents(spec, unit.table, U, tables, {unit.table}, hops)
     base.index = U[unit.key].to_numpy()
@@ -214,15 +242,17 @@ def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2) -
             if k == "num":
                 agg[f"{t}.{c}.mean"] = g[c].mean()
             elif k == "date":
-                agg[f"{t}.{c}.mean"] = g[c].apply(lambda s: s.astype("int64").mean() / 86400e9 if s.notna().any()
-                                                  else np.nan)
+                days = (feats[c].astype("int64") / 86400e9).where(feats[c].notna())
+                agg[f"{t}.{c}.mean"] = days.groupby(feats["__pid"], sort=False).mean()
             else:
-                agg[f"{t}.{c}.mode"] = g[c].agg(_mode)
+                agg[f"{t}.{c}.mode"] = _group_mode(feats["__pid"], feats[c])
         a = pd.DataFrame(agg).reindex(base.index)
         a[f"{t}.n_rows"] = a[f"{t}.n_rows"].fillna(0)
         parts.append(a)
     prof = pd.concat(parts, axis=1)
     prof.index.name = unit.key
+    if dedupe:
+        prof = prof[distinct_columns(prof)]
     # dates as day numbers, booleans and categories as strings: one comparable type per column
     for c in prof.columns:
         s = prof[c]

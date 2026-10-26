@@ -256,3 +256,21 @@ def _validate(doc):
     schema = json.loads((Path(report.__file__).with_name("report_schema.json")).read_text())
     jsonschema = pytest.importorskip("jsonschema")
     jsonschema.validate(doc, schema)
+
+
+def test_cli_privacy_writes_report_and_gates(star_csv, tmp_path):
+    import yaml
+
+    from relsynth.cli import main
+    spec, _ = star_csv
+    sp, cfg = tmp_path / "spec.yaml", tmp_path / "privacy.yaml"
+    sp.write_text(yaml.safe_dump(spec))
+    cfg.write_text(yaml.safe_dump({"unit": "customer", "sensitive": ["income"], "attacks": {
+        "record_isolation": {"n_attacks": 50}, "linkage": {"n_attacks": 50}, "inference": {"n_attacks": 50}}}))
+    out = tmp_path / "rep"
+    code = main(["privacy", str(sp), "--config", str(cfg), "--no-shadow", "--out", str(out), "--json"])
+    assert code == 0
+    assert (out / "privacy_report.html").exists() and (out / "privacy_report.json").exists()
+    # external contexts are blocked without DP, so gating on 'public' fails the job
+    assert main(["privacy", str(sp), "--config", str(cfg), "--no-shadow", "--out", str(out),
+                 "--context", "public"]) == 1

@@ -100,7 +100,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
     syn_db = _quiet(gen, train_db, seed)
     timings["release_fit_seconds"] = time.time() - t
     t = time.time()
-    P_all = U.profiles(s, unit, tables)
+    P_all = U.profiles(s, unit, tables, dedupe=True)
     P_syn = U.profiles(s, unit, syn_db)
     cols = [c for c in P_all.columns if c in P_syn.columns]
     P_all, P_syn = P_all[cols], P_syn[cols].reset_index(drop=True)
