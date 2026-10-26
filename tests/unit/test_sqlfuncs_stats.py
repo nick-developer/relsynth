@@ -180,3 +180,73 @@ def test_lazy_frame_stats_loads_only_needed_columns():
     fs.notnull("a")
     fs.group_counts(["a", "b"])
     assert calls == [["a"], ["b"]]
+
+
+# ---------------------------------------------------------------- MySQL / MariaDB (no server)
+def test_mysql_sql_compiles_without_lossy_casts():
+    """MySQL has no CAST AS FLOAT before 8.0.17 and divides integers as DECIMAL(4
+    digits): to_float adds a DOUBLE zero there and stays a CAST elsewhere; the row
+    hash is SHA-256 based."""
+    import warnings
+
+    from sqlalchemy.dialects import mssql, mysql, oracle, postgresql, sqlite
+
+    from relsynth.connectors.sqlfuncs import row_hash, to_float
+    t = sa.table("t", sa.column("a"), sa.column("b"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        my = str(sa.select(to_float(t.c.a)).compile(dialect=mysql.dialect()))
+        h = str(row_hash([t.c.a, t.c.b], 5, "mysql").compile(dialect=mysql.dialect()))
+    assert "+ 0E0" in my and "CAST" not in my
+    for d in (postgresql, mssql, oracle, sqlite):
+        assert "CAST(t.a AS FLOAT)" in str(sa.select(to_float(t.c.a)).compile(dialect=d.dialect()))
+    assert "sha2(" in h and "conv(" in h
+
+
+def test_sha256_hash_is_uniform_and_seeded():
+    from scipy.stats import kstest
+
+    from relsynth.connectors.sqlfuncs import py_row_hash_sha256
+    v = np.array([py_row_hash_sha256(7, str(i)) for i in range(20000)])
+    assert v.min() >= 0 and v.max() < HASH_RANGE
+    assert kstest(v / HASH_RANGE, "uniform").pvalue > 1e-4
+    assert py_row_hash_sha256(7, "a") != py_row_hash_sha256(8, "a")
+
+
+def test_mysql_types_keep_values_and_fit_mysql_limits():
+    from sqlalchemy.dialects import mysql
+
+    from relsynth.connectors.ddl import adapt_types
+    md = sa.MetaData()
+    t = sa.Table("t", md, sa.Column("code", sa.Text(), primary_key=True), sa.Column("a", sa.String()),
+                 sa.Column("b", sa.String(5000)), sa.Column("x", sa.Float()), sa.Column("ts", sa.DateTime()),
+                 sa.Column("small", sa.Float(precision=10)),
+                 *[sa.Column(f"w{i}", sa.String(2000)) for i in range(20)], sa.UniqueConstraint("a", "b"))
+    adapt_types(md, "mysql")
+    assert isinstance(t.c.code.type, mysql.VARCHAR) and t.c.code.type.length == 768
+    assert t.c.a.type.length == t.c.b.type.length == 384          # two columns share one index
+    assert isinstance(t.c.x.type, mysql.DOUBLE) and isinstance(t.c.ts.type, mysql.DATETIME)
+    assert t.c.ts.type.fsp == 6 and not isinstance(t.c.small.type, mysql.DOUBLE)
+    assert {c.type.collation for c in t.columns if isinstance(c.type, sa.String)} == {"utf8mb4_0900_bin"}
+    var = sum(4 * c.type.length + 2 for c in t.columns if isinstance(c.type, mysql.VARCHAR))
+    assert var <= 60_000 and any(isinstance(c.type, mysql.LONGTEXT) for c in t.columns)
+    md2 = sa.MetaData()
+    t2 = sa.Table("t", md2, sa.Column("s", sa.String(10)))
+    adapt_types(md2, "mariadb")
+    assert t2.c.s.type.collation == "utf8mb4_nopad_bin"
+    md3 = sa.MetaData()
+    t3 = sa.Table("t", md3, sa.Column("x", sa.Float()))
+    adapt_types(md3, "postgresql")
+    assert type(t3.c.x.type) is sa.Float                          # other engines unchanged
+
+
+def test_mysql_urls_pick_a_driver_and_utf8mb4():
+    from relsynth.connectors.sql import resolve_url
+    u = sa.engine.make_url(resolve_url("mysql://u:p@h/db"))
+    assert u.get_backend_name() == "mysql" and u.get_driver_name() in ("pymysql", "mysqldb")
+    assert u.query["charset"] == "utf8mb4"
+    u = sa.engine.make_url(resolve_url("mariadb+pymysql://u:p@h/db?charset=latin1"))
+    assert u.get_backend_name() == "mariadb" and u.query["charset"] == "latin1"
+    from relsynth.connectors import _sql_class
+    from relsynth.connectors.mysql import MySQLConnector
+    assert _sql_class("mysql") is MySQLConnector and _sql_class("mariadb") is MySQLConnector

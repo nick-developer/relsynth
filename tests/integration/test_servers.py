@@ -1,5 +1,5 @@
-"""Live PostgreSQL, SQL Server and Oracle (skipped unless RELSYNTH_TEST_*_URL is
-set; docker-compose.test.yml starts all three).
+"""Live PostgreSQL, SQL Server, Oracle, MySQL and MariaDB (skipped unless
+RELSYNTH_TEST_*_URL is set; docker-compose.test.yml starts all five).
 
 Each test works in a fresh schema (Oracle: the connecting user's schema, with
 the tables dropped afterwards)."""
@@ -19,7 +19,8 @@ from relsynth.connectors import from_spec
 from relsynth.pushdown.stats import FrameStats, Require
 
 KINDS = [pytest.param("postgresql", marks=pytest.mark.postgres), pytest.param("mssql", marks=pytest.mark.mssql),
-         pytest.param("oracle", marks=pytest.mark.oracle)]
+         pytest.param("oracle", marks=pytest.mark.oracle), pytest.param("mysql", marks=pytest.mark.mysql),
+         pytest.param("mariadb", marks=pytest.mark.mariadb)]
 STAR = ("customer", "product", "sales")
 
 
