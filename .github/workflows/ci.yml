@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
   workflow_call:                 # pypi_upload.yml runs the whole gate before publishing
     inputs:
-      sign:
-        description: "Run the signing dry run (the release workflow signs its own build)"
+      skip_sign:
+        description: "Skip the signing dry run (the release workflow signs its own build)"
         type: boolean
         default: false
 
@@ -241,9 +241,12 @@ jobs:
     # OIDC identity of this workflow) and verified against that identity. The
     # signatures are recorded in the public Rekor transparency log.
     needs: build
-    # not when called by the release workflow (inputs.sign is false there, null otherwise)
+    # Skipped when the release workflow calls this one with skip_sign: true. On
+    # other events `inputs` is empty, so inputs.skip_sign is null and !null is
+    # true. (A test of `inputs.sign != false` does not work: GitHub compares
+    # null and false as numbers, 0 == 0, so the job was skipped everywhere.)
     if: >-
-      inputs.sign != false &&
+      !inputs.skip_sign &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:

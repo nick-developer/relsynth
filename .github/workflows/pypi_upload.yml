@@ -37,7 +37,7 @@ jobs:
       contents: read
       id-token: write
     with:
-      sign: false
+      skip_sign: true
 
   check-version:
     runs-on: ubuntu-latest
