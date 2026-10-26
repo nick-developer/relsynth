@@ -48,6 +48,10 @@ dev = [
     "bandit>=1.7",
     "pip-audit>=2.7",
     "build>=1.2",
+    "mypy>=1.10",
+    "pandas-stubs",
+    "types-PyYAML",
+    "mutmut>=3.3",
 ]
 
 [project.scripts]
@@ -88,7 +92,15 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-skip_covered = true
+skip_covered = false
+precision = 1
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_configs = true
+# relsynth 1.0 has no annotations in most modules; tools/mypy_ratchet.py keeps
+# the number of errors from growing (docs/testing.md)
 
 [tool.ruff]
 line-length = 130
@@ -120,3 +132,19 @@ ignore = [
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = ["B101", "B311"]
+
+[tool.mutmut]
+# Mutation testing of the core engine (docs/testing.md, "Mutation testing").
+# The whole package is copied; only the five core modules are mutated, and only
+# on lines that the fast core tests execute.
+source_paths = ["src/relsynth/"]
+only_mutate = [
+    "src/relsynth/counts.py",
+    "src/relsynth/posterior.py",
+    "src/relsynth/copula.py",
+    "src/relsynth/relational.py",
+    "src/relsynth/evaluate.py",
+]
+pytest_add_cli_args_test_selection = ["tests/unit/core/"]
+pytest_add_cli_args = ["-p", "no:cacheprovider", "-q"]
+mutate_only_covered_lines = true
