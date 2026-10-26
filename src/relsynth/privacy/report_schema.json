@@ -94,7 +94,8 @@
         "type": "object", "required": ["rank", "person", "kind", "mia_auc"],
         "properties": {"rank": {"type": "integer"}, "person": {"type": "string", "pattern": "^P-[0-9a-f]{10}$"},
                        "kind": {"enum": ["vulnerable", "random"]}, "mia_auc": {"type": ["number", "null"]},
-                       "mia_auc_ci": {"$ref": "#/$defs/interval"}}
+                       "mia_auc_ci": {"$ref": "#/$defs/interval"},
+                       "ci_level": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}}
       }
     },
     "guards": {"type": "object"},

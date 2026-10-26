@@ -81,8 +81,9 @@ def context_markdown(rep: dict, name: str) -> str:
         else "every attribute of the people except the one being guessed, and data about the population"
     lines += [f"- **Recipient:** {ctx.get('description') or name}",
               f"- **Assumed attacker:** knows {knows}. Motivation is never assumed to be low (EDPB para. 31).",
-              f"- **People protected:** each row of `{u['table']}` together with their rows in "
-              + (", ".join(f"`{t}`" for t in u["owned_tables"]) or "no other table") + ".",
+              f"- **People protected:** each row of `{u['table']}`"
+              + (" together with their rows in " + ", ".join(f"`{t}`" for t in u["owned_tables"])
+                 if u["owned_tables"] else "") + ".",
               f"- **Tested on:** {rep['people']['training']} people in the training data, "
               f"{rep['people']['control']} unseen people as a control, {rep['people']['reference']} as the "
               f"attacker's population data. Intervals are {int(100 * rep['confidence'])}% confidence intervals.", ""]
@@ -108,8 +109,15 @@ def context_markdown(rep: dict, name: str) -> str:
             yn = lambda b: "yes" if b else "no"  # noqa: E731
             lines.append(f"| {r['rank']} | {r['person']} | {_f(r['mia_auc'])} | {_ci(r.get('mia_auc_ci'))} | "
                          f"{yn(r['isolated'])} | {yn(r['linked'])} | {yn(r['secret_inferred'])} |")
+        sh = ((rep.get("attacks") or {}).get("membership") or {}).get("shadow") or {}
+        n_sh = (sh.get("n_shadows_train") or 0) + (sh.get("n_shadows_test") or 0)
+        lev = recs[0].get("ci_level")
         lines += ["", "Person labels are salted hashes; the operator can map them back to keys. Each person was "
-                  "attacked with dedicated shadow models.", ""]
+                  "the target of a membership attack over "
+                  + (f"{n_sh} " if n_sh else "") + "shadow releases shared by all targets"
+                  + (f"; intervals hold for all listed people at once (each at {100 * lev:.2f}%), because the "
+                     "list picks the highest of many results" if lev else "") + ". 'Singled out', 'linked' and "
+                  "'secret guessed' are marked only when that attack beats the control as a whole.", ""]
     lines += ["## What to do", ""] + [f"- {a}" for a in _advice(rep, ctx)] + [""]
     return "\n".join(lines)
 
