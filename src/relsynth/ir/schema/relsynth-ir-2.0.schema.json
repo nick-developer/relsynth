@@ -1,0 +1,1694 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nick-developer/relsynth/main/src/relsynth/ir/schema/relsynth-ir-2.0.schema.json",
+  "title": "relsynth IR 2.0",
+  "type": "object",
+  "description": "A data estate: everything relsynth reads, models and writes.",
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "enum": [
+        "2.0"
+      ],
+      "description": "Version of the IR format (2.0).",
+      "default": "2.0"
+    },
+    "name": {
+      "type": "string",
+      "description": "Label used in reports and file names."
+    },
+    "description": {
+      "type": "string",
+      "description": "Free text."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle (or sqlalchemy for any other engine): `url`."
+        },
+        "path": {
+          "description": "Folder (files) or file (sqlite); relative to the spec's folder."
+        },
+        "url": {
+          "description": "Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen when omitted)."
+        },
+        "url_env": {
+          "description": "Environment variable that holds the URL (with its password), used instead of `url`: keeps the password out of the file. Specs written for sharing (introspect drafts, exported spec.yaml, bundles) show the URL with *** for the password and set url_env (RELSYNTH_SOURCE_URL)."
+        },
+        "password_env": {
+          "description": "Environment variable that holds only the password; the URL then carries user, host and database."
+        },
+        "schema": {
+          "description": "Database schema to read or write (Oracle: the owning user)."
+        },
+        "include": {
+          "description": "Table-name patterns (regular expressions) to read."
+        },
+        "exclude": {
+          "description": "Table-name patterns to leave out."
+        },
+        "null_values": {
+          "description": "CSV fields read as null. Only an empty field by default, so 'NA' (Namibia), 'None' and 'null' stay values; e.g. ['', 'NULL', 'n/a']."
+        },
+        "connect_args": {
+          "description": "Driver connection arguments (TLS settings, timeouts), passed to the driver as they are."
+        },
+        "engine_options": {
+          "description": "SQLAlchemy engine options (pool_size, pool_recycle, ...)."
+        },
+        "format": {
+          "description": "File format written (target of kind files)."
+        }
+      },
+      "description": "Where the real data is read from (the 1.0 `source` section)."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "As for source; csv and parquet write one file per table."
+        },
+        "path": {
+          "description": "Output folder or SQLite file; dataset i > 1 goes to <path>_i."
+        },
+        "url": {
+          "description": "URL of the target database."
+        },
+        "url_env": {
+          "description": "As for source (RELSYNTH_TARGET_URL in shared specs)."
+        },
+        "password_env": {
+          "description": "As for source."
+        },
+        "schema": {
+          "description": "Target schema (created when missing on PostgreSQL and SQL Server); dataset i > 1 goes to <schema>_i."
+        },
+        "if_exists": {
+          "description": "replace: drop and create the tables; append: insert into existing tables; truncate: delete the rows of the existing tables (children first) and insert, keeping the target's DDL and constraints; fail: stop when a table exists."
+        },
+        "structure": {
+          "description": "How target tables are created. clone: the source's DDL (column types, nullability, primary, unique and foreign keys, indexes, identity columns) when source and target are databases; infer: from the specification (keys and links as constraints) and the data's types; existing: tables created beforehand. auto: clone when possible, else infer."
+        },
+        "connect_args": {
+          "description": "As for source."
+        },
+        "engine_options": {
+          "description": "As for source."
+        },
+        "format": {
+          "description": "File format of a files target."
+        }
+      },
+      "description": "Where the synthetic data is written (the 1.0 `target` section)."
+    },
+    "containers": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Container"
+      },
+      "description": "Physical stores shared by several entities."
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Entity"
+      },
+      "description": "Entities in order (order is kept: it breaks ties in generation order)."
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Relationship"
+      },
+      "description": "References between entities."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Rule"
+      },
+      "description": "Business rules."
+    },
+    "privacy": {
+      "$ref": "#/$defs/EstatePrivacy",
+      "description": "Privacy unit and adjacency."
+    },
+    "synthesis": {
+      "type": "object",
+      "description": "relsynth engine settings (the 1.0 `synthesis` section)."
+    },
+    "review": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What introspect inferred, and its questions."
+    }
+  },
+  "patternProperties": {
+    "^x-": {}
+  },
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "entities"
+  ],
+  "$defs": {
+    "Container": {
+      "type": "object",
+      "description": "A physical store shared by one or more entities (a DynamoDB table, a MongoDB collection with several document types, a Kafka topic).",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "table",
+            "view",
+            "collection",
+            "key_value_table",
+            "topic",
+            "iceberg_table",
+            "delta_table",
+            "file_set",
+            "graph",
+            "index"
+          ],
+          "description": "table, view, collection, key_value_table, topic, iceberg_table, delta_table, file_set, graph or index."
+        },
+        "name": {
+          "type": "string",
+          "description": "Physical name."
+        },
+        "system": {
+          "type": "string",
+          "description": "System (postgresql, mongodb, dynamodb, kafka, neo4j, iceberg)."
+        },
+        "partition_key": {
+          "type": "string",
+          "description": "Partition (hash) key attribute of the stored items."
+        },
+        "sort_key": {
+          "type": "string",
+          "description": "Sort (range) key attribute."
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContainerIndex"
+          },
+          "description": "Secondary indexes (global and local)."
+        },
+        "options": {
+          "type": "object",
+          "description": "Store-specific options."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "ContainerIndex": {
+      "type": "object",
+      "description": "ContainerIndex(extensions: 'dict' = <factory>, name: 'str | None' = None, partition_key: 'str | None' = None, sort_key: 'str | None' = None, projection: 'str | None' = None)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Index name."
+        },
+        "partition_key": {
+          "type": "string",
+          "description": "Partition (hash) key attribute."
+        },
+        "sort_key": {
+          "type": "string",
+          "description": "Sort (range) key attribute."
+        },
+        "projection": {
+          "type": "string",
+          "description": "Projected attributes: all, keys_only or include."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
+    },
+    "Entity": {
+      "type": "object",
+      "description": "A set of records of one type: a table, a document collection (or one document type in it), a graph node label or edge type, or an event stream.",
+      "properties": {
+        "shape": {
+          "type": "string",
+          "enum": [
+            "record",
+            "document",
+            "node",
+            "edge",
+            "event"
+          ],
+          "description": "record (flat row), document (nested), node, edge or event.",
+          "default": "record"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "entity",
+            "fact",
+            "view"
+          ],
+          "description": "entity (a thing), fact (an event or link whose records exist because of its parents) or view (the join of others, rebuilt).",
+          "default": "entity"
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Attribute"
+          },
+          "description": "Attributes in order."
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Key"
+          },
+          "description": "Primary, unique and filtered unique keys."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Dependency"
+          },
+          "description": "Functional dependencies (implied levels, link determines link)."
+        },
+        "variants": {
+          "$ref": "#/$defs/Variants",
+          "description": "Polymorphic records: attributes that depend on a discriminator."
+        },
+        "view": {
+          "$ref": "#/$defs/View",
+          "description": "For role view: its base entity."
+        },
+        "time": {
+          "$ref": "#/$defs/Time",
+          "description": "Event time, valid time and versioning."
+        },
+        "allocation": {
+          "$ref": "#/$defs/Allocation",
+          "description": "Weights summing to a total per group (bridge)."
+        },
+        "edge": {
+          "$ref": "#/$defs/Edge",
+          "description": "For shape edge: its endpoints."
+        },
+        "stream": {
+          "$ref": "#/$defs/Stream",
+          "description": "For shape event: stream keys and ordering."
+        },
+        "physical": {
+          "$ref": "#/$defs/Physical",
+          "description": "Physical layout."
+        },
+        "privacy": {
+          "$ref": "#/$defs/EntityPrivacy",
+          "description": "Privacy annotation."
+        },
+        "synthesis": {
+          "$ref": "#/$defs/EntitySynthesis",
+          "description": "Engine options."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "Attribute": {
+      "type": "object",
+      "description": "A column, a document field, a node or edge property, or an event field.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "date",
+            "timestamp",
+            "time",
+            "binary",
+            "object",
+            "array",
+            "map"
+          ],
+          "description": "Logical data type: string, integer, number, boolean, date, timestamp, time, binary, object (with fields), array (with items), map."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "id",
+            "integer",
+            "float",
+            "categorical",
+            "boolean",
+            "date",
+            "datetime",
+            "text",
+            "pii",
+            "constant",
+            "lookup",
+            "binary",
+            "sequence"
+          ],
+          "description": "How relsynth models the value (the 1.0 column types): id, integer, float, categorical, boolean, date, datetime, text, pii, constant, lookup, binary, sequence."
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "May hold null.",
+          "default": true
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "May be absent from a record or document (distinct from null).",
+          "default": false
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        },
+        "min": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Hard lower bound."
+        },
+        "max": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Hard upper bound."
+        },
+        "decimals": {
+          "type": "integer",
+          "description": "Stored precision of a number."
+        },
+        "physical_type": {
+          "type": "string",
+          "description": "Type in the source system (VARCHAR(20), NUMBER(10,2), ObjectId)."
+        },
+        "physical_name": {
+          "type": "string",
+          "description": "Name in the source system when it differs."
+        },
+        "virtual": {
+          "type": "boolean",
+          "description": "Not stored: the identity of a graph edge's endpoint, or a value computed on load.",
+          "default": false
+        },
+        "lookup": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/KeyedLookup"
+            }
+          ],
+          "description": "Value of a parent's attribute through foreign keys ('fk.col', 'fk.fk2.col'), or a keyed lookup into a reference entity."
+        },
+        "map": {
+          "type": "object",
+          "description": "Lookup values mapped through a fixed table (country -> currency)."
+        },
+        "default": {
+          "description": "Value for codes outside `map`."
+        },
+        "sequence": {
+          "$ref": "#/$defs/Sequence",
+          "description": "For kind sequence: numbered within another attribute."
+        },
+        "base_column": {
+          "type": "string",
+          "description": "For views: the base entity's attribute this one copies."
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Attribute"
+          },
+          "description": "For type object: the nested attributes, in order."
+        },
+        "items": {
+          "$ref": "#/$defs/Attribute",
+          "description": "For type array: the element."
+        },
+        "length": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "For type array: number of elements {min, max} (multiplicity)."
+        },
+        "variants": {
+          "$ref": "#/$defs/Variants",
+          "description": "For type object: polymorphic sub-documents."
+        },
+        "privacy": {
+          "$ref": "#/$defs/AttributePrivacy",
+          "description": "Privacy annotation."
+        },
+        "synthesis": {
+          "$ref": "#/$defs/AttributeSynthesis",
+          "description": "Engine options."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "KeyedLookup": {
+      "type": "object",
+      "description": "A value read from a reference table by matching expressions of this row.",
+      "properties": {
+        "table": {
+          "type": "string",
+          "description": "Reference entity (mode copy, no primary key)."
+        },
+        "match": {
+          "type": "object",
+          "description": "Reference attribute -> expression of this row (OrderDate, 'USD', CurrencyCode)."
+        },
+        "value": {
+          "type": "string",
+          "description": "Reference attribute returned."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "table",
+        "match",
+        "value"
+      ]
+    },
+    "Sequence": {
+      "type": "object",
+      "description": "Numbers 1..n (or start..) within each value of another attribute.",
+      "properties": {
+        "within": {
+          "type": "string",
+          "description": "Attribute that groups the rows (the order number)."
+        },
+        "start": {
+          "type": "integer",
+          "description": "First number (relsynth 1.0 default 1)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "within"
+      ]
+    },
+    "Variants": {
+      "type": "object",
+      "description": "Polymorphic content: which further attributes a record or object has depends on the value of a discriminator (a tagged union).",
+      "properties": {
+        "discriminator": {
+          "type": "string",
+          "description": "Attribute whose value names the variant (`type`, `kind`)."
+        },
+        "cases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/Attribute"
+            }
+          },
+          "description": "Discriminator value -> the attributes that variant adds."
+        },
+        "open": {
+          "type": "boolean",
+          "description": "Values not listed may occur (their extra attributes are not described).",
+          "default": false
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "cases"
+      ]
+    },
+    "AttributePrivacy": {
+      "type": "object",
+      "description": "What an attribute reveals about the privacy unit.",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "direct_identifier",
+            "quasi_identifier",
+            "sensitive",
+            "non_sensitive"
+          ],
+          "description": "direct_identifier (names the person: e-mail, account number), quasi_identifier (identifies in combination: birth date, postcode), sensitive (a value to protect: diagnosis, salary), non_sensitive."
+        },
+        "classification": {
+          "type": "string",
+          "description": "The organisation's classification label (public, internal, confidential, restricted)."
+        },
+        "special_category": {
+          "type": "boolean",
+          "description": "GDPR Art. 9 special category (health, religion, ...).",
+          "default": false
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "AttributeSynthesis": {
+      "type": "object",
+      "description": "How relsynth's engine produces the values (1.0 column options).",
+      "properties": {
+        "distribution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "description": "The stated law (drawn independently of the other columns)."
+            },
+            "value": {
+              "description": "fixed: the value."
+            },
+            "probabilities": {
+              "description": "categorical: shares (normalised)."
+            },
+            "min": {
+              "description": "uniform: lower end; others: clip below."
+            },
+            "max": {
+              "description": "uniform: upper end; others: clip above."
+            },
+            "mean": {
+              "description": "normal, poisson; lognormal: mean of the log."
+            },
+            "sd": {
+              "description": "normal; lognormal: sd of the log."
+            },
+            "start": {
+              "description": "date_range: first date; sequence: first value."
+            },
+            "end": {
+              "description": "date_range: last date."
+            },
+            "step": {
+              "description": "sequence: increment."
+            },
+            "decimals": {
+              "description": "Rounding of a float."
+            },
+            "nulls": {
+              "description": "Share of nulls."
+            }
+          },
+          "description": "Draw from a stated law instead of the learned one (1.0 `distribution`)."
+        },
+        "text": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "condition_on": {
+              "description": "Column the text depends on (category of a product title)."
+            },
+            "order": {
+              "description": "n-gram order."
+            },
+            "min_token_rows": {
+              "description": "A token must appear in at least this many rows."
+            },
+            "max_copy_ngram": {
+              "description": "No rare source n-gram of this length is copied."
+            },
+            "whole_values": {
+              "description": "Generate whole labels seen in the source (nested labels)."
+            }
+          },
+          "description": "Options of a text attribute (1.0 `text`)."
+        },
+        "pii": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "generator": {
+              "description": "How identifiers are generated."
+            },
+            "pattern": {
+              "description": "Shape for the pattern generator (learned when absent)."
+            }
+          },
+          "description": "Options of a pii attribute (1.0 `pii`: generator, pattern)."
+        },
+        "offset_from": {
+          "type": "string",
+          "description": "This date/number = that attribute + a modelled gap."
+        },
+        "ratio_of": {
+          "type": "string",
+          "description": "This number = that number x a modelled factor (attribute or fk.col path)."
+        },
+        "ratio_same_as": {
+          "type": "string",
+          "description": "Use the factor of another ratio attribute."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "Key": {
+      "type": "object",
+      "description": "A key: attributes no two records share.",
+      "properties": {
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Key attributes, in order (several for a composite key)."
+        },
+        "primary": {
+          "type": "boolean",
+          "description": "The primary key (one per entity).",
+          "default": false
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "surrogate",
+            "natural"
+          ],
+          "description": "surrogate (generated, no business meaning) or natural (a business identifier)."
+        },
+        "where": {
+          "type": "string",
+          "description": "Rows the key applies to (a filtered unique index), as a rule expression."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the constraint."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "attributes"
+      ]
+    },
+    "Dependency": {
+      "type": "object",
+      "description": "A functional dependency inside an entity: the determinant's value fixes the dependents' values (GeoAreaKey -> State, Country; a track's album fixes its genre: a link that determines another link).",
+      "properties": {
+        "determinant": {
+          "type": "string",
+          "description": "The determining attribute (a code or a foreign key)."
+        },
+        "dependents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attributes it determines."
+        },
+        "anchor": {
+          "type": "string",
+          "description": "A coarse dependent kept as a modelled attribute (Country), or the determinant itself for a link that determines other links."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "determinant",
+        "dependents"
+      ]
+    },
+    "View": {
+      "type": "object",
+      "description": "An entity that is the join of others, rebuilt from them.",
+      "properties": {
+        "of": {
+          "type": "string",
+          "description": "The base entity the view's rows come from."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "of"
+      ]
+    },
+    "Time": {
+      "type": "object",
+      "description": "The time semantics of an entity's records.",
+      "properties": {
+        "event_time": {
+          "type": "string",
+          "description": "When the event happened (a sale's date, an event's timestamp)."
+        },
+        "valid_time": {
+          "$ref": "#/$defs/ValidTime",
+          "description": "Valid-time period of each record."
+        },
+        "versioning": {
+          "$ref": "#/$defs/Versioning",
+          "description": "Version history (needs valid_time)."
+        },
+        "ingestion_time": {
+          "type": "string",
+          "description": "When the record reached the store (processing time of a stream)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "ValidTime": {
+      "type": "object",
+      "description": "The period during which a record is true in the world (SQL:2011 application time).",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Start attribute."
+        },
+        "to": {
+          "type": "string",
+          "description": "End attribute (null on the open, current version)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "from"
+      ]
+    },
+    "Versioning": {
+      "type": "object",
+      "description": "Records are versions of a natural key (type 2 slowly changing dimension).",
+      "properties": {
+        "natural_key": {
+          "type": "string",
+          "description": "The business key shared by the versions."
+        },
+        "scd_type": {
+          "enum": [
+            2,
+            "2"
+          ],
+          "description": "Slowly-changing-dimension type as written in a 1.0 spec (2)."
+        },
+        "stable": {
+          "oneOf": [
+            {
+              "const": "auto"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "auto, or the attributes repeated across versions."
+        },
+        "current": {
+          "type": "object",
+          "description": "Current flag {column, value, other}."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "natural_key"
+      ]
+    },
+    "PartitionField": {
+      "type": "object",
+      "description": "A partition of the physical layout: a transform of a source attribute (Iceberg hidden partitioning; identity = Hive-style partition column).",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Source attribute."
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "year",
+            "month",
+            "day",
+            "hour",
+            "bucket",
+            "truncate",
+            "void"
+          ],
+          "description": "identity, year, month, day, hour, bucket, truncate or void.",
+          "default": "identity"
+        },
+        "param": {
+          "type": "integer",
+          "description": "bucket: number of buckets; truncate: width."
+        },
+        "name": {
+          "type": "string",
+          "description": "Partition name (default <source>_<transform>)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "SortField": {
+      "type": "object",
+      "description": "SortField(extensions: 'dict' = <factory>, source: 'str | None' = None, transform: 'str' = 'identity', direction: 'str' = 'asc', nulls: 'str' = 'first')",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Source attribute."
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "year",
+            "month",
+            "day",
+            "hour",
+            "bucket",
+            "truncate",
+            "void"
+          ],
+          "description": "Transform applied before sorting.",
+          "default": "identity"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "description": "asc or desc.",
+          "default": "asc"
+        },
+        "nulls": {
+          "type": "string",
+          "enum": [
+            "first",
+            "last"
+          ],
+          "description": "first or last.",
+          "default": "first"
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "Discriminator": {
+      "type": "object",
+      "description": "How the records of this entity are told apart in a container shared by several entities.",
+      "properties": {
+        "attribute": {
+          "type": "string",
+          "description": "Attribute holding the entity's type."
+        },
+        "value": {
+          "description": "Its value for this entity."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "attribute",
+        "value"
+      ]
+    },
+    "Physical": {
+      "type": "object",
+      "description": "Where and how an entity is stored.",
+      "properties": {
+        "container": {
+          "type": "string",
+          "description": "Name of a container in `containers` (shared tables, topics, collections)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Physical name (schema.table, collection, topic)."
+        },
+        "format": {
+          "type": "string",
+          "description": "Storage format: parquet, orc, avro, csv, json, bson, delta, iceberg."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location (s3://..., abfss://..., a folder)."
+        },
+        "partitioning": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartitionField"
+          },
+          "description": "Partition spec."
+        },
+        "sort_order": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SortField"
+          },
+          "description": "Sort order within files or partitions."
+        },
+        "clustering": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Clustering columns (Delta liquid clustering, Snowflake clustering keys)."
+        },
+        "discriminator": {
+          "$ref": "#/$defs/Discriminator",
+          "description": "Type attribute in a shared container (single-table design)."
+        },
+        "key_templates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Container key attribute -> template built from this entity's attributes ('CUSTOMER#{customer_id}')."
+        },
+        "options": {
+          "type": "object",
+          "description": "Store-specific options (table properties, retention, TTL)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "Edge": {
+      "type": "object",
+      "description": "A graph edge type: each record joins a source node to a target node.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Relationship (from this entity) to the source node."
+        },
+        "target": {
+          "type": "string",
+          "description": "Relationship (from this entity) to the target node."
+        },
+        "directed": {
+          "type": "boolean",
+          "description": "Edges have a direction.",
+          "default": true
+        },
+        "multiple": {
+          "type": "boolean",
+          "description": "Several edges may join the same two nodes.",
+          "default": true
+        },
+        "loops": {
+          "type": "boolean",
+          "description": "An edge may join a node to itself.",
+          "default": false
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "target"
+      ]
+    },
+    "Stream": {
+      "type": "object",
+      "description": "An event stream (a topic or log): records arrive over time per key.",
+      "properties": {
+        "key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Message key attributes (the partitioning key)."
+        },
+        "order_by": {
+          "type": "string",
+          "description": "Attribute that orders the events of one key (event time or a sequence number)."
+        },
+        "partitions": {
+          "type": "integer",
+          "description": "Number of partitions of the topic."
+        },
+        "max_lateness": {
+          "type": "string",
+          "description": "Bound on event-time disorder (ISO 8601 duration, PT5M): the watermark lag."
+        },
+        "delivery": {
+          "type": "string",
+          "enum": [
+            "at_most_once",
+            "at_least_once",
+            "exactly_once"
+          ],
+          "description": "at_most_once, at_least_once or exactly_once."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "Allocation": {
+      "type": "object",
+      "description": "Weights that sum to a total over the records of a group (a bridge table).",
+      "properties": {
+        "group": {
+          "type": "string",
+          "description": "Attribute whose records share the weights (customer)."
+        },
+        "weight": {
+          "type": "string",
+          "description": "Weight attribute."
+        },
+        "total": {
+          "type": "number",
+          "description": "What the weights of a group sum to (1.0 default 1)."
+        },
+        "decimals": {
+          "type": "integer",
+          "description": "Stored precision; the rounding remainder goes to the largest weight."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "group",
+        "weight"
+      ]
+    },
+    "EntityPrivacy": {
+      "type": "object",
+      "description": "EntityPrivacy(extensions: 'dict' = <factory>, public: 'bool' = False, description: 'str | None' = None)",
+      "properties": {
+        "public": {
+          "type": "boolean",
+          "description": "Holds no data about the privacy unit and may be released as it is (code lists, calendars, a product catalogue).",
+          "default": false
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "EntitySynthesis": {
+      "type": "object",
+      "description": "relsynth engine options of an entity (1.0 table options).",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "synthesize",
+            "copy"
+          ],
+          "description": "synthesize or copy."
+        },
+        "key_order": {
+          "type": "string",
+          "description": "Keys numbered in the order of this attribute."
+        },
+        "fact": {
+          "$ref": "#/$defs/FactModel",
+          "description": "How fact records are generated."
+        },
+        "group_effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupEffect"
+          },
+          "description": "Attributes shared by the records of a group."
+        },
+        "link_affinity": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkAffinity"
+          },
+          "description": "Links that point at matching parents more often than chance."
+        },
+        "unknown_members": {
+          "type": "array",
+          "description": "Key values of records that stand for 'no member' (-1 'Unknown')."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "FactModel": {
+      "type": "object",
+      "description": "How fact records are generated (1.0 `fact`, without time_column, which is time.event_time).",
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "description": "Parent whose records generate the facts: an entity, a relationship name or a foreign-key attribute."
+        },
+        "partner": {
+          "type": "string",
+          "description": "Second dimension of the block model (same forms as anchor)."
+        },
+        "pairs": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "poisson",
+            "occupancy"
+          ],
+          "description": "auto, poisson or occupancy."
+        },
+        "multiplicity": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "none",
+            "partner",
+            "anchor",
+            "block"
+          ],
+          "description": "auto, none, partner, anchor or block."
+        },
+        "count_model": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "poisson",
+            "dp"
+          ],
+          "description": "auto, poisson or dp."
+        },
+        "group_fallback": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "anchor",
+            "partner"
+          ],
+          "description": "auto, anchor or partner."
+        },
+        "time_bucket": {
+          "type": "string",
+          "enum": [
+            "day",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ],
+          "description": "Bucket of the seasonal profile of event_time."
+        },
+        "condition_on_parents": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Condition measures on parents' continuous attributes."
+        },
+        "header": {
+          "$ref": "#/$defs/Header",
+          "description": "Order header carried on the lines."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "Header": {
+      "type": "object",
+      "description": "Header(extensions: 'dict' = <factory>, key: 'str | None' = None, columns: 'list[str] | None' = None, line_number: 'str | None' = None)",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Document number (SalesOrderNumber)."
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attributes the document number determines."
+        },
+        "line_number": {
+          "type": "string",
+          "description": "Line number attribute, generated 1..n per document."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "GroupEffect": {
+      "type": "object",
+      "description": "GroupEffect(extensions: 'dict' = <factory>, attribute: 'str | None' = None, by: 'list[str]' = <factory>)",
+      "properties": {
+        "attribute": {
+          "type": "string",
+          "description": "Attribute shared by the records of a group."
+        },
+        "by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attributes or fk.col paths that define a group."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "attribute",
+        "by"
+      ]
+    },
+    "LinkAffinity": {
+      "type": "object",
+      "description": "LinkAffinity(extensions: 'dict' = <factory>, match: 'list[str]' = <factory>, share: 'float | None' = None)",
+      "properties": {
+        "match": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Two paths whose values match more often than chance."
+        },
+        "share": {
+          "type": "number",
+          "description": "Matching share to reach (default: learned)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "match"
+      ]
+    },
+    "Relationship": {
+      "type": "object",
+      "description": "A reference between entities: a foreign key (composite allowed), a hierarchy inside one entity, a one-to-one extension, or a many-to-many link through a bridge.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name, used by rules, fact anchors and edges."
+        },
+        "from": {
+          "$ref": "#/$defs/End",
+          "description": "Referencing side (the child: holds the foreign key)."
+        },
+        "to": {
+          "$ref": "#/$defs/End",
+          "description": "Referenced side (the parent); attributes default to its primary key."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "reference",
+            "hierarchy",
+            "derived"
+          ],
+          "description": "reference (between entities), hierarchy (parent-child inside one entity) or derived (internal: offset keys).",
+          "default": "reference"
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "many_to_one",
+            "one_to_one",
+            "many_to_many"
+          ],
+          "description": "many_to_one, one_to_one (the referencing attributes are a key) or many_to_many (through `via`).",
+          "default": "many_to_one"
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "A record may have no parent (null reference); learned when absent."
+        },
+        "offset": {
+          "$ref": "#/$defs/Offset",
+          "description": "Gap-modelled second reference into an ordered parent."
+        },
+        "via": {
+          "$ref": "#/$defs/Via",
+          "description": "For many_to_many: the bridge."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "from",
+        "to"
+      ]
+    },
+    "End": {
+      "type": "object",
+      "description": "End(extensions: 'dict' = <factory>, entity: 'str | None' = None, attributes: 'list[str] | None' = None)",
+      "properties": {
+        "entity": {
+          "type": "string",
+          "description": "Entity."
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attributes (several for a composite key; fk.col paths allowed on the referencing side)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "entity"
+      ]
+    },
+    "Offset": {
+      "type": "object",
+      "description": "A second reference into the same ordered parent whose gap is modelled (ship date from order date).",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "The base reference attribute of the same entity."
+        },
+        "order_by": {
+          "type": "string",
+          "description": "Parent attribute that orders it (the calendar's date)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "order_by"
+      ]
+    },
+    "Via": {
+      "type": "object",
+      "description": "For many_to_many: the bridge entity and its two references.",
+      "properties": {
+        "entity": {
+          "type": "string",
+          "description": "Bridge entity."
+        },
+        "from": {
+          "type": "string",
+          "description": "Relationship from the bridge to the `from` entity."
+        },
+        "to": {
+          "type": "string",
+          "description": "Relationship from the bridge to the `to` entity."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "entity",
+        "from",
+        "to"
+      ]
+    },
+    "Rule": {
+      "type": "object",
+      "description": "A business rule.  Hard rules (holds 1) hold on every record; soft rules on a share.",
+      "properties": {
+        "entity": {
+          "type": "string",
+          "description": "Entity the rule is on."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "check",
+            "derive",
+            "aggregate",
+            "cumulative"
+          ],
+          "description": "check (must hold), derive (attribute = expression), aggregate (parent attribute from its children) or cumulative (running balance)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name."
+        },
+        "expr": {
+          "type": "string",
+          "description": "check / derive expression."
+        },
+        "holds": {
+          "type": "number",
+          "description": "derive: share of records on which it holds (below 1: a soft rule)."
+        },
+        "violation": {
+          "type": "string",
+          "enum": [
+            "offset",
+            "model"
+          ],
+          "description": "Soft rule: offset or model."
+        },
+        "tolerance": {
+          "type": "number",
+          "description": "derive: accepted absolute difference."
+        },
+        "attribute": {
+          "type": "string",
+          "description": "aggregate / cumulative: the computed attribute."
+        },
+        "agg": {
+          "type": "string",
+          "enum": [
+            "count",
+            "sum",
+            "min",
+            "max",
+            "mean",
+            "exists",
+            "count_distinct"
+          ],
+          "description": "aggregate function."
+        },
+        "source": {
+          "type": "string",
+          "description": "aggregate: the child entity."
+        },
+        "of": {
+          "type": "string",
+          "description": "aggregate: what is aggregated."
+        },
+        "via": {
+          "type": "string",
+          "description": "aggregate: relationship name when there are several."
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "cumulative: the group."
+        },
+        "order": {
+          "type": "string",
+          "description": "cumulative: the order."
+        },
+        "step": {
+          "type": "string",
+          "description": "cumulative: change per record."
+        },
+        "opening": {
+          "type": "number",
+          "description": "cumulative: first value of each group."
+        },
+        "floor": {
+          "type": "number",
+          "description": "cumulative: lowest allowed balance."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "entity",
+        "type"
+      ]
+    },
+    "EstatePrivacy": {
+      "type": "object",
+      "description": "EstatePrivacy(extensions: 'dict' = <factory>, unit: 'PrivacyUnit | None' = None, adjacency: 'str' = 'add_remove', exclude_paths: 'list[str]' = <factory>, description: 'str | None' = None)",
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/PrivacyUnit",
+          "description": "The privacy unit."
+        },
+        "adjacency": {
+          "type": "string",
+          "enum": [
+            "add_remove",
+            "replace"
+          ],
+          "description": "add_remove (a unit and all its data present or absent) or replace.",
+          "default": "add_remove"
+        },
+        "exclude_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Relationships not followed when tracing contributions (a shared lookup)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "PrivacyUnit": {
+      "type": "object",
+      "description": "Whose privacy is protected: neighbouring datasets differ in all the data of one unit (Ponomareva et al. 2026).",
+      "properties": {
+        "entity": {
+          "type": "string",
+          "description": "Entity whose records are the units (Customer)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text (a customer and everything they bought)."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "entity"
+      ]
+    }
+  }
+}
