@@ -55,6 +55,16 @@ def _xy(ref, df, spec, t, target, feats, cat):
     return X[ok], y[ok]
 
 
+def standardise(Xa, Xb):
+    """Columns of Xa and Xb on the scale of Xa plus an intercept, without the
+    columns that are constant on Xa up to rounding (they carry no information
+    and make the scaled design ill-conditioned)."""
+    mu, sd = Xa.mean(0), Xa.std(0)
+    keep = sd > 1e-9 * (1 + np.abs(mu))
+    return (np.column_stack([Xa[:, keep] / sd[keep], np.ones(len(Xa))]),
+            np.column_stack([Xb[:, keep] / sd[keep], np.ones(len(Xb))]))
+
+
 def score(ref, train, test, spec, t, target, feats, seed=0, max_rows=5000):
     """Score of a model trained on `train` and evaluated on `test` (features and
     target encoded on `ref`): prevalence-weighted one-vs-rest AUC for a
@@ -67,9 +77,7 @@ def score(ref, train, test, spec, t, target, feats, seed=0, max_rows=5000):
     Xb, yb = _xy(ref, test, spec, t, target, feats, cat)
     if len(ya) < 10 or len(yb) < 10:
         return float("nan")
-    sd = Xa.std(0)
-    sd[sd == 0] = 1
-    Xa, Xb = Xa / sd, Xb / sd
+    Xa, Xb = standardise(Xa, Xb)
     if cat:
         classes = [k for k in np.unique(yb) if (yb == k).any() and (yb != k).any()]
         if not classes:
@@ -86,7 +94,11 @@ def score(ref, train, test, spec, t, target, feats, seed=0, max_rows=5000):
             tot, wsum = tot + p * auc, wsum + p
         return float(tot / wsum)
     lam = 1.0
-    w = np.linalg.solve(Xa.T @ Xa + lam * np.eye(Xa.shape[1]), Xa.T @ ya)
+    try:
+        w = np.linalg.solve(Xa.T @ Xa + lam * np.eye(Xa.shape[1]), Xa.T @ ya)
+    except np.linalg.LinAlgError:
+        w = np.linalg.lstsq(np.r_[Xa, np.sqrt(lam) * np.eye(Xa.shape[1])], np.r_[ya, np.zeros(Xa.shape[1])],
+                            rcond=None)[0]
     res = yb - Xb @ w
     return float(1 - (res ** 2).sum() / max(((yb - yb.mean()) ** 2).sum(), 1e-12))
 
