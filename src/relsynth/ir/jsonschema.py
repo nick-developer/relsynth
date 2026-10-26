@@ -18,6 +18,18 @@ from typing import Any, Union
 
 from . import model as M
 
+
+def _class_doc(cls, first_paragraph: bool = False) -> str:
+    """A class docstring as one line, the same on every Python version (3.13 dedents
+    docstrings; a dataclass without one gets a signature whose text varies)."""
+    doc = cls.__doc__ or ""
+    if doc.startswith(cls.__name__ + "("):
+        return ""
+    lines = [ln.strip() for ln in doc.strip().splitlines()]
+    if first_paragraph and "" in lines:
+        lines = lines[:lines.index("")]
+    return " ".join(" ".join(lines).split())
+
 SCHEMA_ID = ("https://raw.githubusercontent.com/nick-developer/relsynth/main/src/relsynth/ir/schema/"
              f"relsynth-ir-{M.IR_VERSION}.schema.json")
 SCHEMA_FILE = Path(__file__).parent / "schema" / f"relsynth-ir-{M.IR_VERSION}.schema.json"
@@ -78,7 +90,7 @@ def _node_schema(cls) -> dict:
         props[key] = s
         if f.metadata.get("required"):
             req.append(key)
-    out = {"type": "object", "description": (cls.__doc__ or "").strip().split("\n\n")[0].replace("\n", " "),
+    out = {"type": "object", "description": _class_doc(cls, first_paragraph=True),
            "properties": props, "patternProperties": {"^x-": {}}, "additionalProperties": False}
     if req:
         out["required"] = req
@@ -140,7 +152,7 @@ def reference() -> str:
            "", "Every node also accepts vendor extensions: keys starting with `x-`, kept and never interpreted.", ""]
     for cls in M.NODE_TYPES:
         hints = typing.get_type_hints(cls)
-        doc = " ".join((cls.__doc__ or "").split())
+        doc = _class_doc(cls)
         out += [f"## {cls.__name__}", "", doc, "", "| Key | Type | Default | Meaning |", "|---|---|---|---|"]
         for f in cls.node_fields():
             key = f.metadata.get("key") or f.name
