@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Compiled kernels (v0.8).
 
 Each kernel computes exactly what the numpy expression it replaces computes:

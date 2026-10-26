@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Column codecs and Bayesian marginal distributions.
 
 Every modelled column is mapped to either

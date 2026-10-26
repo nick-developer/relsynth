@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """In-database statistics: the SQL functions (normal quantile, seeded hash) and
 SqlStats against the in-memory reference FrameStats (Proposition P1)."""
 from __future__ import annotations

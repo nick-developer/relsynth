@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Conditional text synthesis with a hierarchical Dirichlet back-off n-gram model.
 
 p_c(w | h_n) = (n_c(h_n, w) + beta * p_c(w | h_{n-1})) / (n_c(h_n) + beta)

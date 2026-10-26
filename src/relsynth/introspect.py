@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Draft a spec from a live database (any SQLAlchemy URL, including
 PostgreSQL, Oracle and MS SQL Server), a SQLite file, or a folder of CSV files.
 

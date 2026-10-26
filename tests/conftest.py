@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Shared fixtures.
 
 Fake databases come from tests/fakedata/scenarios.py (known generating models).

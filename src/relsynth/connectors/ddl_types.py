@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Values converted to the target column's type before a load, so that every
 engine receives what its column accepts (an integral float 3.0 for an INTEGER
 column, a timestamp for a DATE column, text for a VARCHAR column)."""

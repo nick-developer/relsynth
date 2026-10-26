@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Pushdown: fit large fact tables from statistics computed where the data lives.
 
 The relational model (latent segments, link and block rates, count laws,

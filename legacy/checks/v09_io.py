@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """v0.9 input/output, security and spec-validation fixes: one test per finding of the
 review (S1-S9 security, C1-C7 data loading, E1-E6 and P1 expressions, V1-V3 spec
 validation, R readability).  Each test builds its case in a temporary folder (no

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Data-driven discovery of primary keys and links (v0.8).
 
 The model is derived from the data that is given; no schema template, naming

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Folders of CSV and Parquet files: one file per table, named <table>.csv,
 <table>.csv.gz or <table>.parquet.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fake data models with known ground truth.
 
 Each scenario returns (tables, spec, truth).  `python scenarios.py` writes every

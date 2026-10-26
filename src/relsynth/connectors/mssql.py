@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Microsoft SQL Server and Azure SQL.
 
 Loads use ODBC array binding (pyodbc fast_executemany) with the Microsoft ODBC

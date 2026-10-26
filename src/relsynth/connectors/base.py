@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The connector interface: one object per data location (a database schema or a
 folder of files) that the rest of relsynth reads and writes through.
 

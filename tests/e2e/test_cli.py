@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The command line, as a CI/CD job uses it: every command, its JSON output and
 its exit code (0 ok, 1 quality gate, 2 spec/usage, 3 connection/I-O, 4 engine)."""
 from __future__ import annotations

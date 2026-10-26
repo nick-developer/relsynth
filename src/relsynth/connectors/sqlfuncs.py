@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """SQL expressions that differ between database engines, built with SQLAlchemy
 (identifiers are quoted by the dialect, never pasted into text).
 

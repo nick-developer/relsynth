@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Connectors: where data is read from and written to.
 
     from relsynth.connectors import connect

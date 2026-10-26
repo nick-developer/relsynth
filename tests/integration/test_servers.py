@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Live PostgreSQL, SQL Server and Oracle (skipped unless RELSYNTH_TEST_*_URL is
 set; docker-compose.test.yml starts all three).
 

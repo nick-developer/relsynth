@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Fit a whole-database model from a spec + tables and synthesise a new
 database with the same structure (layer 1 algorithm 5, top-down synthesis).
 

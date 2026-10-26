@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Doctor: read a diagnostics bundle, find model-layer issues, propose fixes as
 spec patches, and optionally apply them.
 

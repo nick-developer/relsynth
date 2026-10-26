@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Format-preserving generators for direct identifiers. Nothing is learned from
 the source values except formats (digit/letter shapes); values never repeat
 source values except by chance."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Whole-model report: what the specification says about the data model.
 
 `describe(spec)` classifies every table with the dimensional-modelling

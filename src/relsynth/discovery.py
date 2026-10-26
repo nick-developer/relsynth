@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Dependency discovery beyond keys, links and lookups (used by introspect).
 
 Each method adds one kind of structure to the draft; every one is the same test

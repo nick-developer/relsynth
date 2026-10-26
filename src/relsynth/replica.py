@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """Standalone sampler of an exported relsynth model.
 
     python replicate.py model.json --out synthetic/ [--draw 0|mean] [--seed 7]

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Source data for a fit: every table loaded, except pushed-down facts, which come
 as (uniform sample, exact statistics).
 

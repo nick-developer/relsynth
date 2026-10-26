@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # Reference copy of relsynth/relational.py as it was before the v0.8 row-restricted
 # occupancy likelihood and in-place Gumbel argmax (its count, Dirichlet and Gaussian
 # kernels are checked against plain numpy separately).  Used only by check C69.

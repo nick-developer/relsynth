@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Write docs/cli.md from the command-line parser, so the reference always
 matches the code:
 

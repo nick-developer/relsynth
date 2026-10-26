@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """One posterior draw (or the posterior mean) of every parameter, per synthetic dataset.
 
 A synthetic dataset is a draw from the posterior predictive distribution

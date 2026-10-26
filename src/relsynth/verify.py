@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Model checks on real data, where no ground truth exists (R1-R7).
 
 On fake data the generating model is known and the checks compare with it

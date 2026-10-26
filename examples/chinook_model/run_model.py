@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """Run the data model of spec.yaml exactly as `relsynth run` does (bit-identical output).
 
     python run_model.py [--out synthetic] [--datasets 1] [--scale 1.0]

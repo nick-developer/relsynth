@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The relsynth command line, for people and for CI/CD pipelines.
 
     relsynth introspect --source postgresql://analyst@db/sales --schema dw --out spec.yaml

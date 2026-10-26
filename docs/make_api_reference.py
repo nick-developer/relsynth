@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Write docs/api.md from the public API's signatures and docstrings:
 
     python docs/make_api_reference.py

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Which tables are fitted from statistics computed where the data lives.
 
 A fact table is pushed down when the relational model needs it only through

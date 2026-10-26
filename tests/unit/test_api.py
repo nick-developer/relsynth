@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The Python API as a user calls it: introspect -> fit -> sample -> evaluate ->
 write, run with quality gates, doctor, export, clone, profile, ping."""
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Dependency discovery for introspect (data profiling).
 
 Identifying a data model from a database is the discovery of its dependencies

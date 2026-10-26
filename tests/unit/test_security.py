@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Security properties: credentials never reach files, logs or messages; rule
 expressions and regular expressions are sandboxed; specs cannot run code; file
 table names cannot leave their folder; SQL identifiers are always quoted

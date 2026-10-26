@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Choice of the count model for rows per parent (children per parent row,
 fact rows per anchor row).
 
