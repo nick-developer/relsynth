@@ -1,4 +1,10 @@
 dist/
+build/
+*.egg-info/
 **/__pycache__/
 .hypothesis/
-.ruff/_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
