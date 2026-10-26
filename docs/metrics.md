@@ -147,7 +147,7 @@ Mean TVD over all 3-way marginals of the discretised columns, or over a seeded r
 
 ### `beta_recall_gap`: beta-recall gap
 
-1 - I_R with I_R = 1 - 2 mean_b |R(b) - b|, where R(b) is the share of real rows whose nearest synthetic row lies within the real row's 5-NN radius among real rows and inside the synthetic b-support.
+1 - I_R with I_R = 1 - 2 mean_b |R(b) - b|, where R(b) is the share of real rows whose nearest synthetic row lies within the real row's 5-NN radius among real rows and inside the synthetic b-support. Both samples are cut to the same size, since recall grows with the number of synthetic rows.
 
 - Scope: table; range [0, 1]; 0 = ideal; ideal 0.0; lower is better.
 - Tolerance: 0.1; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.

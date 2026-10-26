@@ -140,13 +140,17 @@ def precision_recall(real, other, spec, t, cols, max_rows=5000, k=5, seed=0):
                    synthetic b-support.
     Points on the boundary of a support (tied distances) count by the
     randomised probability integral transform (_pit_curve).
+    Both samples are cut to the same size, the smaller of the two and max_rows.
     Integrated scores 1 - 2 * mean_a |curve(a) - a| (1 = ideal, 0 = worst);
     the report uses their complements (0 = ideal) as distances."""
     if not cols or len(real) < 2 * k + 2 or len(other) < 2:
         return {}
     rng = np.random.default_rng(seed)
-    r = real.iloc[rng.permutation(len(real))[:max_rows]].reset_index(drop=True)
-    s = other.iloc[rng.permutation(len(other))[:max_rows]].reset_index(drop=True)
+    # equal sample sizes: recall depends on how many synthetic points there are, so
+    # comparing n real with m != n synthetic points would be biased (C80 at 0.5x)
+    n = min(len(real), len(other), max_rows)
+    r = real.iloc[rng.permutation(len(real))[:n]].reset_index(drop=True)
+    s = other.iloc[rng.permutation(len(other))[:n]].reset_index(drop=True)
     Xr, Xs = feature_matrix(r, s, spec, t, cols, quadratic=False)
     if Xr.shape[1] == 0:
         return {}

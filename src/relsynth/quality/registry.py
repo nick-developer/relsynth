@@ -71,7 +71,8 @@ METRICS = {
         name="beta-recall gap",
         definition="1 - I_R with I_R = 1 - 2 mean_b |R(b) - b|, where R(b) is the share of real rows whose "
                    "nearest synthetic row lies within the real row's 5-NN radius among real rows and "
-                   "inside the synthetic b-support.",
+                   "inside the synthetic b-support. Both samples are cut to the same size, since recall "
+                   "grows with the number of synthetic rows.",
         range="[0, 1]; 0 = ideal", reference="Alaa et al., ICML 2022"),
     # ------------------------------------------------------------ utility
     "tstr_gap": dict(
