@@ -36,9 +36,10 @@ postgres = ["psycopg[binary]>=3.1"]
 mssql = ["pyodbc>=5.0"]
 mssql-pymssql = ["pymssql>=2.2.8"]
 oracle = ["oracledb>=2.0"]
+mysql = ["pymysql>=1.1.1"]
 parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
-all = ["relsynth[postgres,mssql,oracle,parquet]"]
+all = ["relsynth[postgres,mssql,oracle,mysql,parquet]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
 dev = [
@@ -82,6 +83,8 @@ markers = [
     "postgres: needs a live PostgreSQL (RELSYNTH_TEST_PG_URL)",
     "mssql: needs a live SQL Server (RELSYNTH_TEST_MSSQL_URL)",
     "oracle: needs a live Oracle Database (RELSYNTH_TEST_ORACLE_URL)",
+    "mysql: needs a live MySQL 8 server (RELSYNTH_TEST_MYSQL_URL)",
+    "mariadb: needs a live MariaDB server (RELSYNTH_TEST_MARIADB_URL)",
     "slow: end-to-end runs that take more than a few seconds",
     "science: the statistical check suite C00-C78 (about an hour; run with -m science)",
 ]
