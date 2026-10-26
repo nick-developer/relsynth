@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nick-developer/relsynth/privacy-report/1",
+  "title": "relsynth privacy report",
+  "description": "Results of relsynth.privacy.assess: attacks per person and a verdict per release context. Version 1. Every risk carries a confidence interval at the level in 'confidence'.",
+  "type": "object",
+  "required": ["schema", "unit", "people", "confidence", "attacks", "contexts", "vulnerable_records", "timings"],
+  "$defs": {
+    "interval": {"type": ["array", "null"], "items": {"type": ["number", "null"]}, "minItems": 2, "maxItems": 2},
+    "rate": {
+      "type": ["object", "null"],
+      "required": ["value", "error", "n", "k"],
+      "properties": {"value": {"type": "number"}, "error": {"type": "number"}, "n": {"type": "integer"}, "k": {"type": "number"}}
+    },
+    "risk": {
+      "type": "object",
+      "description": "Anonymeter residual risk: (attack rate - control rate) / (1 - control rate), clipped to [0, 1].",
+      "required": ["criterion", "attack", "value", "ci", "attack_rate", "control_rate", "baseline_rate", "attack_beats_baseline"],
+      "properties": {
+        "criterion": {"enum": ["record_isolation", "linkage", "inference"]},
+        "attack": {"type": "string"},
+        "value": {"type": "number", "minimum": 0, "maximum": 1},
+        "ci": {"$ref": "#/$defs/interval"},
+        "attack_rate": {"$ref": "#/$defs/rate"},
+        "control_rate": {"$ref": "#/$defs/rate"},
+        "baseline_rate": {"$ref": "#/$defs/rate"},
+        "attack_beats_baseline": {"type": "boolean"}
+      }
+    },
+    "tpr": {
+      "type": "object",
+      "required": ["fpr_target", "identified"],
+      "properties": {
+        "fpr_target": {"type": "number"}, "identified": {"type": "boolean"},
+        "tpr": {"type": "number"}, "tpr_ci": {"$ref": "#/$defs/interval"},
+        "fpr": {"type": "number"}, "fpr_ci": {"$ref": "#/$defs/interval"},
+        "threshold": {"type": ["number", "null"]}, "reason": {"type": "string"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["criterion", "attack", "value", "ci", "limit", "status"],
+      "properties": {
+        "criterion": {"enum": ["record_isolation", "linkage", "inference", "membership"]},
+        "attack": {"type": "string"},
+        "value": {"type": ["number", "null"]},
+        "ci": {"$ref": "#/$defs/interval"},
+        "limit": {"type": ["number", "null"]},
+        "status": {"enum": ["pass", "review", "fail", "n/a"]},
+        "what": {"type": "string"}
+      }
+    }
+  },
+  "properties": {
+    "schema": {"const": "relsynth.privacy-report/1"},
+    "spec_name": {"type": ["string", "null"]},
+    "unit": {
+      "type": "object", "required": ["table", "key", "owned_tables"],
+      "properties": {"table": {"type": "string"}, "key": {"type": "string"},
+                     "owned_tables": {"type": "object", "additionalProperties": {"type": "string"}}}
+    },
+    "people": {
+      "type": "object", "required": ["total", "training", "control", "reference"],
+      "properties": {"total": {"type": "integer"}, "training": {"type": "integer"}, "control": {"type": "integer"},
+                     "reference": {"type": "integer"}}
+    },
+    "profile_columns": {"type": "array", "items": {"type": "string"}},
+    "quasi_identifiers": {"type": "array", "items": {"type": "string"}},
+    "sensitive": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+    "release": {"type": "object", "properties": {"dp": {"type": ["object", "null"]}}},
+    "attacks": {
+      "type": "object",
+      "required": ["record_isolation", "linkage", "inference", "attribute_inference", "membership"],
+      "properties": {
+        "record_isolation": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
+        "linkage": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
+        "inference": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
+        "attribute_inference": {"type": "array", "items": {
+          "type": "object", "required": ["secret", "advantage_members", "advantage_non_members", "specific_leakage"]}},
+        "membership": {
+          "type": "object",
+          "properties": {
+            "domias": {"type": "object", "properties": {"auc": {"type": ["number", "null"]}, "auc_ci": {"$ref": "#/$defs/interval"},
+                                                          "tpr_at_fpr": {"type": "array", "items": {"$ref": "#/$defs/tpr"}}}},
+            "shadow": {"type": "object", "required": ["pooled", "targets"]}
+          }
+        }
+      }
+    },
+    "vulnerable_records": {
+      "type": "array", "maxItems": 10,
+      "items": {
+        "type": "object", "required": ["rank", "person", "kind", "mia_auc"],
+        "properties": {"rank": {"type": "integer"}, "person": {"type": "string", "pattern": "^P-[0-9a-f]{10}$"},
+                       "kind": {"enum": ["vulnerable", "random"]}, "mia_auc": {"type": ["number", "null"]},
+                       "mia_auc_ci": {"$ref": "#/$defs/interval"}}
+      }
+    },
+    "guards": {"type": "object"},
+    "contexts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["verdict", "checks", "external", "dp_required", "thresholds"],
+        "properties": {
+          "verdict": {"enum": ["pass", "review", "fail", "blocked"]},
+          "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+          "external": {"type": "boolean"}, "dp_required": {"type": "boolean"},
+          "thresholds": {"type": "object"}, "blocked_reason": {"type": "string"}
+        }
+      }
+    },
+    "timings": {"type": "object", "additionalProperties": {"type": "number"}}
+  }
+}

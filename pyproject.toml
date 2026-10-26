@@ -78,7 +78,7 @@ version = { attr = "relsynth._version.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-relsynth = ["py.typed", "ir/schema/*.json", "quality/schema/*.json"]
+relsynth = ["py.typed", "ir/schema/*.json", "quality/schema/*.json", "privacy/report_schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
