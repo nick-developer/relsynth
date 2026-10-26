@@ -3068,6 +3068,9 @@ def main(ids):
             record(fn, [], time.time() - t0, traceback.format_exc())
     npass = sum(r["pass"] for r in RESULTS)
     print(f"\n{npass}/{len(RESULTS)} checks passed in {time.time() - t00:.0f}s")
+    if os.environ.get("RELSYNTH_CHECK_RESULTS"):
+        # results of a selection (a CI shard) for the pytest wrapper
+        Path(os.environ["RELSYNTH_CHECK_RESULTS"]).write_text(json.dumps(RESULTS, indent=1, default=str))
     if not ids:
         (ROOT / "checks" / "results.json").write_text(json.dumps(RESULTS, indent=1, default=str))
         lines = ["# Layer 2 check results", "", f"{npass} of {len(RESULTS)} checks passed "
