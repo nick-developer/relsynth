@@ -154,8 +154,9 @@ def _table_checks(b, spec, real, syn, holdout, t, rng):
     det["precision_recall"] = pr
     if pr:
         pn = [st.precision_recall(A, B, spec, t, cols, max_rows=mr, seed=seed) for A, B in halves]
-        psz = (min(len(r), mr), min(len(s), mr))
-        pss = (min(ssz[0], mr), min(ssz[1], mr)) if R else None
+        n = min(len(r), len(s), mr)
+        psz = (n, n)
+        pss = (min(*ssz, mr),) * 2 if R else None
         for metric in ("alpha_precision_gap", "beta_recall_gap"):
             b.add(metric, {"table": t}, pr[metric], [n.get(metric) for n in pn] if R else None, psz, pss)
     # utility
