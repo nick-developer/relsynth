@@ -397,3 +397,10 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/proofs/](docs/proofs/) | The full proofs (PDF and LaTeX source) |
 | [docs/testing.md](docs/testing.md) | The test suite |
 | [CHANGELOG.md](CHANGELOG.md) | Versions |
+| [docs/datasets.md](docs/datasets.md) | Which datasets may be used, committed and where |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute: workflow, commits, sign-off, tests |
+| [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
+
+## Licence
+
+relsynth is licensed under the [Apache License 2.0](LICENSE). Third-party material and its licences are listed in [NOTICE](NOTICE). Contributions are accepted under the same licence with a [Developer Certificate of Origin](CONTRIBUTING.md#developer-certificate-of-origin) sign-off.
