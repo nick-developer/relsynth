@@ -215,14 +215,20 @@ def distinct_columns(prof: pd.DataFrame) -> list[str]:
     return keep
 
 
-def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, dedupe: bool = False) -> pd.DataFrame:
+def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, dedupe: bool = False,
+             kinds: dict | None = None) -> pd.DataFrame:
     """One row per person (index: the unit key), see the module docstring.
-    dedupe drops one-to-one recodings of earlier columns (distinct_columns)."""
+    dedupe drops one-to-one recodings of earlier columns (distinct_columns).
+    kinds fixes how each owned-table column is summarised ('num', 'date' or
+    'cat', by 'table.column'), so a synthetic release whose column looks
+    categorical gets the same profile columns as the real data; the kinds used
+    are returned in prof.attrs['kinds']."""
     U = tables[unit.table]
     base = _with_parents(spec, unit.table, U, tables, {unit.table}, hops)
     base.index = U[unit.key].to_numpy()
     base = base[~base.index.duplicated()]
     parts = [base]
+    used: dict[str, str] = {}
     own = owner_ids(unit, tables)
     on_path = set(unit.paths)
     for t in unit.owned:
@@ -232,13 +238,19 @@ def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, d
         feats = _with_parents(spec, t, df, tables, on_path, hops)
         pid = own[t]
         feats = feats.assign(__pid=pid.to_numpy())
-        feats = feats[feats["__pid"].notna()]
-        g = feats.groupby("__pid", sort=False)
-        agg = {f"{t}.n_rows": g.size()}
+        feats = feats[feats["__pid"].notna()].copy()
+        ks = {}
         for c in feats.columns:
             if c == "__pid":
                 continue
-            k = _kind(feats[c])
+            k = ks[c] = used[f"{t}.{c}"] = (kinds or {}).get(f"{t}.{c}") or _kind(feats[c])
+            if k == "num" and feats[c].dtype.kind not in "biufc":
+                feats[c] = pd.to_numeric(feats[c], errors="coerce")
+            elif k == "date" and feats[c].dtype.kind != "M":
+                feats[c] = pd.to_datetime(feats[c], errors="coerce")
+        g = feats.groupby("__pid", sort=False)
+        agg = {f"{t}.n_rows": g.size()}
+        for c, k in ks.items():
             if k == "num":
                 agg[f"{t}.{c}.mean"] = g[c].mean()
             elif k == "date":
@@ -260,4 +272,5 @@ def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, d
             prof[c] = (s.astype("int64") / 86400e9).where(s.notna())
         elif s.dtype.kind == "b" or s.dtype == object:
             prof[c] = s.astype(object).where(s.notna(), None).map(lambda v: v if v is None else str(v))
+    prof.attrs["kinds"] = used
     return prof

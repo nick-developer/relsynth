@@ -102,7 +102,8 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
     timings["release_fit_seconds"] = time.time() - t
     t = time.time()
     P_all = U.profiles(s, unit, tables, dedupe=True)
-    P_syn = U.profiles(s, unit, syn_db)
+    col_kinds = dict(P_all.attrs.get("kinds", {}))
+    P_syn = U.profiles(s, unit, syn_db, kinds=col_kinds)
     cols = [c for c in P_all.columns if c in P_syn.columns]
     P_all, P_syn = P_all[cols], P_syn[cols].reset_index(drop=True)
     P_tr, P_c, P_r = P_all.loc[tr_ids], P_all.loc[ctl_ids], P_all.loc[ref_ids]
@@ -192,7 +193,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
 
         def synth_profiles(ids_, sd):
             db = _quiet(gen, U.subset(unit, tables, ids_), sd)
-            return U.profiles(s, unit, db)[cols].reset_index(drop=True)
+            return U.profiles(s, unit, db, kinds=col_kinds)[cols].reset_index(drop=True)
         say(f"shadow modelling: {sh['n_train'] + sh['n_test']} fits of {size} people")
         r = mia.shadow_attack(pool, targets, kinds, synth_profiles, shadow_size=size, n_train=sh["n_train"],
                               n_test=sh["n_test"], seed=seed, ref_profiles=P_r if len(P_r) >= 20 else P_all,
