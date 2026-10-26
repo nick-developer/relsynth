@@ -6,7 +6,8 @@
 
 - **Quality report 2.0** (`relsynth.assess_quality`, `relsynth evaluate --quality FILE`): a versioned, machine-readable report (JSON Schema `quality-report-2.0`) with every check's metric, scope, value, limit, tolerance, null calibration, level and confidence, grouped in a quality vector (fidelity, utility, integrity) with a calibrated pass rule per area and no opaque overall score. The 1.0 scorecard is carried over unchanged.
 - **New metrics**: Wasserstein-1 on the raw and rank-normal scales, Jensen–Shannon distance, 2- and 3-way marginal TVD, alpha-precision and beta-recall, TSTR/TRTS/TRTR, fan-out laws (W1, childless share, dispersion) and two-hop fan-out, k-hop column-pair trends, aggregation detection C2ST-Agg (logistic, or XGBoost with `relsynth[benchmark]`), and a multi-table utility task. Definitions in `docs/metrics.md`, generated from `quality/registry.py`.
-- **Calibrated limits**: each new check's limit is a prediction bound from real-versus-real splits that keep families together, rescaled to the compared sizes (Propositions 106–109, checks C79–C82).
+- **Calibrated limits**: each new check's limit is a prediction bound from real-versus-real splits that keep families together, rescaled to the compared sizes (Propositions 106–109, checks C79–C82). A synthetic database drawn at another size is compared on per-parent counts divided by the expected change of rows per parent under the engine's scale rule (`scale` setting, defaulting to the spec's `synthesis.scale` in `assess_quality`; Proposition 110).
+- **Privacy link** (RFC T06-02): an optional `privacy` member references the privacy report of roadmap thread T06 by path, sha256 and verdicts; privacy is never folded into the quality vector.
 - **SyntheRela benchmark** script and results (`benchmarks/syntherela/`), and precise definitions of the roadmap's acceptance metrics (`docs/acceptance-metrics.md`).
 
 ## 1.0.0 

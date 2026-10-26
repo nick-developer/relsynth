@@ -170,6 +170,33 @@ def test_config_validation(shop):
         assess(spec, a, b, scorecard=False, config={"tolerances": {"nope": 1}})
     with pytest.raises(ValueError, match="classifier"):
         assess(spec, a, b, scorecard=False, config={"classifier": "svm"})
+    with pytest.raises(ValueError, match="scale"):
+        assess(spec, a, b, scorecard=False, config={"scale": {"default": -1}})
+
+
+def test_resized_database_is_compared_per_expected_rate(shop):
+    """Prop. 110: a database drawn at twice the size is compared on counts per
+    unit of the expected rate; regions are copied, so customers per region double."""
+    jsonschema = pytest.importorskip("jsonschema")
+    from relsynth.quality.report import fanout_factor, resolve_config
+    spec, a, _ = shop
+    big = {k: coerce(v, spec["tables"][k]) for k, v in Q.shop(3, 1.0).items()}
+    cfg = resolve_config({"scale": 2.0})
+    assert fanout_factor(spec, cfg, "region", "customer") == 2.0
+    assert fanout_factor(spec, cfg, "customer", "orders") == 1.0
+    assert fanout_factor(spec, cfg, "product", "lines") == 1.0     # lines follow their anchor, orders
+    ref = {"schema": "relsynth.privacy-report/1", "path": "privacy.json", "sha256": "0" * 64,
+           "verdicts": {"internal": "pass"}}
+    rep = assess(spec, a, big, scorecard=False, privacy=ref,
+                 config={"scale": 2.0, "null_splits": 3, "multi_splits": 3})
+    jsonschema.validate(json.loads(json.dumps(rep)), json.loads(SCHEMA.read_text()))
+    assert rep["privacy"] == ref
+    region = [c for c in rep["checks"] if c["scope"].get("relationship") == "customer.region_id->region"]
+    assert [c["metric"] for c in region] == ["fanout_w1_rel"] and "scale factor 2" in region[0]["note"]
+    assert region[0]["value"] < 0.2                     # unscaled, the counts would differ by a factor 2
+    plain = assess(spec, a, big, scorecard=False, config={"null_splits": 3, "multi_splits": 3})
+    raw = [c for c in plain["checks"] if c["scope"].get("relationship") == "customer.region_id->region"]
+    assert len(raw) == 3 and raw[0]["value"] > 0.5
 
 
 def test_uncalibrated_mode_uses_tolerances(shop):
