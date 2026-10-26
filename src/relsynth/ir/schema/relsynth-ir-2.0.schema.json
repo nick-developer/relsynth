@@ -219,7 +219,7 @@
     },
     "ContainerIndex": {
       "type": "object",
-      "description": "ContainerIndex(extensions: 'dict' = <factory>, name: 'str | None' = None, partition_key: 'str | None' = None, sort_key: 'str | None' = None, projection: 'str | None' = None)",
+      "description": "A secondary index of a container (a DynamoDB GSI, a MongoDB index).",
       "properties": {
         "name": {
           "type": "string",
@@ -926,7 +926,7 @@
     },
     "SortField": {
       "type": "object",
-      "description": "SortField(extensions: 'dict' = <factory>, source: 'str | None' = None, transform: 'str' = 'identity', direction: 'str' = 'asc', nulls: 'str' = 'first')",
+      "description": "One field of a sort order: a source attribute, a transform, a direction and null placement.",
       "properties": {
         "source": {
           "type": "string",
@@ -1164,7 +1164,7 @@
     },
     "EntityPrivacy": {
       "type": "object",
-      "description": "EntityPrivacy(extensions: 'dict' = <factory>, public: 'bool' = False, description: 'str | None' = None)",
+      "description": "Privacy annotations of an entity.",
       "properties": {
         "public": {
           "type": "boolean",
@@ -1312,7 +1312,7 @@
     },
     "Header": {
       "type": "object",
-      "description": "Header(extensions: 'dict' = <factory>, key: 'str | None' = None, columns: 'list[str] | None' = None, line_number: 'str | None' = None)",
+      "description": "A document header in a fact: the document number, what it determines, and the line number.",
       "properties": {
         "key": {
           "type": "string",
@@ -1337,7 +1337,7 @@
     },
     "GroupEffect": {
       "type": "object",
-      "description": "GroupEffect(extensions: 'dict' = <factory>, attribute: 'str | None' = None, by: 'list[str]' = <factory>)",
+      "description": "An attribute whose value is shared by the records of a group.",
       "properties": {
         "attribute": {
           "type": "string",
@@ -1362,7 +1362,7 @@
     },
     "LinkAffinity": {
       "type": "object",
-      "description": "LinkAffinity(extensions: 'dict' = <factory>, match: 'list[str]' = <factory>, share: 'float | None' = None)",
+      "description": "Two link paths whose values match more often than chance.",
       "properties": {
         "match": {
           "type": "array",
@@ -1449,7 +1449,7 @@
     },
     "End": {
       "type": "object",
-      "description": "End(extensions: 'dict' = <factory>, entity: 'str | None' = None, attributes: 'list[str] | None' = None)",
+      "description": "One end of a relationship: an entity and its attributes.",
       "properties": {
         "entity": {
           "type": "string",
@@ -1522,7 +1522,7 @@
     },
     "Rule": {
       "type": "object",
-      "description": "A business rule.  Hard rules (holds 1) hold on every record; soft rules on a share.",
+      "description": "A business rule. Hard rules (holds 1) hold on every record; soft rules on a share.",
       "properties": {
         "entity": {
           "type": "string",
@@ -1637,7 +1637,7 @@
     },
     "EstatePrivacy": {
       "type": "object",
-      "description": "EstatePrivacy(extensions: 'dict' = <factory>, unit: 'PrivacyUnit | None' = None, adjacency: 'str' = 'add_remove', exclude_paths: 'list[str]' = <factory>, description: 'str | None' = None)",
+      "description": "Privacy settings of the estate: the unit, the adjacency and the paths not followed.",
       "properties": {
         "unit": {
           "$ref": "#/$defs/PrivacyUnit",

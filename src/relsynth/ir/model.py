@@ -392,6 +392,7 @@ class PartitionField(Node):
 
 @dataclass
 class SortField(Node):
+    """One field of a sort order: a source attribute, a transform, a direction and null placement."""
     source: str | None = _f("Source attribute.", required=True)
     transform: str = _f("Transform applied before sorting.", default="identity", enum=TRANSFORMS)
     direction: str = _f("asc or desc.", default="asc", enum=("asc", "desc"))
@@ -455,6 +456,7 @@ class Allocation(Node):
 
 @dataclass
 class EntityPrivacy(Node):
+    """Privacy annotations of an entity."""
     public: bool = _f("Holds no data about the privacy unit and may be released as it is (code lists, "
                       "calendars, a product catalogue).", default=False)
     description: str | None = _f("Free text.")
@@ -462,6 +464,7 @@ class EntityPrivacy(Node):
 
 @dataclass
 class Header(Node):
+    """A document header in a fact: the document number, what it determines, and the line number."""
     key: str | None = _f("Document number (SalesOrderNumber).")
     columns: list[str] | None = _f("Attributes the document number determines.")
     line_number: str | None = _f("Line number attribute, generated 1..n per document.")
@@ -486,12 +489,14 @@ class FactModel(Node):
 
 @dataclass
 class GroupEffect(Node):
+    """An attribute whose value is shared by the records of a group."""
     attribute: str | None = _f("Attribute shared by the records of a group.", required=True)
     by: list[str] = _f("Attributes or fk.col paths that define a group.", factory=list, required=True)
 
 
 @dataclass
 class LinkAffinity(Node):
+    """Two link paths whose values match more often than chance."""
     match: list[str] = _f("Two paths whose values match more often than chance.", factory=list, required=True)
     share: float | None = _f("Matching share to reach (default: learned).")
 
@@ -541,6 +546,7 @@ class Entity(Node):
 
 @dataclass
 class End(Node):
+    """One end of a relationship: an entity and its attributes."""
     entity: str | None = _f("Entity.", required=True)
     attributes: list[str] | None = _f("Attributes (several for a composite key; fk.col paths allowed on the "
                                       "referencing side).")
@@ -606,6 +612,7 @@ class Rule(Node):
 
 @dataclass
 class ContainerIndex(Node):
+    """A secondary index of a container (a DynamoDB GSI, a MongoDB index)."""
     name: str | None = _f("Index name.", required=True)
     partition_key: str | None = _f("Partition (hash) key attribute.")
     sort_key: str | None = _f("Sort (range) key attribute.")
@@ -637,6 +644,7 @@ class PrivacyUnit(Node):
 
 @dataclass
 class EstatePrivacy(Node):
+    """Privacy settings of the estate: the unit, the adjacency and the paths not followed."""
     unit: PrivacyUnit | None = _f("The privacy unit.")
     adjacency: str = _f("add_remove (a unit and all its data present or absent) or replace.",
                         default="add_remove", enum=ADJACENCY)

@@ -41,7 +41,7 @@ A physical store shared by one or more entities (a DynamoDB table, a MongoDB col
 
 ## ContainerIndex
 
-ContainerIndex(extensions: 'dict' = <factory>, name: 'str | None' = None, partition_key: 'str | None' = None, sort_key: 'str | None' = None, projection: 'str | None' = None)
+A secondary index of a container (a DynamoDB GSI, a MongoDB index).
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -228,7 +228,7 @@ A partition of the physical layout: a transform of a source attribute (Iceberg h
 
 ## SortField
 
-SortField(extensions: 'dict' = <factory>, source: 'str | None' = None, transform: 'str' = 'identity', direction: 'str' = 'asc', nulls: 'str' = 'first')
+One field of a sort order: a source attribute, a transform, a direction and null placement.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -300,7 +300,7 @@ Weights that sum to a total over the records of a group (a bridge table).
 
 ## EntityPrivacy
 
-EntityPrivacy(extensions: 'dict' = <factory>, public: 'bool' = False, description: 'str | None' = None)
+Privacy annotations of an entity.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -338,7 +338,7 @@ How fact records are generated (1.0 `fact`, without time_column, which is time.e
 
 ## Header
 
-Header(extensions: 'dict' = <factory>, key: 'str | None' = None, columns: 'list[str] | None' = None, line_number: 'str | None' = None)
+A document header in a fact: the document number, what it determines, and the line number.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -348,7 +348,7 @@ Header(extensions: 'dict' = <factory>, key: 'str | None' = None, columns: 'list[
 
 ## GroupEffect
 
-GroupEffect(extensions: 'dict' = <factory>, attribute: 'str | None' = None, by: 'list[str]' = <factory>)
+An attribute whose value is shared by the records of a group.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -357,7 +357,7 @@ GroupEffect(extensions: 'dict' = <factory>, attribute: 'str | None' = None, by: 
 
 ## LinkAffinity
 
-LinkAffinity(extensions: 'dict' = <factory>, match: 'list[str]' = <factory>, share: 'float | None' = None)
+Two link paths whose values match more often than chance.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -382,7 +382,7 @@ A reference between entities: a foreign key (composite allowed), a hierarchy ins
 
 ## End
 
-End(extensions: 'dict' = <factory>, entity: 'str | None' = None, attributes: 'list[str] | None' = None)
+One end of a relationship: an entity and its attributes.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -435,7 +435,7 @@ A business rule. Hard rules (holds 1) hold on every record; soft rules on a shar
 
 ## EstatePrivacy
 
-EstatePrivacy(extensions: 'dict' = <factory>, unit: 'PrivacyUnit | None' = None, adjacency: 'str' = 'add_remove', exclude_paths: 'list[str]' = <factory>, description: 'str | None' = None)
+Privacy settings of the estate: the unit, the adjacency and the paths not followed.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
