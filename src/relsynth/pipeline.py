@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The synthesis pipeline shared by the Python API (relsynth.api) and the CLI.
 
     load (large facts pushed down) -> fit -> sample -> write -> evaluate -> bundle

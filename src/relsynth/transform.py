@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reparametrisations between the user's spec and the engine's internal model.
 
 Two lossless rewrites let the engine generate structures that the user states

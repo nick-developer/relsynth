@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Model specification: loading, defaults and validation.
 
 The specification ("spec") is one YAML file that carries the technical model

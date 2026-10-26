@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Exact statistics of a table, computed where the data lives.
 
 The relational part of the model (latent segments, link and block rates, count

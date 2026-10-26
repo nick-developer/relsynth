@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 import sys, pickle
 import numpy as np, pandas as pd
 from pathlib import Path

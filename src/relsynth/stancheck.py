@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Independent verification of the engine's posterior blocks with Stan (v0.8).
 
 Every parameter block of the engine is drawn from a posterior that is either a

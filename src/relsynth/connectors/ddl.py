@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Target table structure: cloned from the source's DDL or built from the
 specification, created parents first, and loaded so that foreign keys hold.
 

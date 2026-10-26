@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Builds spec-reference.md from spec-reference.src.md and the schema in relsynth/schema.py."""
 import sys
 from pathlib import Path

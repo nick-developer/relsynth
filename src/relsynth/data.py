@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reading and writing tables: CSV folders, SQLite files, or any SQLAlchemy URL
 (PostgreSQL, Oracle, MS SQL Server, ...)."""
 from __future__ import annotations

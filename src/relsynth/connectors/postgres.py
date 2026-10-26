@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """PostgreSQL: bulk loads with COPY (psycopg 3), identity sequences restarted
 after the loaded keys."""
 from __future__ import annotations

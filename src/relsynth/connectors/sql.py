@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """SQL databases through SQLAlchemy: SQLite, PostgreSQL, Microsoft SQL Server,
 Oracle (and, untested, any other SQLAlchemy dialect).
 

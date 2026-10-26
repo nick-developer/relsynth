@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Structure-aware fidelity, integrity and privacy evaluation.
 
 Works for any spec: the checks that run are decided by the structures present

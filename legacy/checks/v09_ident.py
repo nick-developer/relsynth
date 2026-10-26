@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """v0.9 checks of data-model identification (keyfind, introspect, discovery, profiling).
 
 Each test returns [(what, value, target, ok), ...].  Run all of them with

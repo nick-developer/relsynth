@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Read access to a source database for profiling (introspect).
 
 One interface over SQL databases (any SQLAlchemy URL, SQLite files) and folders

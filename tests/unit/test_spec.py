@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The Spec object: loading, validation, overrides, saving (secrets masked)."""
 from __future__ import annotations
 

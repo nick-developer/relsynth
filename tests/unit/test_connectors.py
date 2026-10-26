@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Connectors on files (CSV, Parquet) and SQLite: catalog, reads, samples,
 writes in every mode, structure cloning, and identifier safety."""
 from __future__ import annotations

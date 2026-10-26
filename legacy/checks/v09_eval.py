@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """v0.9 checks of the evaluator's scorecard calibration (relsynth/evaluate.py).
 
 Each test returns a list of {"what", "value", "target", "pass"} items (as run_checks.py).

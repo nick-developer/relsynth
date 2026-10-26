@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Attribute model of one table: group-specific Bayesian marginals plus a
 Gaussian copula per group (entities, one group per latent segment) or a pooled
 copula (facts, one group per segment block)."""

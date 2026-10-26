@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The specification schema: every key the YAML file accepts, with its type,
 default and meaning, in one table.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Safe, vectorised expression evaluator for business rules.
 
 Rules are written in a small Python-like language and evaluated over the

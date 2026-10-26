@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Export of the fitted data model (v0.8): the complete Bayesian model of a
 specification and its data, as data (model.json), as text (model.md), as a
 document (model.tex / model.pdf) and as code (replicate.py, run_model.py).

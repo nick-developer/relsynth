@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Two-stage Bayesian Gaussian copula (layer 1 algorithm 2).
 
 Stage 1 (marginals.py) fixes latent bin bounds from full-data marginals.

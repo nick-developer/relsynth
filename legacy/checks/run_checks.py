@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Layer 2 check suite: every check tests a stated property (proposition
 numbers refer to docs/layer2-proofs.pdf) on fake data with known ground truth.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Numerical validation of the algorithms in algorithms.tex (Data Synthesisation, layer 1 -> layer 2).
 
 Each test checks one mathematical claim made in the paper. Run: python3 validate_algorithms.py

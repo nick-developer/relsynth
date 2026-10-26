@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Diagnostics bundle: everything needed to find model-layer problems, and
 nothing that reveals source rows.
 

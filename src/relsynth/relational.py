@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Relational latent-segment model (layer 1 algorithms 3 and 4).
 
 Every entity table gets a latent segment per row.  Every link between tables

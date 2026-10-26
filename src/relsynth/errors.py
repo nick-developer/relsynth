@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Exceptions raised by relsynth, and the exit code the CLI maps each one to.
 
     RelsynthError            base class of everything relsynth raises on purpose

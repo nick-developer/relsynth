@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The scientific check suite (C00-C78): every proposition of
 docs/proofs/layer2-proofs.pdf tested on fake data with known ground truth
 (posterior recovery, calibration of the scorecard, identification, rules,

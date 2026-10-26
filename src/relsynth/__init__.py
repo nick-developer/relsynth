@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """relsynth: Bayesian synthetic data for relational databases.
 
     import relsynth as rs

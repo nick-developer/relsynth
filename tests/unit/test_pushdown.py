@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Pushdown: the planner's decisions, and parity with in-memory fitting.
 
 Proposition P1 (sufficiency) says the in-database statistics are the ones the

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Computed columns: lookups (fk.col), derive rules and cross-table aggregates.
 
 The same functions serve two purposes:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """v0.9 checks of the core statistics and the sampling engine.
 
 Each test returns [(what, value, target, ok), ...].  Run all of them with
