@@ -223,6 +223,8 @@ def test_assess_report_and_contexts(star, tmp_path):
     assert rep["attacks"]["record_isolation"][1]["value"] > 0.3
     assert len(rep["vulnerable_records"]) == 4
     assert all(r["person"].startswith("P-") for r in rep["vulnerable_records"])
+    # simultaneous intervals over the 4 targets x 2 attacks
+    assert all(r["ci_level"] == pytest.approx(1 - 0.05 / 8) for r in rep["vulnerable_records"])
     paths = report.write_report(rep, tmp_path)
     md = Path(paths["md"]).read_text()
     assert md.count("# Privacy report:") == 3 and "BLOCKED" in md

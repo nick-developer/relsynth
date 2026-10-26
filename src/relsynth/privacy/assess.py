@@ -24,6 +24,7 @@ import pandas as pd
 from . import config as C
 from . import criteria, mia, unit as U
 from .attribute import attribute_inference
+from .stats import auc_interval
 
 
 def relsynth_generator(spec: dict):
@@ -124,13 +125,16 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         r = criteria.record_isolation(P_tr, P_syn, P_c, mode=mode, n_attacks=A["record_isolation"]["n_attacks"],
                                       n_cols=A["record_isolation"]["n_cols"], seed=seed, level=level)
         res["record_isolation"].append(r.to_dict())
-        flags["isolated"] |= set(r.isolated_ids)
+        # a person counts as singled out only when the attack beats the control
+        if r.risk.ci[0] > 0:
+            flags["isolated"] |= set(r.isolated_ids)
     say("linkage")
     aux = A["linkage"]["aux_cols"] or default_linkage_columns(s, unit, P_all, qis)
     r = criteria.linkage(P_tr, P_syn, P_c, aux_cols=aux, n_attacks=A["linkage"]["n_attacks"],
                          n_neighbors=A["linkage"]["n_neighbors"], seed=seed, level=level)
     res["linkage"].append(r.to_dict())
-    flags["linked"] |= set(r.linked_ids)
+    if r.risk.ci[0] > 0:
+        flags["linked"] |= set(r.linked_ids)
     say("inference")
     # without declared sensitive attributes, the person's behaviour in the owned
     # tables (what they bought, how much) stands in, then their other attributes
@@ -147,12 +151,15 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             d["attacker_knows"] = knows
             d["declared_sensitive"] = sec in sensitive
             res["inference"].append(d)
-            flags["inferred"] |= set(r.correct_ids) if sec in sensitive else set()
+            if sec in sensitive and r.risk.ci[0] > 0:
+                flags["inferred"] |= set(r.correct_ids)
             if A["attribute_inference"] is not False and len(P_r) >= 20:
                 a = attribute_inference(P_tr, P_c, P_syn, P_r, secret=sec, known=known,
                                         max_rows=A["attribute_inference"].get("max_rows", 20000), seed=seed,
                                         level=level)
-                flags["attribute"] |= set(a.pop("_gained_ids")) if sec in sensitive else set()
+                gained = set(a.pop("_gained_ids"))
+                if sec in sensitive and a["specific_leakage"]["ci"][0] > 0:
+                    flags["attribute"] |= gained
                 a["attacker_knows"] = knows
                 a["declared_sensitive"] = sec in sensitive
                 res["attribute_inference"].append(a)
@@ -202,12 +209,19 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         tab = targets_tab.copy()
         tab["risk_auc"] = tab[auc_cols].max(axis=1) if auc_cols else np.nan
         tab = tab.sort_values("risk_auc", ascending=False)
+        # the most exposed person is a maximum over all targets and both attacks:
+        # simultaneous (Bonferroni) intervals keep its coverage at the nominal level
+        m = max(1, int(tab[auc_cols].notna().sum().sum())) if auc_cols else 1
+        sim_level = 1 - (1 - level) / m
         for rank, (pid, row) in enumerate(tab.head(10).iterrows(), 1):
             best = max(auc_cols, key=lambda c: row.get(c, -1)) if auc_cols else None
+            se = row.get(f"{best}_se") if best else None
+            sim_ci = (auc_interval(float(row[best]), float(se), sim_level)
+                      if se is not None and pd.notna(se) else row.get(f"{best}_ci") if best else None)
             records.append({
                 "rank": rank, "person": _pseudonym(pid, seed), "kind": row["kind"],
                 "vulnerability": float(row.get("vulnerability", np.nan)),
-                "mia_auc": float(row["risk_auc"]), "mia_auc_ci": row.get(f"{best}_ci") if best else None,
+                "mia_auc": float(row["risk_auc"]), "mia_auc_ci": sim_ci, "ci_level": sim_level,
                 "best_attack": best.replace("_auc", "") if best else None,
                 "isolated": pid in flags["isolated"], "linked": pid in flags["linked"],
                 "secret_inferred": pid in flags["inferred"] or pid in flags["attribute"],

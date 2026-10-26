@@ -288,6 +288,7 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
             a, se = auc_delong(sc_te, y[te])
             row[f"{name}_auc"] = a
             row[f"{name}_auc_ci"] = auc_interval(a, se, level)
+            row[f"{name}_auc_se"] = se
             # pooled scores: calibration half of the test shadows sets thresholds, the other half counts
             P = pooled_scores[name]
             half = len(sc_te) // 2
