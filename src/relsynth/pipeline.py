@@ -45,7 +45,7 @@ def parse_source(s: str) -> dict:
         return {"kind": "csv", "path": s}
     scheme = s.split(":", 1)[0].split("+", 1)[0].lower()
     kind = {"postgres": "postgresql", "postgresql": "postgresql", "mssql": "mssql", "oracle": "oracle",
-            "sqlite": "sqlite"}.get(scheme, "sqlalchemy")
+            "mysql": "mysql", "mariadb": "mariadb", "sqlite": "sqlite"}.get(scheme, "sqlalchemy")
     return {"kind": kind, "url": s}
 
 

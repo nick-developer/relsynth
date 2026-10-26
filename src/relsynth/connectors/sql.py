@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from ..data import mask_url, normalise_frame
 from ..pushdown.stats import SCORE_PREFIX, SQUARE_PREFIX, Require, TableStats
 from .base import WRITE_MODES, ColumnInfo, Connector, ForeignKey, TableInfo, match_table
-from .sqlfuncs import ndtri, row_hash
+from .sqlfuncs import ndtri, row_hash, to_float
 
 log = logging.getLogger("relsynth.connectors")
 
@@ -43,7 +43,8 @@ def resolve_url(url: str | None = None, url_env: str | None = None, password_env
     * password_env names a variable holding only the password, inserted into the URL.
     Shorthand driver names are completed: postgresql:// -> postgresql+psycopg,
     mssql:// -> mssql+pyodbc (or +pymssql when pyodbc or its ODBC driver is missing),
-    oracle:// -> oracle+oracledb."""
+    oracle:// -> oracle+oracledb, mysql:// and mariadb:// -> +mysqldb when
+    mysqlclient is installed, else +pymysql (with charset=utf8mb4)."""
     if url_env:
         v = os.environ.get(url_env)
         if v:
@@ -60,6 +61,8 @@ def resolve_url(url: str | None = None, url_env: str | None = None, password_env
             raise ValueError(f"set the environment variable {password_env} to the database password")
         u = u.set(password=pw)
     u = u.set(drivername=_driver(u.drivername))
+    if u.get_backend_name() in ("mysql", "mariadb") and "charset" not in u.query:
+        u = u.update_query_dict({"charset": "utf8mb4"})   # the server default may be latin1 or 3-byte utf8
     return u.render_as_string(hide_password=False)
 
 
@@ -84,6 +87,8 @@ def _driver(name: str) -> str:
         return "mssql+pymssql" if _has("pymssql") else "mssql+pyodbc"
     if name == "oracle":
         return "oracle+oracledb"
+    if name in ("mysql", "mariadb"):
+        return f"{name}+mysqldb" if _has("MySQLdb") else f"{name}+pymysql"
     return name
 
 
@@ -421,6 +426,11 @@ class SqlStats(TableStats):
         self.tbl = conn.table(table)
         self.n_rows = conn.count(table)
 
+    def col(self, name):
+        """The column as compared, grouped and filtered (dialects with
+        case-insensitive default collations compare text exactly instead)."""
+        return self.tbl.c[name]
+
     def _scalar(self, q):
         with self.conn.engine.connect() as con:
             return con.execute(q).scalar()
@@ -429,7 +439,8 @@ class SqlStats(TableStats):
         return int(self._scalar(sa.select(sa.func.count(self.tbl.c[col]))))
 
     def distinct(self, col):
-        q = sa.select(self.tbl.c[col]).where(self.tbl.c[col].is_not(None)).distinct()
+        x = self.col(col)
+        q = sa.select(x.label(col)).where(x.is_not(None)).distinct()
         with self.conn.engine.connect() as con:
             df = pd.read_sql(q, con)
         df.columns = [col]
@@ -443,7 +454,7 @@ class SqlStats(TableStats):
         rmin = sa.func.rank().over(partition_by=isnull, order_by=x)
         ties = sa.func.count(sa.literal(1)).over(partition_by=x)
         nn = sa.func.count(x).over()
-        p = (sa.cast(rmin, sa.Float) + (sa.cast(ties, sa.Float) - 1.0) / 2.0) / (sa.cast(nn, sa.Float) + 1.0)
+        p = (to_float(rmin) + (to_float(ties) - 1.0) / 2.0) / (to_float(nn) + 1.0)
         return isnull, p
 
     # parent key lists longer than this are applied after the query, on the grouped rows
@@ -452,7 +463,7 @@ class SqlStats(TableStats):
     def _require(self, col, rq: Require):
         """SQL filter of rows whose col is one of the parent's keys, or None when the
         filter must be applied after the query (a long list of allowed values)."""
-        x = self.tbl.c[col]
+        x = self.col(col)
         conds = [x.is_not(None)]
         if rq.table is not None and self.conn.has_table(rq.table):
             par = self.conn.table(rq.table)
@@ -485,7 +496,7 @@ class SqlStats(TableStats):
         # nulls last, written portably (SQL Server has no NULLS LAST): the null flag, then the value
         ob = [x for c in (order or []) for x in (sa.case((tbl.c[c].is_(None), 1), else_=0), tbl.c[c].asc())]
         ob += [tbl.c[c] for c in (info.primary_key or []) if c in tbl.c] or [tbl.c[k] for k in keys]
-        rn = sa.func.row_number().over(partition_by=[tbl.c[k] for k in keys], order_by=ob).label("rs_rn")
+        rn = sa.func.row_number().over(partition_by=[self.col(k) for k in keys], order_by=ob).label("rs_rn")
         inner = sa.select(*[tbl.c[k] for k in keys], *[tbl.c[c] for c in cols], rn).subquery("rs_h")
         q = sa.select(*[inner.c[c] for c in keys + cols]).where(inner.c["rs_rn"] == 1) \
             .order_by(*[inner.c[k] for k in keys])
@@ -497,9 +508,9 @@ class SqlStats(TableStats):
         if cols and differences:
             # cells that differ from the key's first row (null-safe)
             h = q.subquery("rs_first")
-            terms = [sa.case((sa.or_(tbl.c[c] == h.c[c], sa.and_(tbl.c[c].is_(None), h.c[c].is_(None))), 0),
+            terms = [sa.case((sa.or_(self.col(c) == h.c[c], sa.and_(tbl.c[c].is_(None), h.c[c].is_(None))), 0),
                              else_=1) for c in cols]
-            on = sa.and_(*[tbl.c[k] == h.c[k] for k in keys])
+            on = sa.and_(*[self.col(k) == h.c[k] for k in keys])
             dq = sa.select(sa.func.sum(sum(terms[1:], terms[0]))).select_from(tbl.join(h, on))
             try:
                 with self.conn.engine.connect() as con:
@@ -514,7 +525,7 @@ class SqlStats(TableStats):
     def group_counts(self, cols, scores=(), require=None):
         cols, scores = list(cols), list(scores)
         tbl = self.tbl
-        inner_cols = [tbl.c[c].label(f"k{i}") for i, c in enumerate(cols)]
+        inner_cols = [self.col(c).label(f"k{i}") for i, c in enumerate(cols)]
         pcols = []
         for j, s in enumerate(scores):
             isnull, p = self._score(tbl.c[s])

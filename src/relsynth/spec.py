@@ -679,8 +679,9 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
     return errs
 
 
-SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "sqlalchemy")
-TARGET_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "sqlalchemy")
+SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+TARGET_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
 TARGET_STRUCTURES = ("auto", "clone", "infer", "existing")
 IF_EXISTS = ("replace", "append", "truncate", "fail")
 
@@ -723,7 +724,7 @@ def _validate_io(spec):
         for k in ("connect_args", "engine_options"):
             if x.get(k) is not None and not isinstance(x[k], dict):
                 errs.append(f"{key}.{k} must be a mapping")
-        if x.get("kind", "csv") in ("postgresql", "mssql", "oracle", "sqlalchemy") and not (x.get("url") or x.get("url_env")):
+        if x.get("kind", "csv") in SERVER_KINDS and not (x.get("url") or x.get("url_env")):
             errs.append(f"{key}: kind {x.get('kind')} needs `url` or `url_env`")
         if x.get("format") is not None and x["format"] not in ("csv", "parquet"):
             errs.append(f"{key}.format must be csv or parquet")
