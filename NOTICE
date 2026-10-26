@@ -1,0 +1,18 @@
+relsynth
+Copyright 2026 nick-developer and the relsynth contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software and material developed by third parties:
+
+* examples/chinook_model/ contains a statistical model fitted to, and a
+  specification drafted from, the Chinook sample database.
+  Chinook Database, Copyright (c) 2008-2024 Luis Rocha, MIT License,
+  https://github.com/lerocha/chinook-database
+  No Chinook rows are included.
+
+The container image built from the Dockerfile additionally contains the
+Microsoft ODBC Driver 18 for SQL Server, which is distributed by Microsoft
+under its own licence terms (https://aka.ms/odbc18eula) and is not covered by
+the Apache License. Python dependencies keep their own licences; the
+dependency licence report of each release lists them.
