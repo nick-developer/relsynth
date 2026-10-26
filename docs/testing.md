@@ -8,13 +8,18 @@ pytest                                   # unit, end-to-end and security tests: 
 pytest -m "not slow"                     # skip the longer end-to-end runs
 pytest tests/integration                 # live PostgreSQL, SQL Server and Oracle (skipped unless configured)
 pytest -m science                        # the statistical check suite C00–C78 (about an hour on 4 cores)
-pytest --cov=relsynth --cov-report=term-missing
+RELSYNTH_SCIENCE_SHARD=2/4 pytest -m science   # one of four shards of about equal run time (as CI runs it)
+pytest tests/unit/core                   # the fast core-engine tests (about 15 s; mutation testing uses them)
+pytest tests/unit --cov=relsynth --cov-branch --cov-report=term
 ```
+
+CI runs every layer on every pull request; [development/ci.md](development/ci.md) lists the jobs.
 
 ## Layout
 
 | Folder | What it tests | Needs |
 |---|---|---|
+| `tests/unit/core/` | The core engine against closed forms, brute force and known answers: the count-model choice (`counts.py`), posterior draws and streams (`posterior.py`), the copula's vine parametrisation, truncated normals, convergence diagnostics and recovery of a known correlation (`copula.py`), spike-and-slab draws against their exact posteriors, collapsed marginals, the grain test and a star schema end to end (`relational.py`), metric primitives and the scorecard on identical and deliberately damaged data (`evaluate.py`) | |
 | `tests/unit/test_spec.py` | Loading, validation, overrides (`--set`), YAML safety, saving with masked passwords | |
 | `tests/unit/test_connectors.py` | Location strings, file and SQLite catalogs, reads, streamed samples, every write mode, cloning DDL, hostile identifiers, path confinement | |
 | `tests/unit/test_sqlfuncs_stats.py` | Acklam's bound (Prop. 102); hash uniformity (Prop. 103); SQL statistics equal the in-memory ones (Prop. 100); key filters on every path; first rows; seeded samples | |
@@ -65,6 +70,21 @@ python legacy/checks/run_checks.py C05 C11
 
 C76 also reads the real Chinook database from the layer 2 data folder (`RELSYNTH_LAYER2_ROOT`) and is skipped without it. C00 re-runs the layer 1 algorithm checks, and two of its 14 need the `datasketches` package.
 
+## Mutation testing
+
+Mutation testing changes the core engine in small ways (an operator, a constant, a boundary) and checks that a test fails. It measures whether the tests check behaviour, which coverage cannot (a line can be executed and its result never checked).
+
+- Tool: [mutmut](https://github.com/boxed/mutmut) 3, configured under `[tool.mutmut]` in `pyproject.toml`: the five core modules `counts.py`, `posterior.py`, `copula.py`, `relational.py` and `evaluate.py` are mutated, only on lines that `tests/unit/core` executes, and each mutant runs only the tests that reach it.
+- The modules have about 7,800 mutants, eight hours on four cores. `tools/mutation_sample.py` tests a seeded random sample per module and reports the score killed / (killed + survived) with a Wilson 95% interval. Mutants on lines that no fast test reaches count as survived.
+- The weekly workflow `mutation.yml` runs the sample of 150 per module and publishes the table and the surviving mutants. The baseline is in [development/mutation-baseline.md](development/mutation-baseline.md).
+- The score is a trend to watch, not a gate. As at Google (Petrović and Ivanković, ICSE-SEIP 2018), the useful output is the list of surviving mutants, which a reviewer reads as tests to write; many survivors are equivalent mutants (a change that cannot alter behaviour).
+
+```bash
+mutmut run "relsynth.counts*"        # every mutant of one module
+mutmut results; mutmut show <name>   # the survivors, and the diff of one
+python tools/mutation_sample.py --per-module 150 --seed 1
+```
+
 ## Quality checks in CI
 
 ```bash
@@ -74,9 +94,4 @@ pip-audit                         # known vulnerabilities in installed dependenc
 python -m build && twine check dist/*
 ```
 
-The project's CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs the following jobs:
-- lint;
-- unit tests on Python 3.10–3.13 (Linux), plus Python 3.12 on Windows and macOS;
-- integration tests against the three server images;
-- a wheel build with a clean-environment smoke test;
-- the statistical suite weekly, or on demand.
+The project's CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs lint and security scans, the type ratchet, unit tests on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, the end-to-end tests, the three live servers, the statistical suite in four shards, and a wheel build with SBOM and signature, on every pull request. See [development/ci.md](development/ci.md).
