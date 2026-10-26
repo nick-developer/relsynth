@@ -53,7 +53,7 @@ Names are case-sensitive as the database stores them. Oracle stores unquoted nam
   | Oracle | `ORA_HASH` |
   | MySQL, MariaDB | the first 32 bits of `SHA2('seed\|key', 256)`, equal to Python's `hashlib.sha256` |
   | SQLite | a registered BLAKE2 function |
-  | Files | BLAKE2 while streaming |
+  | Files | SHA-256, computed by DuckDB over the file (`engine: pandas`: a seeded Bernoulli draw while streaming) |
 
 - **Statistics** for the in-database fit are computed with `GROUP BY` and window functions. See [pushdown.md](pushdown.md).
 - **Binary columns** (BLOB, VARBINARY, BYTEA, RAW) are reported as binary and left out of the model.
@@ -145,6 +145,17 @@ source: {kind: csv, path: ../extract, null_values: ["", "n/a", "NULL"]}
 - **CSV.** CSV files are read as text and then typed. Numbers become numbers unless a value has a leading zero, so `0101` stays a code. ISO dates and timestamps with time zones are parsed, and a `.csv.gz` file is read directly. Binary values are written as `0x`-prefixed hex, as SQL tools export them.
 - **Parquet.** Parquet keeps its types. Statistics read only the needed column chunks.
 - **Keys.** Files declare no keys, so the spec (drafted by `introspect` from the values) carries them.
+- **Large files.** The statistics and samples of a pushed-down fact are computed by DuckDB, an in-process analytical database, running SQL over the files without loading them. Entities are still loaded with pandas. Settings:
+
+  ```yaml
+  source:
+    kind: parquet
+    path: lake/sales
+    engine: duckdb            # auto (default: duckdb when installed) | duckdb | pandas (the 1.0 path)
+    duckdb: {memory_limit: 4GB, threads: 8, temp_directory: /scratch/duckdb}
+  ```
+
+  A CSV column read by DuckDB gets the type the pandas reader gives it. All fields are read as text, only the null tokens become nulls, and a column is a number when every value parses as one and none has a leading zero.
 - **Table names.** A table name must be a plain file name. Names with `/`, `\`, `..`, NUL or an absolute path are refused, and so is a name whose file resolves outside the folder (a symbolic link).
 
 ## Testing a connection

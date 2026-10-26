@@ -18,6 +18,7 @@ pytest --cov=relsynth --cov-report=term-missing
 | `tests/unit/test_spec.py` | Loading, validation, overrides (`--set`), YAML safety, saving with masked passwords | |
 | `tests/unit/test_connectors.py` | Location strings, file and SQLite catalogs, reads, streamed samples, every write mode, cloning DDL, hostile identifiers, path confinement | |
 | `tests/unit/test_sqlfuncs_stats.py` | Acklam's bound (Prop. 102); hash uniformity (Prop. 103); SQL statistics equal the in-memory ones (Prop. 100); key filters on every path; first rows; seeded samples | |
+| `tests/unit/test_duckfiles.py` | DuckDB over CSV and Parquet folders: statistics equal the in-memory ones, first rows in file order, CSV typing as the pandas reader, seeded samples that survive a reconnect, full-sample pushdown equals in-memory fitting, engine settings, hostile file and folder names | |
 | `tests/unit/test_pushdown.py` | Planner decisions and reasons (Prop. 105); a full-sample pushdown equals in-memory fitting for every fact shape (Prop. 101); sampled fits keep quality and use exact counts (Prop. 104) | |
 | `tests/unit/test_api.py` | The Python API end to end: introspect, fit, sample (datasets, scale), evaluate, write, run with quality gates, doctor, export, clone, profile, ping, typed errors | |
 | `tests/unit/test_security.py` | URL masking, scrubbed messages, masked bundles and specs, the expression sandbox, regex vetting, path confinement, privacy defaults, no copied rows | |

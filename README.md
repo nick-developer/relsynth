@@ -174,8 +174,8 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
 | SQLite | yes | yes | yes | SQLite 3.45 |
-| CSV folder | yes (also `.csv.gz`) | yes | statistics computed in memory, streamed | yes |
-| Parquet folder | yes | yes | statistics computed in memory, column by column | yes (pyarrow 26) |
+| CSV folder | yes (also `.csv.gz`) | yes | yes, with DuckDB over the files | yes |
+| Parquet folder | yes | yes | yes, with DuckDB over the files | yes (pyarrow 26, DuckDB 2.0) |
 
 Writes come in four modes:
 - `replace`: drop and create.
