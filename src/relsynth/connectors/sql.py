@@ -489,14 +489,18 @@ class SqlStats(TableStats):
             lo, hi = con.execute(sa.select(sa.func.min(c), sa.func.max(c))).one()
         return py_value(lo), py_value(hi)
 
+    def _row_order(self, tbl) -> list:
+        """Columns that order a key's rows after `order`: the primary key."""
+        info = self.conn.describe(self.table)
+        return [tbl.c[c] for c in (info.primary_key or []) if c in tbl.c]
+
     def first_rows(self, key, cols, order=None, differences=True):
         keys = [key] if isinstance(key, str) else list(key)
         cols = [c for c in cols if c not in keys]
         tbl = self.tbl
-        info = self.conn.describe(self.table)
         # nulls last, written portably (SQL Server has no NULLS LAST): the null flag, then the value
         ob = [x for c in (order or []) for x in (sa.case((tbl.c[c].is_(None), 1), else_=0), tbl.c[c].asc())]
-        ob += [tbl.c[c] for c in (info.primary_key or []) if c in tbl.c] or [tbl.c[k] for k in keys]
+        ob += self._row_order(tbl) or [tbl.c[k] for k in keys]
         rn = sa.func.row_number().over(partition_by=[self.col(k) for k in keys], order_by=ob).label("rs_rn")
         inner = sa.select(*[tbl.c[k] for k in keys], *[tbl.c[c] for c in cols], rn).subquery("rs_h")
         q = sa.select(*[inner.c[c] for c in keys + cols]).where(inner.c["rs_rn"] == 1) \

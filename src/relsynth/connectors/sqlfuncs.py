@@ -5,14 +5,14 @@
 * `ln(x)`: natural logarithm (LN in PostgreSQL, Oracle, MySQL and SQLite, LOG in SQL Server);
 * `to_float(x)`: x as a double (CAST AS FLOAT; x + 0E0 in MySQL, whose integer
   division is DECIMAL);
-* `ndtri(p)`: the standard normal quantile Phi^-1(p).  SQLite uses scipy's ndtri
+* `ndtri(p)`: the standard normal quantile Phi^-1(p).  SQLite and DuckDB use scipy's ndtri
   through a registered function (exact); the server databases use Acklam's
   rational approximation (relative error below 1.15e-9 on (0, 1), Acklam 2003),
   written as one CASE expression;
 * `row_hash(cols, seed)`: a seeded pseudo-random integer in [0, 2^32) per row,
   computed from the row's key values, for reproducible Bernoulli samples
   (hashtextextended in PostgreSQL, HASHBYTES in SQL Server, ORA_HASH in Oracle,
-  SHA2 in MySQL and MariaDB, a registered BLAKE2 function in SQLite).
+  SHA2 in MySQL and MariaDB, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
 """
 from __future__ import annotations
 
@@ -63,6 +63,11 @@ def _to_float_default(element, compiler, **kw):
     return compiler.process(sa.cast(list(element.clauses)[0], sa.Float), **kw)
 
 
+@compiles(to_float, "duckdb")
+def _to_float_duckdb(element, compiler, **kw):
+    return f"CAST({compiler.process(element.clauses, **kw)} AS DOUBLE)"     # FLOAT is 4 bytes in DuckDB
+
+
 @compiles(to_float, "mysql")
 @compiles(to_float, "mariadb")
 def _to_float_mysql(element, compiler, **kw):
@@ -111,8 +116,8 @@ def _poly(coefs, x):
 
 
 def ndtri(p, dialect_name: str):
-    """Phi^-1(p): exact in SQLite (registered function), Acklam elsewhere."""
-    if dialect_name == "sqlite":
+    """Phi^-1(p): exact in SQLite and DuckDB (registered functions), Acklam elsewhere."""
+    if dialect_name in ("sqlite", "duckdb"):
         return sa.func.rs_ndtri(p, type_=sa.Float)
     return acklam(p)
 
@@ -145,6 +150,11 @@ def row_hash(cols, seed: int, dialect_name: str):
         return sa.func.ora_hash(_joined(cols), sa.literal(HASH_RANGE - 1), sa.literal(seed))
     if dialect_name == "sqlite":
         return sa.func.rs_hash(sa.literal(seed), _joined(cols), type_=sa.BigInteger)
+    if dialect_name == "duckdb":
+        # the same 32 bits as MySQL: SHA-256 of 'seed|text', first 8 hex digits
+        txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
+        hexd = sa.func.concat(sa.literal_column("'0x'"), sa.func.left(sa.func.sha256(txt), sa.literal_column("8")))
+        return sa.cast(hexd, sa.BigInteger)
     if dialect_name in ("mysql", "mariadb"):
         # the first 32 bits of SHA-256('seed|text'), as py_row_hash_sha256 computes them
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
@@ -159,7 +169,7 @@ def py_row_hash(seed: int, text: str) -> int:
 
 
 def py_row_hash_sha256(seed: int, text: str) -> int:
-    """The MySQL and MariaDB hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
+    """The MySQL, MariaDB and DuckDB hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
     return int(hashlib.sha256(f"{seed}|{text}".encode()).hexdigest()[:8], 16)
 
 
