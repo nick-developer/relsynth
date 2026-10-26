@@ -35,7 +35,7 @@ import pandas as pd
 import yaml
 
 from .errors import EngineError, QualityGateError, RelsynthError, SourceError
-from .spec import SpecError, load_spec, normalise, read_yaml, validate
+from .spec import SpecError, from_ir, load_spec, normalise, read_spec, validate
 
 log = logging.getLogger("relsynth")
 
@@ -57,7 +57,9 @@ class Spec:
     def __init__(self, raw: dict, base_dir: str | Path | None = None, path: str | Path | None = None):
         if not isinstance(raw, dict):
             raise SpecError("a spec is a mapping (YAML document)")
-        self.raw = raw
+        # an IR 2.0 document is held as the 1.0 spec the engine runs (its relational
+        # part); relsynth.ir reads and writes the whole document
+        self.raw = from_ir(raw)
         self.path = Path(path) if path else None
         self.base_dir = Path(base_dir) if base_dir else (self.path.parent if self.path else Path("."))
 
@@ -68,7 +70,7 @@ class Spec:
         p = Path(path)
         if not p.is_file():
             raise SpecError(f"spec file not found: {p}")
-        return cls(read_yaml(p), path=p)
+        return cls(read_spec(p), path=p)
 
     @classmethod
     def from_dict(cls, d: dict, base_dir: str | Path | None = None) -> Spec:

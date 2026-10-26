@@ -1093,9 +1093,9 @@ def export_model(syn, out_dir, spec_path=None, draws=5, formats=FORMATS, real=No
 
             import yaml
             from .data import mask_spec_urls
-            from .spec import read_yaml
+            from .spec import read_spec
             if spec_path:
-                raw, base = read_yaml(spec_path), Path(spec_path).parent
+                raw, base = read_spec(spec_path), Path(spec_path).parent
             else:
                 raw = {k: copy.deepcopy(v) for k, v in spec_raw.items() if not k.startswith("_")}
                 base = Path(spec_raw.get("_base_dir", "."))
