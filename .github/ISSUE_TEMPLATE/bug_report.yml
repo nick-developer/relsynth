@@ -1,0 +1,33 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems go to a private report, not here: see SECURITY.md.
+        Never paste real personal data, passwords or connection strings; relsynth masks them in its own output.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands, a minimal spec, or a fake dataset that shows the problem.
+      render: shell
+    validations: { required: true }
+  - type: textarea
+    id: version
+    attributes:
+      label: Environment
+      description: Output of `relsynth version --json`, the database and its version, the operating system.
+      render: json
+    validations: { required: true }
+  - type: textarea
+    id: bundle
+    attributes:
+      label: Diagnostics
+      description: Relevant log lines, or the `relsynth doctor` report of the diagnostics bundle (it holds aggregates only).
