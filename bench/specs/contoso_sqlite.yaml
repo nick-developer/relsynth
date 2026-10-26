@@ -1,0 +1,453 @@
+version: 1
+name: contoso_sqlite
+source:
+  kind: sqlite
+  path: bench/.cache/contoso/contoso.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  CurrencyExchange:
+    role: entity
+    columns:
+      Date:
+        type: id
+      FromCurrency:
+        type: id
+      ToCurrency:
+        type: id
+      Exchange:
+        type: float
+    mode: copy
+    unique:
+    - - Date
+      - FromCurrency
+      - ToCurrency
+  Customer:
+    role: entity
+    columns:
+      CustomerKey:
+        type: id
+      GeoAreaKey:
+        type: integer
+      StartDT:
+        type: date
+      EndDT:
+        type: date
+      Continent:
+        type: categorical
+      Gender:
+        type: categorical
+      Title:
+        type: categorical
+      GivenName:
+        type: pii
+        pii:
+          generator: person_name
+      MiddleInitial:
+        type: categorical
+      Surname:
+        type: pii
+        pii:
+          generator: person_name
+      StreetAddress:
+        type: pii
+        pii:
+          generator: pattern
+      City:
+        type: text
+        text:
+          condition_on: GeoAreaKey
+          whole_values: true
+      State:
+        type: categorical
+      StateFull:
+        type: categorical
+      ZipCode:
+        type: pii
+        pii:
+          generator: pattern
+      Country:
+        type: categorical
+      CountryFull:
+        type: categorical
+      Birthday:
+        type: date
+      Age:
+        type: integer
+      Occupation:
+        type: categorical
+      Company:
+        type: categorical
+      Vehicle:
+        type: text
+      Latitude:
+        type: float
+      Longitude:
+        type: float
+    primary_key: CustomerKey
+    dimensions:
+    - key: GeoAreaKey
+      columns:
+      - Continent
+      - State
+      - StateFull
+      - Country
+      - CountryFull
+      anchor: Country
+  Date:
+    role: entity
+    columns:
+      Date:
+        type: date
+      DateKey:
+        type: id
+      Year:
+        type: integer
+      YearQuarter:
+        type: categorical
+      YearQuarterNumber:
+        type: integer
+      Quarter:
+        type: categorical
+      YearMonth:
+        type: categorical
+      YearMonthShort:
+        type: categorical
+      YearMonthNumber:
+        type: integer
+      Month:
+        type: categorical
+      MonthShort:
+        type: categorical
+      MonthNumber:
+        type: integer
+      DayofWeek:
+        type: categorical
+      DayofWeekShort:
+        type: categorical
+      DayofWeekNumber:
+        type: integer
+      WorkingDay:
+        type: boolean
+      WorkingDayNumber:
+        type: integer
+    primary_key: DateKey
+    mode: copy
+  OrderRows:
+    role: fact
+    columns:
+      OrderKey:
+        type: id
+      LineNumber:
+        type: sequence
+        within: OrderKey
+        start: 0
+      ProductKey:
+        type: id
+      Quantity:
+        type: integer
+      UnitPrice:
+        type: float
+        ratio_of: ProductKey.Price
+      NetPrice:
+        type: float
+        ratio_of: UnitPrice
+      UnitCost:
+        type: float
+        ratio_of: ProductKey.Cost
+        ratio_same_as: UnitPrice
+    unique:
+    - - OrderKey
+      - LineNumber
+    group_effects:
+    - column: UnitPrice
+      by:
+      - OrderKey.OrderDate
+      - ProductKey.CategoryKey
+    fact:
+      anchor: Orders
+      partner: Product
+  Orders:
+    role: entity
+    columns:
+      OrderKey:
+        type: id
+      CustomerKey:
+        type: id
+      StoreKey:
+        type: id
+      OrderDate:
+        type: date
+      DeliveryDate:
+        type: date
+        offset_from: OrderDate
+      CurrencyCode:
+        type: lookup
+        lookup: CustomerKey.Country
+        map:
+          AU: AUD
+          CA: CAD
+          DE: EUR
+          FR: EUR
+          GB: GBP
+          IT: EUR
+          NL: EUR
+          US: USD
+    primary_key: OrderKey
+    link_affinity:
+    - match:
+      - CustomerKey.GeoAreaKey
+      - StoreKey.GeoAreaKey
+    key_order: OrderDate
+  Product:
+    role: entity
+    columns:
+      ProductKey:
+        type: id
+      ProductCode:
+        type: id
+      ProductName:
+        type: text
+      Manufacturer:
+        type: categorical
+      Brand:
+        type: categorical
+      Color:
+        type: categorical
+      WeightUnit:
+        type: categorical
+      Weight:
+        type: float
+      Cost:
+        type: float
+      Price:
+        type: float
+      CategoryKey:
+        type: integer
+      CategoryName:
+        type: categorical
+      SubCategoryKey:
+        type: integer
+      SubCategoryName:
+        type: categorical
+    primary_key: ProductKey
+    dimensions:
+    - key: SubCategoryKey
+      columns:
+      - CategoryKey
+      - CategoryName
+      - SubCategoryName
+      anchor: SubCategoryName
+  Sales:
+    role: view
+    columns:
+      OrderKey:
+        type: id
+      LineNumber:
+        type: id
+      OrderDate:
+        type: lookup
+        lookup: OrderKey.OrderDate
+      DeliveryDate:
+        type: lookup
+        lookup: OrderKey.DeliveryDate
+      CustomerKey:
+        type: lookup
+        lookup: OrderKey.CustomerKey
+      StoreKey:
+        type: lookup
+        lookup: OrderKey.StoreKey
+      ProductKey:
+        type: id
+      Quantity:
+        type: integer
+      UnitPrice:
+        type: float
+      NetPrice:
+        type: float
+      UnitCost:
+        type: float
+      CurrencyCode:
+        type: lookup
+        lookup: OrderKey.CurrencyCode
+      ExchangeRate:
+        type: lookup
+        lookup:
+          table: CurrencyExchange
+          match:
+            Date: OrderDate
+            FromCurrency: '''USD'''
+            ToCurrency: CurrencyCode
+          value: Exchange
+    view_of: OrderRows
+  Store:
+    role: entity
+    columns:
+      StoreKey:
+        type: id
+      StoreCode:
+        type: integer
+      GeoAreaKey:
+        type: integer
+      CountryCode:
+        type: categorical
+      CountryName:
+        type: categorical
+      State:
+        type: categorical
+      OpenDate:
+        type: date
+      CloseDate:
+        type: date
+      Description:
+        type: categorical
+      SquareMeters:
+        type: integer
+      Status:
+        type: categorical
+    primary_key: StoreKey
+    mode: copy
+relationships:
+- child: OrderRows
+  child_key: OrderKey
+  parent: Orders
+  parent_key: OrderKey
+- child: OrderRows
+  child_key: ProductKey
+  parent: Product
+  parent_key: ProductKey
+- child: Orders
+  child_key: CustomerKey
+  parent: Customer
+  parent_key: CustomerKey
+- child: Orders
+  child_key: StoreKey
+  parent: Store
+  parent_key: StoreKey
+- child: Sales
+  child_key: CustomerKey
+  parent: Customer
+  parent_key: CustomerKey
+- child: Sales
+  child_key: ProductKey
+  parent: Product
+  parent_key: ProductKey
+- child: Sales
+  child_key: StoreKey
+  parent: Store
+  parent_key: StoreKey
+- child: Sales
+  child_key: OrderKey
+  parent: Orders
+rules:
+- table: Customer
+  type: derive
+  expr: Age = years_between(Birthday, '2021-02-02')
+  holds: 0.9935
+  violation: offset
+- table: Customer
+  type: check
+  expr: days(StartDT) <= days(EndDT)
+- table: Orders
+  type: check
+  expr: days(OrderDate) < days(CustomerKey.EndDT)
+- table: Orders
+  type: check
+  expr: days(StoreKey.OpenDate) < days(OrderDate)
+- table: Orders
+  type: check
+  expr: days(OrderDate) < days(StoreKey.CloseDate)
+- table: Orders
+  type: check
+  expr: days(OrderDate) == days(DeliveryDate) or StoreKey == 999999
+- table: Orders
+  type: check
+  expr: days(OrderDate) != days(DeliveryDate) or StoreKey != 999999
+- table: Orders
+  type: check
+  expr: CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999
+- table: Orders
+  type: check
+  expr: CustomerKey.Country != StoreKey.CountryCode or StoreKey != 999999
+- table: Product
+  type: check
+  expr: Cost < Price
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'CurrencyExchange: composite primary key [''Date'', ''FromCurrency'', ''ToCurrency''] (declared); kept as a unique
+  key'
+- 'OrderRows: composite primary key [''OrderKey'', ''LineNumber''] (declared); kept as a unique key'
+- 'Sales: composite primary key [''OrderKey'', ''LineNumber''] (declared); kept as a unique key'
+- 'Sales.OrderKey -> Orders: foreign key inferred (100% of values in the parent, coverage 100%, randomness 1.00,
+  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
+- 'Date: calendar (one row per day, 2016-01-01 to 2026-12-31, order column Date); copied as public reference data'
+- 'Customer.GivenName: pii (name matches person_name)'
+- 'Customer.Surname: pii (name matches person_name)'
+- 'Customer.StreetAddress: pii (name matches pattern)'
+- 'Customer.ZipCode: pii (name matches pattern)'
+- 'Customer.Vehicle: text (long-tail labels (91% of rows hold values seen fewer than 5 times, mean 3.1 words): generated
+  as short text; declare pii if they name people)'
+- 'Date.WorkingDay: boolean (only 0/1 values)'
+- 'Product.ProductCode: id (numeric codes with leading zeros (100% of values); kept as text)'
+- 'Product.ProductName: text (free text (mean 6.5 words))'
+- 'Store.State: categorical (labels of a small reference table)'
+- 'Store.Description: categorical (labels of a small reference table)'
+- 'CurrencyExchange: reference table (100,450 rows, key [''Date'', ''FromCurrency'', ''ToCurrency'']) that no table
+  links to; read by keyed lookups, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'Store: 74 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'Sales.CustomerKey: lookup OrderKey.CustomerKey (equal on 100.0% of 20,000 sampled rows; 0.0% expected by chance)'
+- 'Sales.DeliveryDate: lookup OrderKey.DeliveryDate (equal on 100.0% of 20,000 sampled rows; 0.0% expected by chance)'
+- 'Sales.OrderDate: lookup OrderKey.OrderDate (equal on 100.0% of 20,000 sampled rows; 0.1% expected by chance)'
+- 'Sales.StoreKey: lookup OrderKey.StoreKey (equal on 100.0% of 20,000 sampled rows; 18.3% expected by chance)'
+- 'Sales.CurrencyCode: lookup OrderKey.CurrencyCode (equal on 100.0% of 20,000 sampled rows; 32.9% expected by chance)'
+- 'Sales.ExchangeRate: keyed lookup CurrencyExchange.Exchange at Date = OrderDate, FromCurrency = ''USD'', ToCurrency
+  = CurrencyCode (equal on 100.0% of 5,000 sampled rows; 26.5% by chance)'
+- 'Orders.CurrencyCode: mapped lookup of CustomerKey.Country (8 values; the map holds on 100.0% of 20,000 sampled
+  rows, 50.7% by chance)'
+- 'Sales: view of OrderRows (the same 6,263 sampled keys [''OrderKey'', ''LineNumber'']; every column is a column
+  of OrderRows or a lookup); rebuilt from the synthetic OrderRows, so it equals the join exactly'
+- 'Orders.DeliveryDate: offset from OrderDate (never earlier; 17 distinct gaps, most common 0 (58%), 3 (11%), 2
+  (11%)); generated as OrderDate plus a modelled gap'
+- 'OrderRows.LineNumber: line number 0..n-1 within OrderKey (starts at 0 in 100.0% of 300 complete groups; 4.3%
+  of groups skip numbers, which the synthetic data does not)'
+- 'Customer.Age: whole years from Birthday to 2021-02-02 on 99.4% of rows (by chance 1.5%); soft rule: holds on
+  that share, otherwise the observed offsets'
+- 'Customer: GeoAreaKey (555 values) determines Continent, State, StateFull, Country, CountryFull on at least 99.9%
+  of the sampled rows; generated through a copied dimension of their observed combinations, Country modelled with
+  the other columns and GeoAreaKey drawn within it'
+- 'Product: SubCategoryKey (32 values) determines CategoryKey, CategoryName, SubCategoryName on at least 99.9% of
+  the sampled rows; generated through a copied dimension of their observed combinations, SubCategoryName modelled
+  with the other columns and SubCategoryKey drawn within it'
+- 'Customer.City: 10,323 labels, 90.9% of 11,835 sampled rows with a repeated label sit in the label''s most common
+  GeoAreaKey (23.6% by chance); generated within GeoAreaKey from the labels held by enough rows (text.whole_values)'
+- 'OrderRows.UnitPrice: ratio of ProductKey.Price: UnitPrice = ProductKey.Price x one of 16 factors (to 2 decimals;
+  reproduces 100.0% of rows to the stored precision, 0.5% by chance); the factor is modelled, the value derived'
+- 'OrderRows.NetPrice: ratio of UnitPrice: NetPrice = UnitPrice x one of 15 factors (to 2 decimals; reproduces 100.0%
+  of rows to the stored precision, 0.5% by chance); the factor is modelled, the value derived'
+- 'OrderRows.UnitCost: ratio of ProductKey.Cost with the factor of UnitPrice (100.0% of rows reproduced)'
+- 'OrderRows.UnitPrice: the factor of UnitPrice is one value per (OrderKey.OrderDate, ProductKey.CategoryKey) on
+  100.00% of rows in groups of 2+ (by chance 60.5%); group effect: one value drawn per group'
+- 'Customer: check days(StartDT) <= days(EndDT) (holds on 100.0% of 20,000 sampled rows, 99.6% by chance)'
+- 'Orders: check days(OrderDate) < days(CustomerKey.EndDT) (holds on 100.0% of 20,000 sampled rows with both dates,
+  96.7% by chance)'
+- 'Orders: check days(StoreKey.OpenDate) < days(OrderDate) (holds on 100.0% of 20,000 sampled rows with both dates,
+  99.6% by chance)'
+- 'Orders: check days(OrderDate) < days(StoreKey.CloseDate) (holds on 100.0% of 242 sampled rows with both dates,
+  84.6% by chance)'
+- 'Orders: check days(OrderDate) == days(DeliveryDate) or StoreKey == 999999 (equal on 100.0% of 11,685 sampled
+  rows outside StoreKey = 999999, 0.1% by chance); and never equal for StoreKey = 999999: check days(OrderDate)
+  != days(DeliveryDate) or StoreKey != 999999'
+- 'Orders: check CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999 (equal on 100.0% of 11,685 sampled
+  rows outside StoreKey = 999999, 30.3% by chance); and never equal for StoreKey = 999999: check CustomerKey.Country
+  != StoreKey.CountryCode or StoreKey != 999999'
+- 'Product: check Cost < Price (holds on 100.0% of 2,517 sampled rows, 67.1% by chance)'
+- 'Orders: CustomerKey.GeoAreaKey = StoreKey.GeoAreaKey on 7.2% of rows (by chance 0.1%); link affinity: StoreKey
+  is moved to a matching parent on the extra share'
+- 'Orders: keys numbered in the order of OrderDate (non-decreasing on 100.0% of 19,999 consecutive sampled keys,
+  50.1% by chance)'
+- 'OrderRows: role fact (anchor Orders, partner Product); check the anchor is the ''one'' side whose row counts
+  should be preserved'
