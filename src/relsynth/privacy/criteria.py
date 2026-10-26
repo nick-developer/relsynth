@@ -167,9 +167,14 @@ def record_isolation(ori: pd.DataFrame, syn: pd.DataFrame, control: pd.DataFrame
     size_correction: how the control rate is made comparable when the control set
     is smaller than the training set.  'subsample' (default) evaluates the
     queries on a uniform subset of the training people of the control's size,
-    which makes the two rates equal in expectation for a generator that ignores
-    individuals (Prop. 601); 'anonymeter' rescales the control count by the
-    fitted singling-out curve of Anonymeter (used to reproduce its numbers)."""
+    which makes the two rates exactly equal in expectation for a generator that
+    ignores individuals (Prop. 601); it costs power (a person outside the subset
+    cannot be caught), so assess() splits training and control people in equal
+    numbers and no subsampling happens.  'anonymeter' rescales the control count
+    by Anonymeter's fitted singling-out curve; it is kept to reproduce
+    Anonymeter's numbers, but it is not exact under the null: with 2.5 times
+    more training than control people and a generator that never saw them, it
+    reported risks of 0.10-0.14 with intervals excluding 0 (test_privacy.py)."""
     rng = np.random.default_rng(seed)
     cols = [c for c in syn.columns if c in ori.columns]
     ori, syn = ori[cols].drop_duplicates(), syn[cols].drop_duplicates()
