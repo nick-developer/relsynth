@@ -13,6 +13,8 @@
     relsynth profile --source ...                  # in-database counts (no rows leave)
     relsynth ping --source ...                     # connection test
     relsynth version
+    relsynth ir migrate spec.yaml --out spec.ir.yaml   # 1.0 spec -> IR 2.0 (and ir validate, convert,
+                                                   # privacy, odcs, from-odcs, openlineage, schema)
 
 Exit codes: 0 success, 1 quality gate failed, 2 invalid spec or arguments,
 3 connection / read / write failure, 4 fitting, sampling or internal error.
@@ -132,8 +134,12 @@ def cmd_introspect(a, out):
     import yaml
     shown = mask_spec_urls(spec)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(a.out).write_text(yaml.safe_dump(json.loads(json.dumps(shown, default=str)), sort_keys=False, width=110),
-                           encoding="utf-8")
+    if getattr(a, "format", "v1") == "ir":
+        from . import ir
+        Path(a.out).write_text(ir.dumps(ir.lift(json.loads(json.dumps(shown, default=str)))), encoding="utf-8")
+    else:
+        Path(a.out).write_text(yaml.safe_dump(json.loads(json.dumps(shown, default=str)), sort_keys=False, width=110),
+                               encoding="utf-8")
     if shown.get("source") != spec.get("source"):
         out.line(f"the source URL's password is masked in {a.out}: set the environment variable "
                  f"{shown['source']['url_env']} to the full URL to run the spec")
@@ -305,7 +311,7 @@ def cmd_evaluate(a, out):
 
 def cmd_doctor(a, out):
     import yaml
-    from .spec import read_yaml
+    from .spec import read_spec
     b = read_bundle(a.bundle)
     issues = D.diagnose(b)
     patches = D.merge_patches(issues)
@@ -316,7 +322,7 @@ def cmd_doctor(a, out):
     out.put(issues=[{"id": i.id, "severity": i.severity, "kind": i.kind, "where": i.where, "message": i.message}
                     for i in issues], patches=patches)
     if a.apply:
-        raw = read_yaml(a.spec) if a.spec else b["spec"]
+        raw = read_spec(a.spec) if a.spec else b["spec"]
         new = D.apply_patches(raw, patches)
         dest = a.out or (str(Path(a.spec).with_suffix("")) + ".fixed.yaml" if a.spec else "spec.fixed.yaml")
         Path(dest).write_text(yaml.safe_dump(new, sort_keys=False, width=110), encoding="utf-8")
@@ -341,8 +347,8 @@ def cmd_tune(a, out):
 
 
 def cmd_model(a, out):
-    from .spec import read_yaml
-    raw = read_yaml(a.spec)
+    from .spec import read_spec
+    raw = read_spec(a.spec)
     stem = a.out or str(Path(a.spec).with_suffix("")) + ".model"
     md = write_model(raw, stem)
     out.line(f"wrote {md} and {stem}.json")
@@ -447,6 +453,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="identify keys and links from values and names (default) or from values only")
     s.add_argument("--ignore-declared", action="store_true",
                    help="hide the catalog's keys and links and identify them from the data (for testing)")
+    s.add_argument("--format", choices=["v1", "ir"], default="v1",
+                   help="write a relsynth 1.0 spec (default) or an IR 2.0 document")
     s.set_defaults(fn=cmd_introspect)
 
     for name, hlp in (("check", "validate a spec"), ("validate", "validate a spec (alias of check)")):
@@ -548,6 +556,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("version", help="versions of relsynth and its main dependencies")
     s.set_defaults(fn=cmd_version)
+
+    from .ir.cli import add_parser as _add_ir_parser
+    _add_ir_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)
