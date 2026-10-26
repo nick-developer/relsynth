@@ -154,7 +154,16 @@ def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: s
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = record["started"].replace(":", "").replace("-", "")[:15]
     node = re.sub(r"[^A-Za-z0-9]+", "-", record["machine"]["node"])[:24]
-    path = out_dir / f"{stamp}-{record['git']['sha'][:7] or 'nogit'}-{node}.json"
+    base = f"{stamp}-{record['git']['sha'][:7] or 'nogit'}-{node}"
+    path = out_dir / f"{base}.json"
+    k = 1
+    while True:                                  # claim a name: runs may start in the same second (in parallel)
+        try:
+            path.open("x").close()
+            break
+        except FileExistsError:
+            k += 1
+            path = out_dir / f"{base}-{k}.json"
 
     def save():
         path.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
