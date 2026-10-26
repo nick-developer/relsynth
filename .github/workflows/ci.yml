@@ -36,6 +36,31 @@ jobs:
       - run: ruff check src tests
       - run: bandit -q -c pyproject.toml -r src
       - run: pip-audit --skip-editable
+      - run: python tools/check_spdx.py
+      - run: python tools/check_licenses.py
+
+  dco:
+    # Every commit of a pull request is signed off by its author (CONTRIBUTING.md)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
+      - name: Check Signed-off-by lines
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=0
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            email=$(git log -1 --format=%ae "$c")
+            if ! git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$c" | grep -Fqi "<$email>"; then
+              echo "::error::commit $(git log -1 --format='%h %s' "$c") has no Signed-off-by line for $email"
+              bad=1
+            fi
+          done
+          [ "$bad" = 0 ] && echo "every commit is signed off"
+          exit $bad
 
   unit:
     needs: lint
