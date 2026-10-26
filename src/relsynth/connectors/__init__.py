@@ -22,6 +22,10 @@ A specification's `source` and `target` sections are connected with
 | sqlite     | SQLite 3.25+ files           | standard library                   |
 | csv        | folder of .csv / .csv.gz     | pandas                             |
 | parquet    | folder of .parquet           | pyarrow (relsynth[parquet])        |
+
+Folders compute the statistics of pushed-down facts with DuckDB (SQL over the
+files, see connectors/duckfiles.py); `engine: pandas` in the source section
+keeps the 1.0 in-memory path.
 """
 from __future__ import annotations
 
@@ -112,7 +116,8 @@ def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = 
     common = dict(connect_args=sec.get("connect_args"), engine_options=sec.get("engine_options"))
     if kind in ("csv", "files", "parquet"):
         return FileConnector(_p(sec.get("path", ".")), fmt=sec.get("format") or ("parquet" if kind == "parquet" else "csv"),
-                             null_values=sec.get("null_values"), create=create)
+                             null_values=sec.get("null_values"), create=create, engine=sec.get("engine", "auto"),
+                             duckdb=sec.get("duckdb"))
     if kind == "sqlite" and (sec.get("path") and not sec.get("url_env")):
         from .sqlite import SQLiteConnector
         return SQLiteConnector(str(_p(sec["path"])), **common)

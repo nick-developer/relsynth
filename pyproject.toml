@@ -29,6 +29,8 @@ dependencies = [
     "scipy>=1.11",
     "SQLAlchemy>=2.0.25",
     "PyYAML>=6.0",
+    "duckdb>=1.1",
+    "duckdb-engine>=0.13",
 ]
 
 [project.optional-dependencies]
