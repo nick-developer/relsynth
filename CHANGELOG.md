@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (2.0)
+
+### Added
+
+- **Quality report 2.0** (`relsynth.assess_quality`, `relsynth evaluate --quality FILE`): a versioned, machine-readable report (JSON Schema `quality-report-2.0`) with every check's metric, scope, value, limit, tolerance, null calibration, level and confidence, grouped in a quality vector (fidelity, utility, integrity) with a calibrated pass rule per area and no opaque overall score. The 1.0 scorecard is carried over unchanged.
+- **New metrics**: Wasserstein-1 on the raw and rank-normal scales, Jensen–Shannon distance, 2- and 3-way marginal TVD, alpha-precision and beta-recall, TSTR/TRTS/TRTR, fan-out laws (W1, childless share, dispersion) and two-hop fan-out, k-hop column-pair trends, aggregation detection C2ST-Agg (logistic, or XGBoost with `relsynth[benchmark]`), and a multi-table utility task. Definitions in `docs/metrics.md`, generated from `quality/registry.py`.
+- **Calibrated limits**: each new check's limit is a prediction bound from real-versus-real splits that keep families together, rescaled to the compared sizes (Propositions 106–109, checks C79–C82).
+- **SyntheRela benchmark** script and results (`benchmarks/syntherela/`), and precise definitions of the roadmap's acceptance metrics (`docs/acceptance-metrics.md`).
+
 ## 1.0.0 
 
 The first packaged release: a pip-installable library and command-line tool built on the v0.2–v0.9 engine.

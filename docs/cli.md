@@ -192,7 +192,8 @@ Score synthetic data already written.
 
 ```
 usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output OUTPUT]
-                         [--no-privacy] [--fail-under SHARE] [--json]
+                         [--no-privacy] [--fail-under SHARE] [--quality FILE]
+                         [--quality-config YAML] [--holdout LOC] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -205,6 +206,9 @@ usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output 
 | `--output` OUTPUT |  |  | write every metric as JSON |
 | `--no-privacy` |  |  | skip distance-to-closest-record checks |
 | `--fail-under` SHARE |  |  | quality gate: exit 1 when the share of passed checks is below SHARE (0-1) |
+| `--quality` FILE |  |  | also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON |
+| `--quality-config` YAML |  |  | settings of the 2.0 report (see docs/metrics.md) |
+| `--holdout` LOC |  |  | real tables the model did not see, for TSTR/TRTS |
 
 ## doctor
 

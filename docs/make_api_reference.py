@@ -41,9 +41,9 @@ Specs can be given to every function as a path, a dict or a `Spec`. Locations ar
 Messages never contain passwords.
 """
 
-FUNCTIONS = ["introspect", "validate_spec", "fit", "sample", "evaluate", "run", "verify", "doctor", "tune",
+FUNCTIONS = ["introspect", "validate_spec", "fit", "sample", "evaluate", "assess_quality", "run", "verify", "doctor", "tune",
              "export_model", "clone_schema", "profile", "ping", "connect", "load_spec", "dump_spec"]
-CLASSES = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "RunResult", "VerifyReport", "Diagnosis",
+CLASSES = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "QualityReport", "RunResult", "VerifyReport", "Diagnosis",
            "Synthesizer"]
 
 

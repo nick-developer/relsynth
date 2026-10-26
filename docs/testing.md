@@ -23,9 +23,11 @@ pytest --cov=relsynth --cov-report=term-missing
 | `tests/unit/test_security.py` | URL masking, scrubbed messages, masked bundles and specs, the expression sandbox, regex vetting, path confinement, privacy defaults, no copied rows | |
 | `tests/e2e/test_cli.py` | Every CLI command as a CI job runs it: JSON output, exit codes 0–4, `--set`, reports, bundles | |
 | `tests/integration/test_servers.py` | On each live server: write and read, catalog, introspect, pushdown fit, identical output to SQLite, every write mode, cloning both ways, statistics parity, seeded samples, hostile identifiers, masked errors | `RELSYNTH_TEST_*_URL` |
+| `tests/unit/test_quality.py` | The 2.0 quality report: metric values with known answers, the tie-corrected precision/recall curve (Prop. 107), cluster splits, prediction bounds, the area rule (Prop. 108), schema validity, the 1.0 scorecard carried over unchanged | |
+| `tests/science/test_quality_calibration.py` | Checks C79–C82: false-failure rate of the calibrated limits under the null at equal and unequal sizes, power against four planted defects, the scorecard carried over (Props. 106–109) | about 15 minutes |
 | `tests/science/test_legacy_checks.py` | The check suite C00–C78. Each check tests a numbered proposition on fake data with known ground truth: posterior recovery, calibration, identification, rules, privacy, reproducibility | about an hour |
 
-Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session.
+Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session. `tests/fakedata/quality_null.py` draws a shop database (customers, orders, order lines, products) from a law whose parameters do not depend on the seed, so two seeds give two draws of one law, and derives databases with one planted defect each.
 
 | Scenario | Shape |
 |---|---|
@@ -64,6 +66,10 @@ python legacy/checks/run_checks.py C05 C11
 ```
 
 C76 also reads the real Chinook database from the layer 2 data folder (`RELSYNTH_LAYER2_ROOT`) and is skipped without it. C00 re-runs the layer 1 algorithm checks, and two of its 14 need the `datasketches` package.
+
+## The quality report on benchmark databases
+
+`benchmarks/syntherela/run_syntherela.py` runs relsynth on the SyntheRela benchmark databases (downloaded outside the repository; never commit them or synthetic data derived from them) and writes the SyntheRela-compatible numbers of the 2.0 report. Results and the comparison with published methods are in [benchmarks/syntherela/README.md](../benchmarks/syntherela/README.md). Needs `pip install relsynth[benchmark]` for the XGBoost detector.
 
 ## Quality checks in CI
 

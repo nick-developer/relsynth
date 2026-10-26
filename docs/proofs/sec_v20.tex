@@ -1,0 +1,63 @@
+%=====================================================================
+\section{Evaluation 2.0: calibrated quality report (v2.0)}\label{sec:v20}
+Version 2.0 adds a quality report (\texttt{relsynth/quality}) next to the scorecard of Section~\ref{sec:thresholds}: Wasserstein-1 distances on the raw and on the rank-normal scale, Jensen--Shannon distances, 2- and 3-way marginal errors, $\alpha$-precision and $\beta$-recall (Alaa et al.\ 2022), TSTR and TRTS (Esteban et al.\ 2017), fan-out laws, $k$-hop column-pair trends (Pang et al.\ 2024), aggregation detection C2ST-Agg (Hudovernik et al.\ 2026) and a multi-table utility task. Their definitions are in \texttt{docs/metrics.md}, generated from \texttt{quality/registry.py}. Every limit is calibrated on the real data itself, and the checks are grouped in a vector (fidelity, utility, integrity) with a pass rule per area. The scorecard of Section~\ref{sec:thresholds} is carried into the report unchanged. The checks of this section are in \texttt{tests/unit/test\_quality.py} and \texttt{tests/science/test\_quality\_calibration.py} (C79--C82).
+
+\subsection{Limits from real-versus-real splits}
+Let a table's rows be grouped in \emph{clusters}: the rows that hang, through the anchor chain of the table (the fact's anchor, else the parent with most rows, up to a copied or tiny lookup), from one root row. For a metric $T(X,Y)$ of two samples with value $c$ when their laws are equal ($c=0$ for a distance, $c=\tfrac12$ for a detection accuracy), a \emph{split} assigns whole clusters of the real data at random to halves $A$ and $B$ and computes $T(A,B)$. With $R$ splits $T_1,\dots,T_R$ the limit for comparing $a$ real with $b$ synthetic rows is
+\[
+L=\max\Bigl(\tau,\;c+\kappa\bigl(\overline{T-c}+t_{R-1,q}\,s_T\sqrt{1+1/R}\bigr)\Bigr),\qquad \kappa=\sqrt{\frac{1/a+1/b}{1/a'+1/b'}},
+\]
+where $(a',b')$ are the mean split sizes, $q$ the confidence level, $\tau$ the metric's tolerance, and $\overline{\cdot}$, $s$ the mean and standard deviation over the splits. For distances the bound is taken on $\log T$ and exponentiated: $L=\max(\tau,\kappa\exp(\overline{\log T}+t_{R-1,q}s_{\log T}\sqrt{1+1/R}))$.
+
+\begin{proposition}[Split nulls]\label{prop:splitnull}
+Assume the clusters of the real data are independent and identically distributed, and let $H_0$ say that the synthetic clusters are independent draws of the same law.
+\begin{enumerate}
+\item[(a)] For a split chosen independently of the values, $A$ and $B$ are independent samples of that law, so $T(A,B)$ is an exact draw of $T$ under $H_0$ at sizes $(|A|,|B|)$. This fails when rows of one cluster are split between halves.
+\item[(b)] Let $T_{a,b}=\varphi(\mathbb{G}_a-\mathbb{H}_b)$ where $\mathbb{G}_a,\mathbb{H}_b$ are the empirical measures (or empirical processes of a fixed finite set of functionals) of the two samples and $\varphi$ is continuous and positively homogeneous of degree one, or Hadamard-differentiable at $0$ with a homogeneous derivative. Under $H_0$, if $a,b\to\infty$, then $T_{a,b}/\sqrt{1/a+1/b}$ converges in law to $\varphi(\mathbb{W})$ with $\mathbb{W}$ a centred Gaussian process that does not depend on $a/b$. Hence the law of $T_{a,b}$ is asymptotically that of $\kappa\,T_{a',b'}$.
+\item[(c)] If $\log T$ (or $T$) is normal under $H_0$, then $P(T_{\rm new}>L)\le 1-q$ exactly for $R$ independent splits, with equality when $\tau$ does not bind; with the tolerance the level of a check is the reported $\alpha=P_{t_{R-1}}(\cdot>L)\le 1-q$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+(a) Cluster vectors $Z_1,\dots,Z_n$ are i.i.d.; an assignment $\sigma$ independent of $Z$ gives, conditionally on $\sigma$, two sets of i.i.d.\ vectors with disjoint index sets, hence independent samples; unconditioning changes nothing because $\sigma$ is independent of $Z$. Rows of one cluster share their root's values, so a row-level split puts dependent rows on both sides and makes the halves more alike than independent samples; on the fixed-law database of C79 a row-level split gave a 5.8\% false-failure rate at a 1\% level, the cluster split 0\%.
+(b) Under $H_0$, $\sqrt{a}(\mathbb{G}_a-P)\Rightarrow\mathbb{B}_1$ and $\sqrt{b}(\mathbb{H}_b-P)\Rightarrow\mathbb{B}_2$, independent $P$-Brownian bridges (Donsker; van der Vaart and Wellner 1996, Thm.~3.6.1 for the two-sample case). Then $(\mathbb{G}_a-\mathbb{H}_b)/\sqrt{1/a+1/b}=\sqrt{\lambda}\,\mathbb{B}_1'-\sqrt{1-\lambda}\,\mathbb{B}_2'$ with $\lambda=b/(a+b)$, a centred Gaussian process with covariance $\lambda C+(1-\lambda)C=C$, whatever $\lambda$. By homogeneity $\varphi(x)/\sqrt{1/a+1/b}=\varphi(x/\sqrt{1/a+1/b})$, and the continuous mapping theorem (or the functional delta method) gives the limit $\varphi(\mathbb{W})$, $\mathbb{W}\sim\mathrm{GP}(0,C)$. The metrics of the report are of this form: $W_1$ on $\mathbb{R}$ is $\int|F_a-G_b|$ (an $L^1$ norm of the CDF difference; del Barrio, Gin\'e and Matr\'an 1999 for the CLT, which needs $\int\sqrt{F(1-F)}<\infty$), the TVD of a discretised marginal is an $\ell^1$ norm of cell frequencies, the Jensen--Shannon distance is $\sqrt{\mathrm{JSD}}$ with $\mathrm{JSD}=\tfrac18\sum_\ell(p_\ell-q_\ell)^2/m_\ell+o(\|p-q\|^2)$, homogeneous of degree one after the root, the fan-out $W_1$ is a $W_1$ of count laws, the precision and recall gaps are $\ell^1$ norms of the curve deviations, which are empirical processes evaluated at estimated quantiles. A detection accuracy minus $\tfrac12$ and a utility gap are differences of smooth functionals of models fitted on the two samples; for M-estimators these are asymptotically linear (van der Vaart 1998, Thm.~5.23), so the same scaling holds to first order; for them (b) is an approximation that C79 tests.
+(c) For i.i.d.\ normal $Y_1,\dots,Y_R,Y_{\rm new}$, $(Y_{\rm new}-\bar Y)/(s\sqrt{1+1/R})\sim t_{R-1}$ (the normal prediction interval; Hahn, Meeker and Escobar 2017, \S4.4). Multiplying by $\kappa>0$ and taking $\max$ with $\tau$ only lowers the exceedance probability.
+\end{proof}
+\noindent Rescaling multiplies the mean of $T-c$ as well as its spread: a bias that does not shrink with the sample (ties in discrete distances) would be under-corrected. Ties are removed where they arise (Prop.~\ref{prop:pitcurve}); C79 measures what remains.
+
+\subsection{Precision and recall with ties}
+Alaa et al.\ define $\alpha$-precision $P(\alpha)$ as the share of synthetic points inside the minimum-volume set holding a share $\alpha$ of the real law; the reference implementation (Qian et al.\ 2023) uses the ball around the real mean, so $P(\alpha)=\frac1m\sum_j 1[d_j\le q_\alpha(D)]$ with $d_j$ the distance of synthetic point $j$ to the centre and $D$ the real distances. With discrete columns many distances tie, $q_\alpha(D)$ jumps, and $P(\alpha)$ differs from $\alpha$ even for real-versus-real samples (C79's first runs: a gap of 0.22 on a table of integer and mostly-null columns).
+
+\begin{proposition}[Randomised PIT curve]\label{prop:pitcurve}
+Let $F$ be the CDF of the distances $D$ and $U_j=F(d_j^-)+V_j\bigl(F(d_j)-F(d_j^-)\bigr)$ with $V_j$ uniform and independent. If $d_j\sim F$ then $U_j\sim\mathrm{U}(0,1)$, and the curve
+\[
+\tilde P(\alpha)=\frac1m\sum_j E_V 1[U_j\le\alpha]=\frac1m\sum_j \min\Bigl(1,\max\Bigl(0,\frac{\alpha-F(d_j^-)}{F(d_j)-F(d_j^-)}\Bigr)\Bigr)
+\]
+(the indicator $1[F(d_j^-)\le\alpha]$ where $F$ does not jump at $d_j$) satisfies $E\tilde P(\alpha)=\alpha$ for every $\alpha$. relsynth uses $\tilde P$ with $F$ the empirical CDF of the real distances for precision, and the same construction on the synthetic distances, weighted by the nearest-neighbour indicator, for recall.
+\end{proposition}
+\begin{proof}
+The distributional transform $U=F(X^-)+V(F(X)-F(X^-))$ of $X\sim F$ is uniform for any $F$ (R\"uschendorf 2009, Prop.~2.1). Given $d_j$, $P_V(U_j\le\alpha)$ is $0$ for $\alpha<F(d_j^-)$, $1$ for $\alpha\ge F(d_j)$ and linear in between, which is the displayed expression; its expectation over $d_j$ is $P(U_j\le\alpha)=\alpha$. Averaging over $j$ keeps the expectation. With the empirical $F$ of an independent real sample the identity holds up to the $O(n^{-1/2})$ error of $F$, which is the sampling noise the split null calibrates.
+\end{proof}
+
+\subsection{Pass rules}
+\begin{proposition}[Area pass rule]\label{prop:arearule}
+Let an area have checks with levels $\alpha_1,\dots,\alpha_K$ (zero for an identity or a fixed limit) and failures $F=\sum_k 1[\text{check }k\text{ fails}]$. Let $k^*$ be the $q$-quantile of the Poisson-binomial law $\mathrm{PB}(\alpha_1,\dots,\alpha_K)$. If under $H_0$ the failure events are independent with $P(\text{fail}_k)\le\alpha_k$, then $P(F>k^*)\le1-q$. In particular an area all of whose checks are identities passes only if every check passes.
+\end{proposition}
+\begin{proof}
+A Poisson-binomial law is stochastically increasing in each success probability (couple $1[U_k\le p_k]$ with common uniforms $U_k$), so $F$ is stochastically below $\mathrm{PB}(\alpha)$ and $P(F>k^*)\le P(\mathrm{PB}(\alpha)>k^*)\le1-q$. With all $\alpha_k=0$, $\mathrm{PB}$ is a point mass at $0$ and $k^*=0$.
+\end{proof}
+\noindent The checks of one table are positively dependent (two distances of one column move together), which widens the law of $F$; Prop.~\ref{prop:arearule} is then approximate. C79 measures the area false-failure rate directly.
+
+\begin{proposition}[The 1.0 scorecard is carried over]\label{prop:carry}
+For any spec and data, the items of \texttt{evaluate()} in v2.0 are those of v1.0, and the report built by \texttt{quality.assess} contains each of them with the same value, limit and outcome.
+\end{proposition}
+\begin{proof}
+\texttt{evaluate.py} is unchanged in v2.0; \texttt{assess} reads its report without modifying it and copies each item, adding only an area (\texttt{registry.SCORECARD\_AREAS}). \texttt{test\_report\_validates\_and\_keeps\_the\_scorecard} checks the copy item by item, and the real-database regression compares the scorecards of \texttt{main} and the 2.0 branch for the same seed.
+\end{proof}
+
+\subsection{Checks}
+\begin{description}
+\item[C79] (Props.~\ref{prop:splitnull}, \ref{prop:pitcurve}, \ref{prop:arearule}) Null calibration: two independent draws of the fixed-law shop database (\texttt{tests/fakedata/quality\_null.py}: customers with latent segments, negative-binomial orders, order lines whose products follow the segment), with every tolerance set to $0$ so that only the calibrated limit decides. The false-failure rate over all new checks must stay at or below the nominal 1\% (with binomial slack), and no area may fail more often than its nominal 1\%.
+\item[C80] The same with synthetic samples twice and half the real size ($\kappa$ rescaling).
+\item[C81] Power: each planted defect (income shifted by 30\%, ages shuffled, orders relinked to other customers, half the customers' orders moved to the others) fails the fidelity area, and each is caught by the metric family that targets it (marginal distances, marginal tables, $k$-hop trends, fan-out law).
+\item[C82] The 1.0 scorecard inside the report equals the scorecard of \texttt{evaluate()} item by item (Prop.~\ref{prop:carry}).
+\end{description}

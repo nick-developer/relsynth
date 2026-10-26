@@ -77,6 +77,17 @@ evaluate(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | None = Non
 Scorecard of synthetic tables against real ones (default: the spec's
 source, with large facts as samples plus exact statistics).
 
+### `rs.assess_quality`
+
+```python
+assess_quality(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | None = None, holdout: Mapping | None = None, config: dict | None = None, privacy: bool = True) -> QualityReport
+```
+
+The calibrated 2.0 quality report of synthetic tables (relsynth.quality.assess).
+real: the tables the model was fitted on (default: the spec's source);
+holdout: real tables the model did not see, for TSTR/TRTS (default: an internal
+split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS.
+
 ### `rs.run`
 
 ```python
@@ -398,6 +409,34 @@ to_json(self, path: str | Path | None = None) -> str
 
 ```python
 to_markdown(self) -> str
+```
+
+### `rs.QualityReport`
+
+The 2.0 quality report (`raw`, schema quality-report-2.0): every check with
+its definition, null limit and confidence level, and the quality vector
+(fidelity, utility, integrity).  `scorecard` is the 1.0 report it includes.
+
+Properties: `failed`, `ok`, `vector`.
+
+#### `QualityReport.require`
+
+```python
+require(self, areas=('fidelity', 'utility', 'integrity')) -> QualityReport
+```
+
+Quality gate: raise QualityGateError when one of `areas` fails its pass rule.
+
+#### `QualityReport.to_dict`
+
+```python
+to_dict(self) -> dict
+```
+
+#### `QualityReport.to_json`
+
+```python
+to_json(self, path: str | Path | None = None) -> str
 ```
 
 ### `rs.RunResult`
