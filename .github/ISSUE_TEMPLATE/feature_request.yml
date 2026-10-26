@@ -1,0 +1,19 @@
+name: Feature request
+description: A new capability or an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the data, the schema shape or the workflow that is not covered today.
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: If the change makes a statistical or privacy claim, cite the method (paper or standard).
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

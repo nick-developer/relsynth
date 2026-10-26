@@ -1,0 +1,22 @@
+# Code owners review every pull request to the paths below (GitHub requires their
+# approval when the branch ruleset enables "Require review from Code Owners").
+# Later rules win. Add a second maintainer per area as the project grows.
+
+*                               @nick-developer
+
+# Statistical engine: changes here need a proposition, a proof and a check
+/src/relsynth/copula.py         @nick-developer
+/src/relsynth/relational.py     @nick-developer
+/src/relsynth/counts.py         @nick-developer
+/src/relsynth/posterior.py      @nick-developer
+/src/relsynth/evaluate.py       @nick-developer
+/docs/proofs/                   @nick-developer
+
+# Security, privacy, release and supply chain
+/src/relsynth/pii.py            @nick-developer
+/SECURITY.md                    @nick-developer
+/.github/                       @nick-developer
+/pyproject.toml                 @nick-developer
+/LICENSE                        @nick-developer
+/NOTICE                         @nick-developer
+/docs/datasets.md               @nick-developer
