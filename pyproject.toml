@@ -8,8 +8,10 @@ dynamic = ["version"]
 description = "Bayesian synthetic data for relational databases: star and snowflake schemas, keys, business rules and privacy, fitted in-database for large tables."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "LicenseRef-Proprietary"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "nick-developer" }]
+maintainers = [{ name = "nick-developer" }]
 keywords = ["synthetic data", "relational databases", "Bayesian", "privacy", "data warehouse", "test data"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -50,6 +52,12 @@ dev = [
 
 [project.scripts]
 relsynth = "relsynth.cli:main"
+
+[project.urls]
+Source = "https://github.com/nick-developer/relsynth"
+Issues = "https://github.com/nick-developer/relsynth/issues"
+Changelog = "https://github.com/nick-developer/relsynth/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/nick-developer/relsynth/tree/main/docs"
 
 [tool.setuptools.dynamic]
 version = { attr = "relsynth._version.__version__" }

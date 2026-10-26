@@ -7,13 +7,18 @@
 # CSV / Parquet files) at /work.  Credentials come from environment variables.
 FROM python:3.12-slim-bookworm AS build
 WORKDIR /src
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY src ./src
 RUN pip install --no-cache-dir build==1.2.2 && python -m build --wheel --outdir /dist
 
 FROM python:3.12-slim-bookworm
+LABEL org.opencontainers.image.title="relsynth" \
+      org.opencontainers.image.source="https://github.com/nick-developer/relsynth" \
+      org.opencontainers.image.licenses="Apache-2.0"
 ARG DEBIAN_FRONTEND=noninteractive
-# Microsoft ODBC Driver 18 for SQL Server (pyodbc); curl and gnupg only to add the repository
+# Microsoft ODBC Driver 18 for SQL Server (pyodbc). It is proprietary software under
+# Microsoft's own licence terms (accepted by ACCEPT_EULA=Y), not under Apache-2.0: see NOTICE.
+# curl and gnupg only to add the repository
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl gnupg ca-certificates unixodbc \
  && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
@@ -23,6 +28,7 @@ RUN apt-get update \
  && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
  && apt-get purge -y curl gnupg && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY --from=build /dist/*.whl /tmp/
+COPY LICENSE NOTICE /usr/share/doc/relsynth/
 RUN pip install --no-cache-dir "$(ls /tmp/relsynth-*.whl)[all]" && rm /tmp/*.whl \
  && useradd --create-home --uid 10001 relsynth
 USER relsynth

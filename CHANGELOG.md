@@ -1,5 +1,13 @@
 # Changelog
 
+All notable user-visible changes are recorded here, following [Keep a Changelog 1.1](https://keepachangelog.com/en/1.1.0/). relsynth uses [Semantic Versioning](https://semver.org/); see [CONTRIBUTING.md](CONTRIBUTING.md) for what counts as the public API.
+
+## Unreleased
+
+### Changed
+
+- relsynth is open source under the Apache License 2.0 (previously all rights reserved). The repository has LICENSE, NOTICE, a contributor guide with DCO sign-off, a code of conduct, a security policy with private vulnerability reporting, and a dataset register (`docs/datasets.md`).
+
 ## 1.0.0 
 
 The first packaged release: a pip-installable library and command-line tool built on the v0.2–v0.9 engine.
