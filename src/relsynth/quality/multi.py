@@ -245,9 +245,10 @@ def detection_accuracy(real_df, other_df, kinds, classifier="logistic", folds=5,
         tr, te = fold != f, fold == f
         if classifier == "xgboost":
             import xgboost as xgb
-            m = xgb.XGBClassifier(random_state=seed + f, n_jobs=1, verbosity=0)
-            m.fit(X[tr], y[tr])
-            pred = m.predict_proba(X[te])[:, 1] > 0.5
+            # the defaults of xgboost.XGBClassifier (100 trees, depth 6, eta 0.3), without scikit-learn
+            m = xgb.train({"objective": "binary:logistic", "seed": seed + f, "nthread": 1, "verbosity": 0},
+                          xgb.DMatrix(X[tr], label=y[tr]), num_boost_round=100)
+            pred = m.predict(xgb.DMatrix(X[te])) > 0.5
         else:
             sd = X[tr].std(0)
             sd[sd == 0] = 1
