@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nick-developer/relsynth/schemas/quality-report-2.0.schema.json",
+  "title": "relsynth quality report",
+  "description": "Version 2.0 of the relsynth quality report: every check with its metric, limit, null calibration and confidence level, grouped in a quality vector (fidelity, utility, integrity). Owned by roadmap thread T05; the intermediate representation (T02) refers to it by $id. Minor versions only add optional fields; a removed or renamed field is a new major version.",
+  "type": "object",
+  "required": ["$schema", "schema_version", "relsynth_version", "created_utc", "config", "data", "vector", "checks", "metrics"],
+  "properties": {
+    "$schema": {"const": "https://github.com/nick-developer/relsynth/schemas/quality-report-2.0.schema.json"},
+    "schema_version": {"type": "string", "pattern": "^2\\.[0-9]+\\.[0-9]+$"},
+    "relsynth_version": {"type": "string"},
+    "created_utc": {"type": "string", "format": "date-time"},
+    "config": {
+      "type": "object",
+      "required": ["confidence", "area_confidence", "null_splits", "multi_splits", "classifier", "seed"],
+      "properties": {
+        "confidence": {"type": "number", "exclusiveMinimum": 0.5, "exclusiveMaximum": 1},
+        "area_confidence": {"type": "number", "exclusiveMinimum": 0.5, "exclusiveMaximum": 1},
+        "null_splits": {"type": "integer", "minimum": 0},
+        "multi_splits": {"type": "integer", "minimum": 0},
+        "max_rows": {"type": "integer", "minimum": 1},
+        "max_rows_model": {"type": "integer", "minimum": 1},
+        "k3_max": {"type": "integer", "minimum": 0},
+        "max_hops": {"type": "integer", "minimum": 1, "maximum": 2},
+        "classifier": {"enum": ["logistic", "xgboost"]},
+        "targets": {"type": "object", "additionalProperties": {"type": "string"}},
+        "mt_targets": {"type": "object", "additionalProperties": {"type": "string"}},
+        "tolerances": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}},
+        "calibrate": {"type": "boolean"},
+        "seed": {"type": "integer"}
+      }
+    },
+    "data": {
+      "type": "object",
+      "required": ["real_rows", "synthetic_rows"],
+      "properties": {
+        "real_rows": {"$ref": "#/$defs/rowCounts"},
+        "synthetic_rows": {"$ref": "#/$defs/rowCounts"},
+        "holdout": {"type": ["array", "null"], "items": {"type": "string"}}
+      }
+    },
+    "vector": {
+      "type": "object",
+      "required": ["fidelity", "utility", "integrity", "verdict"],
+      "properties": {
+        "fidelity": {"$ref": "#/$defs/area"},
+        "utility": {"$ref": "#/$defs/area"},
+        "integrity": {"$ref": "#/$defs/area"},
+        "verdict": {
+          "type": "object", "required": ["pass", "rule"],
+          "properties": {"pass": {"type": "boolean"}, "rule": {"type": "string"}}
+        }
+      }
+    },
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "privacy_passthrough": {"type": "array", "items": {"$ref": "#/$defs/check"},
+                            "description": "1.0 privacy items, reported without an area; privacy semantics belong to T06."},
+    "scorecard_1": {
+      "type": "object",
+      "properties": {
+        "passed": {"type": ["integer", "null"]}, "total": {"type": ["integer", "null"]},
+        "expected_false_failures": {"type": ["number", "null"]}
+      }
+    },
+    "benchmark": {"type": "object", "description": "Comparability summaries (SyntheRela) that are not checks."},
+    "metrics": {"type": "object", "additionalProperties": {"$ref": "#/$defs/metricDefinition"}},
+    "details": {"type": "object", "description": "Per-table and per-path raw values (curves, pairs, learner scores)."}
+  },
+  "$defs": {
+    "rowCounts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "area": {
+      "type": "object",
+      "required": ["checks", "passed", "failed", "expected_false_failures", "allowed_failures", "confidence", "pass"],
+      "properties": {
+        "checks": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "pass_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "expected_false_failures": {"type": "number", "minimum": 0},
+        "allowed_failures": {"type": "integer", "minimum": 0},
+        "confidence": {"type": "number"},
+        "pass": {"type": "boolean"},
+        "failed_checks": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["id", "metric", "area", "scope", "value", "limit", "pass", "alpha", "null", "source"],
+      "properties": {
+        "id": {"type": "string"},
+        "metric": {"type": "string"},
+        "area": {"enum": ["fidelity", "utility", "integrity", "privacy"]},
+        "scope": {"type": "object"},
+        "value": {"type": ["number", "null"]},
+        "limit": {"type": ["number", "null"]},
+        "tolerance": {"type": ["number", "null"]},
+        "direction": {"enum": ["lower", "higher"]},
+        "pass": {"type": "boolean"},
+        "alpha": {"type": ["number", "null"], "minimum": 0, "maximum": 1,
+                  "description": "Probability that the check fails when the synthetic data is a draw of the real data's law (approximate); null when no null law is available."},
+        "confidence": {"type": ["number", "null"]},
+        "null": {
+          "type": "object", "required": ["method"],
+          "properties": {
+            "method": {"type": "string"},
+            "splits": {"type": "integer", "minimum": 0},
+            "mean": {"type": ["number", "null"]},
+            "sd": {"type": ["number", "null"]},
+            "center": {"type": "number"},
+            "kappa": {"type": "number", "minimum": 0},
+            "confidence": {"type": "number"},
+            "limit": {"type": ["number", "null"]}
+          }
+        },
+        "source": {"enum": ["quality-2.0", "scorecard-1.0"]},
+        "note": {"type": "string"}
+      }
+    },
+    "metricDefinition": {
+      "type": "object",
+      "required": ["area", "scope", "direction", "center", "tolerance", "null", "name", "definition", "range", "reference"],
+      "properties": {
+        "area": {"enum": ["fidelity", "utility", "integrity"]},
+        "scope": {"enum": ["column", "table", "relationship", "path", "database"]},
+        "direction": {"enum": ["lower", "higher"]},
+        "center": {"type": "number"},
+        "tolerance": {"type": "number", "minimum": 0},
+        "null": {"type": "string"},
+        "name": {"type": "string"},
+        "definition": {"type": "string"},
+        "range": {"type": "string"},
+        "reference": {"type": "string"}
+      }
+    }
+  }
+}
