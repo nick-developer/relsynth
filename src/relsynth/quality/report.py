@@ -94,10 +94,15 @@ class _Builder:
         limit = tol if null is None or null["limit"] is None else max(tol, null["limit"])
         v = _f(value)
         ok = v is not None and v <= limit
+        p_value = None
+        if not ok and v is not None and alpha is not None:
+            # how far out the failure is: the null probability of a value this large (Prop. 108)
+            p_value = cal.exceed_prob(draws, v, m["center"], k, log)
         it = {"id": f"{metric}:{':'.join(str(x) for x in scope.values())}", "metric": metric, "area": m["area"],
               "scope": scope, "value": None if v is None else round(v, 6), "limit": round(limit, 6),
               "tolerance": tol, "direction": m["direction"], "pass": bool(ok),
               "alpha": None if alpha is None else round(alpha, 6), "confidence": conf,
+              **({"p_value": float(f"{p_value:.3g}")} if p_value is not None else {}),
               "null": null or {"method": "fixed tolerance", "splits": 0}, "source": "quality-2.0"}
         if v is None:
             it["note"] = "synthetic side could not be evaluated"
@@ -342,20 +347,26 @@ def _scorecard_checks(base):
 
 def quality_vector(checks, q=0.99):
     """Per area: checks, failures, expected false failures under the null (sum
-    of the levels) and the number of failures tolerated: the q-quantile of the
-    Poisson-binomial law of the false failures (Prop. 108).  An area passes when
-    its failures do not exceed it; a check without a level (a fixed limit, an
-    identity) tolerates no failure."""
+    of the levels) and the failures tolerated (Prop. 108).  The level 1 - q is
+    split in two halves: an area fails when its failures exceed the
+    (1 - (1-q)/2)-quantile of the Poisson-binomial law of false failures, or
+    when one failed check is severe, its null p-value below (1-q)/(2m) for the
+    area's m calibrated checks (Bonferroni).  A check without a level (a fixed
+    limit, an identity) tolerates no failure."""
     out = {}
+    q_count = 1 - (1 - q) / 2
     for a in AREAS:
         cs = [c for c in checks if c["area"] == a]
         al = [float(c["alpha"]) for c in cs if c.get("alpha")]
         fails = [c for c in cs if not c["pass"]]
-        allowed = poisson_binomial_quantile(al, q)
+        allowed = poisson_binomial_quantile(al, q_count)
+        cut = (1 - q) / (2 * len(al)) if al else 0.0
+        severe = [c["id"] for c in fails if c.get("p_value") is not None and c["p_value"] < cut]
         out[a] = {"checks": len(cs), "passed": len(cs) - len(fails), "failed": len(fails),
                   "pass_rate": round((len(cs) - len(fails)) / len(cs), 4) if cs else None,
                   "expected_false_failures": round(float(sum(al)), 3), "allowed_failures": allowed,
-                  "confidence": q, "pass": len(fails) <= allowed,
+                  "severe_p_value": float(f"{cut:.3g}"), "severe_failures": severe,
+                  "confidence": q, "pass": len(fails) <= allowed and not severe,
                   "failed_checks": [c["id"] for c in fails][:50]}
     out["verdict"] = {"pass": all(out[a]["pass"] for a in AREAS),
                       "rule": "every area passes; no weighted overall score is computed"}

@@ -137,6 +137,12 @@ def test_quality_vector_rules():
     v = quality_vector(checks)
     assert v["fidelity"]["pass"] and v["fidelity"]["allowed_failures"] == 4
     assert not v["integrity"]["pass"] and not v["verdict"]["pass"]
+    # one failure far beyond its null law fails the area on its own
+    checks[0]["p_value"] = 1e-6
+    v = quality_vector(checks)
+    assert v["fidelity"]["severe_failures"] == ["c0"] and not v["fidelity"]["pass"]
+    checks[0]["p_value"] = 0.001                                   # above 0.01 / (2 * 100)
+    assert quality_vector(checks)["fidelity"]["pass"]
 
 
 # ---------------------------------------------------------------- the report

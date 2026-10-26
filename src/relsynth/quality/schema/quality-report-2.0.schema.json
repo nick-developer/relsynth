@@ -94,6 +94,9 @@
         "pass_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
         "expected_false_failures": {"type": "number", "minimum": 0},
         "allowed_failures": {"type": "integer", "minimum": 0},
+        "severe_p_value": {"type": "number", "minimum": 0, "maximum": 1,
+                           "description": "A failed check whose null p-value is below this fails the area on its own (Bonferroni half of the area's level)."},
+        "severe_failures": {"type": "array", "items": {"type": "string"}},
         "confidence": {"type": "number"},
         "pass": {"type": "boolean"},
         "failed_checks": {"type": "array", "items": {"type": "string"}}
@@ -114,6 +117,8 @@
         "pass": {"type": "boolean"},
         "alpha": {"type": ["number", "null"], "minimum": 0, "maximum": 1,
                   "description": "Probability that the check fails when the synthetic data is a draw of the real data's law (approximate); null when no null law is available."},
+        "p_value": {"type": "number", "minimum": 0, "maximum": 1,
+                    "description": "Failed calibrated checks only: the null probability of a value at least this large."},
         "confidence": {"type": ["number", "null"]},
         "null": {
           "type": "object", "required": ["method"],

@@ -63,14 +63,19 @@ exceeds the final limit; it is at most 1 - confidence.
 
 ## Pass rules (Prop. 108)
 
-An area passes when its failed checks do not exceed the
-`area_confidence`-quantile of the Poisson-binomial law of false failures
-(the sum of independent Bernoulli(alpha_i)). A check without a level (a fixed
-limit, an identity such as foreign-key integrity) tolerates no failure, so
-integrity passes only when every integrity check passes. The verdict passes
-when every area passes. **No weighted overall score is computed**; the report
-shows each area's checks, failures, expected false failures and tolerated
-failures.
+The level `1 - area_confidence` of an area is split in two halves. An area
+fails when its failed checks exceed the `1 - (1 - area_confidence)/2`
+quantile of the Poisson-binomial law of false failures (the sum of
+independent Bernoulli(alpha_i)), **or** when one failed check is severe: its
+`p_value` (the null probability of a value at least as large) is below
+`(1 - area_confidence) / (2 m)` for the area's m calibrated checks. The
+first half catches a defect that pushes many checks slightly over their
+limits, the second a defect that a few checks see clearly. A check without a
+level (a fixed limit, an identity such as foreign-key integrity) tolerates no
+failure, so integrity passes only when every integrity check passes. The
+verdict passes when every area passes. **No weighted overall score is
+computed**; the report shows each area's checks, failures, expected false
+failures, tolerated failures and severe failures.
 
 The 1.0 scorecard items keep their limits and outcomes and are placed in an
 area: {", ".join(f"`{k}` -> {v}" for k, v in SCORECARD_AREAS.items())}; every
