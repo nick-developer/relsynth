@@ -73,7 +73,8 @@ Proposition 100 in [proofs/relsynth-proofs.pdf](proofs/relsynth-proofs.pdf) show
 | Oracle | Acklam | `ORA_HASH(..., 4294967295, seed)` | |
 | MySQL, MariaDB | Acklam | first 32 bits of `SHA2('seed\|key', 256)` | ranks are taken in `DOUBLE` (`x + 0E0`): MySQL divides integers as `DECIMAL` with 4 digits. Text keys are grouped and filtered in the binary collation of their character set, because the default collations ignore case, accents and (MariaDB) trailing spaces |
 | SQLite | exact (`scipy.special.ndtri`, registered function) | BLAKE2b (registered function) | |
-| CSV, Parquet | exact, in pandas | BLAKE2b while streaming | only the key and measure columns are read |
+| CSV, Parquet (`engine: duckdb`, the default) | exact (`scipy.special.ndtri` as a vectorised DuckDB function) | first 32 bits of SHA-256, as on MySQL | DuckDB runs the same SQL over views of the files and reads only the columns a query needs. CSV columns are typed by the pandas reader's rule. First rows follow the file order |
+| CSV, Parquet (`engine: pandas`) | exact, in pandas | a seeded Bernoulli draw while streaming | the 1.0 path: only the key and measure columns are read, one statistic at a time |
 
 Long key lists are handled in two ways. A filter on more than 2,000 values (`MAX_IN_LIST`) is not sent as an `IN (...)` list; the query groups by the filtered column as well, and the filter is applied to the grouped result. Filters on another table's keys use a semi-join, so the database never receives a long literal list.
 
@@ -114,7 +115,7 @@ The in-memory runs give the same scorecards as v0.9 (AdventureWorks 1229/1286, C
 **Time.**
 - The database does the grouping, so a pushed fact costs a handful of `GROUP BY` queries, each one scan of the table.
 - On SQL servers, give the database indexes on the foreign-key columns of large facts. They usually exist already, and grouped counts then read the indexes rather than the table.
-- On files, statistics are computed in pandas one column group at a time, so each statistic re-reads its columns. On Contoso's Parquet files this was still faster than loading the fact whole (241 s against 269 s), but on wide files with many statistics it can be slower. It always needs less memory.
+- On files, DuckDB computes the statistics with the same SQL as the servers, using streaming, multi-threaded operators that spill to disk when memory runs short (`source.duckdb.temp_directory`). Measurements are in the section on files below. With `engine: pandas`, statistics are computed in pandas one column group at a time (the 1.0 path), so each statistic re-reads its columns.
 
 **Other knobs.**
 
