@@ -351,14 +351,13 @@ def quality_vector(checks, q=0.99):
     return out
 
 
-def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True):
-    """The 2.0 quality report of synthetic tables against real ones.
-
-    spec: a resolved spec dict; real, syn: {table: DataFrame}; holdout: real
-    tables the generator did not see (for TSTR/TRTS), optional; base: the 1.0
-    report from relsynth.evaluate (computed when None and scorecard=True);
-    config: overrides of DEFAULTS."""
-    cfg = {**DEFAULTS, **(config or {})}
+def resolve_config(config=None):
+    """DEFAULTS overridden by `config`; ValueError for an unknown key or value."""
+    config = dict(config or {})
+    unknown = set(config) - set(DEFAULTS)
+    if unknown:
+        raise ValueError(f"unknown settings: {sorted(unknown)}")
+    cfg = {**DEFAULTS, **config}
     for k in ("targets", "mt_targets", "tolerances"):
         cfg[k] = dict(cfg.get(k) or {})
     unknown = set(cfg["tolerances"]) - set(METRICS)
@@ -366,6 +365,19 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
         raise ValueError(f"unknown metric ids in tolerances: {sorted(unknown)}")
     if cfg["classifier"] not in ("logistic", "xgboost"):
         raise ValueError("classifier must be 'logistic' or 'xgboost'")
+    if not 0.5 < float(cfg["confidence"]) < 1 or not 0.5 < float(cfg["area_confidence"]) < 1:
+        raise ValueError("confidence levels must be between 0.5 and 1")
+    return cfg
+
+
+def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True):
+    """The 2.0 quality report of synthetic tables against real ones.
+
+    spec: a resolved spec dict; real, syn: {table: DataFrame}; holdout: real
+    tables the generator did not see (for TSTR/TRTS), optional; base: the 1.0
+    report from relsynth.evaluate (computed when None and scorecard=True);
+    config: overrides of DEFAULTS."""
+    cfg = resolve_config(config)
     rng = np.random.default_rng(cfg["seed"])
     b = _Builder(cfg)
     for t in spec["tables"]:
