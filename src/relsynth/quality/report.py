@@ -24,7 +24,7 @@ from . import calibrate as cal
 from . import multi as mt
 from . import single as st
 from . import utility as ut
-from .encode import attribute_columns
+from .encode import attribute_columns, freeze_kinds
 from .registry import AREAS, METRICS, SCORECARD_AREAS
 
 SCHEMA_ID = "https://github.com/nick-developer/relsynth/schemas/quality-report-2.0.schema.json"
@@ -440,6 +440,8 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
     the privacy report of the same data, copied as is (RFC T06-02)."""
     cfg = resolve_config(config)
     rng = np.random.default_rng(cfg["seed"])
+    spec_1 = spec                                   # the 1.0 evaluator keeps its own rules
+    spec = freeze_kinds(spec, real)
     b = _Builder(cfg)
     for t in spec["tables"]:
         if t in real and t in syn:
@@ -449,7 +451,7 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
     dda = _detection_checks(b, spec, real, syn, holdout, rng)
     if base is None and scorecard:
         from ..evaluate import evaluate
-        base = evaluate(spec, real, syn)
+        base = evaluate(spec_1, real, syn)
     old = _scorecard_checks(base)
     checks = [c for c in old if c["area"] != "privacy"] + b.checks
     used = sorted({c["metric"] for c in b.checks})

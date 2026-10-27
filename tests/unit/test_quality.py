@@ -211,3 +211,21 @@ def test_uncalibrated_mode_uses_tolerances(shop):
     new = [c for c in rep["checks"] if c["source"] == "quality-2.0"]
     assert new and all(c["limit"] == c["tolerance"] and c["null"]["method"] == "fixed tolerance" for c in new)
     assert any(c["scope"].get("target") == "member" for c in new if c["metric"] == "tstr_gap")
+
+
+def test_column_kinds_are_decided_on_the_whole_real_table():
+    """An integer column with more than 30 values is numeric even when a real
+    half has 30 or fewer (AdventureWorks raised a KeyError before)."""
+    spec = load_spec({"name": "k", "source": {"kind": "csv", "path": "."},
+                      "tables": {"t": {"primary_key": "id", "columns": {
+                          "id": "id", "n": {"type": "integer"}, "x": "float"}}},
+                      "relationships": []})
+    rng = np.random.default_rng(0)
+    real = {"t": pd.DataFrame({"id": np.arange(48), "n": np.repeat(np.arange(32), [2] * 16 + [1] * 16),
+                               "x": rng.normal(size=48)})}
+    syn = {"t": real["t"].sample(frac=1, random_state=1).reset_index(drop=True)}
+    real = {"t": coerce(real["t"], spec["tables"]["t"])}
+    syn = {"t": coerce(syn["t"], spec["tables"]["t"])}
+    rep = assess(spec, real, syn, scorecard=False, config={"null_splits": 6, "multi_splits": 3})
+    n_checks = {c["metric"] for c in rep["checks"] if c["scope"].get("column") == "n"}
+    assert {"w1_raw_sd", "w1_rank_normal", "js_distance"} <= n_checks
