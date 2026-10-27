@@ -44,7 +44,12 @@ only aggregates (scores, shares, counts), never rows.
 
 bi/COREP is private. It runs only where `RELSYNTH_BENCH_BI_DIR` points to a
 folder with `data/*.csv`, `spec.yaml` and `checks.py`; elsewhere it is reported
-as skipped, which is not a regression.
+as skipped, which is not a regression. Its results, even the aggregates, never
+enter the repository: a run writes them to `<RELSYNTH_BENCH_BI_DIR>/bench/history/`
+under the same file name as the public record (which only notes that the
+dataset ran), and `baseline` writes its baseline to
+`<RELSYNTH_BENCH_BI_DIR>/bench/baseline.json`. `compare` merges both where they
+are present.
 
 Each database runs with a frozen spec in `bench/specs/`: Chinook with the
 example spec, the others with the unedited 1.0 `introspect` draft. Freezing the

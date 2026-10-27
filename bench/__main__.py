@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 from . import regress
-from .datasets import DATASETS, available, say
+from .datasets import DATASETS, available, is_private, private_store, say
 
 ROOT = Path(__file__).resolve().parents[1]
 HISTORY = ROOT / "bench" / "history"
@@ -41,9 +41,19 @@ def _newest() -> Path:
     return files[-1]
 
 
+def _load_baseline(path: Path) -> dict:
+    """The public baseline plus the private datasets' baseline, where the private store has one."""
+    base = json.loads(path.read_text(encoding="utf-8"))
+    store = private_store()
+    if store is not None and (store / "baseline.json").exists():
+        base["datasets"].update(json.loads((store / "baseline.json").read_text(encoding="utf-8"))["datasets"])
+    return base
+
+
 def cmd_compare(record: Path, baseline: Path, full: bool, summary_to: str | None) -> int:
-    base = json.loads(baseline.read_text(encoding="utf-8"))
-    rec = json.loads(record.read_text(encoding="utf-8"))
+    from .runner import load_record
+    base = _load_baseline(baseline)
+    rec = load_record(record)
     reg, notes, summ = regress.compare(base, rec, full=full)
     text = f"Record `{record.name}` against `{baseline.name}` ({', '.join(base['relsynth'])})\n\n" + \
         regress.report(reg, notes, summ)
@@ -120,7 +130,15 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "baseline":
         recs = regress.load(a.records)
         base = regress.build(recs, sources=[Path(r).name for r in a.records])
-        Path(a.out).write_text(json.dumps(base, indent=1) + "\n", encoding="utf-8")
+        priv = {k: v for k, v in base["datasets"].items() if is_private(k)}
+        Path(a.out).write_text(json.dumps({**base, "datasets": {k: v for k, v in base["datasets"].items()
+                                                                 if k not in priv}}, indent=1) + "\n", encoding="utf-8")
+        if priv:                                 # never into the repository
+            store = private_store()
+            store.mkdir(parents=True, exist_ok=True)
+            (store / "baseline.json").write_text(json.dumps({**base, "datasets": priv}, indent=1) + "\n",
+                                                 encoding="utf-8")
+            print(f"private datasets' baseline -> {store / 'baseline.json'}")
         for ds, b in base["datasets"].items():
             print(f"{ds:16s} seeds {b['seeds']}  passed {b['passed']} of {b['judged']}  mean {b['mean']:.4f}  "
                   f"sd {b['sd']:.4f}  spread {b['spread']:.4f}  calibrated "

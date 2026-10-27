@@ -236,6 +236,17 @@ DATASETS = {
 }
 
 
+def private_store() -> Path | None:
+    """Where results of private datasets are kept (never in the repository):
+    <RELSYNTH_BENCH_BI_DIR>/bench/{history/, baseline.json}."""
+    d = _bi_dir()
+    return d / "bench" if d else None
+
+
+def is_private(name: str) -> bool:
+    return name in DATASETS and not DATASETS[name].public
+
+
 def available(name: str) -> tuple[bool, str]:
     if name == "bi_corep_lr" and _bi_dir() is None:
         return False, "RELSYNTH_BENCH_BI_DIR is not set (private dataset, local only)"

@@ -69,3 +69,21 @@ def test_domain_item_judges_identities_only():
     assert domain_item("B2 share", 1.0, 0.98)["pass"] is False
     assert domain_item("T3 mean basket", 2.4, 2.5)["pass"] is None
     assert domain_item("T17 KS", 0.0, 0.1)["pass"] is None
+
+
+def test_private_results_stay_out_of_the_public_record(tmp_path, monkeypatch):
+    from bench import runner
+    bi = tmp_path / "bi"
+    bi.mkdir()
+    (bi / "spec.yaml").write_text("name: x\n")
+    monkeypatch.setenv("RELSYNTH_BENCH_BI_DIR", str(bi))
+    monkeypatch.setattr(runner, "run_real", lambda name, seed, pushdown: _run(name, seed))
+    path = runner.run(["bi_corep_lr", "chinook"], [1], fake=False, out_dir=tmp_path / "history")
+    public = path.read_text()
+    assert '"c0"' in public and public.count('"c0"') == 1          # chinook's checks only
+    assert '"private": true' in public
+    private = (bi / "bench" / "history" / path.name).read_text()
+    assert "bi_corep_lr" in private and "chinook" not in private
+    rec = runner.load_record(path)
+    assert sorted(r["dataset"] for r in rec["runs"]) == ["bi_corep_lr", "chinook"]
+    assert all("checks" in r for r in rec["runs"])

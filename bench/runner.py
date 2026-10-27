@@ -22,7 +22,7 @@ import time
 import xml.etree.ElementTree as ET  # noqa: S405 (parses the junit file pytest just wrote)
 from pathlib import Path
 
-from .datasets import DATASETS, available, say
+from .datasets import DATASETS, available, is_private, private_store, say
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = 1
@@ -147,6 +147,24 @@ def run_fake(shard: str | None = None) -> dict:
     return rec
 
 
+def private_path(record_path: Path) -> Path:
+    store = private_store()
+    if store is None:
+        raise RuntimeError("a private dataset ran without RELSYNTH_BENCH_BI_DIR")
+    return store / "history" / Path(record_path).name
+
+
+def load_record(path: Path) -> dict:
+    """A record with the runs of its private part, where the private store has it."""
+    rec = json.loads(Path(path).read_text(encoding="utf-8"))
+    store = private_store()
+    pp = store / "history" / Path(path).name if store else None
+    if pp is not None and pp.exists():
+        priv = json.loads(pp.read_text(encoding="utf-8"))["runs"]
+        rec["runs"] = [r for r in rec["runs"] if not r.get("private")] + priv
+    return rec
+
+
 def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: str = "auto",
         out_dir: Path | None = None, label: str = "") -> Path:
     record = {"schema": SCHEMA, "relsynth": relsynth_version(), "git": git(), "machine": machine(),
@@ -168,7 +186,19 @@ def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: s
             path = out_dir / f"{base}-{k}.json"
 
     def save():
-        path.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
+        # results of a private dataset (even aggregates) stay out of the repository: they go to the same
+        # file name in the private store, and the public record keeps only a note that they ran
+        pub = {**record, "runs": [r if not is_private(r["dataset"]) or "skipped" in r else
+                                  {"dataset": r["dataset"], "seed": r.get("seed"), "private": True}
+                                  for r in record["runs"]]}
+        path.write_text(json.dumps(pub, indent=1) + "\n", encoding="utf-8")
+        priv = [r for r in record["runs"] if is_private(r["dataset"]) and "skipped" not in r]
+        if priv:
+            pp = private_path(path)
+            pp.parent.mkdir(parents=True, exist_ok=True)
+            pp.write_text(json.dumps({**record, "runs": priv}, indent=1) + "\n", encoding="utf-8")
+
+    save()                                       # a record is valid JSON from the start
 
     for name in datasets:
         ok, why = available(name)

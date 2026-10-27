@@ -22,7 +22,6 @@ level; docs/development/benchmarks.md explains the choice.
 """
 from __future__ import annotations
 
-import json
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -89,6 +88,9 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
         if "skipped" in r:
             notes.append(f"{r['dataset']}: skipped ({r['skipped']})")
             continue
+        if r.get("private"):
+            notes.append(f"{r['dataset']} seed {r.get('seed')}: private result, not available here")
+            continue
         runs[r["dataset"]].append(r)
     for ds, rs in sorted(runs.items()):
         b = baseline["datasets"].get(ds)
@@ -118,7 +120,7 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
                 notes.append(f"{ds} seed {r.get('seed')}: {len(gone)} calibrated check(s) not reported, e.g. {gone[0]}")
     if full:
         for ds in baseline["datasets"]:
-            if ds not in runs and not any(f"{ds}: skipped" in n for n in notes):
+            if ds not in runs and not any(n.startswith(f"{ds}: skipped") or n.startswith(f"{ds} seed") for n in notes):
                 regressions.append(f"R3 {ds}: in the baseline but not run")
     return regressions, notes, summary
 
@@ -138,9 +140,10 @@ def report(regressions: list[str], notes: list[str], summary: dict) -> str:
 
 
 def load(paths: list[str | Path]) -> list[dict]:
+    from .runner import load_record
     out = []
     for p in paths:
         p = Path(p)
         for f in sorted(p.glob("*.json")) if p.is_dir() else [p]:
-            out.append(json.loads(f.read_text(encoding="utf-8")))
+            out.append(load_record(f))
     return out
