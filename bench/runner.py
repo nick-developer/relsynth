@@ -85,6 +85,8 @@ def run_real(name: str, seed: int, pushdown: str = "auto") -> dict:
         rec["pushed"] = sorted((doc.get("pushdown") or {}).get("pushed") or {})
         if doc.get("errors"):
             rec["error"] = json.dumps(doc["errors"])[-2000:]
+        elif p.returncode not in (0, 1):             # 1 is a quality gate, which the scorecard reports anyway
+            rec["error"] = f"relsynth exited with {p.returncode}: " + (p.stderr or "")[-2000:]
         sc = doc.get("scorecard") or {}
         rec["scorecard"] = {"passed": sc.get("passed"), "total": sc.get("total")}
         # every scorecard item is in the diagnostics bundle (aggregates only)
