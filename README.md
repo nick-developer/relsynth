@@ -394,6 +394,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/api.md](docs/api.md) | Every public class and function |
 | [docs/connectors.md](docs/connectors.md) | Databases and files: URLs, drivers, schemas, write modes, types |
 | [docs/pushdown.md](docs/pushdown.md) | Fitting inside the database; performance |
+| [docs/connector-sdk.md](docs/connector-sdk.md) | Writing a connector for a new database or warehouse |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
 | [docs/security.md](docs/security.md) | Threat model and protections |
 | [docs/theory.md](docs/theory.md) | The model in brief and the v1.0 propositions with proofs |
