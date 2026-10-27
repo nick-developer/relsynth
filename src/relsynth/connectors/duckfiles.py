@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """DuckDB as the statistics engine of a folder of CSV and Parquet files.
 
 A folder source loads its entities whole, but a pushed-down fact should not be

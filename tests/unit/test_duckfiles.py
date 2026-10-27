@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """DuckDB over CSV and Parquet folders: the statistics, first rows and samples of a
 pushed-down fact computed in SQL over the files equal the in-memory reference
 (Propositions 100 and 101), with the CSV typing of the pandas reader."""
