@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """OpenLineage dataset facets of an estate (export only; emitting run events is
 the governance thread's work).
 

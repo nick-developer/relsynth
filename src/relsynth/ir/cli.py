@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """`relsynth ir ...`: convert, validate, migrate and export IR documents.
 
     relsynth ir migrate spec.yaml --out spec.ir.yaml [--privacy-unit Customer]

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The canonical IR (spec v2): object model, 1.0 round trip with identical
 output, hand-written examples, JSON Schema, privacy-unit paths (Props. 107, 108),
 ODCS v3 and OpenLineage, migration and the `relsynth ir` commands."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The canonical intermediate representation (IR 2.0) of a data estate.
 
     from relsynth import ir

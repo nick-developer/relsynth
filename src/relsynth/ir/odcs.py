@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Import and export of Open Data Contract Standard (ODCS) v3 contracts.
 
 ODCS (Bitol, Linux Foundation AI & Data; https://bitol.io) describes datasets

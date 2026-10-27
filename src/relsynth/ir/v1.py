@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Conversion between a relsynth 1.0 YAML spec and the IR.
 
 `lift(raw)` reads a 1.0 spec (as written, or normalised) into an `Estate`;

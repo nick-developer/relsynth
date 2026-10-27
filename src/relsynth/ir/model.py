@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The object model of the canonical intermediate representation (IR 2.0).
 
 One `Estate` describes a whole data estate: its entities (tables, document

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Semantic validation of an IR document: every name resolves, every structure is
 used where it means something, and the relational part passes the 1.0 checks.
 

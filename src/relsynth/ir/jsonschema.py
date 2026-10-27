@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The JSON Schema (draft 2020-12) of the IR and its Markdown reference, both
 generated from the object model (relsynth.ir.model), so neither can drift from
 what the code reads.

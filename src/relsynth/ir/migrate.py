@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Migration of relsynth 1.0 specs to IR 2.0 documents.
 
 `migrate(path)` reads a 1.0 spec, converts it, proves the conversion (the 1.0

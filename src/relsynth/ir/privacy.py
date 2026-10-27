@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The privacy unit and the foreign-key paths that carry its data.
 
 Differential privacy on a database protects a *unit* (a customer, a patient),
