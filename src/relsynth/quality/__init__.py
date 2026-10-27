@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Evaluation framework 2.0: calibrated fidelity, utility and integrity checks.
 
     from relsynth.quality import assess, METRICS

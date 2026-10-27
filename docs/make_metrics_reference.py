@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Write docs/metrics.md from relsynth.quality.registry (the single source of the
 metric definitions) and relsynth.quality.DEFAULTS:
 

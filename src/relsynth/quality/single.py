@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Single-table fidelity metrics of the 2.0 report.
 
 Column level: Wasserstein-1 on the raw scale (in real standard deviations) and

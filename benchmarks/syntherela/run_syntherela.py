@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """relsynth on the SyntheRela benchmark databases (Hudovernik et al., TMLR 2026).
 
     python benchmarks/syntherela/run_syntherela.py --data ~/syntherela-data --download

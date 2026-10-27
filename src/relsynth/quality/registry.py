@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Definitions of every metric in the 2.0 quality report.
 
 docs/metrics.md is generated from this table (docs/make_metrics_reference.py),

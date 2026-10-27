@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Evaluation framework 2.0 (relsynth.quality): metric values on inputs with a
 known answer, the calibration helpers, the report schema and the carry-over of
 the 1.0 scorecard.  The calibration of the limits themselves (false-failure

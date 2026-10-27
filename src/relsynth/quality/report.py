@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The 2.0 quality report: every check with its definition, null limit and
 confidence level, grouped in a quality vector (fidelity, utility, integrity).
 

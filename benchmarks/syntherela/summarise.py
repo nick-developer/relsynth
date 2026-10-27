@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Markdown comparison table from run_syntherela.py results and the published
 numbers in published.json:
 

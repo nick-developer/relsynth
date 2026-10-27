@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Machine-learning utility: TSTR, TRTS and TRTR (Esteban et al. 2017).
 
 TRTR trains on real rows and tests on held-out real rows; TSTR trains on

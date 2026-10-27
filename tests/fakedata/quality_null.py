@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """A fixed generating law for the 2.0 quality checks.
 
 `shop(seed, scale)` draws one database from a law whose parameters do not

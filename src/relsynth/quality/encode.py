@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Column encodings shared by the quality metrics.
 
 Every encoding takes the real column as its reference, so that real and

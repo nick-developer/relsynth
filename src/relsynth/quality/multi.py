@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Multi-table fidelity metrics of the 2.0 report.
 
 * Fan-out laws: per relationship, the law of the number of child rows per

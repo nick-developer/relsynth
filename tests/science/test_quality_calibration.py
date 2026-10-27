@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Checks C79-C82 of the 2.0 quality report (docs/proofs/sec_v20.tex): the limits
 calibrated on real-vs-real splits keep their nominal level when the synthetic
 data is an independent draw of the real data's law, also at other sizes, and

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Null limits from real-versus-real splits.
 
 For a metric T comparing a sample of size a (real) with a sample of size b
