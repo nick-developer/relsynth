@@ -1,9 +1,12 @@
 %=====================================================================
 \section{Privacy risk measurement (v2.5)}\label{sec:v25}
+% numbered to match checks C600--C606; the shared counter is restored at the end
+\newcounter{savedprop}\setcounter{savedprop}{\value{proposition}}
 Release 2.5 measures the privacy risk of a synthetic release with attacks (\texttt{relsynth/privacy}). The propositions of this section are numbered from 600 so that they do not collide with those of other work streams. Each is tested by a check in \texttt{tests/unit/test\_privacy.py} (fast) or \texttt{tests/science/test\_privacy\_checks.py} (checks C600--C606, coverage by simulation).
 
 \paragraph{Setting.} A database $D$ holds the rows of a finite set of people $I$. The \emph{privacy unit} is an entity table $U$ with primary key $k$; a table $T$ is \emph{owned} by $U$ when a chain of single-column foreign keys $T=T_0\to T_1\to\dots\to T_m=U$ exists that does not pass through another person table. Every row $r$ of an owned table has an owner $o(r)\in I\cup\{\bot\}$, the key reached by following the chain ($\bot$ when a key on the chain is null). Tables that are not owned are \emph{shared}. For $S\subseteq I$, $D[S]$ keeps the rows of owned tables whose owner is in $S$, the rows of $U$ with key in $S$, and every shared table whole. A \emph{generator} $G$ maps a database and a seed to a synthetic database. The people are split at random into training $A$, control $C$ and reference $R$; the release is $Y=G(D[A])$.
 
+\setcounter{proposition}{599}
 \begin{proposition}[Splits by person]\label{prop:pusplit}
 (a) For disjoint $S_1,S_2$, $D[S_1]$ and $D[S_2]$ share no row of an owned table, and $D[S_1\cup S_2]$ is their union on owned tables. (b) Every foreign key of $D[S]$ along an ownership chain resolves inside $D[S]$; every foreign key into a shared table resolves because shared tables are whole. Hence $D[S]$ is a valid database for $G$, and any function of the rows of person $i$ is a function of $D[\{i\}]$.
 \end{proposition}
@@ -11,6 +14,7 @@ Release 2.5 measures the privacy risk of a synthetic release with attacks (\text
 (a) A row of an owned table has exactly one owner, because the chain is a sequence of single-column foreign keys, each of which selects one parent row; it is kept in $D[S]$ iff its owner is in $S$. (b) Let $r$ be a kept row of $T_j$ with parent $r'$ in $T_{j+1}$ on the chain. Both have the same owner (the owner of $r$ is defined through $r'$), so $r'$ is kept. Foreign keys into shared tables resolve since those tables are unchanged. Rows whose owner is $\bot$ belong to nobody and are kept in no $D[S]$; they are not personal rows of anyone. \texttt{test\_unit\_paths\_and\_split\_keep\_people\_whole} checks that no row is lost or shared and that shared tables stay whole; \texttt{test\_unit\_chain\_stops\_at\_other\_person\_tables} checks the chain rule.
 \end{proof}
 
+\setcounter{proposition}{604}
 \begin{proposition}[Profiles do not see keys or order]\label{prop:puprofile}
 Let $\pi$ be a profile map that sends a database to one row per person (relsynth: the person's attributes, attributes of their parents up to two hops, and for each owned table the number of rows and the mean or the mode, ties broken to the smallest value, of each attribute of the rows and of their parents). Then $\pi(D)$ is invariant, up to the matching relabelling of its index, under any bijective relabelling of key values (applied consistently to primary and foreign keys) and any permutation of the rows of any table.
 \end{proposition}
@@ -22,6 +26,7 @@ No key column enters a profile: keys are only used to join and to group. Joins a
 \subsection{Record isolation, linkage and inference}
 The three criteria of EDPB Guidelines 02/2026 \cite{edpb2026} (sec.~3.4: no record isolation, no linkage, no inference) are tested by Anonymeter's attacks \cite{giomi2023}. An attack builds guesses $g_1,\dots,g_n$ from $Y$ (and the attacker's knowledge of a target), each judged a success or not on a target set. Let $k_A$ be the number of successes on training people and $k_C$ on control people with the same number of guesses. The \emph{risk} is $\rho=(r_A-r_C)/(1-r_C)$ with Wilson estimates $r_A,r_C$ \cite{wilson1927}, its interval propagated to first order as in Anonymeter.
 
+\setcounter{proposition}{600}
 \begin{proposition}[Control exchangeability]\label{prop:puctrl}
 Suppose $Y$ is independent of which people are in $A$ given $|A|$ (the generator ignores individuals: it uses only population-level information that does not depend on the split). For record isolation, let $A'\subseteq A$ be a uniform subset with $|A'|=|C|$ ($A'=A$ when the sizes are equal). Then $E[k_{A'}]=E[k_C]$ for record isolation, and $E[k_A]=E[k_C]$ for linkage and inference when targets are drawn uniformly from $A$ and $C$. Hence $E[r_A]-E[r_C]=O(1/n)$ (the Wilson shrinkage only) and the risk is centred at zero up to this term.
 \end{proposition}
@@ -32,6 +37,7 @@ The split is a uniform random partition of $I$, so given $Y$ the sets $A'$ and $
 
 \subsection{Membership inference}
 Three attacks read membership from a release: shadow modelling \cite{stadler2022,houssiau2022} with a logistic classifier on target-specific counting queries and distances, a LiRA-style Gaussian likelihood ratio on the distance from the target to its closest synthetic profile \cite{carlini2022} on the same shadow fits, and DOMIAS \cite{vanbreugel2023}, the ratio of the synthetic density to the population density at the person, on the release itself. Targets are the people with the largest mean cosine distance to their five nearest neighbours \cite{meeus2023}, and as many random people.
+\setcounter{proposition}{601}
 \begin{proposition}[Shared shadow fits]\label{prop:pushadow}
 Let targets $t_1..t_m$ be fixed and, for shadows $s=1..S$, draw $B_s$ uniformly from a population pool $P$ that contains no target, and membership indicators $M_{sj}\sim\mathrm{Bernoulli}(1/2)$ independent of each other and of $B_s$; fit $Y_s=G(D[B_s\cup\{t_j:M_{sj}=1\}])$. For each $j$ the pairs $(Y_s,M_{sj})_{s}$ are i.i.d., and $M_{sj}$ is independent of the background $(B_s,(M_{sl})_{l\ne j})$. So the test-shadow AUC of an attack trained on the training shadows is an unbiased estimate of the AUC of that attack in the game ``target $t_j$ in or out, over a random background of $|B|+\mathrm{Bin}(m-1,1/2)$ people''.
 \end{proposition}
@@ -40,6 +46,7 @@ Independence of the $M_{sj}$ across $j$ and of $B_s$ makes $M_{sj}$ independent 
 \end{proof}
 \noindent One set of $S$ fits thus serves all $m$ targets, instead of $mS$ fits \cite{houssiau2022,meeus2023}. The check \texttt{test\_shadow\_attack\_raw\_release\_vs\_population\_generator} and \texttt{benchmarks/privacy/reproduce\_mia.py} find AUC~$1.0$ for a generator that releases its training rows and an interval covering $0.5$ for one that samples the population.
 
+\setcounter{proposition}{603}
 \begin{proposition}[Exact intervals for TPR at a fixed FPR]\label{prop:putpr}
 Let a threshold $\tau$ be the $\lceil(1-\alpha)N_0\rceil$-th order statistic of $N_0\ge1/\alpha$ calibration non-member scores, and let the test scores be independent of the calibration scores. Conditionally on $\tau$, the number of test members above $\tau$ is $\mathrm{Bin}(P,\mathrm{TPR}(\tau))$ and the number of test non-members above $\tau$ is $\mathrm{Bin}(N,\mathrm{FPR}(\tau))$, so the Clopper--Pearson intervals of both have coverage at least the nominal level for $\mathrm{TPR}(\tau)$ and $\mathrm{FPR}(\tau)$. Moreover $E[\mathrm{FPR}(\tau)]\le\alpha+1/(N_0+1)$ when non-member scores are continuous.
 \end{proposition}
@@ -47,6 +54,7 @@ Let a threshold $\tau$ be the $\lceil(1-\alpha)N_0\rceil$-th order statistic of 
 Given $\tau$ the test scores are i.i.d. within each class and independent of $\tau$, so the counts are binomial with the stated success probabilities; the Clopper--Pearson interval is exact for a binomial proportion \cite{clopper1934}. For the last claim, $\mathrm{FPR}(\tau)=1-F_0(\tau)$, and $F_0(\tau)$ is the $j$-th order statistic of $N_0$ uniforms with $j=\lceil(1-\alpha)N_0\rceil\ge(1-\alpha)N_0$, whose mean is $j/(N_0+1)$. Hence $E[\mathrm{FPR}(\tau)]=1-j/(N_0+1)\le(\alpha N_0+1)/(N_0+1)\le\alpha+1/(N_0+1)$, and the report also prints the realised FPR with its interval. A threshold set on the scores that are then counted would have no such guarantee, which is why the report never does it; with $N_0<1/\alpha$ the entry is marked not identified (C604).
 \end{proof}
 
+\setcounter{proposition}{602}
 \begin{proposition}[Differential privacy bounds every membership test]\label{prop:pudp}
 If the release mechanism is $(\varepsilon,\delta)$-differentially private with respect to adding or removing one privacy unit, then any membership test of one person satisfies $\mathrm{TPR}\le\min\{e^{\varepsilon}\mathrm{FPR}+\delta,\;1-e^{-\varepsilon}(1-\delta-\mathrm{FPR})\}$.
 \end{proposition}
@@ -56,9 +64,11 @@ This is the hypothesis-testing characterisation of differential privacy \cite[Th
 \noindent The report prints this bound next to the empirical TPR when the release carries a DP guarantee (filled by the DP engine). C603 checks it on a person count released with Laplace noise at $\varepsilon\in\{0.5,1,2\}$: exactly on a grid of thresholds (where the bound is attained in the tail), and on simulated releases with thresholds set on independent draws.
 
 \subsection{Inference beyond the population}
+\setcounter{proposition}{605}
 \begin{proposition}[Specific leakage is centred at zero for a generator that ignores individuals]\label{prop:puattr}
 Let an attacker model $f_Y$ be trained on $Y$ and a baseline $f_R$ on the reference people, both predicting a secret $s$ from known attributes; let $c^Y_i,c^R_i$ indicate correct guesses on person $i$. With $\Delta_A=\overline{c^Y-c^R}$ over training people and $\Delta_C$ over control people, $E[\Delta_A-\Delta_C]=0$ under the condition of Prop.~\ref{prop:puctrl}, and the normal interval built from the per-person paired differences of each group has asymptotic coverage at the nominal level.
 \end{proposition}
 \begin{proof}
 $f_Y$ depends on $Y$ and $f_R$ on $R$; neither depends on which of the remaining people are in $A$ or $C$ under the condition. Training and control people are exchangeable given $(Y,R)$, so the expected per-person differences are equal in the two groups. Within a group, the paired differences are i.i.d. given $(Y,R)$ with finite variance (they take values in $\{-1,0,1\}$), so the central limit theorem gives the coverage of each group mean; the two groups are independent given $(Y,R)$, so the variance of the difference is the sum. EDPB Guidelines 02/2026 (para.~67) call an inference meaningful only when it is not available from population data: $\Delta_C$ is what $Y$ teaches about everyone, $\Delta_A-\Delta_C$ what it reveals about the people in the training data.
 \end{proof}
+\setcounter{proposition}{\value{savedprop}}
