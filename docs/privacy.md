@@ -15,7 +15,7 @@ rep["contexts"]["internal"]["verdict"]                # 'pass' | 'review' | 'fai
 rs.privacy.reference("privacy_report/privacy_report.json")   # embedded by the quality report: schema, sha256, verdicts
 ```
 
-The report never shows a real key. People are named by salted hashes (`P-3f2a…`) that the operator can recompute from the split seed and the key list.
+The report never shows a real key. People are named by keyed hashes (`P-3f2a…`, HMAC-SHA256 of the key) under a secret 256-bit salt that is not the split seed: the seed is in the report, so it must not unlock the labels. `relsynth privacy` writes the salt to `privacy_report/privacy_salt.key` (owner-only), or reuses `--salt-file` so labels stay stable between runs; the report carries only the salt's id. In the API, `assess(..., salt=...)` takes it and `rep["_salt"]` returns it; neither the JSON nor the pages ever contain it. Keep the salt apart from the report.
 
 ## What is measured
 
@@ -64,7 +64,7 @@ Defaults decided on 2026-10-27:
 - **The most exposed person** (`per_person`). One person's membership interval is about ±0.3 wide at 32 test shadows. In *internal* (`per_person: info`) that check is shown as INFO and the AUC pooled over the ten most exposed people gates instead. In *partner* and *public* (`per_person: gate`) it gates, and relsynth runs `n_test_gated` (128) test shadows, about ±0.15, whenever such a context can pass (with DP); without DP those contexts are blocked anyway and the default 32 are used.
 - **Small person tables.** With fewer than `small_population` (1000) people in the unit, the report warns, and every context outside the organisation fails without DP (check `small_population`).
 
-When the release carries a DP guarantee (`release.dp: {epsilon, delta}`), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603).
+When the release carries a DP guarantee (`release.dp: {epsilon, delta}`), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603). With `cumulative_epsilon` (and `cumulative_delta`), the budget spent by all releases from the same domain so far, it also shows the bound for all of them together, since releases about the same people compose.
 
 ## privacy.yaml
 
@@ -94,7 +94,7 @@ contexts:
     attacker_knows: all
     per_person: gate                  # default for your own contexts
     thresholds: {risk: 0.02, attribute_leakage: 0.02, mia_auc: 0.55, mia_tpr_at_fpr_0.01: 0.02, record_auc: 0.65}
-release: {dp: null}                   # {epsilon: 1.0, delta: 1.0e-6, unit: Customer}, filled by the DP engine
+release: {dp: null}                   # {epsilon: 1.0, delta: 1.0e-6, cumulative_epsilon: 3.0, unit: Customer}, filled by the DP engine
 cache: .relsynth-cache/privacy        # shadow fits are kept here and reused
 ```
 

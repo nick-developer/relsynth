@@ -428,9 +428,18 @@ def cmd_privacy(a, out):
         cfg["attacks"]["membership"]["shadow"]["n_jobs"] = a.jobs
     if a.no_shadow:
         cfg["attacks"]["membership"]["shadow"]["enabled"] = False
-    rep = P.assess(s, cfg, progress=lambda m: out.line(m))
+    salt = bytes.fromhex(Path(a.salt_file).read_text().strip()) if a.salt_file and Path(a.salt_file).exists() else None
+    rep = P.assess(s, cfg, salt=salt, progress=lambda m: out.line(m))
     P.sign_off(rep, a.signed_off_by)
     paths = P.write_report(rep, a.out)
+    if salt is None:
+        # the salt maps person labels back to keys: kept apart from the report, readable by the owner only
+        sf = Path(a.salt_file or Path(a.out) / "privacy_salt.key")
+        sf.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(sf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(rep["_salt"] + "\n")
+        out.line(f"pseudonym salt -> {sf} (keep it private; do not share it with the report)")
     verdicts = {n: c["verdict"] for n, c in rep["contexts"].items()}
     out.put(privacy={"verdicts": verdicts, "report": paths, "seconds": rep["timings"]["total_seconds"]})
     for n, v in verdicts.items():
@@ -553,6 +562,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--cache", help="folder that keeps shadow fits between runs")
     s.add_argument("--jobs", type=int, help="parallel shadow fits")
     s.add_argument("--no-shadow", action="store_true", help="skip shadow-model membership inference (fast)")
+    s.add_argument("--salt-file", help="secret salt for person labels (hex); reused when it exists, else a new "
+                                       "one is written there (default: OUT/privacy_salt.key)")
     s.add_argument("--context", help="gate on this release context (internal, partner, public): exit 1 when its "
                                      "verdict reaches --fail-on")
     s.add_argument("--fail-on", default="fail", choices=["review", "fail"])

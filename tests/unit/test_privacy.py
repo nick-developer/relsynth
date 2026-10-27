@@ -7,6 +7,7 @@ statistical coverage checks are in tests/science/test_privacy_checks.py.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -246,13 +247,19 @@ def test_assess_report_and_contexts(star, tmp_path):
     assert "C000" not in md and "C000" not in Path(paths["html"]).read_text()     # no real keys in the report
     j = json.loads(Path(paths["json"]).read_text())
     _validate(j)
+    # labels are keyed by a secret salt, never by the split seed, and the salt is never written
+    assert rep["pseudonyms"]["salt_id"] and rep["_salt"] not in Path(paths["json"]).read_text()
+    assert rep["_salt"] not in md and rep["_salt"] not in Path(paths["html"]).read_text()
+    rep2 = assess(s, cfg, tables=t, generator=lambda db, seed: {k: v.copy() for k, v in db.items()},
+                  salt=bytes.fromhex(rep["_salt"]))
+    assert [r["person"] for r in rep2["vulnerable_records"]] == [r["person"] for r in rep["vulnerable_records"]]
     ref = report.reference(paths["json"])
     assert len(ref["sha256"]) == 64 and ref["verdicts"]["public"] == "blocked"
 
 
 def test_assess_with_dp_is_not_blocked(star):
     t, s = star
-    cfg = {"unit": "customer", "release": {"dp": {"epsilon": 1.0, "delta": 1e-6}},
+    cfg = {"unit": "customer", "release": {"dp": {"epsilon": 1.0, "delta": 1e-6, "cumulative_epsilon": 2.0}},
            "attacks": {"record_isolation": {"modes": ["univariate"], "n_attacks": 50}, "linkage": {"n_attacks": 50},
                        "inference": {"n_attacks": 50}, "attribute_inference": False,
                        "membership": {"domias": False, "shadow": {"enabled": False}}}}
@@ -262,6 +269,8 @@ def test_assess_with_dp_is_not_blocked(star):
             v.assign(age=rng.permutation(v["age"].to_numpy()))) for k, v in db.items()})
     assert rep["contexts"]["public"]["verdict"] != "blocked"
     assert rep["contexts"]["public"]["dp_bound_tpr_at_fpr_0.01"] == pytest.approx(np.e * 0.01 + 1e-6)
+    # the domain's cumulative epsilon gives the looser bound for everything released so far
+    assert rep["contexts"]["public"]["dp_bound_tpr_at_fpr_0.01_cumulative"] == pytest.approx(np.e ** 2 * 0.01 + 1e-6)
 
 
 def test_review_sign_off_per_person_and_small_population(star):
@@ -322,6 +331,10 @@ def test_cli_privacy_writes_report_and_gates(star_csv, tmp_path):
     code = main(["privacy", str(sp), "--config", str(cfg), "--no-shadow", "--out", str(out), "--json"])
     assert code == 0
     assert (out / "privacy_report.html").exists() and (out / "privacy_report.json").exists()
+    salt = (out / "privacy_salt.key").read_text().strip()
+    assert len(salt) == 64 and salt not in (out / "privacy_report.json").read_text()
+    if os.name == "posix":          # Windows has no POSIX permission bits
+        assert (out / "privacy_salt.key").stat().st_mode & 0o077 == 0
     # external contexts are blocked without DP, so gating on 'public' fails the job
     assert main(["privacy", str(sp), "--config", str(cfg), "--no-shadow", "--out", str(out),
                  "--context", "public"]) == 1

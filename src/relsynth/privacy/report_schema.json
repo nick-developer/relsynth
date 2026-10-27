@@ -111,11 +111,17 @@
           "thresholds": {"type": "object"}, "blocked_reason": {"type": "string"},
           "per_person": {"enum": ["gate", "info"]},
           "sign_off": {"type": "object", "required": ["required"],
-                       "properties": {"required": {"type": "boolean"}, "by": {"type": ["string", "null"]}}}
+                       "properties": {"required": {"type": "boolean"}, "by": {"type": ["string", "null"]}}},
+          "dp_bound_tpr_at_fpr_0.01": {"type": "number"}, "dp_bound_tpr_at_fpr_0.01_cumulative": {"type": "number"}
         }
       }
     },
     "warnings": {"type": "array", "items": {"type": "string"}},
-    "timings": {"type": "object", "additionalProperties": {"type": "number"}}
+    "timings": {"type": "object", "additionalProperties": {"type": "number"}},
+    "pseudonyms": {
+      "type": "object", "required": ["method", "salt_id"],
+      "description": "People are labelled P-<first 10 hex of HMAC-SHA256(salt, key)>. The salt is secret and never in the report; salt_id names it.",
+      "properties": {"method": {"const": "hmac-sha256"}, "salt_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"}}
+    }
   }
 }

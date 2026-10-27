@@ -100,7 +100,10 @@ def context_markdown(rep: dict, name: str) -> str:
         dp = ctx["dp"]
         lines += [f"- **Differential privacy:** epsilon {dp.get('epsilon')}, delta {dp.get('delta', 0)}; no "
                   f"membership attack can catch more than {_f(ctx.get('dp_bound_tpr_at_fpr_0.01'), True)} of "
-                  "members at a 1% false alarm rate.", ""]
+                  "members at a 1% false alarm rate."
+                  + (f" Counting every release from this domain so far (epsilon {dp.get('cumulative_epsilon')}), "
+                     f"no more than {_f(ctx.get('dp_bound_tpr_at_fpr_0.01_cumulative'), True)}."
+                     if ctx.get("dp_bound_tpr_at_fpr_0.01_cumulative") is not None else ""), ""]
     lines += ["## What was tested", "", "| Criterion | Attack | Result | Interval | Limit | Status |",
               "|---|---|---|---|---|---|"]
     for c in ctx["checks"]:
@@ -124,7 +127,8 @@ def context_markdown(rep: dict, name: str) -> str:
         sh = ((rep.get("attacks") or {}).get("membership") or {}).get("shadow") or {}
         n_sh = (sh.get("n_shadows_train") or 0) + (sh.get("n_shadows_test") or 0)
         lev = recs[0].get("ci_level")
-        lines += ["", "Person labels are salted hashes; the operator can map them back to keys. Each person was "
+        lines += ["", "Person labels are keyed hashes; only the holder of the salt "
+                  f"(id `{(rep.get('pseudonyms') or {}).get('salt_id', '?')}`) can map them back to keys. Each person was "
                   "the target of a membership attack over "
                   + (f"{n_sh} " if n_sh else "") + "shadow releases shared by all targets"
                   + (f"; intervals hold for all listed people at once (each at {100 * lev:.2f}%), because the "
@@ -293,7 +297,8 @@ def _jsonable(o):
 
 
 def to_json(rep: dict) -> str:
-    return json.dumps(_jsonable(rep), indent=1, ensure_ascii=False)
+    """The report as JSON, without the pseudonym salt."""
+    return json.dumps(_jsonable({k: v for k, v in rep.items() if k != "_salt"}), indent=1, ensure_ascii=False)
 
 
 def write_report(rep: dict, folder) -> dict:
