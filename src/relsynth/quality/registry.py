@@ -150,7 +150,7 @@ SCORECARD_AREAS = {
     "fk_integrity": "integrity", "rule_violation_rate": "integrity", "unique_duplicate_rate": "integrity",
     "tree_cycles": "integrity", "rows_removed_share": "integrity",
     "text_tstr_ratio": "utility",
-    "dcr_ratio": "privacy", "exact_match_rate": "privacy", "text_rare_token_leaks": "privacy",
+    "dcr_ratio": "privacy", "exact_match_rate": "privacy", "text_rare_token_leaks": "privacy",  # nosec B105 - an area name, not a password
     "text_rare_ngram_copies": "privacy", "text_rare_exact_copies": "privacy",
 }
 
