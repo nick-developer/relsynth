@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Checks C600-C606: the privacy propositions of docs/proofs (section v2.5),
 tested by simulation with known answers.  Each check names its proposition.
 About ten minutes in total:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Calibrate relsynth's distance guards (DCR ratio, exact-match rate) against
 the attacks.
 

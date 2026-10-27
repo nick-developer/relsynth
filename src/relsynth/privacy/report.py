@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Privacy report for a data protection officer: one page per release
 context (Markdown and printable HTML) and the full results as JSON.
 

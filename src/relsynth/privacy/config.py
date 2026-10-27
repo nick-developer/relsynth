@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Settings of a privacy assessment (privacy.yaml) and the release contexts.
 
 Every key is optional.  The release contexts follow the contextual approach of

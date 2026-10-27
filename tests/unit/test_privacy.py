@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Privacy attacks and the privacy report (relsynth.privacy, Props. 600-606).
 
 Fast checks of each building block on fake data with known answers; the

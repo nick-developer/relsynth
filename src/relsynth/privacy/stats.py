@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Rates, risks and their confidence intervals for privacy attacks.
 
 Every number in a privacy report is an estimate from a finite number of attacks,

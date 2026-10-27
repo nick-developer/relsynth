@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Privacy assessment of a synthetic release: split the people, fit, attack,
 report.
 

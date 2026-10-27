@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Mixed-type encoding and nearest neighbours for the attacks.
 
 Distances are Gower-type (Gower 1971), as in Anonymeter: a numeric column

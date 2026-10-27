@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Attacks for the three criteria of EDPB Guidelines 02/2026 (draft for public
 consultation, adopted 7 July 2026, sec. 3.4): no record isolation, no linkage,
 no inference.  They follow the attacker model of Anonymeter (Giomi, Boenisch,

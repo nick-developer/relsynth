@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Attribute inference for declared sensitive attributes, against a baseline
 attacker that sees only the population.
 

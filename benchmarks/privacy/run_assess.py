@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Run a privacy assessment on a benchmark and write the report.
 
     python benchmarks/privacy/run_assess.py SPEC OUT [--config privacy.yaml] [--csv table=file.csv ...]

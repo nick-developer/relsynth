@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Privacy risk measurement: attacks per person and per release context.
 
     import relsynth as rs

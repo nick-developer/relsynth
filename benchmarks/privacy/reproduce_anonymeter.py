@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reproduce the published Anonymeter results on Adult (Giomi et al. 2023,
 example notebook of github.com/statice/anonymeter) with relsynth's attacks.
 

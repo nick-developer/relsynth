@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Sanity checks of the membership attacks against published findings.
 
 1. Raw data release (the generator returns its training rows): every target

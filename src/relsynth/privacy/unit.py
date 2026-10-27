@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The privacy unit: the person whose rows are protected together.
 
 A privacy unit is an entity table (for example Customer).  A table is *owned*

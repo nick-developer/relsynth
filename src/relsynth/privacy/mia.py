@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Membership inference: can an attacker tell whether a person was in the
 training data of a release?
 
