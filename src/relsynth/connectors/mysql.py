@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """MySQL 8 and MariaDB 10.6+ (PyMySQL, or mysqlclient when installed).
 
 A MySQL "schema" is a database: `schema` names the database to read or write,

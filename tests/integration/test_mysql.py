@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """MySQL 8 and MariaDB specifics on live servers (skipped unless
 RELSYNTH_TEST_MYSQL_URL / RELSYNTH_TEST_MARIADB_URL is set): exact text
 comparison under case-insensitive collations, the SHA-256 sample hash, types that
