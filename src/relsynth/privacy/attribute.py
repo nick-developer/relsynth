@@ -14,7 +14,7 @@ evaluation sets), with the same model:
 
 A positive advantage on non-members is what the synthetic data teaches about
 everyone (utility); only the excess on members is about the people in the
-training data (Prop. 606).  Numeric secrets are guessed as their decile band
+training data (Prop. 606).  Numeric attributes are guessed as their decile band
 of the population, so success is "the right band".
 """
 from __future__ import annotations
@@ -67,19 +67,19 @@ def _labels(s: pd.Series, ref: pd.Series):
 
 
 def attribute_inference(members: pd.DataFrame, non_members: pd.DataFrame, syn: pd.DataFrame,
-                        population: pd.DataFrame, *, secret: str, known: list[str], max_rows: int = 20000,
+                        population: pd.DataFrame, *, attribute: str, known: list[str], max_rows: int = 20000,
                         seed: int = 0, level: float = 0.95) -> dict:
     """Advantage of the synthetic-data attacker over the population attacker,
     on members and non-members, with intervals."""
     rng = np.random.default_rng(seed)
-    known = [c for c in known if c != secret and c in syn.columns]
+    known = [c for c in known if c != attribute and c in syn.columns]
     take = lambda df: df.sample(min(len(df), max_rows), random_state=int(rng.integers(2**31)))  # noqa: E731
     syn_s, pop_s = take(syn), take(population)
     Xs, Xp, Xm, Xn = _design([syn_s, pop_s, members, non_members], known, population)
-    ys, K, banded = _labels(syn_s[secret], population[secret])
-    yp, _, _ = _labels(pop_s[secret], population[secret])
-    ym, _, _ = _labels(members[secret], population[secret])
-    yn, _, _ = _labels(non_members[secret], population[secret])
+    ys, K, banded = _labels(syn_s[attribute], population[attribute])
+    yp, _, _ = _labels(pop_s[attribute], population[attribute])
+    ym, _, _ = _labels(members[attribute], population[attribute])
+    yn, _, _ = _labels(non_members[attribute], population[attribute])
     Ws, Wp = _softmax_fit(Xs, ys, K), _softmax_fit(Xp, yp, K)
     cs_m, cp_m = (Xm @ Ws).argmax(1) == ym, (Xm @ Wp).argmax(1) == ym
     cs_n, cp_n = (Xn @ Ws).argmax(1) == yn, (Xn @ Wp).argmax(1) == yn
@@ -89,7 +89,7 @@ def attribute_inference(members: pd.DataFrame, non_members: pd.DataFrame, syn: p
     spec = adv_m["value"] - adv_n["value"]
     z = z_of(level)
     correct_ids = list(members.index[cs_m & ~cp_m])
-    return {"criterion": "inference", "attack": "attribute_inference_vs_population", "secret": secret,
+    return {"criterion": "inference", "attack": "attribute_inference_vs_population", "attribute": attribute,
             "known": known, "banded": banded,
             "accuracy_syn_members": float(cs_m.mean()), "accuracy_population_members": float(cp_m.mean()),
             "accuracy_syn_non_members": float(cs_n.mean()), "accuracy_population_non_members": float(cp_n.mean()),

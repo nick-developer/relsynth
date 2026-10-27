@@ -147,9 +147,9 @@ def test_copy_release_is_caught_and_fresh_release_is_not():
     lk = criteria.linkage(tr, tr, ct, aux_cols=(["age", "region"], ["income", "score"]), n_attacks=300, n_neighbors=10,
                           seed=1)
     assert lk.risk.value > 0.5
-    inf = criteria.inference(tr, tr, ct, secret="smoker", n_attacks=300, seed=1)
+    inf = criteria.inference(tr, tr, ct, attribute="smoker", n_attacks=300, seed=1)
     assert inf.risk.ci[0] > 0.5
-    inf0 = criteria.inference(tr, other, ct, secret="smoker", n_attacks=300, seed=1)
+    inf0 = criteria.inference(tr, other, ct, attribute="smoker", n_attacks=300, seed=1)
     assert inf0.risk.ci[0] == 0.0
 
 
@@ -157,11 +157,11 @@ def test_attribute_inference_against_population():
     pop = _people(8000)
     pop["smoker"] = np.where(pop["age"] > 60, "y", pop["smoker"])        # learnable from the population
     tr, ct, ref = pop.iloc[:3000], pop.iloc[3000:4000], pop.iloc[4000:]
-    fresh = attribute_inference(tr, ct, ref.sample(3000, random_state=1), ref, secret="smoker",
+    fresh = attribute_inference(tr, ct, ref.sample(3000, random_state=1), ref, attribute="smoker",
                                 known=["age", "region", "income", "score"])
     lo, hi = fresh["specific_leakage"]["ci"]
     assert lo < 0.02 and hi > -0.02                 # only population knowledge: no specific leakage
-    leak = attribute_inference(tr, ct, tr, ref, secret="smoker", known=["age", "region", "income", "score"])
+    leak = attribute_inference(tr, ct, tr, ref, attribute="smoker", known=["age", "region", "income", "score"])
     assert leak["advantage_members"]["value"] >= fresh["advantage_members"]["value"] - 0.02
 
 

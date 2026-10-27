@@ -436,9 +436,10 @@ def cmd_privacy(a, out):
         out.line(f"{n}: {v.upper()}")
     out.line(f"report -> {paths['html']}")
     if a.context:
-        order = {"pass": 0, "review": 1, "fail": 2, "blocked": 2}
-        worst = {"review": 1, "fail": 2}[a.fail_on]
-        if order[verdicts.get(a.context, "fail")] >= worst:
+        # verdicts from mildest to worst; blocked counts as fail
+        rank = ("pass", "review", "fail")
+        v = verdicts.get(a.context, "fail").replace("blocked", "fail")
+        if rank.index(v) >= rank.index(a.fail_on):
             return EXIT_GATE
     return EXIT_OK
 

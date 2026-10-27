@@ -158,7 +158,7 @@ def test_C606_specific_leakage_centred_for_population_generator():
     for rep in range(20):
         pop = _people(9000, 200 + rep)
         tr, ct, ref, syn = pop.iloc[:2000], pop.iloc[2000:4000], pop.iloc[4000:6000], pop.iloc[6000:]
-        a = attribute_inference(tr, ct, syn, ref, secret="smoker", known=["age", "region", "income", "score"],
+        a = attribute_inference(tr, ct, syn, ref, attribute="smoker", known=["age", "region", "income", "score"],
                                 seed=rep)
         lo, hi = a["specific_leakage"]["ci"]
         cover.append(lo <= 0 <= hi)

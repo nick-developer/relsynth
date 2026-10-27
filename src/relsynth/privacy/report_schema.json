@@ -77,7 +77,7 @@
         "linkage": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
         "inference": {"type": "array", "items": {"$ref": "#/$defs/risk"}},
         "attribute_inference": {"type": "array", "items": {
-          "type": "object", "required": ["secret", "advantage_members", "advantage_non_members", "specific_leakage"]}},
+          "type": "object", "required": ["attribute", "advantage_members", "advantage_non_members", "specific_leakage"]}},
         "membership": {
           "type": "object",
           "properties": {
