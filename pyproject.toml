@@ -76,6 +76,7 @@ relsynth = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]                # the benchmark harness (bench/) is tested from tests/unit
 addopts = "-ra --strict-markers -m 'not science'"
 markers = [
     "postgres: needs a live PostgreSQL (RELSYNTH_TEST_PG_URL)",
