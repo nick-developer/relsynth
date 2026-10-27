@@ -46,7 +46,9 @@ def profile(spec, tables, k_small=5):
                 d["integer_valued"] = bool(len(v) and np.allclose(v, np.round(v)))
                 d["monotone"] = bool(len(v) > 2 and (v.is_monotonic_increasing or v.is_monotonic_decreasing))
                 if len(v):
-                    d["skew"] = round(float(v.skew()), 3) if len(v) > 2 else 0.0
+                    # float64: a nullable column's skew is pd.NA where float64 gives NaN (a constant column)
+                    sk = float(v.astype("float64").skew()) if len(v) > 2 else 0.0
+                    d["skew"] = round(sk, 3) if np.isfinite(sk) else None
             elif cs["type"] == "binary":
                 pass
             elif cs["type"] in ("categorical", "text", "pii") or is_stringlike(s):
