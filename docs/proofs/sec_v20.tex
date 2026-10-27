@@ -1,5 +1,5 @@
 %=====================================================================
-\section{Evaluation 2.0: calibrated quality report (v2.0)}\label{sec:v20}
+\section{Evaluation 2.0: calibrated quality report (v2.0)}\label{sec:v20quality}
 Version 2.0 adds a quality report (\texttt{relsynth/quality}) next to the scorecard of Section~\ref{sec:thresholds}: Wasserstein-1 distances on the raw and on the rank-normal scale, Jensen--Shannon distances, 2- and 3-way marginal errors, $\alpha$-precision and $\beta$-recall (Alaa et al.\ 2022), TSTR and TRTS (Esteban et al.\ 2017), fan-out laws, $k$-hop column-pair trends (Pang et al.\ 2024), aggregation detection C2ST-Agg (Hudovernik et al.\ 2026) and a multi-table utility task. Their definitions are in \texttt{docs/metrics.md}, generated from \texttt{quality/registry.py}. Every limit is calibrated on the real data itself, and the checks are grouped in a vector (fidelity, utility, integrity) with a pass rule per area. The scorecard of Section~\ref{sec:thresholds} is carried into the report unchanged. The checks of this section are in \texttt{tests/unit/test\_quality.py} and \texttt{tests/science/test\_quality\_calibration.py} (C79--C82).
 
 \subsection{Limits from real-versus-real splits}

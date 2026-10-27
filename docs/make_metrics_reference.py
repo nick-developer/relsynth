@@ -53,7 +53,7 @@ the real data's law. The real data supplies draws of T under that hypothesis:
 3. The limit is the one-sided normal prediction bound for one more draw at the
    `confidence` level, computed on log T for distances, and rescaled from the
    split sizes (a', b') to the compared sizes (a, b) by
-   kappa = sqrt((1/a + 1/b) / (1/a' + 1/b')) (Prop. 106).
+   kappa = sqrt((1/a + 1/b) / (1/a' + 1/b')) (Prop. 109).
 4. The limit is never below the metric's practical **tolerance**: a difference
    below it is accepted however large the data. Tolerances are judgement
    calls, not derived values; set your own with `tolerances`.
@@ -61,7 +61,7 @@ the real data's law. The real data supplies draws of T under that hypothesis:
 `alpha` of a check is the probability, under the same predictive law, that T
 exceeds the final limit; it is at most 1 - confidence.
 
-## Pass rules (Prop. 108)
+## Pass rules (Prop. 111)
 
 The level `1 - area_confidence` of an area is split in two halves. An area
 fails when its failed checks exceed the `1 - (1 - area_confidence)/2`
@@ -104,7 +104,7 @@ SETTINGS = {
     "calibrate": "`false`: limits are the tolerances only (fast, no null calibration)",
     "scale": "expected synthetic/real size: a number or `{default, tables}` as in the spec's `synthesis.scale` "
              "(copied tables keep their size, facts follow their anchor). Per-parent counts are divided by the "
-             "expected change of rows per parent (Prop. 110). `None`: 1, or the spec's scale in `assess_quality`",
+             "expected change of rows per parent (Prop. 113). `None`: 1, or the spec's scale in `assess_quality`",
     "seed": "seed of every sample, split and fold",
 }
 

@@ -181,7 +181,7 @@ def test_config_validation(shop):
 
 
 def test_resized_database_is_compared_per_expected_rate(shop):
-    """Prop. 110: a database drawn at twice the size is compared on counts per
+    """Prop. 113: a database drawn at twice the size is compared on counts per
     unit of the expected rate; regions are copied, so customers per region double."""
     jsonschema = pytest.importorskip("jsonschema")
     from relsynth.quality.report import fanout_factor, resolve_config

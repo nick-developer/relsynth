@@ -15,7 +15,7 @@ null        how the limit is calibrated
 """
 from __future__ import annotations
 
-SPLIT = "real-vs-real splits (Prop. 106), rescaled to the compared sizes"
+SPLIT = "real-vs-real splits (Prop. 109), rescaled to the compared sizes"
 
 METRICS = {
     # ------------------------------------------------------------ single column

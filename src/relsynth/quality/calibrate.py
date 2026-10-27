@@ -12,7 +12,7 @@ normal prediction bound
 where c is the value of T for identical laws (0 for a distance, 0.5 for a
 detection accuracy), q the confidence level, and kappa = sqrt((1/a + 1/b) /
 (1/a' + 1/b')) rescales from the split sizes (a', b') to the compared sizes
-(Prop. 106 in docs/proofs/sec_v20.tex).
+(Prop. 109 in docs/proofs/sec_v20.tex).
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def anchor_chain(spec, tables, t, min_rows=20):
 def cluster_ids(spec, tables, t):
     """For each row of t, the key of the root row it hangs from (its own row
     number when t is a root): rows of one cluster are split together, because
-    rows that share an ancestor are not independent (Prop. 106, condition (i))."""
+    rows that share an ancestor are not independent (Prop. 109, condition (i))."""
     chain = anchor_chain(spec, tables, t)
     if not chain:
         return np.arange(len(tables[t])).astype(str)

@@ -96,7 +96,7 @@ class _Builder:
         ok = v is not None and v <= limit
         p_value = None
         if not ok and v is not None and alpha is not None and null["method"].endswith("(log scale)"):
-            # how far out the failure is: the null probability of a value this large (Prop. 108).
+            # how far out the failure is: the null probability of a value this large (Prop. 111).
             # Only for distances calibrated on the log scale: signed gaps (TSTR) have skewed nulls
             # whose normal tail is too thin for p-values near 1e-4 (C79: a false severe failure)
             p_value = cal.exceed_prob(draws, v, m["center"], k, log)
@@ -223,7 +223,7 @@ def _relationship_checks(b, spec, real, syn, rng):
             hs.append((mk.sum(), (~mk).sum()))
         sizes = (len(cr), len(cs))
         ssz = (int(np.mean([h[0] for h in hs])), int(np.mean([h[1] for h in hs]))) if R else None
-        # resized tables: counts are compared per unit of the expected rate (Prop. 110); the share of
+        # resized tables: counts are compared per unit of the expected rate (Prop. 113); the share of
         # childless parents and the dispersion are not invariant under resizing and are not checked
         keys = (("fanout_w1_rel", "w1_rel_mean"),) if f != 1 else (
             ("fanout_w1_rel", "w1_rel_mean"), ("fanout_zero_share_diff", "zero_share_diff"),
@@ -350,7 +350,7 @@ def _scorecard_checks(base):
 
 def quality_vector(checks, q=0.99):
     """Per area: checks, failures, expected false failures under the null (sum
-    of the levels) and the failures tolerated (Prop. 108).  The level 1 - q is
+    of the levels) and the failures tolerated (Prop. 111).  The level 1 - q is
     split in two halves: an area fails when its failures exceed the
     (1 - (1-q)/2)-quantile of the Poisson-binomial law of false failures, or
     when one failed check is severe, its null p-value below (1-q)/(2m) for the

@@ -39,7 +39,7 @@ the real data's law. The real data supplies draws of T under that hypothesis:
 3. The limit is the one-sided normal prediction bound for one more draw at the
    `confidence` level, computed on log T for distances, and rescaled from the
    split sizes (a', b') to the compared sizes (a, b) by
-   kappa = sqrt((1/a + 1/b) / (1/a' + 1/b')) (Prop. 106).
+   kappa = sqrt((1/a + 1/b) / (1/a' + 1/b')) (Prop. 109).
 4. The limit is never below the metric's practical **tolerance**: a difference
    below it is accepted however large the data. Tolerances are judgement
    calls, not derived values; set your own with `tolerances`.
@@ -47,7 +47,7 @@ the real data's law. The real data supplies draws of T under that hypothesis:
 `alpha` of a check is the probability, under the same predictive law, that T
 exceeds the final limit; it is at most 1 - confidence.
 
-## Pass rules (Prop. 108)
+## Pass rules (Prop. 111)
 
 The level `1 - area_confidence` of an area is split in two halves. An area
 fails when its failed checks exceed the `1 - (1 - area_confidence)/2`
@@ -85,7 +85,7 @@ other 1.0 item is fidelity.
 | `mt_targets` | `{}` | `{parent table: column}` multi-table utility targets |
 | `tolerances` | `{}` | `{metric id: floor}` practical tolerances |
 | `calibrate` | `True` | `false`: limits are the tolerances only (fast, no null calibration) |
-| `scale` | `None` | expected synthetic/real size: a number or `{default, tables}` as in the spec's `synthesis.scale` (copied tables keep their size, facts follow their anchor). Per-parent counts are divided by the expected change of rows per parent (Prop. 110). `None`: 1, or the spec's scale in `assess_quality` |
+| `scale` | `None` | expected synthetic/real size: a number or `{default, tables}` as in the spec's `synthesis.scale` (copied tables keep their size, facts follow their anchor). Per-parent counts are divided by the expected change of rows per parent (Prop. 113). `None`: 1, or the spec's scale in `assess_quality` |
 | `seed` | `0` | seed of every sample, split and fold |
 
 ## Fidelity metrics
@@ -95,7 +95,7 @@ other 1.0 item is fidelity.
 W1(P_real, P_syn) of the non-null values of a numeric, date or datetime column (dates in days), divided by the standard deviation of the real values.
 
 - Scope: column; range [0, inf); 0 = equal laws; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Villani 2009; Panaretos & Zemel 2019.
 
 ### `w1_rank_normal`: Wasserstein-1 distance, rank-normal scale
@@ -103,7 +103,7 @@ W1(P_real, P_syn) of the non-null values of a numeric, date or datetime column (
 W1 between the normal scores z = Phi^-1(F_real(x)) of the real and synthetic non-null values, with F_real the real mid-ECDF on n+1 points. Invariant to monotone transformations; a synthetic value beyond the real range counts as the most extreme real score (the raw-scale W1 sees the excess).
 
 - Scope: column; range [0, inf); 0 = equal laws; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Bickel & Freedman 1981; docs/proofs Section v1.0 (normal scores).
 
 ### `js_distance`: Jensen-Shannon distance
@@ -111,7 +111,7 @@ W1 between the normal scores z = Phi^-1(F_real(x)) of the real and synthetic non
 Square root of the Jensen-Shannon divergence (base 2) between the real and synthetic distributions of a column's levels (null is a level); numeric columns on 20 real quantile bins.
 
 - Scope: column; range [0, 1]; 0 = equal laws; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Lin 1991; Endres & Schindelin 2003.
 
 ### `kway2_tvd_mean`: Mean 2-way marginal TVD
@@ -119,7 +119,7 @@ Square root of the Jensen-Shannon divergence (base 2) between the real and synth
 Mean over all pairs of attribute columns of the total variation distance between the real and synthetic joint distributions of the discretised pair (categoricals: 20 most frequent real levels, the rest pooled; numerics: real quintiles; null a level).
 
 - Scope: table; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: NIST CRC SDNist k-marginal score (Task et al. 2023).
 
 ### `kway2_tvd_max`: Largest 2-way marginal TVD
@@ -127,7 +127,7 @@ Mean over all pairs of attribute columns of the total variation distance between
 Largest of the 2-way marginal TVDs above (the worst pair is named in the report).
 
 - Scope: table; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.15; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.15; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: NIST CRC SDNist.
 
 ### `kway3_tvd_mean`: Mean 3-way marginal TVD
@@ -135,7 +135,7 @@ Largest of the 2-way marginal TVDs above (the worst pair is named in the report)
 Mean TVD over all 3-way marginals of the discretised columns, or over a seeded random set of 50 triples when there are more.
 
 - Scope: table; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.08; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.08; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: NIST CRC SDNist.
 
 ### `alpha_precision_gap`: alpha-precision gap
@@ -143,7 +143,7 @@ Mean TVD over all 3-way marginals of the discretised columns, or over a seeded r
 1 - I_P with I_P = 1 - 2 mean_a |P(a) - a| over a = 0.05..1, where P(a) is the share of synthetic rows inside the real a-support (the ball around the real mean, in rank-normal feature space, holding a share a of the real rows).
 
 - Scope: table; range [0, 1]; 0 = ideal; ideal 0.0; lower is better.
-- Tolerance: 0.1; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.1; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Alaa et al., ICML 2022; Qian et al. Synthcity, NeurIPS 2023.
 
 ### `beta_recall_gap`: beta-recall gap
@@ -151,7 +151,7 @@ Mean TVD over all 3-way marginals of the discretised columns, or over a seeded r
 1 - I_R with I_R = 1 - 2 mean_b |R(b) - b|, where R(b) is the share of real rows whose nearest synthetic row lies within the real row's 5-NN radius among real rows and inside the synthetic b-support. Both samples are cut to the same size, since recall grows with the number of synthetic rows.
 
 - Scope: table; range [0, 1]; 0 = ideal; ideal 0.0; lower is better.
-- Tolerance: 0.1; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.1; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Alaa et al., ICML 2022.
 
 ### `fanout_w1_rel`: Fan-out law W1
@@ -159,7 +159,7 @@ Mean TVD over all 3-way marginals of the discretised columns, or over a seeded r
 W1 between the real and synthetic laws of the number of child rows per parent row, divided by the real mean count.
 
 - Scope: relationship; range [0, inf); ideal 0.0; lower is better.
-- Tolerance: 0.1; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.1; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Hudovernik et al. TMLR 2026 (cardinality); Villani 2009.
 
 ### `fanout_zero_share_diff`: Childless-parent share difference
@@ -167,7 +167,7 @@ W1 between the real and synthetic laws of the number of child rows per parent ro
 |share of parents without children, real - synthetic|.
 
 - Scope: relationship; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.03; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.03; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: -.
 
 ### `fanout_dispersion_log_ratio`: Fan-out dispersion log ratio
@@ -175,7 +175,7 @@ W1 between the real and synthetic laws of the number of child rows per parent ro
 |log(D_syn / D_real)| with D = variance / mean of the per-parent child counts (1 for Poisson counts; over-dispersion is what block models must reproduce).
 
 - Scope: relationship; range [0, inf); ideal 0.0; lower is better.
-- Tolerance: 0.25; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.25; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Cameron & Trivedi 2013.
 
 ### `fanout2_w1_rel`: Two-hop fan-out law W1
@@ -183,7 +183,7 @@ W1 between the real and synthetic laws of the number of child rows per parent ro
 Fan-out law W1 of grandchild rows per grandparent row along a two-hop path.
 
 - Scope: path; range [0, inf); ideal 0.0; lower is better.
-- Tolerance: 0.15; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.15; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: -.
 
 ### `hop_trend_gap`: k-hop trend gap
@@ -191,7 +191,7 @@ Fan-out law W1 of grandchild rows per grandparent row along a two-hop path.
 1 - mean over column pairs (one column of the bottom table, one of the top table of a 1- or 2-hop foreign-key path, on the denormalised rows) of the SDMetrics column-pair trend score: 1 - |r_real - r_syn|/2 (Pearson) for two numeric columns, 1 - TVD of the joint table (numerics in 10 equal-width bins) otherwise.
 
 - Scope: path; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Pang et al. ClavaDDPM, NeurIPS 2024; Hudovernik et al. TMLR 2026.
 
 ### `hop_trend_worst_gap`: Worst k-hop pair gap
@@ -199,7 +199,7 @@ Fan-out law W1 of grandchild rows per grandparent row along a two-hop path.
 1 - the smallest column-pair trend score of the path (the pair is named).
 
 - Scope: path; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.15; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.15; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: as hop_trend_gap.
 
 ### `dda_accuracy`: Aggregation detection accuracy (C2ST-Agg)
@@ -207,7 +207,7 @@ Fan-out law W1 of grandchild rows per grandparent row along a two-hop path.
 5-fold stratified cross-validated accuracy of a classifier separating balanced samples (at most 5,000 each) of real and synthetic parent rows, each augmented per child relationship with the child count, the means of numeric child columns and the distinct counts of categorical child columns. Default classifier: L2 logistic regression on rank-normal scores, squares, null indicators and one-hot levels; 'xgboost' as SyntheRela.
 
 - Scope: table; range [0, 1]; 0.5 = indistinguishable; ideal 0.5; lower is better.
-- Tolerance: 0.6; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.6; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Hudovernik et al. TMLR 2026; Lopez-Paz & Oquab 2017.
 
 
@@ -218,7 +218,7 @@ Fan-out law W1 of grandchild rows per grandparent row along a two-hop path.
 TRTR - TSTR: score of a model trained on real rows minus that of the same learner trained on synthetic rows, both tested on held-out real rows. Learners: L2 logistic (weighted one-vs-rest AUC) for a categorical target, ridge on the rank-normal target (R^2) for a numeric one. One-sided: a synthetic set that trains a better model passes.
 
 - Scope: table; range [-1, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Esteban et al. 2017; Jordon et al. 2022.
 
 ### `trts_gap`: TRTS gap
@@ -226,7 +226,7 @@ TRTR - TSTR: score of a model trained on real rows minus that of the same learne
 |TRTR - TRTS|: a model trained on real rows scores the same on synthetic rows as on held-out real rows. Two-sided: synthetic rows that are easier (too regular) also fail.
 
 - Scope: table; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Esteban et al. 2017.
 
 ### `mt_tstr_gap`: Multi-table TSTR gap
@@ -234,7 +234,7 @@ TRTR - TSTR: score of a model trained on real rows minus that of the same learne
 TSTR gap of a parent-table target predicted from the parent's other columns and the aggregates of its child tables (count, numeric means, distinct counts).
 
 - Scope: table; range [-1, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Hudovernik et al. TMLR 2026 (utility on aggregated tables).
 
 ### `mt_trts_gap`: Multi-table TRTS gap
@@ -242,7 +242,7 @@ TSTR gap of a parent-table target predicted from the parent's other columns and 
 TRTS gap of the multi-table task above.
 
 - Scope: table; range [0, 1]; ideal 0.0; lower is better.
-- Tolerance: 0.05; null: real-vs-real splits (Prop. 106), rescaled to the compared sizes.
+- Tolerance: 0.05; null: real-vs-real splits (Prop. 109), rescaled to the compared sizes.
 - Reference: Esteban et al. 2017.
 
 ## Integrity
