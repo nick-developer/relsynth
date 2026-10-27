@@ -1,6 +1,6 @@
 # ADR 0002: Open Policy Agent (Rego) for release policy
 
-- Status: proposed (T08 design phase), 2026-10-27
+- Status: accepted by the user, 2026-10-27 (T08 design phase)
 - Deciders: maintainers; the user approves through the PR
 - Context owner: T08 governance core. Affects T06 (privacy verdicts), T07 (DP budget), T09 (identity and access), T17 (evidence).
 

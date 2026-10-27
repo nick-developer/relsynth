@@ -1,6 +1,6 @@
 # Governance core and differential privacy for releases: design (T08)
 
-- Status: design for review, 2026-10-27. Build follows in wave C, after T03; the DP engine itself is T07.
+- Status: design accepted by the user, 2026-10-27 (decisions in §17). Build follows in wave C, after T03; the DP engine itself is T07.
 - Scope: run manifests, signing and tamper evidence, the registry, the policy engine, approvals, lineage and catalogs, and the organisation's privacy budget. The budget is the part of differential privacy that spans runs. It answers three questions: who sets ε, how spending is tracked across releases, and how a release outside the organisation is refused without DP.
 - Not in scope: DP mechanisms, the accountant inside a run, and the DP-safe pipeline (all T07); the service, UI and identity provider (T09).
 - Companion files: [ADR 0002](../adr/0002-policy-engine.md) (OPA vs Cedar); schemas in [schemas/](schemas/); examples in [examples/](examples/); Propositions 800–803 in `docs/proofs/sec_v25_governance.tex`; checks C800–C803 in `tests/science/test_governance_checks.py`.
@@ -376,13 +376,15 @@ No engine code changes, so the regression suites (science C00–C78 and the four
 - **Open source** means enforcement is by relsynth's own code paths plus verifiability, not by preventing tampering with the software (§9).
 - **Not verified yet:** the Rego draft has not been run under OPA here (the binary could not be installed in this environment); citation section numbers for approximate zCDP in Bun and Steinke (2016) should be confirmed when the proofs PDF is rebuilt.
 
-## 17. Decisions for the user
+## 17. Decisions taken by the user (2026-10-27)
 
-- **D1. Period budgets.** Should the per-period cap be only a throttle under a mandatory lifetime cap (recommended), or may an organisation renew its budget each period and state a per-period guarantee?
-- **D2. Budget key.** Budgets per domain, a population of people across sources (recommended), instead of per source as the T08 prompt says?
-- **D3. Non-DP runs on a DP domain.** Recorded and flagged in every DP statement (recommended), or forbidden by default once a domain has external releases?
-- **D4. Internal `review`.** Does it need a named approval by default (recommended, and the same as T06 decision 2)?
-- **D5. OPA as the policy engine**, with Cedar left open for T09's access control (ADR 0002)?
+The user accepted all five recommendations:
+
+- **D1.** The per-period cap is only a throttle under a mandatory lifetime cap. There is no renewable budget.
+- **D2.** Budgets are kept per privacy domain (the people across all sources), not per source.
+- **D3.** Non-DP runs on a DP domain are recorded in the ledger and flagged in every DP statement of that domain. They are not forbidden by default.
+- **D4.** An internal `review` verdict needs a named approval by default.
+- **D5.** OPA/Rego is the release policy engine (ADR 0002 accepted). Cedar stays open for T09 access control.
 
 ## Sources
 
