@@ -1,0 +1,63 @@
+# relsynth compute presets (relsynth.compute).
+#
+# A spec chooses one with `synthesis.compute.preset` and may change any field
+# with `synthesis.compute.overrides` (expert settings).  A file of your own
+# presets in the same format is named by `synthesis.compute.file`; its presets
+# are added to these and may replace them.
+#
+# relsynth's own engine runs on the CPU and never needs a GPU.  These presets
+# only matter for generator plug-ins that declare a GPU need (optional or
+# required).  GPU use is always opt-in, and falling back to the CPU happens
+# only when the preset says `fallback: cpu`.
+#
+# Fields:
+#   device        cpu | gpu
+#   gpus          number of GPUs to use: 1, an integer, or all
+#   devices       explicit device ids ([0, 1]); null: the first `gpus` visible ones
+#   backend       auto | cuda | rocm  (auto: whichever is found)
+#   precision     fp32 | tf32 | bf16 | fp16  (a plug-in may refuse a precision)
+#   batch_size    auto or an integer (rows per batch; auto: the plug-in decides)
+#   memory_limit  null or a size per device such as 8GiB or 512MiB
+#   threads       auto or an integer (CPU threads a plug-in may use)
+#   fallback      cpu | error  (what to do when no usable GPU is found)
+presets:
+  cpu:
+    device: cpu
+    gpus: 0
+    devices: null
+    backend: auto
+    precision: fp32
+    batch_size: auto
+    memory_limit: null
+    threads: auto
+    fallback: error
+  gpu-auto:
+    device: gpu
+    gpus: 1
+    devices: null
+    backend: auto
+    precision: fp32
+    batch_size: auto
+    memory_limit: null
+    threads: auto
+    fallback: cpu
+  gpu-single:
+    device: gpu
+    gpus: 1
+    devices: null
+    backend: auto
+    precision: fp32
+    batch_size: auto
+    memory_limit: null
+    threads: auto
+    fallback: error
+  gpu-multi:
+    device: gpu
+    gpus: all
+    devices: null
+    backend: auto
+    precision: fp32
+    batch_size: auto
+    memory_limit: null
+    threads: auto
+    fallback: error
