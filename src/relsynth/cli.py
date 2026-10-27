@@ -429,6 +429,7 @@ def cmd_privacy(a, out):
     if a.no_shadow:
         cfg["attacks"]["membership"]["shadow"]["enabled"] = False
     rep = P.assess(s, cfg, progress=lambda m: out.line(m))
+    P.sign_off(rep, a.signed_off_by)
     paths = P.write_report(rep, a.out)
     verdicts = {n: c["verdict"] for n, c in rep["contexts"].items()}
     out.put(privacy={"verdicts": verdicts, "report": paths, "seconds": rep["timings"]["total_seconds"]})
@@ -436,9 +437,10 @@ def cmd_privacy(a, out):
         out.line(f"{n}: {v.upper()}")
     out.line(f"report -> {paths['html']}")
     if a.context:
-        # verdicts from mildest to worst; blocked counts as fail
+        # verdicts from mildest to worst; blocked, and a review still waiting for its sign-off, count as fail
         rank = ("pass", "review", "fail")
-        v = verdicts.get(a.context, "fail").replace("blocked", "fail")
+        ctx = rep["contexts"].get(a.context)
+        v = P.gate_verdict(ctx) if ctx else "fail"
         if rank.index(v) >= rank.index(a.fail_on):
             return EXIT_GATE
     return EXIT_OK
@@ -554,6 +556,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--context", help="gate on this release context (internal, partner, public): exit 1 when its "
                                      "verdict reaches --fail-on")
     s.add_argument("--fail-on", default="fail", choices=["review", "fail"])
+    s.add_argument("--signed-off-by", help="the person (the DPO) who signs off a 'review' verdict; without it a "
+                                           "review that needs a sign-off counts as fail at the gate")
     s.set_defaults(fn=cmd_privacy)
 
     s = sub.add_parser("evaluate", help="score synthetic data already written")

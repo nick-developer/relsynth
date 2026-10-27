@@ -35,15 +35,26 @@ DEFAULTS = {
         "attribute_inference": {"max_rows": 20000},
         "membership": {
             "domias": True,
-            "shadow": {"enabled": True, "n_train": 32, "n_test": 32, "shadow_size": 1000,
+            # n_test_gated: test shadows when a context gates on the single most exposed
+            # person (per_person: gate) and is not blocked; 128 halves the interval width
+            "shadow": {"enabled": True, "n_train": 32, "n_test": 32, "n_test_gated": 128, "shadow_size": 1000,
                        "targets_vulnerable": 10, "targets_random": 10, "n_jobs": 1},
         },
     },
+    # fewer people than this in the privacy unit: a warning, and a forced fail in
+    # every context outside the organisation (each person weighs too much)
+    "small_population": 1000,
+    # per context: per_person "gate" makes the most exposed person's attack a
+    # check; "info" shows it and gates on the pooled attack on the vulnerable
+    # targets instead.  sign_off: a "review" verdict needs a named person's
+    # sign-off (relsynth privacy --signed-off-by) before a gate passes it.
     "contexts": {
         "internal": {
             "description": "Staff of the organisation, for development and testing.",
             "external": False,
             "attacker_knows": "quasi_identifiers",
+            "per_person": "info",
+            "sign_off": True,
             "thresholds": {"risk": 0.10, "attribute_leakage": 0.05, "mia_auc": 0.65, "mia_tpr_at_fpr_0.01": 0.10,
                            "record_auc": 0.85},
         },
@@ -51,6 +62,8 @@ DEFAULTS = {
             "description": "A named organisation under contract (processor or joint controller).",
             "external": True,
             "attacker_knows": "all",
+            "per_person": "gate",
+            "sign_off": True,
             "thresholds": {"risk": 0.05, "attribute_leakage": 0.03, "mia_auc": 0.60, "mia_tpr_at_fpr_0.01": 0.05,
                            "record_auc": 0.75},
         },
@@ -58,6 +71,8 @@ DEFAULTS = {
             "description": "Anyone (open data, publication).",
             "external": True,
             "attacker_knows": "all",
+            "per_person": "gate",
+            "sign_off": True,
             "thresholds": {"risk": 0.02, "attribute_leakage": 0.02, "mia_auc": 0.55, "mia_tpr_at_fpr_0.01": 0.02,
                            "record_auc": 0.65},
         },
@@ -97,4 +112,8 @@ def load(cfg=None) -> dict:
                 raise ValueError(f"context {name!r} needs thresholds")
             c.setdefault("external", True)
             c.setdefault("attacker_knows", "all")
+            c.setdefault("per_person", "gate")
+            c.setdefault("sign_off", True)
+        if c.get("per_person", "gate") not in ("gate", "info"):
+            raise ValueError(f"context {name!r}: per_person must be 'gate' or 'info'")
     return out

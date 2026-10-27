@@ -19,6 +19,7 @@ CRITERIA = {
     "inference": ("No inference", "Can someone use it to learn a real person's attribute that population data "
                                   "would not reveal?"),
     "membership": ("Membership", "Can someone tell whether a given person's data was used?"),
+    "population": ("Population size", "Are there enough people for a release outside the organisation?"),
 }
 VERDICT = {
     "pass": "PASS: every attack stays below its limit, with the safety margin of the upper confidence bound.",  # nosec B105
@@ -76,6 +77,13 @@ def context_markdown(rep: dict, name: str) -> str:
              f"**{VERDICT[ctx['verdict']]}**", ""]
     if ctx.get("blocked_reason"):
         lines += [f"> {ctx['blocked_reason']}", ""]
+    for w in rep.get("warnings") or []:
+        lines += [f"> Warning: {w}", ""]
+    so = ctx.get("sign_off") or {}
+    if so.get("required"):
+        lines += [f"> Signed off by {so['by']}." if so.get("by") else
+                  "> This review needs a named person's sign-off (the DPO) before release: "
+                  "`relsynth privacy ... --signed-off-by NAME`. Until then a CI gate counts it as a fail.", ""]
     knows = "the quasi-identifiers (" + ", ".join(rep["quasi_identifiers"][:8]) + \
         ("…" if len(rep["quasi_identifiers"]) > 8 else "") + ")" if ctx["attacker_knows"] == "quasi_identifiers" \
         else "every attribute of the people except the one being guessed, and data about the population"
@@ -98,6 +106,9 @@ def context_markdown(rep: dict, name: str) -> str:
         crit = CRITERIA[c["criterion"]][0]
         lines.append(f"| {crit} | {c['attack'].replace('_', ' ')} | {_f(c['value'])} | {_ci(c['ci'])} | "
                      f"{_f(c['limit'])} | {c['status'].upper()} |")
+    if ctx.get("per_person") == "info":
+        lines += ["", "INFO checks are shown, not gated: one person's interval is too wide to decide at this "
+                  "shadow count, so the pooled attack on the most exposed people gates instead."]
     lines += ["", "Risk values are the share of attacks that succeed on people in the training data beyond what "
               "succeeds on unseen people (0 = no more than for strangers, 1 = always). AUC 0.5 means the attacker "
               "cannot tell members from non-members.", ""]
@@ -169,10 +180,17 @@ def annex_markdown(rep: dict) -> str:
                 if "mean_auc_vulnerable" in p:
                     L.append(f"- {ro}: mean AUC on vulnerable targets {_f(p['mean_auc_vulnerable'])}, on random "
                              f"targets {_f(p.get('mean_auc_random'))}.")
+                if p.get("vulnerable"):
+                    v = p["vulnerable"]
+                    L.append(f"- {ro}: AUC pooled over the vulnerable targets {_f(v['auc'])} ({_ci(v['auc_ci'])}, "
+                             f"{v['n']} scores).")
     g = rep.get("guards") or {}
     if g.get("dcr"):
         d = g["dcr"]
-        L += ["", "## relsynth guards", "", f"- Distance to closest record, ratio of 5th percentiles: {_f(d['dcr_ratio'])}"
+        L += ["", "## relsynth guards (not a privacy check)", "",
+              "Kept for continuity with the scorecard. Calibration showed the distance guard misses even 20% "
+              "copied records, which the attacks above detect; it does not decide any verdict.", "",
+              f"- Distance to closest record, ratio of 5th percentiles: {_f(d['dcr_ratio'])}"
               f" (limit {g['dcr_ratio_limit']}).",
               f"- Exact copies of training rows: {_f(d['exact_match_rate'], True)} (real data's own repeat rate "
               f"{_f(d.get('exact_match_rate_real_any'), True)})."]

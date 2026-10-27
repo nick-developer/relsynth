@@ -58,6 +58,12 @@ The default limits are relsynth's suggestions, not legal standards. Set your own
 | `mia_tpr_at_fpr_0.01` | 0.10 | 0.05 | 0.02 |
 | `record_auc` (most exposed person) | 0.85 | 0.75 | 0.65 |
 
+Defaults decided on 2026-10-27:
+
+- **A *review* needs a sign-off.** A named person (the DPO) signs off a *review* with `relsynth privacy ... --signed-off-by "Name, DPO"`; the report records the name. Until then `--context X --fail-on fail` counts the review as a fail. Set `sign_off: false` on a context to turn this off.
+- **The most exposed person** (`per_person`). One person's membership interval is about ±0.3 wide at 32 test shadows. In *internal* (`per_person: info`) that check is shown as INFO and the AUC pooled over the ten most exposed people gates instead. In *partner* and *public* (`per_person: gate`) it gates, and relsynth runs `n_test_gated` (128) test shadows, about ±0.15, whenever such a context can pass (with DP); without DP those contexts are blocked anyway and the default 32 are used.
+- **Small person tables.** With fewer than `small_population` (1000) people in the unit, the report warns, and every context outside the organisation fails without DP (check `small_population`).
+
 When the release carries a DP guarantee (`release.dp: {epsilon, delta}`), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603).
 
 ## privacy.yaml
@@ -77,14 +83,16 @@ attacks:
   attribute_inference: {max_rows: 20000}                      # false to skip
   membership:
     domias: true
-    shadow: {enabled: true, n_train: 32, n_test: 32, shadow_size: 1000,
+    shadow: {enabled: true, n_train: 32, n_test: 32, n_test_gated: 128, shadow_size: 1000,
              targets_vulnerable: 10, targets_random: 10, n_jobs: 1}
+small_population: 1000                # below: warning, and external contexts fail without DP
 contexts:
-  internal: {thresholds: {risk: 0.10, attribute_leakage: 0.05, mia_auc: 0.65, mia_tpr_at_fpr_0.01: 0.10, record_auc: 0.85}}
+  internal: {per_person: info, sign_off: true, thresholds: {risk: 0.10, attribute_leakage: 0.05, mia_auc: 0.65, mia_tpr_at_fpr_0.01: 0.10, record_auc: 0.85}}
   regulator:                          # your own context
     description: Supervisory authority
     external: true
     attacker_knows: all
+    per_person: gate                  # default for your own contexts
     thresholds: {risk: 0.02, attribute_leakage: 0.02, mia_auc: 0.55, mia_tpr_at_fpr_0.01: 0.02, record_auc: 0.65}
 release: {dp: null}                   # {epsilon: 1.0, delta: 1.0e-6, unit: Customer}, filled by the DP engine
 cache: .relsynth-cache/privacy        # shadow fits are kept here and reused
@@ -98,7 +106,7 @@ Shadow modelling fits the generator `n_train + n_test` times (64 by default) on 
 
 ## Relation to the existing guards
 
-The scorecard's distance-to-closest-record ratio and exact-match rate stay in every run (`relsynth run`), and the privacy report shows them next to the attacks. `benchmarks/privacy/calibrate_guards.py` measures which leaks each one detects: see the T06 report for the numbers. The text model's memorisation guards (vocabulary k-anonymity, no rare n-gram copies) are unchanged.
+The scorecard's distance-to-closest-record ratio and exact-match rate stay in every run (`relsynth run`) for continuity, but they are **not a privacy check**: calibration showed the distance guard misses even 20% copied records, which DOMIAS catches at 5%. The privacy report lists them in the annex and no verdict depends on them. `benchmarks/privacy/calibrate_guards.py` measures which leaks each one detects: see the T06 report for the numbers. The text model's memorisation guards (vocabulary k-anonymity, no rare n-gram copies) are unchanged.
 
 ## Limits
 

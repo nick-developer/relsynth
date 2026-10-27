@@ -183,6 +183,8 @@ def test_shadow_attack_raw_release_vs_population_generator():
     raw = mia.shadow_attack(pool, pop.loc[tids], kinds, lambda ids, sd: pop.loc[ids].reset_index(drop=True),
                             shadow_size=200, n_train=16, n_test=16, seed=0, ref_profiles=pop.iloc[:1000])
     assert raw.pooled["lira"]["auc"] > 0.9
+    v = raw.pooled["lira"]["vulnerable"]                  # pooled over the 3 vulnerable targets' test shadows
+    assert v["n"] == 3 * 16 and v["auc_ci"][0] <= v["auc"] <= v["auc_ci"][1]
     ref = pop.iloc[:1000]
     noinfo = mia.shadow_attack(pool, pop.loc[tids], kinds,
                                lambda ids, sd: ref.sample(len(ids), random_state=sd).reset_index(drop=True),
@@ -259,6 +261,38 @@ def test_assess_with_dp_is_not_blocked(star):
             v.assign(age=rng.permutation(v["age"].to_numpy()))) for k, v in db.items()})
     assert rep["contexts"]["public"]["verdict"] != "blocked"
     assert rep["contexts"]["public"]["dp_bound_tpr_at_fpr_0.01"] == pytest.approx(np.e * 0.01 + 1e-6)
+
+
+def test_review_sign_off_per_person_and_small_population(star):
+    from relsynth.privacy.assess import _n_test, gate_verdict, sign_off
+    t, s = star
+    cfg = {"unit": "customer", "small_population": 2000,
+           "attacks": {"record_isolation": {"modes": ["univariate"], "n_attacks": 50}, "linkage": {"n_attacks": 50},
+                       "inference": {"n_attacks": 50}, "attribute_inference": False,
+                       "membership": {"domias": False, "shadow": {"n_train": 4, "n_test": 4, "n_test_gated": 6,
+                                                                  "shadow_size": 60, "targets_vulnerable": 2,
+                                                                  "targets_random": 2}}}}
+    # without DP only internal can pass, and it does not gate on one person: no extra test shadows
+    assert _n_test(load_config(cfg)) == 4
+    assert _n_test(load_config({**cfg, "release": {"dp": {"epsilon": 1.0}}})) == 6
+    rep = assess(s, cfg, tables=t, generator=lambda db, seed: {k: v.copy() for k, v in db.items()})
+    assert rep["warnings"] and "1500 people" in rep["warnings"][0]
+    internal, public = rep["contexts"]["internal"], rep["contexts"]["public"]
+    assert internal["per_person"] == "info" and public["per_person"] == "gate"
+    st = {c["attack"]: c["status"] for c in internal["checks"]}
+    assert st["most_vulnerable_record_auc"] == "info"
+    assert any(a.startswith("shadow_") and a.endswith("_vulnerable_auc") for a in st)
+    pub = {c["attack"]: c["status"] for c in public["checks"]}
+    assert pub["small_population"] == "fail" and "small_population" not in st
+    assert pub["most_vulnerable_record_auc"] != "info"
+    _validate(json.loads(report.to_json(rep)))
+    # a review waits for its sign-off at the gate
+    ctx = {"verdict": "review", "sign_off": {"required": True, "by": None}}
+    assert gate_verdict(ctx) == "fail"
+    sign_off({"contexts": {"internal": ctx}}, "A. Person, DPO")
+    assert ctx["sign_off"]["by"] == "A. Person, DPO" and gate_verdict(ctx) == "review"
+    assert gate_verdict({"verdict": "blocked"}) == "fail"
+    assert gate_verdict({"verdict": "review", "sign_off": {"required": False}}) == "review"
 
 
 def test_config_rejects_unknown_keys():

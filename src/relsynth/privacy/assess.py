@@ -194,9 +194,10 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         def synth_profiles(ids_, sd):
             db = _quiet(gen, U.subset(unit, tables, ids_), sd)
             return U.profiles(s, unit, db, kinds=col_kinds)[cols].reset_index(drop=True)
-        say(f"shadow modelling: {sh['n_train'] + sh['n_test']} fits of {size} people")
+        n_test = _n_test(cfg)
+        say(f"shadow modelling: {sh['n_train'] + n_test} fits of {size} people")
         r = mia.shadow_attack(pool, targets, kinds, synth_profiles, shadow_size=size, n_train=sh["n_train"],
-                              n_test=sh["n_test"], seed=seed, ref_profiles=P_r if len(P_r) >= 20 else P_all,
+                              n_test=n_test, seed=seed, ref_profiles=P_r if len(P_r) >= 20 else P_all,
                               cache=cache, vuln=vul, level=level, n_jobs=int(sh.get("n_jobs", 1)),
                               progress=lambda i, n: say(f"  shadow {i}/{n}") if i % 8 == 0 else None)
         res["membership"]["shadow"] = r.to_dict()
@@ -246,8 +247,45 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         "timings": {**timings, "total_seconds": time.time() - t_start},
         "settings": {k: cfg[k] for k in ("split", "attacks")},
     }
-    rep["contexts"] = {name: judge(rep, name, c) for name, c in cfg["contexts"].items()}
+    small = cfg.get("small_population")
+    if small and len(ids) < small:
+        rep["warnings"] = [f"The privacy unit has {len(ids)} people, fewer than {small}: each person weighs "
+                           "heavily in the model, and the attacks have little power. Releases outside the "
+                           "organisation fail without differential privacy."]
+    rep["contexts"] = {name: judge(rep, name, c, small_population=small) for name, c in cfg["contexts"].items()}
     return rep
+
+
+def _n_test(cfg) -> int:
+    """Test shadows: n_test_gated when a context that can pass gates on the
+    single most exposed person (an external context without DP is blocked
+    anyway, so the extra fits would decide nothing)."""
+    sh = cfg["attacks"]["membership"]["shadow"]
+    dp = (cfg.get("release") or {}).get("dp")
+    gated = any(c.get("per_person", "gate") == "gate" and (dp or not c.get("external"))
+                for c in cfg["contexts"].values())
+    return int(max(sh["n_test"], sh.get("n_test_gated") or 0)) if gated else int(sh["n_test"])
+
+
+def sign_off(rep: dict, by: str | None) -> dict:
+    """Record who signed off the "review" verdicts that need it."""
+    for c in rep["contexts"].values():
+        so = c.get("sign_off")
+        if so and so["required"] and by:
+            so["by"] = by
+    return rep
+
+
+def gate_verdict(ctx: dict) -> str:
+    """The verdict a CI gate sees: blocked counts as fail, and a review that
+    needs a sign-off counts as fail until someone signed it off."""
+    v = ctx["verdict"]
+    if v == "blocked":
+        return "fail"
+    so = ctx.get("sign_off") or {}
+    if v == "review" and so.get("required") and not so.get("by"):
+        return "fail"
+    return v
 
 
 def _pseudonym(pid, seed) -> str:
@@ -284,7 +322,7 @@ def _status(upper, lower, limit):
     return "review"
 
 
-def judge(rep: dict, name: str, ctx: dict) -> dict:
+def judge(rep: dict, name: str, ctx: dict, *, small_population: int | None = None) -> dict:
     """Checks of one release context: each attack's upper confidence bound
     against the context's limit (EDPB para. 88: safety margins).  fail when even
     the lower bound is above the limit, review when the limit lies inside the
@@ -326,18 +364,36 @@ def judge(rep: dict, name: str, ctx: dict) -> dict:
             add("membership", f"shadow_{ro}_auc", p["auc"], p["auc_ci"], th["mia_auc"],
                 "how well an attacker who knows the generator tells if a target was in the data")
             add_tpr(checks, f"shadow_{ro}", p, th)
+    per_person = ctx.get("per_person", "gate")
     if rep["vulnerable_records"]:
         top = rep["vulnerable_records"][0]
         ci = top.get("mia_auc_ci") or [top["mia_auc"]] * 2
         add("membership", "most_vulnerable_record_auc", top["mia_auc"], ci, th["record_auc"],
             "membership attack on the single most exposed person (EDPB para. 87: one person is enough)")
+        if per_person == "info":
+            # one person's interval is too wide to decide at the default shadow
+            # count: shown, and the pooled attack on the vulnerable targets gates
+            checks[-1]["status"] = "info"
+    if per_person == "info" and "shadow" in M:
+        for ro, p in M["shadow"]["pooled"].items():
+            v = p.get("vulnerable")
+            if v:
+                add("membership", f"shadow_{ro}_vulnerable_auc", v["auc"], v["auc_ci"], th["mia_auc"],
+                    "membership attack pooled over the most exposed people")
     dp = (rep.get("release") or {}).get("dp")
+    n_people = (rep.get("people") or {}).get("total")
+    if small_population and n_people is not None and n_people < small_population and ctx.get("external") \
+            and not dp:
+        checks.append({"criterion": "population", "attack": "small_population", "value": float(n_people),
+                       "ci": None, "limit": float(small_population), "status": "fail",
+                       "what": "people in the privacy unit; below the limit an external release needs DP"})
     blocked = bool(ctx.get("external")) and not dp
     st = [c["status"] for c in checks]
     verdict = "blocked" if blocked else "fail" if "fail" in st else "review" if "review" in st else "pass"
     out = {"description": ctx.get("description"), "external": bool(ctx.get("external")), "attacker_knows": knows,
            "thresholds": th, "verdict": verdict, "checks": checks,
-           "dp_required": bool(ctx.get("external")), "dp": dp}
+           "dp_required": bool(ctx.get("external")), "dp": dp, "per_person": per_person,
+           "sign_off": {"required": verdict == "review" and bool(ctx.get("sign_off", True)), "by": None}}
     if blocked:
         out["blocked_reason"] = ("This context is outside the organisation. Differential privacy is required for "
                                  "such releases and this release has none. The empirical results below are "

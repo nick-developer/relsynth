@@ -271,6 +271,7 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
         for t in tids:
             X[t].append(feats[t](syn))
     rows, pooled_scores = [], {"classifier": ([], [], [], []), "lira": ([], [], [], [])}
+    vul_scores = {"classifier": ([], []), "lira": ([], [])}       # test scores of the vulnerable targets
     tr, te = slice(0, n_train), slice(n_train, None)
     for j, t in enumerate(tids):
         F = np.vstack(X[t])
@@ -294,6 +295,9 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
             half = len(sc_te) // 2
             for part, vals in zip(P, (sc_te[:half], y[te][:half], sc_te[half:], y[te][half:])):
                 part.extend(vals)
+            if row["kind"] == "vulnerable":
+                vul_scores[name][0].extend(sc_te)
+                vul_scores[name][1].extend(y[te])
         rows.append(row)
     tab = pd.DataFrame(rows).set_index("target")
     pooled = {}
@@ -308,6 +312,12 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
             if col in tab and (tab["kind"] == kind).any():
                 v = tab.loc[tab["kind"] == kind, col].dropna()
                 pooled[name][f"mean_auc_{kind}"] = float(v.mean()) if len(v) else np.nan
+        vs, vy = vul_scores[name]
+        if vs and 0 < sum(vy) < len(vy):
+            # one AUC over the test shadows of all vulnerable targets: many more
+            # pairs than one target has, so a far narrower interval
+            a, se = auc_delong(np.asarray(vs), np.asarray(vy))
+            pooled[name]["vulnerable"] = {"auc": a, "auc_ci": auc_interval(a, se, level), "n": len(vs)}
     return ShadowResult(tab, pooled, (n_train, n_test), int(n_other + len(tids) / 2), time.time() - t0, cached)
 
 

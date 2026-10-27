@@ -6,9 +6,10 @@
 
 See docs/privacy.md.
 """
-from .assess import assess, relsynth_generator
+from .assess import assess, gate_verdict, relsynth_generator, sign_off
 from .config import CONTEXTS, DEFAULTS, load as load_config
 from .report import reference, to_html, to_json, to_markdown, write_report
 
-__all__ = ["assess", "relsynth_generator", "CONTEXTS", "DEFAULTS", "load_config", "reference", "to_html", "to_json",
+__all__ = ["assess", "gate_verdict", "relsynth_generator", "sign_off", "CONTEXTS", "DEFAULTS", "load_config",
+           "reference", "to_html", "to_json",
            "to_markdown", "write_report"]

@@ -41,12 +41,12 @@
       "type": "object",
       "required": ["criterion", "attack", "value", "ci", "limit", "status"],
       "properties": {
-        "criterion": {"enum": ["record_isolation", "linkage", "inference", "membership"]},
+        "criterion": {"enum": ["record_isolation", "linkage", "inference", "membership", "population"]},
         "attack": {"type": "string"},
         "value": {"type": ["number", "null"]},
         "ci": {"$ref": "#/$defs/interval"},
         "limit": {"type": ["number", "null"]},
-        "status": {"enum": ["pass", "review", "fail", "n/a"]},
+        "status": {"enum": ["pass", "review", "fail", "info", "n/a"]},
         "what": {"type": "string"}
       }
     }
@@ -108,10 +108,14 @@
           "verdict": {"enum": ["pass", "review", "fail", "blocked"]},
           "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
           "external": {"type": "boolean"}, "dp_required": {"type": "boolean"},
-          "thresholds": {"type": "object"}, "blocked_reason": {"type": "string"}
+          "thresholds": {"type": "object"}, "blocked_reason": {"type": "string"},
+          "per_person": {"enum": ["gate", "info"]},
+          "sign_off": {"type": "object", "required": ["required"],
+                       "properties": {"required": {"type": "boolean"}, "by": {"type": ["string", "null"]}}}
         }
       }
     },
+    "warnings": {"type": "array", "items": {"type": "string"}},
     "timings": {"type": "object", "additionalProperties": {"type": "number"}}
   }
 }
