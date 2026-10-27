@@ -26,7 +26,7 @@
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "description": "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle (or sqlalchemy for any other engine): `url`."
+          "description": "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`."
         },
         "path": {
           "description": "Folder (files) or file (sqlite); relative to the spec's folder."
@@ -60,6 +60,12 @@
         },
         "format": {
           "description": "File format written (target of kind files)."
+        },
+        "engine": {
+          "description": "Folders: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed."
+        },
+        "duckdb": {
+          "description": "Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory (where larger-than-memory sorts and groupings spill)."
         }
       },
       "description": "Where the real data is read from (the 1.0 `source` section)."

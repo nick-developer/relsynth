@@ -47,6 +47,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`profile`](#profile) | row, null and distinct counts computed in the source |
 | [`ping`](#ping) | test a connection |
 | [`version`](#version) | versions of relsynth and its main dependencies |
+| [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 
 ## introspect
 
@@ -58,7 +59,8 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
                            [--source-url-env SOURCE_URL_ENV] [--out OUT] [--name NAME]
                            [--sample-rows SAMPLE_ROWS] [--include [INCLUDE ...]]
                            [--exclude [EXCLUDE ...]] [--evidence {names+data,data}]
-                           [--ignore-declared] [--json] [--log-level {debug,info,warning,error}]
+                           [--ignore-declared] [--format {v1,ir}] [--json]
+                           [--log-level {debug,info,warning,error}]
 ```
 
 | Option | Required | Default | Meaning |
@@ -74,6 +76,7 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
 | `--exclude` EXCLUDE ... |  |  | table-name patterns to leave out, e.g. sys.* DatabaseLog |
 | `--evidence` names+data\|data |  | `names+data` | identify keys and links from values and names (default) or from values only |
 | `--ignore-declared` |  |  | hide the catalog's keys and links and identify them from the data (for testing) |
+| `--format` v1\|ir |  | `v1` | write a relsynth 1.0 spec (default) or an IR 2.0 document |
 
 ## check
 
@@ -348,3 +351,15 @@ Versions of relsynth and its main dependencies.
 usage: relsynth version [-h] [--json] [--log-level {debug,info,warning,error}]
 ```
 
+
+## ir
+
+IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage.
+
+```
+usage: relsynth ir [-h] [--json] [--log-level {debug,info,warning,error}] IR_COMMAND ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `ir_cmd` | yes |  |  |
