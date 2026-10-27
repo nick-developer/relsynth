@@ -95,8 +95,10 @@ class _Builder:
         v = _f(value)
         ok = v is not None and v <= limit
         p_value = None
-        if not ok and v is not None and alpha is not None:
-            # how far out the failure is: the null probability of a value this large (Prop. 108)
+        if not ok and v is not None and alpha is not None and null["method"].endswith("(log scale)"):
+            # how far out the failure is: the null probability of a value this large (Prop. 108).
+            # Only for distances calibrated on the log scale: signed gaps (TSTR) have skewed nulls
+            # whose normal tail is too thin for p-values near 1e-4 (C79: a false severe failure)
             p_value = cal.exceed_prob(draws, v, m["center"], k, log)
         it = {"id": f"{metric}:{':'.join(str(x) for x in scope.values())}", "metric": metric, "area": m["area"],
               "scope": scope, "value": None if v is None else round(v, 6), "limit": round(limit, 6),
