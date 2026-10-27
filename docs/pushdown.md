@@ -115,7 +115,7 @@ The in-memory runs give the same scorecards as v0.9 (AdventureWorks 1229/1286, C
 **Time.**
 - The database does the grouping, so a pushed fact costs a handful of `GROUP BY` queries, each one scan of the table.
 - On SQL servers, give the database indexes on the foreign-key columns of large facts. They usually exist already, and grouped counts then read the indexes rather than the table.
-- On files, DuckDB computes the statistics with the same SQL as the servers, using streaming, multi-threaded operators that spill to disk when memory runs short (`source.duckdb.temp_directory`). Measurements are in the section on files below. With `engine: pandas`, statistics are computed in pandas one column group at a time (the 1.0 path), so each statistic re-reads its columns.
+- On files, DuckDB computes the statistics with the same SQL as the servers, using streaming, multi-threaded operators that spill to disk when memory runs short (`source.duckdb.temp_directory`). Measurements are under *Files: DuckDB against pandas* below. With `engine: pandas`, statistics are computed in pandas one column group at a time (the 1.0 path), so each statistic re-reads its columns.
 
 **Other knobs.**
 
@@ -138,5 +138,32 @@ The in-memory runs give the same scorecards as v0.9 (AdventureWorks 1229/1286, C
 | Contoso V2 100k (Parquet) | | pushdown (order lines, 40,000-row sample) | 241 s | 1.3 GiB | 253/253 |
 | EBA COREP (CSV) | 70 k (9 tables) | in memory | 140 s | 425 MiB | 177/178 |
 | EBA COREP (CSV) | | pushdown (1 fact, 40,000-row sample) | 126 s | 407 MiB | 178/178 |
+
+### Files: DuckDB against pandas
+
+The statistics workload of a Contoso fit (13 queries on `orderrows`) was replayed, each engine in its own process, on Contoso's own fact (224 k rows) and on the same fact repeated 100 times with new keys (22.4 M rows, 234 MB of Parquet). "Load" reads the whole fact into pandas, as a fit without pushdown does, and computes nothing.
+
+| Fact | Engine | Time | Peak memory |
+|---|---|---|---|
+| 22.4 M rows | load whole (no pushdown) | 143 s | 13.1 GB |
+| | pandas pushdown (1.0) | 219 s | 4.4 GB |
+| | DuckDB pushdown | 18 s | 1.7 GB |
+| 224 k rows | load whole | 0.8 s | 324 MiB |
+| | pandas pushdown | 1.4 s | 309 MiB |
+| | DuckDB pushdown | 1.3 s | 281 MiB |
+
+DuckDB's results are fetched as columnar frames, not as Python row tuples. Fetched as tuples, the same DuckDB run took 205 s and 6.3 GB. The default settings were best: a 1 GB or 3 GB `memory_limit` did not lower the peak further (1.66 and 1.65 GB), because the peak is relsynth's own frames.
+
+Whole Contoso fits from Parquet (fit and sample in one process):
+
+| Mode | Engine | Fit | Peak memory | Scorecard |
+|---|---|---|---|---|
+| in memory | pandas | 201 s | 1,377 MiB | 253/253 |
+| full-sample pushdown | pandas | 194 s | 1,384 MiB | 253/253 |
+| full-sample pushdown | DuckDB | 187 s | 1,501 MiB | 253/253 |
+| 40,000-row sample | pandas | 179 s | 1,285 MiB | 253/253 |
+| 40,000-row sample | DuckDB | 173 s | 1,322 MiB | 253/253 |
+
+With a sample of every row, both engines give a synthetic database identical to the in-memory one, table by table (Proposition 101). At Contoso's size the fact is a small part of memory and DuckDB adds about 100 MiB of its own. The engine pays off once the fact is larger than the engine's model, as the 22.4 M-row replay shows.
 
 These two databases fit in memory, so they show that the results agree, not how far pushdown scales. For a fact of N rows and p columns with G distinct key tuples, memory grows with G + sample_rows instead of N × p.
