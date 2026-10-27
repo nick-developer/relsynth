@@ -347,7 +347,16 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `scd` | scd |  | Slowly changing dimension type 2: rows are versions of a natural key. |
 | `unknown_members` | list of key values |  | Rows that stand for 'no member' (key -1 'Unknown'): copied, kept out of the model, referenced with the source's share. |
 | `bridge` | bridge |  | Weights that sum to 1 (or `total`) over the rows of a group (multivalued dimension / allocation). |
+| `generator` | name | generator | `synthesis.generator` | Generator plug-in of the table's attribute columns: a name (copula, independent, cart, or an installed plug-in) or {name, version, options}. See docs/generators.md. |
 | `description` | str |  | Free text (kept, not read). |
+
+### generator
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `name` | str | `copula` | Registered generator name (`relsynth generators list`). |
+| `version` | version specifier |  | Pin of the generator's model version, e.g. '>=1.0,<2' or '==1.0'. |
+| `options` | map | `{}` | Options passed to the generator (its own documentation lists them). |
 
 ### `tables.<name>.fact`
 
@@ -592,6 +601,10 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `pushdown.mode` | `auto` | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | `1000000` | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | `500000` | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
+| `generator` | `copula` | Default generator plug-in of every table's attribute columns (a table's own `generator` wins): copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in. |
+| `compute.preset` | `cpu` | cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
+| `compute.file` | `None` | A compute.yaml with more presets (relative to the spec). |
+| `compute.overrides` | `{}` | Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, batch_size, memory_limit, threads, fallback. |
 
 
 ### Column types

@@ -46,6 +46,8 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`clone-schema`](#clone-schema) | create the source's tables (keys, types, indexes) empty in a target |
 | [`profile`](#profile) | row, null and distinct counts computed in the source |
 | [`ping`](#ping) | test a connection |
+| [`generators`](#generators) | installed generator plug-ins and their capabilities |
+| [`compute`](#compute) | GPUs found and the device each kind of generator would get |
 | [`version`](#version) | versions of relsynth and its main dependencies |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 
@@ -342,6 +344,34 @@ usage: relsynth ping [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA]
 | `--source-schema` SOURCE_SCHEMA |  |  | database schema |
 | `--source-password-env` SOURCE_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--source-url-env` SOURCE_URL_ENV |  |  | environment variable holding the whole URL |
+
+## generators
+
+Installed generator plug-ins and their capabilities.
+
+```
+usage: relsynth generators [-h] [--json] [--log-level {debug,info,warning,error}]
+                           [{list,show}] [name]
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `action` | yes | `list` |  |
+| `name` | yes |  | generator name (for show) |
+
+## compute
+
+GPUs found and the device each kind of generator would get.
+
+```
+usage: relsynth compute [-h] [--preset PRESET] [--file FILE] [--json]
+                        [--log-level {debug,info,warning,error}]
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `--preset` PRESET |  | `cpu` | cpu \| gpu-auto \| gpu-single \| gpu-multi \| a preset of --file |
+| `--file` FILE |  |  | a compute.yaml with more presets |
 
 ## version
 
