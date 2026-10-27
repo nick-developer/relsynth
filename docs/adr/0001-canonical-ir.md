@@ -4,7 +4,7 @@
 - Date: 2026-10-26
 - Deciders: relsynth maintainers
 - Related: [docs/ir-guide.md](../ir-guide.md), [docs/ir-reference.md](../ir-reference.md),
-  Propositions 106–108 ([docs/proofs/sec_v20.tex](../proofs/sec_v20.tex))
+  Propositions 106–108 ([docs/proofs/sec_v20_ir.tex](../proofs/sec_v20_ir.tex))
 
 ## Context
 

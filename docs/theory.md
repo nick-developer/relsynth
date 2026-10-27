@@ -140,7 +140,7 @@ A pushed fact costs memory proportional to the number of distinct key tuples plu
 
 ## 4. The IR (2.0): Propositions 106–108
 
-Version 2.0 describes the data by one modality-neutral document, the IR ([guide](ir-guide.md)). The engine still runs the relational 1.0 spec $\lambda(E)$ that an IR document $E$ lowers to; a 1.0 spec $s$ lifts to $\ell(s)$; $\nu$ is `spec.normalise`. Full proofs are in [proofs/sec_v20.tex](proofs/sec_v20.tex).
+Version 2.0 describes the data by one modality-neutral document, the IR ([guide](ir-guide.md)). The engine still runs the relational 1.0 spec $\lambda(E)$ that an IR document $E$ lowers to; a 1.0 spec $s$ lifts to $\ell(s)$; $\nu$ is `spec.normalise`. Full proofs are in [proofs/sec_v20_ir.tex](proofs/sec_v20_ir.tex).
 
 ### Proposition 106 (Loss-free conversion and identical output)
 
