@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relsynth-example-generator"
+version = "0.1.0"
+description = "A minimal third-party generator plug-in for relsynth (an example of the generator contract)."
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = ["relsynth>=1.0", "numpy", "pandas"]
+
+# the one line that makes relsynth find the plug-in: generator name = module:class
+[project.entry-points."relsynth.generators"]
+empirical = "relsynth_example_generator:EmpiricalGenerator"
+
+[tool.setuptools.packages.find]
+where = ["src"]
