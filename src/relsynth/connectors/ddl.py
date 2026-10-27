@@ -255,22 +255,24 @@ def adapt_types(md: sa.MetaData, dialect: str) -> sa.MetaData:
             elif isinstance(ty, sa.DateTime) and not isinstance(ty, mysql.TIMESTAMP):
                 c.type = mysql.DATETIME(fsp=6)
             elif isinstance(ty, sa.String) and not isinstance(ty, sa.Enum):
-                n = getattr(ty, "length", None)
-                if c.name in width and (isinstance(ty, sa.Text) or n is None or n > width[c.name]):
+                length: int | None = getattr(ty, "length", None)
+                if c.name in width and (isinstance(ty, sa.Text) or length is None or length > width[c.name]):
                     c.type = mysql.VARCHAR(width[c.name], collation=coll)
-                elif isinstance(ty, sa.Text) or n is None:
+                elif isinstance(ty, sa.Text) or length is None:
                     c.type = mysql.LONGTEXT(collation=coll)
                 else:
-                    c.type = mysql.VARCHAR(n, collation=coll)
+                    c.type = mysql.VARCHAR(length, collation=coll)
         # the VARCHAR columns of a row share 65,535 bytes: move the widest
         # non-key ones to LONGTEXT (stored off the row) until the rest fit
+        def chars(c) -> int:
+            return int(getattr(c.type, "length", None) or 0)
         var = sorted((c for c in tbl.columns if isinstance(c.type, mysql.VARCHAR) and c.name not in width),
-                     key=lambda c: -c.type.length)
-        total = sum(MYSQL_CHAR_BYTES * c.type.length + 2 for c in tbl.columns if isinstance(c.type, mysql.VARCHAR))
+                     key=lambda c: -chars(c))
+        total = sum(MYSQL_CHAR_BYTES * chars(c) + 2 for c in tbl.columns if isinstance(c.type, mysql.VARCHAR))
         for c in var:
             if total <= MYSQL_ROW_BYTES:
                 break
-            total -= MYSQL_CHAR_BYTES * c.type.length + 2
+            total -= MYSQL_CHAR_BYTES * chars(c) + 2
             c.type = mysql.LONGTEXT(collation=coll)
     return md
 
