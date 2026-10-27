@@ -59,7 +59,7 @@ The rank counts the published methods with a number plus relsynth.
   cost: fit plus sample takes 6–13 s on Biodegradability and CORA and 65–100 s on IMDB (1.25 M rows) on 4 CPU
   cores, with no GPU.
 
-The 2.0 quality vector agrees: integrity passes on every run, and the fidelity area fails on all three
+The 2.0 quality vector (computed at commit 17bb29d; later commits change only area rules and resized comparisons, not the four summary scores above) agrees: integrity passes on every run, and the fidelity area fails on all three
 databases (Biodegradability 11–18 of 105 checks, CORA 6–7 of 39, IMDB 22–24 of 154). The failed checks are
 mostly fan-out laws and aggregation detection on the relationships named above. A degree model for the
 second key of link tables is the engine change these results point to; no roadmap thread owns it yet.

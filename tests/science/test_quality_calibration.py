@@ -1,7 +1,7 @@
 """Checks C79-C82 of the 2.0 quality report (docs/proofs/sec_v20.tex): the limits
 calibrated on real-vs-real splits keep their nominal level when the synthetic
 data is an independent draw of the real data's law, also at other sizes, and
-the checks see planted defects.  About 15 minutes on 4 cores.
+the checks see planted defects.  About 30 minutes on 4 cores.
 
     pytest -m science tests/science/test_quality_calibration.py
 """
