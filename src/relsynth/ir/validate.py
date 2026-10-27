@@ -18,7 +18,8 @@ _PLACEHOLDER = string.Formatter()
 def check(est: Estate, relational: bool = True) -> tuple[list[str], list[str]]:
     """Errors and warnings of a document.  relational: also run the 1.0 spec
     validator on the relational part when the whole document is relational."""
-    errs, warns = [], []
+    errs: list[str] = []
+    warns: list[str] = []
     ents = est.entities
     if not ents:
         errs.append("entities: no entity declared")
@@ -31,21 +32,21 @@ def check(est: Estate, relational: bool = True) -> tuple[list[str], list[str]]:
         _entity(n, e, est, rels, errs, warns)
     for r in est.relationships:
         _relationship(r, est, rels, errs)
-    for i, r in enumerate(est.rules):
+    for i, ru in enumerate(est.rules):
         w = f"rules[{i}]"
-        if r.entity not in ents:
-            errs.append(f"{w}: unknown entity {r.entity!r}")
+        if ru.entity not in ents:
+            errs.append(f"{w}: unknown entity {ru.entity!r}")
             continue
-        if r.type in ("check", "derive") and not r.expr:
-            errs.append(f"{w}: a {r.type} rule needs expr")
-        if r.type == "aggregate":
-            if r.source not in ents:
+        if ru.type in ("check", "derive") and not ru.expr:
+            errs.append(f"{w}: a {ru.type} rule needs expr")
+        if ru.type == "aggregate":
+            if ru.source not in ents:
                 errs.append(f"{w}: aggregate needs source: <child entity>")
-            if r.attribute not in ents[r.entity].attributes:
-                errs.append(f"{w}: aggregate attribute {r.attribute!r} is not an attribute of {r.entity}")
-        if r.via is not None and r.via not in rels:
-            errs.append(f"{w}: via {r.via!r} is not a relationship")
-        if r.holds is not None and not 0 < r.holds <= 1:
+            if ru.attribute not in ents[ru.entity].attributes:
+                errs.append(f"{w}: aggregate attribute {ru.attribute!r} is not an attribute of {ru.entity}")
+        if ru.via is not None and ru.via not in rels:
+            errs.append(f"{w}: via {ru.via!r} is not a relationship")
+        if ru.holds is not None and not 0 < ru.holds <= 1:
             errs.append(f"{w}: holds must be in (0, 1]")
     for cn, c in est.containers.items():
         users = [n for n, e in ents.items() if e.physical and e.physical.container == cn]
@@ -55,13 +56,15 @@ def check(est: Estate, relational: bool = True) -> tuple[list[str], list[str]]:
             if v is None:
                 continue
             for u in users:
-                if not _has(ents[u], v) and v not in ents[u].physical.key_templates:
+                phys = ents[u].physical
+                if not _has(ents[u], v) and (phys is None or v not in phys.key_templates):
                     if k.startswith("indexes."):
                         continue      # an entity need not appear in every secondary index (sparse index)
                     errs.append(f"containers.{cn}.{k}: {u} stores no {v!r} (an attribute or a key template)")
         if len(users) > 1 and c.kind != "graph":     # a graph tells node labels and edge types apart
             for u in users:
-                if ents[u].physical.discriminator is None:
+                phys = ents[u].physical
+                if phys is None or phys.discriminator is None:
                     warns.append(f"containers.{cn}: {u} shares it without a discriminator")
     _privacy(est, rels, errs, warns)
     if relational and not errs:
@@ -128,8 +131,8 @@ def resolve(e: Entity, path: str) -> Attribute | None:
     return cur
 
 
-def _has(e: Entity, a: str) -> bool:
-    return resolve(e, a) is not None
+def _has(e: Entity, a: str | None) -> bool:
+    return a is not None and resolve(e, a) is not None
 
 
 def _entity(n, e: Entity, est: Estate, rels, errs, warns):
@@ -148,9 +151,9 @@ def _entity(n, e: Entity, est: Estate, rels, errs, warns):
         if k.primary and k.where:
             errs.append(f"{w}.keys[{i}]: a primary key cannot be filtered (where)")
     for i, d in enumerate(e.dependencies):
-        for a in [d.determinant] + d.dependents:
-            if not _has(e, a):
-                errs.append(f"{w}.dependencies[{i}]: {a!r} is not an attribute")
+        for da in [d.determinant] + d.dependents:
+            if not _has(e, da):
+                errs.append(f"{w}.dependencies[{i}]: {da!r} is not an attribute")
     if e.variants is not None:
         _variants(w, e.variants, e.attributes, errs)
     if (e.role == "view") != (e.view is not None):
@@ -159,22 +162,22 @@ def _entity(n, e: Entity, est: Estate, rels, errs, warns):
         errs.append(f"{w}.view.of: {e.view.of!r} must be an entity that is not a view")
     t = e.time
     if t is not None:
-        for k in ("event_time", "ingestion_time"):
-            if getattr(t, k) is not None and not _has(e, getattr(t, k)):
-                errs.append(f"{w}.time.{k}: {getattr(t, k)!r} is not an attribute")
+        for tk in ("event_time", "ingestion_time"):
+            if getattr(t, tk) is not None and not _has(e, getattr(t, tk)):
+                errs.append(f"{w}.time.{tk}: {getattr(t, tk)!r} is not an attribute")
         if t.valid_time is not None:
-            for a in (t.valid_time.from_, t.valid_time.to):
-                if a is not None and not _has(e, a):
-                    errs.append(f"{w}.time.valid_time: {a!r} is not an attribute")
+            for va in (t.valid_time.from_, t.valid_time.to):
+                if va is not None and not _has(e, va):
+                    errs.append(f"{w}.time.valid_time: {va!r} is not an attribute")
         if t.versioning is not None:
             if t.valid_time is None:
                 errs.append(f"{w}.time.versioning needs valid_time")
             if not _has(e, t.versioning.natural_key):
                 errs.append(f"{w}.time.versioning.natural_key: {t.versioning.natural_key!r} is not an attribute")
     if e.allocation is not None:
-        for a in (e.allocation.group, e.allocation.weight):
-            if not _has(e, a):
-                errs.append(f"{w}.allocation: {a!r} is not an attribute")
+        for la in (e.allocation.group, e.allocation.weight):
+            if not _has(e, la):
+                errs.append(f"{w}.allocation: {la!r} is not an attribute")
     if (e.shape == "edge") != (e.edge is not None):
         errs.append(f"{w}: shape edge and edge go together")
     if e.edge is not None:
@@ -205,7 +208,7 @@ def _entity(n, e: Entity, est: Estate, rels, errs, warns):
                 errs.append(f"{w}.physical.partitioning[{i}]: {pf.source!r} is not an attribute")
             if pf.transform in ("bucket", "truncate") and not (isinstance(pf.param, int) and pf.param > 0):
                 errs.append(f"{w}.physical.partitioning[{i}]: {pf.transform} needs param > 0")
-            src = e.attributes.get(pf.source)
+            src = e.attributes.get(pf.source) if pf.source is not None else None
             if src is not None and pf.transform in ("year", "month", "day", "hour") \
                     and src.effective_type not in ("date", "timestamp", None):
                 errs.append(f"{w}.physical.partitioning[{i}]: {pf.transform} needs a date or timestamp")
@@ -219,21 +222,21 @@ def _entity(n, e: Entity, est: Estate, rels, errs, warns):
                 errs.append(f"{w}.physical.clustering: {a!r} is not an attribute")
         if p.discriminator is not None and not _has(e, p.discriminator.attribute):
             errs.append(f"{w}.physical.discriminator: {p.discriminator.attribute!r} is not an attribute")
-        for k, tpl in p.key_templates.items():
+        for kt, tpl in p.key_templates.items():
             try:
                 names = [f for _, f, _, _ in _PLACEHOLDER.parse(tpl) if f]
             except ValueError as ex:
-                errs.append(f"{w}.physical.key_templates.{k}: {ex}")
+                errs.append(f"{w}.physical.key_templates.{kt}: {ex}")
                 continue
             for a in names:
                 if not _has(e, a):
-                    errs.append(f"{w}.physical.key_templates.{k}: {{{a}}} is not an attribute")
+                    errs.append(f"{w}.physical.key_templates.{kt}: {{{a}}} is not an attribute")
     s = e.synthesis
     if s is not None and s.fact is not None:
-        for k in ("anchor", "partner"):
-            v = getattr(s.fact, k)
+        for fk in ("anchor", "partner"):
+            v = getattr(s.fact, fk)
             if v is not None and v not in ents and v not in rels and not _has(e, v):
-                errs.append(f"{w}.synthesis.fact.{k}: {v!r} is not an entity, a relationship or a key attribute")
+                errs.append(f"{w}.synthesis.fact.{fk}: {v!r} is not an entity, a relationship or a key attribute")
 
 
 def _relationship(r, est: Estate, rels, errs):
@@ -281,8 +284,9 @@ def _relationship(r, est: Estate, rels, errs):
                                                  for k in fe.keys):
         errs.append(f"{w}: one_to_one needs from.attributes {fa} to be a key of {f.entity}")
     if r.offset is not None:
-        base = next((x for x in est.relationships if x.from_.entity == f.entity and x.from_.attributes ==
-                     [r.offset.from_] and x.to.entity == t.entity), None)
+        base = next((x for x in est.relationships if x.from_ is not None and x.to is not None
+                     and x.from_.entity == f.entity and x.from_.attributes == [r.offset.from_]
+                     and x.to.entity == t.entity), None)
         if base is None:
             errs.append(f"{w}.offset.from: {r.offset.from_!r} is not another reference of {f.entity} to {t.entity}")
         if r.offset.order_by not in te.attributes:

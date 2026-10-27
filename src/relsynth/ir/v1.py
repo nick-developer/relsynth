@@ -33,10 +33,11 @@ Field correspondence (1.0 -> IR):
 from __future__ import annotations
 
 import copy
+from typing import Any
 
 from .model import (KIND_TYPE, TYPE_KIND, Allocation, Attribute, AttributeSynthesis, Dependency, End, Entity,
                     EntitySynthesis, Estate, FactModel, GroupEffect, Header, IRError, Key, KeyedLookup, LinkAffinity,
-                    Offset, Relationship, Rule, Sequence, Time, ValidTime, Versioning, View)
+                    Offset, Relationship, Rule, Sequence, Time, ValidTime, Versioning, View, ends)
 
 TOP_KEYS = ("version", "name", "description", "source", "target", "tables", "relationships", "rules", "synthesis",
             "review")
@@ -78,9 +79,10 @@ def lift(raw: dict) -> Estate:
     for tname, T in tables.items():
         est.entities[tname] = _lift_table(tname, T or {}, rel_objs)
     for r in rel_objs:
-        if r.cardinality == "many_to_one" and r.from_.entity in est.entities and r.kind == "reference":
-            ent = est.entities[r.from_.entity]
-            if any(sorted(k.attributes) == sorted(r.from_.attributes or []) and k.where is None for k in ent.keys):
+        src, _ = ends(r)
+        if r.cardinality == "many_to_one" and src.entity in est.entities and r.kind == "reference":
+            ent = est.entities[src.entity]
+            if any(sorted(k.attributes) == sorted(src.attributes or []) and k.where is None for k in ent.keys):
                 r.cardinality = "one_to_one"
     est.relationships = rel_objs
     est.rules = [_lift_rule(r) for r in raw.get("rules") or []]
@@ -95,8 +97,10 @@ def _default_rel_name(r):
 
 
 def _lift_rel(r: dict, pks: dict) -> Relationship:
-    ck = r.get("child_key")
+    ck: Any = r.get("child_key")
     composite = isinstance(ck, (list, tuple))
+    pk: Any
+    to_attrs: list | None
     if composite:
         pk = r.get("parent_key", list(ck))
         to_attrs = list(pk) if isinstance(pk, (list, tuple)) else [pk]
@@ -220,13 +224,12 @@ def lower(est: Estate | dict, strict: bool = False) -> tuple[dict, list[str]]:
     partition spec) or cannot synthesise it (a shape other than record, a nested
     attribute).  With strict=True a non-empty list raises IRError.
     """
-    if isinstance(est, dict):
-        est = Estate.from_dict(est)
-    out, unsupported = _lower(est)
+    doc: Estate = Estate.from_dict(est) if isinstance(est, dict) else est
+    out, unsupported = _lower(doc)
     losses = list(unsupported)
     try:
         back = canonical(lift(out))
-        losses += [p for p in diff(canonical(est), back)
+        losses += [p for p in diff(canonical(doc), back)
                    if not any(p.startswith(u.split(":")[0]) for u in unsupported)]
     except IRError as e:
         if not unsupported:
@@ -239,17 +242,16 @@ def lower(est: Estate | dict, strict: bool = False) -> tuple[dict, list[str]]:
 def lower_for_engine(est: Estate | dict) -> dict:
     """The 1.0 spec the engine runs.  Annotations it does not read are left out;
     structures it cannot synthesise raise IRError."""
-    if isinstance(est, dict):
-        est = Estate.from_dict(est)
-    out, unsupported = _lower(est)
+    doc: Estate = Estate.from_dict(est) if isinstance(est, dict) else est
+    out, unsupported = _lower(doc)
     if unsupported:
         raise IRError(["not synthesised by this release (relational records only): " + u for u in unsupported])
     return out
 
 
 def _lower(est: Estate) -> tuple[dict, list[str]]:
-    unsupported = []
-    out = {"version": 1}
+    unsupported: list[str] = []
+    out: dict[str, Any] = {"version": 1}
     for k in ("name", "description", "source", "target"):
         if getattr(est, k) is not None:
             out[k] = copy.deepcopy(getattr(est, k))
@@ -273,10 +275,11 @@ def _lower(est: Estate) -> tuple[dict, list[str]]:
 
 
 def _lower_rel(r: Relationship, est: Estate) -> dict:
-    fa = list(r.from_.attributes or [])
-    ta = r.to.attributes
-    d = {"child": r.from_.entity}
-    parent = est.entities.get(r.to.entity)
+    src, dst = ends(r)
+    fa = list(src.attributes or [])
+    ta = dst.attributes
+    d: dict[str, Any] = {"child": src.entity}
+    parent = est.entities.get(dst.entity) if dst.entity is not None else None
     ppk = parent.primary_key.attributes if parent is not None and parent.primary_key else None
     if len(fa) == 1 and (ta is None or (ppk is not None and list(ta) == list(ppk)) or (ppk is None and len(ta) == 1)):
         d["child_key"] = fa[0]
@@ -285,7 +288,7 @@ def _lower_rel(r: Relationship, est: Estate) -> dict:
     else:
         d["child_key"] = fa
         d["parent_key"] = list(ta) if ta is not None else fa
-    d["parent"] = r.to.entity
+    d["parent"] = dst.entity
     d["kind"] = _REL_KIND_BACK.get(r.kind, r.kind)
     d["name"] = r.name
     if r.offset is not None:
@@ -301,7 +304,7 @@ def _lower_entity(name: str, e: Entity, est: Estate, unsupported: list) -> dict:
     for k in ("variants", "edge", "stream"):
         if getattr(e, k) is not None:
             unsupported.append(f"{where}.{k}: no 1.0 equivalent")
-    T = {}
+    T: dict[str, Any] = {}
     if e.role != "entity":
         T["role"] = e.role
     if e.description is not None:
@@ -324,7 +327,7 @@ def _lower_entity(name: str, e: Entity, est: Estate, unsupported: list) -> dict:
         T["unique"] = T.get("unique", []) + uniq
     if part:
         T["partial_unique"] = part
-    fact = None
+    fact: dict[str, Any] | None = None
     if s.fact is not None:
         fact = {k: getattr(s.fact, k) for k in _FACT_KEYS if getattr(s.fact, k) is not None}
         if s.fact.header is not None:
@@ -349,7 +352,7 @@ def _lower_entity(name: str, e: Entity, est: Estate, unsupported: list) -> dict:
                               for la in s.link_affinity]
     if tm is not None and tm.versioning is not None:
         v = tm.versioning
-        sc = {}
+        sc: dict[str, Any] = {}
         if v.scd_type is not None:
             sc["type"] = v.scd_type
         if v.natural_key is not None:
@@ -419,7 +422,7 @@ def canonical(est: Estate) -> Estate:
     def attr(a: Attribute):
         if a.kind is None and a.type in TYPE_KIND:
             a.kind = TYPE_KIND[a.type]
-        if a.type is not None and KIND_TYPE.get(a.kind) == a.type:
+        if a.type is not None and a.kind is not None and KIND_TYPE.get(a.kind) == a.type:
             a.type = None
         if a.kind == "pii" and a.privacy is None:
             from .model import AttributePrivacy
@@ -440,7 +443,7 @@ def canonical(est: Estate) -> Estate:
                 for f in case.values():
                     attr(f)
     for r in est.relationships:
-        p = est.entities.get(r.to.entity) if r.to else None
+        p = est.entities.get(r.to.entity) if r.to and r.to.entity is not None else None
         if r.to is not None and r.to.attributes is None and p is not None and p.primary_key is not None:
             r.to.attributes = list(p.primary_key.attributes)
     return est
@@ -450,7 +453,7 @@ def diff(a, b, path: str = "") -> list[str]:
     """IR paths where two documents (or nodes) differ."""
     da = a.to_dict() if hasattr(a, "to_dict") else a
     db = b.to_dict() if hasattr(b, "to_dict") else b
-    out = []
+    out: list[str] = []
     _diff(da, db, path, out)
     return out
 

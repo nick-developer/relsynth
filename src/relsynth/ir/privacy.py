@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .model import Estate, IRError
+from .model import Estate, IRError, Relationship, ends
 
 MAX_PATHS = 256
 
@@ -78,7 +78,7 @@ def _followed(est: Estate):
     excl = set(est.privacy.exclude_paths) if est.privacy else set()
     return [r for r in est.relationships
             if r.kind == "reference" and r.cardinality in ("many_to_one", "one_to_one")
-            and r.from_.entity != r.to.entity and r.name not in excl]
+            and ends(r)[0].entity != ends(r)[1].entity and r.name not in excl]
 
 
 def _nullable(est, r):
@@ -95,7 +95,7 @@ def trace(est: Estate, unit: str | None = None) -> Trace:
         raise IRError(f"privacy unit {unit!r} is not an entity")
     out = Trace(unit=unit)
     rels = _followed(est)
-    by_from = {}
+    by_from: dict[str | None, list[Relationship]] = {}
     for r in rels:
         by_from.setdefault(r.from_.entity, []).append(r)
     cyclic = _cycle(est.entities, rels)
@@ -106,7 +106,8 @@ def trace(est: Estate, unit: str | None = None) -> Trace:
         if n == unit:
             out.entities[n] = EntityTrace("unit", [[]], [False])
             continue
-        paths, truncated = [], False
+        paths: list = []
+        truncated = False
 
         def walk(cur, path, seen):
             nonlocal truncated
@@ -138,16 +139,18 @@ def trace(est: Estate, unit: str | None = None) -> Trace:
     while frontier:
         cur = frontier.pop()
         for r in by_from.get(cur, []):
-            if r.to.entity not in seen:
-                seen.add(r.to.entity)
-                frontier.append(r.to.entity)
-                if out.entities[r.to.entity].status == "unrelated":
-                    out.entities[r.to.entity].status = "context"
+            parent = ends(r)[1].entity
+            if parent not in seen:
+                seen.add(parent)
+                frontier.append(parent)
+                if out.entities[parent].status == "unrelated":
+                    out.entities[parent].status = "context"
     excl = set(est.privacy.exclude_paths) if est.privacy else set()
     for r in est.relationships:
-        if r.to.entity in owned and (r.kind == "hierarchy" or r.name in excl):
+        dst = ends(r)[1]
+        if dst.entity in owned and (r.kind == "hierarchy" or r.name in excl):
             out.cross_unit.append(r.name)
-            if r.to.entity == unit or r.kind != "hierarchy":
+            if dst.entity == unit or r.kind != "hierarchy":
                 out.warnings.append(f"{r.name} references records of the unit that it does not follow: removing a "
                                     "unit leaves such references dangling (null them or follow them)")
     return out

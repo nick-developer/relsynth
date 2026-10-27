@@ -43,8 +43,9 @@ _V1_SECTIONS = {("Estate", "source"): "source", ("Estate", "target"): "target",
 
 def _v1_section(kind: str) -> dict:
     from ..schema import S
+    section = typing.cast(dict, S[kind])
     return {"type": "object", "additionalProperties": False,
-            "properties": {k: {"description": doc} for k, (_, _, doc) in S[kind].items()}}
+            "properties": {k: {"description": doc} for k, (_, _, doc) in section.items()}}
 
 
 def _type_schema(tp) -> dict:
@@ -142,7 +143,7 @@ def _type_text(tp, f) -> str:
 
 
 class _NoEnum:
-    metadata = {}
+    metadata: dict = {}
 
 
 def reference() -> str:

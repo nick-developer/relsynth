@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import copy
 import re
+from typing import Any
 
 from .model import (Attribute, AttributePrivacy, End, Entity, Estate, IRError, Key, PartitionField, Physical,
-                    Relationship, Rule)
+                    Relationship, Rule, ends)
 
 API_VERSION = "v3.2.0"
 READS = ("v3.0.0", "v3.0.1", "v3.0.2", "v3.1.0", "v3.2.0")
@@ -75,14 +76,15 @@ def _stable_id(s):
 
 def _native_rel(r: Relationship, est: Estate) -> bool:
     """Whether a relationship is written as a native ODCS foreign key."""
-    if r.cardinality == "many_to_many" or not r.from_.attributes:
+    src, dst = ends(r)
+    if r.cardinality == "many_to_many" or not src.attributes:
         return False
-    names = [r.from_.entity, r.to.entity] + list(r.from_.attributes) + list(r.to.attributes or [])
-    return all(_NAME.match(str(x)) for x in names) and not any("." in a for a in r.from_.attributes)
+    names = [src.entity, dst.entity] + list(src.attributes) + list(dst.attributes or [])
+    return all(_NAME.match(str(x)) for x in names) and not any("." in a for a in src.attributes)
 
 
 def _object(n: str, e: Entity, est: Estate) -> dict:
-    o = {"name": n, "logicalType": "object",
+    o: dict[str, Any] = {"name": n, "logicalType": "object",
          "physicalName": (e.physical.name if e.physical and e.physical.name else n),
          "physicalType": "view" if e.role == "view" else _SHAPE_PHYSICAL[e.shape]}
     if e.description:
@@ -96,14 +98,15 @@ def _object(n: str, e: Entity, est: Estate) -> dict:
                        for a, attr in e.attributes.items()]
     rels = []
     for r in est.relationships:
-        if r.from_.entity != n or not _native_rel(r, est):
+        src, dst = ends(r)
+        if src.entity != n or not _native_rel(r, est):
             continue
-        ta = r.to.attributes or (est.entities[r.to.entity].primary_key.attributes
-                                 if r.to.entity in est.entities and est.entities[r.to.entity].primary_key else [])
+        parent = est.entities.get(dst.entity) if dst.entity is not None else None
+        ta = dst.attributes or (parent.primary_key.attributes if parent is not None and parent.primary_key else [])
         if not ta:
             continue
-        fr = [f"{n}.{a}" for a in r.from_.attributes]
-        to = [f"{r.to.entity}.{a}" for a in ta]
+        fr = [f"{n}.{a}" for a in src.attributes or []]
+        to = [f"{dst.entity}.{a}" for a in ta]
         rd = {"type": "foreignKey", "from": fr[0] if len(fr) == 1 else fr, "to": to[0] if len(to) == 1 else to,
               "customProperties": [_cp("relsynthRelationship", r.to_dict())]}
         rels.append(rd)
@@ -150,7 +153,7 @@ def _property(name, a: Attribute, pk_pos=None, unique=False, part_pos=None, item
         p["partitionKeyPosition"] = part_pos
     if a.privacy is not None and (a.privacy.classification or a.privacy.role):
         p["classification"] = a.privacy.classification or a.privacy.role
-    opts = {}
+    opts: dict[str, Any] = {}
     if p["logicalType"] in ("number", "integer"):
         if isinstance(a.min, (int, float)) and not isinstance(a.min, bool):
             opts["minimum"] = a.min
@@ -195,7 +198,8 @@ def from_odcs(contract: dict) -> Estate:
         desc = contract.get("description")
         est = Estate(name=contract.get("name") or contract.get("id"),
                      description=desc.get("purpose") or desc.get("usage") if isinstance(desc, dict) else None)
-    native_rels, rules = [], []
+    native_rels: list = []
+    rules: list = []
     for o in contract.get("schema") or []:
         n = o.get("name")
         ep = _get_cp(o, "relsynthEntity")

@@ -96,7 +96,8 @@ class Node:
         """Build the node from a mapping.  With `errs` given, problems are appended
         and the node is built from what is valid; without it they raise IRError."""
         own = errs is None
-        errs = [] if own else errs
+        if errs is None:
+            errs = []
         where = where or cls.__name__
         if not isinstance(d, dict):
             errs.append(f"{where}: must be a mapping, not {type(d).__name__}")
@@ -586,6 +587,14 @@ class Relationship(Node):
     description: str | None = _f("Free text.")
 
 
+def ends(r: Relationship) -> tuple[End, End]:
+    """The referencing and the referenced end of a relationship.  Both are
+    required, so a document that passed validation always has them."""
+    if r.from_ is None or r.to is None:
+        raise IRError([f"relationships.{r.name}: 'from' and 'to' are required"])
+    return r.from_, r.to
+
+
 @dataclass
 class Rule(Node):
     """A business rule.  Hard rules (holds 1) hold on every record; soft rules on a share."""
@@ -676,7 +685,7 @@ class Estate(Node):
         return next((r for r in self.relationships if r.name == name), None)
 
 
-NODE_TYPES = [Estate, Container, ContainerIndex, Entity, Attribute, KeyedLookup, Sequence, Variants,
+NODE_TYPES: list[type[Node]] = [Estate, Container, ContainerIndex, Entity, Attribute, KeyedLookup, Sequence, Variants,
               AttributePrivacy, AttributeSynthesis, Key, Dependency, View, Time, ValidTime, Versioning,
               PartitionField, SortField, Discriminator, Physical, Edge, Stream, Allocation, EntityPrivacy,
               EntitySynthesis, FactModel, Header, GroupEffect, LinkAffinity, Relationship, End, Offset, Via, Rule,
