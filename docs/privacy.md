@@ -15,7 +15,7 @@ rep["contexts"]["internal"]["verdict"]                # 'pass' | 'review' | 'fai
 rs.privacy.reference("privacy_report/privacy_report.json")   # embedded by the quality report: schema, sha256, verdicts
 ```
 
-The report never shows a real key. People are named by salted hashes (`P-3f2a…`) that the operator can recompute from the split seed and the key list.
+The report never shows a real key. People are named by keyed hashes (`P-3f2a…`, HMAC-SHA256 of the key) under a secret 256-bit salt that is not the split seed: the seed is in the report, so it must not unlock the labels. `relsynth privacy` writes the salt to `privacy_report/privacy_salt.key` (owner-only), or reuses `--salt-file` so labels stay stable between runs; the report carries only the salt's id. In the API, `assess(..., salt=...)` takes it and `rep["_salt"]` returns it; neither the JSON nor the pages ever contain it. Keep the salt apart from the report.
 
 ## What is measured
 
@@ -58,7 +58,7 @@ The default limits are relsynth's suggestions, not legal standards. Set your own
 | `mia_tpr_at_fpr_0.01` | 0.10 | 0.05 | 0.02 |
 | `record_auc` (most exposed person) | 0.85 | 0.75 | 0.65 |
 
-When the release carries a DP guarantee (`release.dp: {epsilon, delta}`), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603).
+When the release carries a DP guarantee (`release.dp: {epsilon, delta}`), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603). With `cumulative_epsilon` (and `cumulative_delta`), the budget spent by all releases from the same domain so far, it also shows the bound for all of them together, since releases about the same people compose.
 
 ## privacy.yaml
 
@@ -86,7 +86,7 @@ contexts:
     external: true
     attacker_knows: all
     thresholds: {risk: 0.02, attribute_leakage: 0.02, mia_auc: 0.55, mia_tpr_at_fpr_0.01: 0.02, record_auc: 0.65}
-release: {dp: null}                   # {epsilon: 1.0, delta: 1.0e-6, unit: Customer}, filled by the DP engine
+release: {dp: null}                   # {epsilon: 1.0, delta: 1.0e-6, cumulative_epsilon: 3.0, unit: Customer}, filled by the DP engine
 cache: .relsynth-cache/privacy        # shadow fits are kept here and reused
 ```
 

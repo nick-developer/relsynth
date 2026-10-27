@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import hmac
 import json
+import secrets
 import time
 
 import numpy as np
@@ -68,9 +70,15 @@ def default_linkage_columns(spec, unit: U.Unit, prof: pd.DataFrame, qis: list[st
 
 
 def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: int | None = None,
-           progress=None) -> dict:
+           salt: bytes | None = None, progress=None) -> dict:
     """Run every configured attack and return the privacy report (a dict that
-    validates against relsynth/privacy/report_schema.json)."""
+    validates against relsynth/privacy/report_schema.json).
+
+    People are labelled with an HMAC of their key under salt, a secret that is
+    not the split seed (the seed is in the report, so a seed-derived label
+    could be reversed by anyone holding the real keys).  Without salt a fresh
+    256-bit one is drawn; it is returned in rep["_salt"], which to_json and
+    write_report never write.  The report carries only its id."""
     from ..api import _resolved
     t_start = time.time()
     cfg = C.load(cfg)
@@ -80,6 +88,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         tables = load_for_fit(s, mode="off").tables
     tables = {t: df.reset_index(drop=True) for t, df in tables.items()}
     seed = cfg["split"]["seed"] if seed is None else seed
+    salt = secrets.token_bytes(32) if salt is None else bytes(salt)
     level = cfg["confidence"]
     say = progress or (lambda *_: None)
     timings = {}
@@ -220,7 +229,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             sim_ci = (auc_interval(float(row[best]), float(se), sim_level)
                       if se is not None and pd.notna(se) else row.get(f"{best}_ci") if best else None)
             records.append({
-                "rank": rank, "person": _pseudonym(pid, seed), "kind": row["kind"],
+                "rank": rank, "person": _pseudonym(pid, salt), "kind": row["kind"],
                 "vulnerability": float(row.get("vulnerability", np.nan)),
                 "mia_auc": float(row["risk_auc"]), "mia_auc_ci": sim_ci, "ci_level": sim_level,
                 "best_attack": best.replace("_auc", "") if best else None,
@@ -245,16 +254,22 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         "guards": guards,
         "timings": {**timings, "total_seconds": time.time() - t_start},
         "settings": {k: cfg[k] for k in ("split", "attacks")},
+        "pseudonyms": {"method": "hmac-sha256", "salt_id": salt_id(salt)},
+        "_salt": salt.hex(),
     }
     rep["contexts"] = {name: judge(rep, name, c) for name, c in cfg["contexts"].items()}
     return rep
 
 
-def _pseudonym(pid, seed) -> str:
-    """A report never shows a real key: the person is named by a salted hash
-    that the operator can recompute (salt = the split seed) but a reader cannot
-    invert without the key list."""
-    return "P-" + hashlib.sha256(f"{seed}:{pid}".encode()).hexdigest()[:10]
+def _pseudonym(pid, salt: bytes) -> str:
+    """A report never shows a real key: the person is named by a keyed hash
+    that only the holder of the salt can recompute from the key list."""
+    return "P-" + hmac.new(salt, str(pid).encode(), hashlib.sha256).hexdigest()[:10]
+
+
+def salt_id(salt: bytes) -> str:
+    """Names a salt without revealing it, so a report can say which one labels it."""
+    return hashlib.sha256(b"relsynth-privacy-salt:" + salt).hexdigest()[:16]
 
 
 def _guards(spec, unit, train_db, syn_db) -> dict:
@@ -345,6 +360,10 @@ def judge(rep: dict, name: str, ctx: dict) -> dict:
     if dp:
         from .stats import dp_tpr_bound
         out["dp_bound_tpr_at_fpr_0.01"] = dp_tpr_bound(0.01, dp["epsilon"], dp.get("delta", 0.0))
+        # releases from one domain compose: the bound for everything released so far
+        if dp.get("cumulative_epsilon") is not None:
+            out["dp_bound_tpr_at_fpr_0.01_cumulative"] = dp_tpr_bound(0.01, dp["cumulative_epsilon"],
+                                                                     dp.get("cumulative_delta", dp.get("delta", 0.0)))
     return out
 
 
