@@ -248,6 +248,15 @@ class DuckDBFiles(SqlConnector):
     def stats(self, table):
         return DuckDBStats(self, table)
 
+    def frame(self, q):
+        """Fetch through DuckDB's columnar result (Arrow / NumPy) instead of Python
+        row tuples: grouped results of a large fact have millions of rows."""
+        c = q.compile(dialect=self.engine.dialect, compile_kwargs={"render_postcompile": True})
+        params = [c.params[k] for k in (c.positiontup or [])]
+        with self.engine.connect() as con:
+            # duckdb_engine's wrapper passes execute to the DuckDB connection
+            return con.connection.driver_connection.execute(str(c), params).df()
+
     # ------------------------------------------------------------ writes
     def write_table(self, table, df, mode="replace", tspec=None):
         raise NotImplementedError("DuckDBFiles reads files; write through the folder's FileConnector")
