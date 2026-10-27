@@ -31,6 +31,8 @@ PKG = HERE.parents[1]
 LEGACY = PKG / "legacy"
 LAYER2 = Path(os.environ.get("RELSYNTH_LAYER2_ROOT", "/mnt/project-files/layer2"))
 NEEDS_LAYER2 = {"C76"}            # v09_eval reads realdata/chinook
+# C76 also needs the Chinook SQLite file: RELSYNTH_CHINOOK_DB, else realdata/chinook/Chinook.db
+CHINOOK_DB = Path(os.environ.get("RELSYNTH_CHINOOK_DB", str(LAYER2 / "realdata" / "chinook" / "Chinook.db")))
 
 
 def _ids() -> list[str]:
@@ -52,7 +54,8 @@ def results(tmp_path_factory):
     (root.parent / "research").symlink_to(LEGACY / "research")
     if (LAYER2 / "realdata").is_dir():
         (root / "realdata").symlink_to(LAYER2 / "realdata")
-    env = {**os.environ, "PYTHONPATH": str(root), "RELSYNTH_QUIET": "1", "PYTHONDONTWRITEBYTECODE": "1"}
+    env = {**os.environ, "PYTHONPATH": str(root), "RELSYNTH_QUIET": "1", "PYTHONDONTWRITEBYTECODE": "1",
+           "RELSYNTH_CHINOOK_DB": str(CHINOOK_DB)}
     subprocess.run([sys.executable, str(root / "checks" / "run_checks.py")], cwd=root, env=env,
                    timeout=4 * 3600, check=False)
     out = root / "checks" / "results.json"
@@ -65,6 +68,8 @@ def results(tmp_path_factory):
 def test_check(results, cid):
     if cid in NEEDS_LAYER2 and not (LAYER2 / "realdata").is_dir():
         pytest.skip(f"{cid} needs the layer 2 real data (RELSYNTH_LAYER2_ROOT)")
+    if cid == "C76" and not CHINOOK_DB.is_file():
+        pytest.skip("C76 needs the Chinook SQLite file (RELSYNTH_CHINOOK_DB)")
     assert results, "the check suite wrote no results.json"
     r = results.get(cid)
     assert r is not None, f"{cid} did not run"

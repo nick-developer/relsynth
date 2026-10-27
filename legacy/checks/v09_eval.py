@@ -27,7 +27,8 @@ warnings.filterwarnings("ignore")
 
 E = __import__("importlib").import_module("relsynth.evaluate")  # the module (rs.evaluate is the API function)
 
-CHINOOK = "/tmp/claude-0/-home-claude/bb3ce53c-120b-56d9-8782-51605abd2883/scratchpad/chinook/Chinook.db"
+# the Chinook SQLite file (https://github.com/lerocha/chinook-database); not in the repository
+CHINOOK = os.environ.get("RELSYNTH_CHINOOK_DB", str(ROOT / "realdata" / "chinook" / "Chinook.db"))
 
 
 def item(what, value, target, ok):

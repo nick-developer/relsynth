@@ -65,7 +65,7 @@ pytest tests/integration -v
 python legacy/checks/run_checks.py C05 C11
 ```
 
-C76 also reads the real Chinook database from the layer 2 data folder (`RELSYNTH_LAYER2_ROOT`) and is skipped without it. C00 re-runs the layer 1 algorithm checks, and two of its 14 need the `datasketches` package.
+C76 also reads the layer 2 data folder (`RELSYNTH_LAYER2_ROOT`) and the Chinook SQLite file (`RELSYNTH_CHINOOK_DB`, default `realdata/chinook/Chinook.db` in that folder), and is skipped without them. C00 re-runs the layer 1 algorithm checks, and two of its 14 need the `datasketches` package.
 
 ## The quality report on benchmark databases
 
