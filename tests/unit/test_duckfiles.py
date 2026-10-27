@@ -4,6 +4,7 @@ pushed-down fact computed in SQL over the files equal the in-memory reference
 from __future__ import annotations
 
 import copy
+import os
 
 import numpy as np
 import pandas as pd
@@ -147,9 +148,10 @@ def test_engine_setting(tmp_path, star_csv):
 
 def test_hostile_file_and_folder_names(tmp_path):
     """Folder paths and table names with quotes are literals and identifiers, never SQL."""
-    d = tmp_path / "it's \"here\"; DROP"
+    dq = "" if os.name == "nt" else '"'                 # Windows file names cannot hold a double quote
+    d = tmp_path / f"it's {dq}here{dq}; DROP"
     c = FileConnector(d, create=True)
-    name = "o'k\"; SELECT 1; --"
+    name = f"o'k{dq}; SELECT 1; --"
     c.write_table(name, pd.DataFrame({"id": [1, 2, 3], "v'\"": [4, 5, 6]}))
     duck = FileConnector(d, engine="duckdb")
     st = duck.stats(name)
