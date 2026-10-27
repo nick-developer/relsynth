@@ -102,7 +102,15 @@ S = {
                             "kept out of the model, referenced with the source's share."),
         "bridge": ("bridge", None, "Weights that sum to 1 (or `total`) over the rows of a group (multivalued "
                    "dimension / allocation)."),
+        "generator": ("name | generator", "synthesis.generator", "Generator plug-in of the table's attribute "
+                      "columns: a name (copula, independent, cart, or an installed plug-in) or {name, version, "
+                      "options}. See docs/generators.md."),
         "description": ("str", None, "Free text (kept, not read)."),
+    },
+    "generator": {
+        "name": ("str", "copula", "Registered generator name (`relsynth generators list`)."),
+        "version": ("version specifier", None, "Pin of the generator's model version, e.g. '>=1.0,<2' or '==1.0'."),
+        "options": ("map", {}, "Options passed to the generator (its own documentation lists them)."),
     },
     "fact": {
         "anchor": ("table | relationship name | key column", "first parent", "Parent whose rows generate the fact "
@@ -333,6 +341,13 @@ SYNTH_DOC = {
     "text.backoff_strength": "Back-off weight of the n-gram model.",
     "text.max_retries": "Retries before a text value is replaced.",
     "rules.max_rejection_rounds": "Redraw rounds for rows that fail a check rule.",
+    "generator": "Default generator plug-in of every table's attribute columns (a table's own `generator` wins): "
+                 "copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in.",
+    "compute.preset": "cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator "
+                      "plug-ins may use. The default engine is CPU-only; see docs/compute.md.",
+    "compute.file": "A compute.yaml with more presets (relative to the spec).",
+    "compute.overrides": "Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, "
+                         "batch_size, memory_limit, threads, fallback.",
     "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
     "pushdown.mode": "auto | on | off: fit eligible fact tables from exact statistics computed where the data lives "
                      "(row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample "
@@ -344,7 +359,8 @@ SYNTH_DOC = {
 }
 
 # synthesis keys whose value is a free map (table names) or may be a map
-FREE = {"scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows"}
+FREE = {"scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
+        "compute.overrides"}
 # keys normalise() adds (a normalised spec written back, e.g. by `doctor --apply`, still
 # validates); the keys of the engine's internal plan (anchor_link, virtual, unit, _refs,
 # ...) are not accepted from a spec
@@ -352,7 +368,8 @@ INTERNAL = {"relationship": {"composite"}, "fact": {"anchor_key", "partner_key"}
 
 NESTED = {("spec", "source"): "source", ("spec", "target"): "target", ("table", "fact"): "fact",
           ("fact", "header"): "header", ("column", "text"): "text", ("column", "pii"): "pii",
-          ("column", "distribution"): "distribution", ("table", "scd"): "scd", ("table", "bridge"): "bridge"}
+          ("column", "distribution"): "distribution", ("table", "scd"): "scd", ("table", "bridge"): "bridge",
+          ("table", "generator"): "generator"}
 LISTS = {("table", "dimensions"): "dimension", ("table", "group_effects"): "group_effect",
          ("table", "link_affinity"): "link_affinity", ("table", "partial_unique"): "unique_where",
          ("spec", "relationships"): "relationship", ("spec", "rules"): "rule"}
