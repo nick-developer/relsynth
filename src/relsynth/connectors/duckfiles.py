@@ -29,6 +29,8 @@ statistics equal the pandas ones up to floating-point summation order.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import logging
 from pathlib import Path
 
@@ -83,7 +85,7 @@ def register_duckdb_functions(con) -> None:
 
     def _ndtri(p):
         return pa.array(ndtri(np.asarray(p.to_numpy(zero_copy_only=False), dtype=float)))
-    types = getattr(duckdb, "sqltypes", None) or duckdb.typing      # renamed in DuckDB 1.4
+    types: Any = getattr(duckdb, "sqltypes", None) or getattr(duckdb, "typing", None)  # renamed in DuckDB 1.4
     con.create_function("rs_ndtri", _ndtri, [types.DOUBLE], types.DOUBLE, type="arrow", side_effects=False)
 
 
@@ -169,7 +171,7 @@ class DuckDBFiles(SqlConnector):
         # the header as pandas reads it (DuckDB's sniffer would rename or retype columns)
         cols = [str(c) for c in pd.read_csv(f, nrows=0).columns]
         spec = ", ".join(f"{_lit(c)}: 'VARCHAR'" for c in cols)
-        raw = (f"read_csv({_lit(f)}, header = true, columns = {{{spec}}}, delim = ',', quote = '\"', "
+        raw = (f"read_csv({_lit(str(f))}, header = true, columns = {{{spec}}}, delim = ',', quote = '\"', "
                f"escape = '\"', nullstr = [{', '.join(_lit(v) for v in nv)}], auto_detect = false, "
                f"null_padding = true)")
         raw_cols = cols

@@ -153,8 +153,8 @@ def row_hash(cols, seed: int, dialect_name: str):
     if dialect_name == "duckdb":
         # the same 32 bits as MySQL: SHA-256 of 'seed|text', first 8 hex digits
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
-        hexd = sa.func.concat(sa.literal_column("'0x'"), sa.func.left(sa.func.sha256(txt), sa.literal_column("8")))
-        return sa.cast(hexd, sa.BigInteger)
+        hex32 = sa.func.concat(sa.literal_column("'0x'"), sa.func.left(sa.func.sha256(txt), sa.literal_column("8")))
+        return sa.cast(hex32, sa.BigInteger)
     if dialect_name in ("mysql", "mariadb"):
         # the first 32 bits of SHA-256('seed|text'), as py_row_hash_sha256 computes them
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))

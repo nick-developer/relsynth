@@ -64,7 +64,7 @@ class FileConnector(Connector):
         return self._duck
 
     @property
-    def pushdown(self) -> bool:
+    def pushdown(self) -> bool:  # type: ignore[override]  # a class attribute on the other connectors
         return self.duck is not None
 
     def stats(self, table):
