@@ -9,6 +9,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **MySQL 8 and MariaDB connector** (`mysql://`, `mariadb://`, `relsynth[mysql]`): read, write in every mode, `clone-schema`, and fitting inside the database (GROUP BY statistics, window-function rank sums, a seeded SHA-256 hash sample). Text is grouped and compared in a binary collation, so statistics stay exact on case- and accent-insensitive columns. Created columns keep the data: `DOUBLE`, `DATETIME(6)`, `utf8mb4` text with a binary no-pad collation, key columns within MySQL's index limit and wide tables within its row limit. Tested live on MySQL 8.4 and MariaDB 11.4.
 - **DuckDB for CSV and Parquet folders.** The statistics, first rows and samples of pushed-down facts in a folder source are computed by an in-process DuckDB database running the servers' SQL over views of the files, instead of in pandas. Statistics are exact (normal scores use scipy's quantile inside DuckDB) and CSV typing follows the pandas reader. `source.engine: pandas` keeps the 1.0 path, and `source.duckdb` sets the memory limit, threads and spill folder. `duckdb` and `duckdb-engine` are now dependencies.
 - **Connector guide** (`docs/connector-sdk.md`): the contract, hooks and tests a new connector needs, with notes for the cloud warehouses.
+- **Profile of 1.0** (`docs/profiling.md`): time, memory and I/O by stage on Contoso and AdventureWorks.
 
 ## 1.0.1 (2026-10-28)
 
