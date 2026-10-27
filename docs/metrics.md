@@ -53,7 +53,8 @@ The level `1 - area_confidence` of an area is split in two halves. An area
 fails when its failed checks exceed the `1 - (1 - area_confidence)/2`
 quantile of the Poisson-binomial law of false failures (the sum of
 independent Bernoulli(alpha_i)), **or** when one failed check is severe: its
-`p_value` (the null probability of a value at least as large) is below
+`p_value` (the null probability of a value at least as large; computed for
+distances calibrated on the log scale, not for signed gaps) is below
 `(1 - area_confidence) / (2 m)` for the area's m calibrated checks. The
 first half catches a defect that pushes many checks slightly over their
 limits, the second a defect that a few checks see clearly. A check without a
