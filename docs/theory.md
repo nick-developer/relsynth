@@ -134,6 +134,78 @@ Every other fact is eligible, including nested facts, facts split into order hea
 
 *Proof.* In each excluded case, the named proposition's full conditional has a factor per row of the table that is not a function of the statistics of Proposition 100. For the eligible shapes, Proposition 100 lists the statistics that replace the rows. ∎
 
+## Generator plug-ins (v2.0)
+
+The attribute columns of each table come from a *generator*. The default is the copula of section 1; `independent`,
+`cart` and third-party generators can be chosen per table ([generators.md](generators.md)). The engine keeps the
+relational skeleton: rows, keys, links, latent segments, counts, scale and rules. A generator draws a row's
+attributes given its context, which is the row's latent group $g$, the coarser group $\bar g$ it backs off to, and
+(for generators with `parent` conditioning) the attributes $a$ of its synthetic parents. Propositions 700–706 state
+what still holds. They are numbered from 700 so that the parallel 2.x threads do not collide. The full proofs are in
+`docs/proofs/sec_v20_generators.tex`, and the checks are in `tests/unit/test_generators.py`.
+
+### Proposition 700 (Skeleton and rules do not depend on the generator)
+
+For any generator that returns exactly its table's own attribute columns:
+
+1. Keys, links, trees, row counts and scale follow the 1.0 laws.
+2. Computed rules (derive, aggregate, cumulative, computed columns) hold exactly.
+3. A row that breaks a check rule or a unique attribute key is redrawn from the generator's own conditional. An
+   accepted row has the generator's law restricted to the rules. With acceptance probability $\pi$, the chance of
+   a violation left after $r$ rounds is $(1-\pi)^{r+1}$, and such violations are reported.
+
+*Proof sketch.* Keys and links are drawn from the relational model and the column encoding, both of which exist
+before a generator is attached. The engine refuses generator output with other columns. Computed columns are
+evaluated afterwards from the final values. The redraws are independent draws from the same conditional, so the
+standard rejection-sampling argument applies. ∎ *Checked:* `test_reference_generators_keep_keys_links_and_rules`,
+and integrity 100% on every suite for every generator (T03 report).
+
+### Proposition 701 (Seed determinism)
+
+If a generator draws all its randomness from the generator it is handed, the model and every dataset are
+deterministic functions of the spec, the data and the seed. ∎ *Checked:* `test_reference_generators_are_seeded_and_have_a_posterior`.
+
+### Proposition 702 (The copula plug-in is relsynth 1.0)
+
+With the default generator, the output is byte-identical to 1.0. The code moved without changing an operation, and
+attaching a generator draws no random number. ∎ *Checked:* SHA-256 of every output file. The comparison covers
+main and 2.0 on S1–S11 (two datasets each), Chinook (in memory, and pushed down with two datasets), Contoso SQLite
+and Parquet, bi/COREP and AdventureWorks DW. It also covers `test_copula_is_the_default_and_naming_it_changes_nothing`.
+
+### Proposition 703 (Posterior predictive datasets)
+
+Suppose `posterior_draw` draws a generator's parameters from their posterior given the table and the fitted
+partition. Then dataset $m$ is a posterior predictive draw of the joint model, as in 1.0, because the attribute
+blocks' posteriors factorise given the partition and the contexts.
+
+- With an approximate posterior, the dataset is a draw from the approximate predictive.
+- With `posterior: false`, datasets share the attribute parameters.
+- `copula` and `independent` are exact for their models.
+- `cart` redraws leaf weights given trees fitted once (Prop. 706).
+
+∎
+
+### Proposition 704 (What group-only conditioning keeps and loses)
+
+With group-only conditioning, a fact's attributes are independent of its parents' attributes given the group, and
+$\operatorname{Cov}(x,a)=\operatorname{Cov}_g(\mathbb E[x\mid g],\mathbb E[a\mid g])$. Parent conditioning can also
+carry the dependence within a group. *Proof:* the law of total covariance. ∎ *Checked:*
+`test_parent_conditioning_carries_within_group_dependence`.
+
+### Proposition 705 (Independent marginals are a latent class model)
+
+`independent` is the copula with the identity correlation and the same marginal posteriors. Within a group its
+columns are independent, and between groups they covary through the group means (Goodman 1974; Dunson and Xing
+2009). ∎ *Checked:* `test_independent_columns_are_independent_within_a_group`.
+
+### Proposition 706 (CART leaf donors with Bayesian-bootstrap weights)
+
+A synthetic value drawn from leaf $\ell$ with weights $w\sim\mathrm{Dir}(1,\dots,1)$ has, averaged over $w$, the
+empirical law of the leaf. The probability of a value with count $c$ has mean $c/n_\ell$ and variance
+$c(n_\ell-c)/(n_\ell^2(n_\ell+1))$. $w$ is the posterior of the leaf law under a Dirichlet process whose
+concentration tends to 0 (Rubin 1981; Ferguson 1973). *Proof:* exchangeability, and the Dirichlet aggregation
+property. ∎ *Checked:* `test_cart_leaf_weights_are_a_bayesian_bootstrap`.
+
 ## 3. Memory
 
 A pushed fact costs memory proportional to the number of distinct key tuples plus the sample, instead of rows times columns. On AdventureWorks DW, all ten eligible facts were pushed, including the 776,286-row inventory fact with its running balance. Peak memory fell from 2.1 GiB to 1.6 GiB with 30,000-row samples, and the scorecard and every domain check (amount identities, order headers, running balances, date offsets) agreed with the in-memory run. See [pushdown.md](pushdown.md).
@@ -169,4 +241,8 @@ If the reference graph is acyclic and no hierarchy or excluded reference points 
 - P. D. Hoff (2007). Extending the rank likelihood for semiparametric copula estimation. *Annals of Applied Statistics* 1(1).
 - B. Karrer, M. E. J. Newman (2011). Stochastic blockmodels and community structure in networks. *Physical Review E* 83.
 - E. I. George, R. E. McCulloch (1993). Variable selection via Gibbs sampling. *JASA* 88(423).
+- J. P. Reiter (2005). Using CART to generate partially synthetic public use microdata. *J. Official Statistics* 21(3).
+- B. Nowok, G. M. Raab, C. Dibben (2016). synthpop: Bespoke creation of synthetic data in R. *J. Statistical Software* 74(11).
+- L. A. Goodman (1974). Exploratory latent structure analysis. *Biometrika* 61(2); D. B. Dunson, C. Xing (2009), *JASA* 104(487).
+- D. B. Rubin (1981). The Bayesian bootstrap. *Annals of Statistics* 9(1).
 - Further references are in the proofs and the algorithms paper.
