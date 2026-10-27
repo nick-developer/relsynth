@@ -1,0 +1,4452 @@
+{
+ "schema": 1,
+ "relsynth": "1.0.0",
+ "git": {
+  "sha": "9503d36e3bcc6c1b2379477286a091fe069cb178",
+  "branch": "roadmap/T01-benchmark-harness",
+  "dirty": false
+ },
+ "machine": {
+  "node": "vm",
+  "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "cpus": 4,
+  "python": "3.13.17",
+  "numpy": "2.5.4",
+  "pandas": "3.1.0",
+  "scipy": "1.18.1",
+  "ci": false
+ },
+ "started": "2026-10-26T22:48:00+00:00",
+ "label": "baseline",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "runs": [
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 1,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 2,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 3,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 4,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 5,
+   "private": true
+  },
+  {
+   "dataset": "chinook",
+   "seed": 1,
+   "pushdown": "auto",
+   "seconds": 34.2,
+   "exit_code": 0,
+   "rows": {
+    "Album": 347,
+    "Artist": 275,
+    "Customer": 59,
+    "Employee": 8,
+    "Genre": 25,
+    "Invoice": 412,
+    "InvoiceLine": 2106,
+    "MediaType": 5,
+    "Playlist": 18,
+    "PlaylistTrack": 8665,
+    "Track": 3503
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 141,
+    "total": 142
+   },
+   "checks": [
+    {
+     "id": "scorecard:Album|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2325
+    },
+    {
+     "id": "scorecard:Artist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2611
+    },
+    {
+     "id": "scorecard:Customer.City|marginal_tvd",
+     "pass": true,
+     "value": 0.4068,
+     "limit": 1.3079
+    },
+    {
+     "id": "scorecard:Customer.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.4926,
+     "limit": 1.2598
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0508,
+     "limit": 0.2291
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.2373,
+     "limit": 0.7797
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.4026,
+     "limit": 0.9568
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4988,
+     "limit": 0.7127
+    },
+    {
+     "id": "scorecard:Employee.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9253
+    },
+    {
+     "id": "scorecard:Employee.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|marginal_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.HireDate|marginal_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.HireDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.City|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.6047
+    },
+    {
+     "id": "scorecard:Employee.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.8641
+    },
+    {
+     "id": "scorecard:Genre.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:Genre.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:Genre|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.866
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|marginal_ks",
+     "pass": true,
+     "value": 0.0388,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.Total|marginal_ks",
+     "pass": true,
+     "value": 0.0388,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.Total|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice|association_max_diff",
+     "pass": true,
+     "value": 0.1407,
+     "limit": 0.1741
+    },
+    {
+     "id": "scorecard:Invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.5327,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:InvoiceLine|discriminator_auc",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:MediaType.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:MediaType.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:MediaType|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.9365
+    },
+    {
+     "id": "scorecard:Playlist.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1638
+    },
+    {
+     "id": "scorecard:Playlist.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0949
+    },
+    {
+     "id": "scorecard:Playlist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.0206
+    },
+    {
+     "id": "scorecard:PlaylistTrack|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|marginal_ks",
+     "pass": true,
+     "value": 0.0234,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.Bytes|marginal_ks",
+     "pass": true,
+     "value": 0.0265,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Bytes|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track|association_max_diff",
+     "pass": true,
+     "value": 0.0151,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track|discriminator_auc",
+     "pass": true,
+     "value": 0.4973,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0402,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0384,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks",
+     "pass": true,
+     "value": 0.058,
+     "limit": 0.1454
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks",
+     "pass": true,
+     "value": 0.0604,
+     "limit": 0.1454
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0224,
+     "limit": 0.9695
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0504,
+     "limit": 2.1242
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd",
+     "pass": true,
+     "value": 0.4319,
+     "limit": 1.3371
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd",
+     "pass": true,
+     "value": 0.5046,
+     "limit": 0.8971
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd",
+     "pass": true,
+     "value": 0.2237,
+     "limit": 0.797
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks",
+     "pass": true,
+     "value": 0.3554,
+     "limit": 1.2452
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks",
+     "pass": true,
+     "value": 0.3589,
+     "limit": 1.2452
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.34
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0224,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0279,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0041,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 1.0821
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0049,
+     "limit": 1.0222
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0208,
+     "limit": 2.1277
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_ks",
+     "pass": true,
+     "value": 0.0836,
+     "limit": 0.1387
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2785
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.6189
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2984
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1742
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_ks",
+     "pass": false,
+     "value": 0.1285,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0598,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.034,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0598,
+     "limit": 0.1401
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0137,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks",
+     "pass": true,
+     "value": 0.1667,
+     "limit": 0.5354
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 1.7997
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_ks",
+     "pass": true,
+     "value": 0.4,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.6394
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3614
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_ks",
+     "pass": true,
+     "value": 0.0432,
+     "limit": 0.1235
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1312
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.05
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_cycles",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5974
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3698
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track|dcr_ratio",
+     "pass": true,
+     "value": 1.7909,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Track|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    }
+   ]
+  },
+  {
+   "dataset": "chinook",
+   "seed": 2,
+   "pushdown": "auto",
+   "seconds": 27.2,
+   "exit_code": 0,
+   "rows": {
+    "Album": 347,
+    "Artist": 275,
+    "Customer": 59,
+    "Employee": 8,
+    "Genre": 25,
+    "Invoice": 412,
+    "InvoiceLine": 2402,
+    "MediaType": 5,
+    "Playlist": 18,
+    "PlaylistTrack": 8701,
+    "Track": 3503
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 142,
+    "total": 142
+   },
+   "checks": [
+    {
+     "id": "scorecard:Album|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2325
+    },
+    {
+     "id": "scorecard:Artist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2611
+    },
+    {
+     "id": "scorecard:Customer.City|marginal_tvd",
+     "pass": true,
+     "value": 0.5085,
+     "limit": 1.3079
+    },
+    {
+     "id": "scorecard:Customer.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.425,
+     "limit": 1.2061
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0339,
+     "limit": 0.2289
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.3729,
+     "limit": 0.7797
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.4644,
+     "limit": 0.9725
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.5779,
+     "limit": 0.7127
+    },
+    {
+     "id": "scorecard:Employee.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9253
+    },
+    {
+     "id": "scorecard:Employee.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|marginal_ks",
+     "pass": true,
+     "value": 0.25,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.HireDate|marginal_ks",
+     "pass": true,
+     "value": 0.375,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.HireDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.City|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.6047
+    },
+    {
+     "id": "scorecard:Employee.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.8641
+    },
+    {
+     "id": "scorecard:Genre.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:Genre.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:Genre|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.866
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|marginal_ks",
+     "pass": true,
+     "value": 0.0534,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.Total|marginal_ks",
+     "pass": true,
+     "value": 0.0388,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.Total|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice|association_max_diff",
+     "pass": true,
+     "value": 0.1078,
+     "limit": 0.1741
+    },
+    {
+     "id": "scorecard:Invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.4765,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:InvoiceLine|discriminator_auc",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:MediaType.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:MediaType.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:MediaType|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.9365
+    },
+    {
+     "id": "scorecard:Playlist.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1638
+    },
+    {
+     "id": "scorecard:Playlist.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0949
+    },
+    {
+     "id": "scorecard:Playlist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.0206
+    },
+    {
+     "id": "scorecard:PlaylistTrack|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|marginal_ks",
+     "pass": true,
+     "value": 0.0206,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.Bytes|marginal_ks",
+     "pass": true,
+     "value": 0.0291,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Bytes|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track|association_max_diff",
+     "pass": true,
+     "value": 0.0153,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track|discriminator_auc",
+     "pass": true,
+     "value": 0.5088,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0331,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0354,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0071,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks",
+     "pass": true,
+     "value": 0.0676,
+     "limit": 0.1442
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks",
+     "pass": true,
+     "value": 0.0569,
+     "limit": 0.1442
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0112,
+     "limit": 0.9619
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0392,
+     "limit": 2.1191
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd",
+     "pass": true,
+     "value": 0.5405,
+     "limit": 1.3332
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd",
+     "pass": true,
+     "value": 0.4612,
+     "limit": 0.8945
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd",
+     "pass": true,
+     "value": 0.3914,
+     "limit": 0.7947
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd",
+     "pass": true,
+     "value": 0.0371,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks",
+     "pass": true,
+     "value": 0.6416,
+     "limit": 1.2251
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks",
+     "pass": true,
+     "value": 0.3585,
+     "limit": 1.2251
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd",
+     "pass": true,
+     "value": 0.0371,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.34
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0233,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0282,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0048,
+     "limit": 1.0815
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0054,
+     "limit": 1.0228
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0256,
+     "limit": 2.1511
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_ks",
+     "pass": true,
+     "value": 0.0618,
+     "limit": 0.1387
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2896
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_ks",
+     "pass": true,
+     "value": 0.25,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.5887
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2984
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1742
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0822,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0723,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.0364,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0723,
+     "limit": 0.1372
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.004,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks",
+     "pass": true,
+     "value": 0.2222,
+     "limit": 0.5354
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 1.7987
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_ks",
+     "pass": true,
+     "value": 0.2,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.6362
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3824
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_ks",
+     "pass": true,
+     "value": 0.0922,
+     "limit": 0.1235
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1413
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.05
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_cycles",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5974
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3698
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track|dcr_ratio",
+     "pass": true,
+     "value": 1.7602,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Track|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    }
+   ]
+  },
+  {
+   "dataset": "chinook",
+   "seed": 3,
+   "pushdown": "auto",
+   "seconds": 29.4,
+   "exit_code": 0,
+   "rows": {
+    "Album": 347,
+    "Artist": 275,
+    "Customer": 59,
+    "Employee": 8,
+    "Genre": 25,
+    "Invoice": 412,
+    "InvoiceLine": 2323,
+    "MediaType": 5,
+    "Playlist": 18,
+    "PlaylistTrack": 8721,
+    "Track": 3503
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 142,
+    "total": 142
+   },
+   "checks": [
+    {
+     "id": "scorecard:Album|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2325
+    },
+    {
+     "id": "scorecard:Artist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2611
+    },
+    {
+     "id": "scorecard:Customer.City|marginal_tvd",
+     "pass": true,
+     "value": 0.4407,
+     "limit": 1.3079
+    },
+    {
+     "id": "scorecard:Customer.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.4667,
+     "limit": 1.3526
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.1525,
+     "limit": 0.2271
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.2712,
+     "limit": 0.7797
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.3738,
+     "limit": 0.9568
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4255,
+     "limit": 0.7127
+    },
+    {
+     "id": "scorecard:Employee.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9253
+    },
+    {
+     "id": "scorecard:Employee.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|marginal_ks",
+     "pass": true,
+     "value": 0.5,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.HireDate|marginal_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.HireDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.City|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.6047
+    },
+    {
+     "id": "scorecard:Employee.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.8641
+    },
+    {
+     "id": "scorecard:Genre.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:Genre.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:Genre|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.866
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|marginal_ks",
+     "pass": true,
+     "value": 0.0631,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.Total|marginal_ks",
+     "pass": true,
+     "value": 0.0655,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.Total|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0545,
+     "limit": 0.1741
+    },
+    {
+     "id": "scorecard:Invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.5373,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:InvoiceLine|discriminator_auc",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:MediaType.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:MediaType.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:MediaType|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.9365
+    },
+    {
+     "id": "scorecard:Playlist.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1638
+    },
+    {
+     "id": "scorecard:Playlist.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0949
+    },
+    {
+     "id": "scorecard:Playlist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.0206
+    },
+    {
+     "id": "scorecard:PlaylistTrack|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|marginal_ks",
+     "pass": true,
+     "value": 0.0186,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.Bytes|marginal_ks",
+     "pass": true,
+     "value": 0.0228,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Bytes|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0029,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track|association_max_diff",
+     "pass": true,
+     "value": 0.015,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track|discriminator_auc",
+     "pass": true,
+     "value": 0.5224,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0395,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.025,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks",
+     "pass": true,
+     "value": 0.0514,
+     "limit": 0.1431
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks",
+     "pass": true,
+     "value": 0.0661,
+     "limit": 0.1431
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0072,
+     "limit": 0.9596
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0306,
+     "limit": 2.1145
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd",
+     "pass": true,
+     "value": 0.4661,
+     "limit": 1.3321
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd",
+     "pass": true,
+     "value": 0.4667,
+     "limit": 0.8937
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd",
+     "pass": true,
+     "value": 0.2871,
+     "limit": 0.794
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks",
+     "pass": true,
+     "value": 0.3554,
+     "limit": 1.2499
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks",
+     "pass": true,
+     "value": 0.2546,
+     "limit": 1.2499
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.34
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0231,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0045,
+     "limit": 1.0835
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 1.0234
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0272,
+     "limit": 2.1267
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_ks",
+     "pass": true,
+     "value": 0.0873,
+     "limit": 0.1387
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2766
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.6234
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2984
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1742
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0891,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0371,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.051,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0371,
+     "limit": 0.1344
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0049,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks",
+     "pass": true,
+     "value": 0.1111,
+     "limit": 0.5354
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 1.8022
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_ks",
+     "pass": true,
+     "value": 0.2,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.6455
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3738
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_ks",
+     "pass": true,
+     "value": 0.0375,
+     "limit": 0.1235
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1265
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.05
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_cycles",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5974
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3698
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track|dcr_ratio",
+     "pass": true,
+     "value": 1.7748,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Track|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    }
+   ]
+  },
+  {
+   "dataset": "chinook",
+   "seed": 4,
+   "pushdown": "auto",
+   "seconds": 27.2,
+   "exit_code": 0,
+   "rows": {
+    "Album": 347,
+    "Artist": 275,
+    "Customer": 59,
+    "Employee": 8,
+    "Genre": 25,
+    "Invoice": 412,
+    "InvoiceLine": 2321,
+    "MediaType": 5,
+    "Playlist": 18,
+    "PlaylistTrack": 8672,
+    "Track": 3503
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 142,
+    "total": 142
+   },
+   "checks": [
+    {
+     "id": "scorecard:Album|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2325
+    },
+    {
+     "id": "scorecard:Artist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2611
+    },
+    {
+     "id": "scorecard:Customer.City|marginal_tvd",
+     "pass": true,
+     "value": 0.4576,
+     "limit": 1.3079
+    },
+    {
+     "id": "scorecard:Customer.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.4392,
+     "limit": 1.1885
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0678,
+     "limit": 0.2284
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.2712,
+     "limit": 0.7797
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.4667,
+     "limit": 0.9427
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.5798,
+     "limit": 0.7127
+    },
+    {
+     "id": "scorecard:Employee.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9253
+    },
+    {
+     "id": "scorecard:Employee.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|marginal_ks",
+     "pass": true,
+     "value": 0.25,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.HireDate|marginal_ks",
+     "pass": true,
+     "value": 0.25,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.HireDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.City|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.6047
+    },
+    {
+     "id": "scorecard:Employee.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.8641
+    },
+    {
+     "id": "scorecard:Genre.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:Genre.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:Genre|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.866
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|marginal_ks",
+     "pass": true,
+     "value": 0.1019,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.Total|marginal_ks",
+     "pass": true,
+     "value": 0.0583,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.Total|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0251,
+     "limit": 0.1741
+    },
+    {
+     "id": "scorecard:Invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.4949,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:InvoiceLine|discriminator_auc",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:MediaType.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:MediaType.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:MediaType|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.9365
+    },
+    {
+     "id": "scorecard:Playlist.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1638
+    },
+    {
+     "id": "scorecard:Playlist.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0949
+    },
+    {
+     "id": "scorecard:Playlist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.0206
+    },
+    {
+     "id": "scorecard:PlaylistTrack|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|marginal_ks",
+     "pass": true,
+     "value": 0.0231,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.Bytes|marginal_ks",
+     "pass": true,
+     "value": 0.022,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Bytes|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track|association_max_diff",
+     "pass": true,
+     "value": 0.0366,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track|discriminator_auc",
+     "pass": true,
+     "value": 0.5162,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0358,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0247,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0052,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks",
+     "pass": true,
+     "value": 0.094,
+     "limit": 0.1448
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks",
+     "pass": true,
+     "value": 0.075,
+     "limit": 0.1448
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0201,
+     "limit": 0.9468
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0493,
+     "limit": 2.149
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd",
+     "pass": true,
+     "value": 0.4879,
+     "limit": 1.3444
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd",
+     "pass": true,
+     "value": 0.4605,
+     "limit": 0.902
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd",
+     "pass": true,
+     "value": 0.2582,
+     "limit": 0.8014
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks",
+     "pass": true,
+     "value": 0.6446,
+     "limit": 1.2454
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks",
+     "pass": true,
+     "value": 0.3554,
+     "limit": 1.2454
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.34
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0197,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0152,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0075,
+     "limit": 1.0843
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 1.0214
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0219,
+     "limit": 2.137
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_ks",
+     "pass": true,
+     "value": 0.0364,
+     "limit": 0.1387
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3064
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.6167
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2984
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1742
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0779,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0362,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.0485,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0362,
+     "limit": 0.1385
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.012,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0049,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks",
+     "pass": true,
+     "value": 0.1111,
+     "limit": 0.5354
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0049,
+     "limit": 1.8037
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_ks",
+     "pass": true,
+     "value": 0.2,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.6358
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3788
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_ks",
+     "pass": true,
+     "value": 0.0548,
+     "limit": 0.1235
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1309
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.05
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_cycles",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5974
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3698
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track|dcr_ratio",
+     "pass": true,
+     "value": 1.6308,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Track|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    }
+   ]
+  },
+  {
+   "dataset": "chinook",
+   "seed": 5,
+   "pushdown": "auto",
+   "seconds": 25.4,
+   "exit_code": 0,
+   "rows": {
+    "Album": 347,
+    "Artist": 275,
+    "Customer": 59,
+    "Employee": 8,
+    "Genre": 25,
+    "Invoice": 412,
+    "InvoiceLine": 2253,
+    "MediaType": 5,
+    "Playlist": 18,
+    "PlaylistTrack": 8714,
+    "Track": 3503
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 142,
+    "total": 142
+   },
+   "checks": [
+    {
+     "id": "scorecard:Album|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2325
+    },
+    {
+     "id": "scorecard:Artist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2611
+    },
+    {
+     "id": "scorecard:Customer.City|marginal_tvd",
+     "pass": true,
+     "value": 0.5085,
+     "limit": 1.3079
+    },
+    {
+     "id": "scorecard:Customer.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.5231,
+     "limit": 1.2727
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0678,
+     "limit": 0.2289
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.3559,
+     "limit": 0.7797
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.4667,
+     "limit": 1.0858
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.5703,
+     "limit": 0.7127
+    },
+    {
+     "id": "scorecard:Employee.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9253
+    },
+    {
+     "id": "scorecard:Employee.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|marginal_ks",
+     "pass": true,
+     "value": 0.25,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.BirthDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.HireDate|marginal_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 1.5818
+    },
+    {
+     "id": "scorecard:Employee.HireDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee.City|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.6047
+    },
+    {
+     "id": "scorecard:Employee.City|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2052
+    },
+    {
+     "id": "scorecard:Employee|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.8641
+    },
+    {
+     "id": "scorecard:Genre.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:Genre.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:Genre|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.866
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|marginal_ks",
+     "pass": true,
+     "value": 0.0364,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.InvoiceDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.Total|marginal_ks",
+     "pass": true,
+     "value": 0.0388,
+     "limit": 0.2267
+    },
+    {
+     "id": "scorecard:Invoice.Total|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 0.1741
+    },
+    {
+     "id": "scorecard:Invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.4619,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:InvoiceLine.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:InvoiceLine|discriminator_auc",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:MediaType.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:MediaType.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:MediaType|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.9365
+    },
+    {
+     "id": "scorecard:Playlist.Name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1638
+    },
+    {
+     "id": "scorecard:Playlist.Name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0949
+    },
+    {
+     "id": "scorecard:Playlist|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.0206
+    },
+    {
+     "id": "scorecard:PlaylistTrack|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|marginal_ks",
+     "pass": true,
+     "value": 0.0177,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Milliseconds|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.Bytes|marginal_ks",
+     "pass": true,
+     "value": 0.01,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.Bytes|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Track.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track|association_max_diff",
+     "pass": true,
+     "value": 0.0146,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Track|discriminator_auc",
+     "pass": true,
+     "value": 0.4915,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0308,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0316,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks",
+     "pass": true,
+     "value": 0.0393,
+     "limit": 0.1439
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks",
+     "pass": true,
+     "value": 0.067,
+     "limit": 0.1439
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.9596
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0514,
+     "limit": 2.0901
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd",
+     "pass": true,
+     "value": 0.5443,
+     "limit": 1.3325
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd",
+     "pass": true,
+     "value": 0.5347,
+     "limit": 0.894
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd",
+     "pass": true,
+     "value": 0.3684,
+     "limit": 0.7943
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd",
+     "pass": true,
+     "value": 0.0195,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks",
+     "pass": true,
+     "value": 0.6412,
+     "limit": 1.2554
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks",
+     "pass": true,
+     "value": 0.4098,
+     "limit": 1.2554
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd",
+     "pass": true,
+     "value": 0.0195,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.34
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks",
+     "pass": true,
+     "value": 0.0199,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks",
+     "pass": true,
+     "value": 0.0125,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0046,
+     "limit": 1.0841
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0107,
+     "limit": 1.031
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd",
+     "pass": true,
+     "value": 0.0268,
+     "limit": 2.1324
+    },
+    {
+     "id": "scorecard:PlaylistTrack.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0,
+     "limit": 3.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.1387
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2936
+    },
+    {
+     "id": "scorecard:Album.ArtistId->Artist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_ks",
+     "pass": true,
+     "value": 0.125,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.6355
+    },
+    {
+     "id": "scorecard:Customer.SupportRepId->Employee|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2984
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1742
+    },
+    {
+     "id": "scorecard:Invoice.CustomerId->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0953,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:InvoiceLine.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.0316,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.1363
+    },
+    {
+     "id": "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks",
+     "pass": true,
+     "value": 0.0077,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks",
+     "pass": true,
+     "value": 0.1111,
+     "limit": 0.5354
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 1.8033
+    },
+    {
+     "id": "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_ks",
+     "pass": true,
+     "value": 0.2,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.6608
+    },
+    {
+     "id": "scorecard:Track.MediaTypeId->MediaType|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_ks",
+     "pass": true,
+     "value": 0.08,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3751
+    },
+    {
+     "id": "scorecard:Track.GenreId->Genre|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_ks",
+     "pass": true,
+     "value": 0.0548,
+     "limit": 0.1235
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1294
+    },
+    {
+     "id": "scorecard:Track.AlbumId->Album|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.05
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7909
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee|tree_cycles",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5974
+    },
+    {
+     "id": "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3698
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Album.Title|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Artist.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track.Composer|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Track|dcr_ratio",
+     "pass": true,
+     "value": 1.7441,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Track|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.005
+    },
+    {
+     "id": "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.005
+    }
+   ]
+  }
+ ],
+ "finished": "2026-10-26T23:14:55+00:00"
+}
