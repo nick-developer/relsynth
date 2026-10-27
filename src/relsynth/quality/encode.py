@@ -33,7 +33,30 @@ def attribute_columns(spec, t):
 
 
 def is_categorical(spec, t, c, real_col):
-    return _is_cat(spec["tables"][t]["columns"][c], real_col)
+    cs = spec["tables"][t]["columns"][c]
+    if "_categorical" in cs:                 # frozen on the whole real table (freeze_kinds)
+        return cs["_categorical"]
+    return _is_cat(cs, real_col)
+
+
+def freeze_kinds(spec, real):
+    """A copy of spec whose columns record whether they are categorical, decided
+    once on the whole real table.  The rule for integers depends on the data
+    (at most 30 distinct values), so a real half or a sample could otherwise
+    treat a column differently from the full table."""
+    out = dict(spec)
+    out["tables"] = {}
+    for t, ts in spec["tables"].items():
+        ts = dict(ts)
+        cols = {}
+        for c, cs in ts.get("columns", {}).items():
+            cs = dict(cs)
+            if t in real and c in real[t]:
+                cs["_categorical"] = bool(_is_cat(cs, real[t][c]))
+            cols[c] = cs
+        ts["columns"] = cols
+        out["tables"][t] = ts
+    return out
 
 
 def spellings(s):
