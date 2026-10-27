@@ -283,18 +283,18 @@ def linkage(ori, syn, control=None, *, aux_cols, n_attacks: int = 500, n_neighbo
 @dataclass
 class InferenceResult:
     risk: Risk
-    secret: str
+    attribute: str
     aux_cols: list
     regression: bool
     correct_ids: list = field(default_factory=list)
 
     def to_dict(self):
-        return {"criterion": "inference", "attack": "nearest_neighbour_inference", "secret": self.secret,
+        return {"criterion": "inference", "attack": "nearest_neighbour_inference", "attribute": self.attribute,
                 **self.risk.to_dict(), "aux_cols": self.aux_cols, "regression": self.regression}
 
 
-def guesses_correct(guess, secret, regression: bool, tolerance: float = 0.05):
-    g, s = np.asarray(guess), np.asarray(secret)
+def guesses_correct(guess, truth, regression: bool, tolerance: float = 0.05):
+    g, s = np.asarray(guess), np.asarray(truth)
     both_null = pd.isna(g) & pd.isna(s)
     if regression:
         g, s = g.astype(float), s.astype(float)
@@ -305,15 +305,15 @@ def guesses_correct(guess, secret, regression: bool, tolerance: float = 0.05):
     return np.asarray(ok | both_null, bool)
 
 
-def inference(ori, syn, control=None, *, secret: str, aux_cols=None, n_attacks: int = 500,
+def inference(ori, syn, control=None, *, attribute: str, aux_cols=None, n_attacks: int = 500,
               regression: bool | None = None, seed: int = 0, level: float = 0.95) -> InferenceResult:
     """Attribute inference attack (Giomi et al. sec. 3.3): the attacker knows the
     aux columns of a person, finds the nearest synthetic row and guesses its
-    secret.  The baseline guesses the secret of a random synthetic row."""
+    attribute.  The baseline guesses the attribute of a random synthetic row."""
     rng = np.random.default_rng(seed)
-    aux = [c for c in (aux_cols or [c for c in ori.columns if c != secret]) if c != secret]
+    aux = [c for c in (aux_cols or [c for c in ori.columns if c != attribute]) if c != attribute]
     if regression is None:
-        regression = ori[secret].dtype.kind in "fiu" and ori[secret].nunique() > 20
+        regression = ori[attribute].dtype.kind in "fiu" and ori[attribute].nunique() > 20
     frames = [ori, syn] + ([control] if control is not None else [])
     enc = Encoder(frames, aux)
 
@@ -321,12 +321,12 @@ def inference(ori, syn, control=None, *, secret: str, aux_cols=None, n_attacks: 
         n = min(n_attacks, len(df))
         t = df.sample(n, random_state=int(rng.integers(2**31)))
         i, _ = kneighbors(enc, t[aux], syn[aux], 1, rng=rng)
-        ok = guesses_correct(syn[secret].to_numpy()[i[:, 0]], t[secret].to_numpy(), regression)
+        ok = guesses_correct(syn[attribute].to_numpy()[i[:, 0]], t[attribute].to_numpy(), regression)
         return n, int(ok.sum()), t.index[ok].tolist()
 
     n_o, k_o, ids = attack(ori)
     n_c, k_c = (attack(control)[:2] if control is not None else (None, None))
     t = ori.sample(min(n_attacks, len(ori), len(syn)), random_state=int(rng.integers(2**31)))
-    g = syn[secret].sample(len(t), random_state=int(rng.integers(2**31))).to_numpy()
-    k_b = int(guesses_correct(g, t[secret].to_numpy(), regression).sum())
-    return InferenceResult(risk(n_o, k_o, n_c, k_c, len(t), k_b, level), secret, aux, bool(regression), ids)
+    g = syn[attribute].sample(len(t), random_state=int(rng.integers(2**31))).to_numpy()
+    k_b = int(guesses_correct(g, t[attribute].to_numpy(), regression).sum())
+    return InferenceResult(risk(n_o, k_o, n_c, k_c, len(t), k_b, level), attribute, aux, bool(regression), ids)

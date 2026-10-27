@@ -140,13 +140,13 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
     # without declared sensitive attributes, the person's behaviour in the owned
     # tables (what they bought, how much) stands in, then their other attributes
     behaviour = [c for c in cols if any(c.startswith(f"{o}.") for o in unit.owned) and not c.endswith(".n_rows")]
-    secrets = sensitive or ([c for c in behaviour if c not in qis] or [c for c in cols if c not in qis])[:5]
-    for sec in secrets:
+    guessed = sensitive or ([c for c in behaviour if c not in qis] or [c for c in cols if c not in qis])[:5]
+    for sec in guessed:
         for knows, known in (("quasi_identifiers", qis), ("all", [c for c in cols if c != sec])):
             known = [c for c in known if c != sec]
             if not known:
                 continue
-            r = criteria.inference(P_tr, P_syn, P_c, secret=sec, aux_cols=known, n_attacks=A["inference"]["n_attacks"],
+            r = criteria.inference(P_tr, P_syn, P_c, attribute=sec, aux_cols=known, n_attacks=A["inference"]["n_attacks"],
                                    seed=seed, level=level)
             d = r.to_dict()
             d["attacker_knows"] = knows
@@ -155,7 +155,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             if sec in sensitive and r.risk.ci[0] > 0:
                 flags["inferred"] |= set(r.correct_ids)
             if A["attribute_inference"] is not False and len(P_r) >= 20:
-                a = attribute_inference(P_tr, P_c, P_syn, P_r, secret=sec, known=known,
+                a = attribute_inference(P_tr, P_c, P_syn, P_r, attribute=sec, known=known,
                                         max_rows=A["attribute_inference"].get("max_rows", 20000), seed=seed,
                                         level=level)
                 gained = set(a.pop("_gained_ids"))
@@ -225,7 +225,7 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
                 "mia_auc": float(row["risk_auc"]), "mia_auc_ci": sim_ci, "ci_level": sim_level,
                 "best_attack": best.replace("_auc", "") if best else None,
                 "isolated": pid in flags["isolated"], "linked": pid in flags["linked"],
-                "secret_inferred": pid in flags["inferred"] or pid in flags["attribute"],
+                "attribute_inferred": pid in flags["inferred"] or pid in flags["attribute"],
                 "domias_percentile": float((dom_scores < dom_scores.get(pid, -np.inf)).mean())
                 if dom_scores is not None and pid in dom_scores.index else None})
 
@@ -306,14 +306,14 @@ def judge(rep: dict, name: str, ctx: dict) -> dict:
     for r in A["inference"]:
         if r.get("attacker_knows") != ("quasi_identifiers" if knows == "quasi_identifiers" else "all"):
             continue
-        add("inference", f"{r['attack']}:{r['secret']}", r["value"], r["ci"], th["risk"],
-            f"share of people whose {r['secret']} is guessed from the synthetic data, above unseen people")
+        add("inference", f"{r['attack']}:{r['attribute']}", r["value"], r["ci"], th["risk"],
+            f"share of people whose {r['attribute']} is guessed from the synthetic data, above unseen people")
     for r in A["attribute_inference"]:
         if r.get("attacker_knows") != ("quasi_identifiers" if knows == "quasi_identifiers" else "all"):
             continue
         sl = r["specific_leakage"]
-        add("inference", f"{r['attack']}:{r['secret']}", sl["value"], sl["ci"], th["attribute_leakage"],
-            f"accuracy on {r['secret']} gained from the synthetic data beyond population data, members minus "
+        add("inference", f"{r['attack']}:{r['attribute']}", sl["value"], sl["ci"], th["attribute_leakage"],
+            f"accuracy on {r['attribute']} gained from the synthetic data beyond population data, members minus "
             "non-members")
     M = A["membership"]
     if "domias" in M and M["domias"].get("identified"):

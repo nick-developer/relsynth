@@ -104,11 +104,11 @@ def context_markdown(rep: dict, name: str) -> str:
     recs = rep.get("vulnerable_records") or []
     if recs:
         lines += ["## People most at risk", "", "| Rank | Person | Membership AUC | Interval | Singled out | Linked "
-                  "| Secret guessed |", "|---|---|---|---|---|---|---|"]
+                  "| Attribute guessed |", "|---|---|---|---|---|---|---|"]
         for r in recs:
             yn = lambda b: "yes" if b else "no"  # noqa: E731
             lines.append(f"| {r['rank']} | {r['person']} | {_f(r['mia_auc'])} | {_ci(r.get('mia_auc_ci'))} | "
-                         f"{yn(r['isolated'])} | {yn(r['linked'])} | {yn(r['secret_inferred'])} |")
+                         f"{yn(r['isolated'])} | {yn(r['linked'])} | {yn(r['attribute_inferred'])} |")
         sh = ((rep.get("attacks") or {}).get("membership") or {}).get("shadow") or {}
         n_sh = (sh.get("n_shadows_train") or 0) + (sh.get("n_shadows_test") or 0)
         lev = recs[0].get("ci_level")
@@ -117,7 +117,7 @@ def context_markdown(rep: dict, name: str) -> str:
                   + (f"{n_sh} " if n_sh else "") + "shadow releases shared by all targets"
                   + (f"; intervals hold for all listed people at once (each at {100 * lev:.2f}%), because the "
                      "list picks the highest of many results" if lev else "") + ". 'Singled out', 'linked' and "
-                  "'secret guessed' are marked only when that attack beats the control as a whole.", ""]
+                  "'attribute guessed' are marked only when that attack beats the control as a whole.", ""]
     lines += ["## What to do", ""] + [f"- {a}" for a in _advice(rep, ctx)] + [""]
     return "\n".join(lines)
 
@@ -131,7 +131,7 @@ def annex_markdown(rep: dict) -> str:
           "| Attack | Risk | Interval | Attack rate | Control rate | Baseline rate | Beats baseline |",
           "|---|---|---|---|---|---|---|"]
     for r in A["record_isolation"] + A["linkage"] + A["inference"]:
-        name = r["attack"] + (f" ({r['secret']}, knows {r.get('attacker_knows')})" if "secret" in r else "")
+        name = r["attack"] + (f" ({r['attribute']}, knows {r.get('attacker_knows')})" if "attribute" in r else "")
         L.append(f"| {name} | {_f(r['value'])} | {_ci(r['ci'])} | {_f(r['attack_rate']['value'])} | "
                  f"{_f((r.get('control_rate') or {}).get('value'))} | {_f((r.get('baseline_rate') or {}).get('value'))}"
                  f" | {'yes' if r['attack_beats_baseline'] else 'no'} |")
@@ -140,10 +140,10 @@ def annex_markdown(rep: dict) -> str:
         L += ["", "Example isolating queries (on the synthetic data): " + "; ".join(f"`{q}`" for q in ex)]
     if A["attribute_inference"]:
         L += ["", "## Attribute inference against a population baseline", "",
-              "| Secret | Knows | Accuracy (synthetic, members) | Accuracy (population, members) | "
+              "| Attribute | Knows | Accuracy (synthetic, members) | Accuracy (population, members) | "
               "Advantage members | Advantage non-members | Specific leakage | Interval |", "|---|---|---|---|---|---|---|---|"]
         for r in A["attribute_inference"]:
-            L.append(f"| {r['secret']} | {r['attacker_knows']} | {_f(r['accuracy_syn_members'])} | "
+            L.append(f"| {r['attribute']} | {r['attacker_knows']} | {_f(r['accuracy_syn_members'])} | "
                      f"{_f(r['accuracy_population_members'])} | {_f(r['advantage_members']['value'])} | "
                      f"{_f(r['advantage_non_members']['value'])} | {_f(r['specific_leakage']['value'])} | "
                      f"{_ci(r['specific_leakage']['ci'])} |")
