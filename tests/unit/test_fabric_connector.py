@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects import mssql
 
-pytest.importorskip("pyodbc")
+pytest.importorskip("pyodbc", exc_type=ImportError)  # also when libodbc is missing
 pytest.importorskip("azure.identity")
 
 from relsynth.connectors import connect  # noqa: E402
