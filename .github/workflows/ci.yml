@@ -280,6 +280,40 @@ jobs:
       - run: JAVA_HOME="$JAVA_HOME_17_X64" tests/emulators/databricks/start.sh
       - run: pytest -m databricks tests/integration -q
 
+  # Snowflake through its real connector and dialect, against fakesnow (its REST
+  # protocol over DuckDB; tests/emulators/snowflake). fakesnow 0.12 speaks the
+  # protocol of connector 4, which snowflake-sqlalchemy 1.x accepts.
+  snowflake-stand-in:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RELSYNTH_TEST_SNOWFLAKE_URL: "snowflake://rs:rs-stand-in@fake/RSDB/PUBLIC?warehouse=WH"
+      RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS: '{"host": "localhost", "port": 8085, "protocol": "http"}'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]" "snowflake-connector-python[pandas]<5" "snowflake-sqlalchemy<2" "fakesnow[server]==0.12.1"
+      - name: Start the stand-in
+        run: |
+          nohup python tests/emulators/snowflake/serve.py 8085 > fakesnow.log 2>&1 &
+          python - <<'EOF'
+          import json, os, time, sqlalchemy as sa
+          args = json.loads(os.environ["RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS"])
+          for _ in range(30):
+              try:
+                  with sa.create_engine("snowflake://rs:x@fake/RSDB", connect_args=args).begin() as con:
+                      con.exec_driver_sql("CREATE DATABASE IF NOT EXISTS RSDB")
+                  break
+              except Exception as e:
+                  err = e; time.sleep(2)
+          else:
+              raise SystemExit(f"fakesnow did not start: {err}")
+          EOF
+      - run: pytest -m snowflake tests/integration -q
+
   build:
     needs: [unit, e2e, types]
     runs-on: ubuntu-latest
