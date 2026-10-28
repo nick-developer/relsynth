@@ -282,7 +282,8 @@ jobs:
 
   # Snowflake through its real connector and dialect, against fakesnow (its REST
   # protocol over DuckDB; tests/emulators/snowflake). fakesnow 0.12 speaks the
-  # protocol of connector 4, which snowflake-sqlalchemy 1.x accepts.
+  # protocol of connector 4, which snowflake-sqlalchemy 1.x accepts; 1.x does
+  # not run on SQLAlchemy 2.1, so this job stays on 2.0.
   snowflake-stand-in:
     needs: lint
     runs-on: ubuntu-latest
@@ -295,7 +296,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[dev]" "snowflake-connector-python[pandas]<5" "snowflake-sqlalchemy<2" "fakesnow[server]==0.12.1"
+      - run: pip install -e ".[dev]" "snowflake-connector-python[pandas]<5" "snowflake-sqlalchemy<2" "fakesnow[server]==0.12.1" "sqlalchemy<2.1"
       - name: Start the stand-in
         run: |
           nohup python tests/emulators/snowflake/serve.py 8085 > fakesnow.log 2>&1 &
