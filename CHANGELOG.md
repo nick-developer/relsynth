@@ -17,6 +17,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **Standards**: ODCS v3.2.0 export and v3.0–3.2 import (exact round trip through `customProperties`); OpenLineage Schema, DatasetType, Documentation, Tags and ColumnLineage facets.
 - Extra `relsynth[ir]` (jsonschema) for the JSON Schema check.
 
+### Deprecation
+
+- 2.x reads 1.0 specs and IR 2.x documents alike. Reading a 1.0 spec warns from 3.0 at the earliest and stops no earlier than 4.0 and 24 months after 2.0. `relsynth ir migrate` stays in every release.
+
 ## 1.0.1 (2026-10-28)
 
 Synthetic draws for the same seed are unchanged from 1.0.0.
@@ -28,10 +32,6 @@ Synthetic draws for the same seed are unchanged from 1.0.0.
 ### Fixed
 
 - `relsynth run --bundle` (and `api.run(..., bundle=...)`) no longer fails after writing and scoring when a numeric column of a nullable pandas dtype is constant: its skew in the bundle's profile is recorded as null (seen on AdventureWorks DW).
-
-### Deprecation
-
-- 2.x reads 1.0 specs and IR 2.x documents alike. Reading a 1.0 spec warns from 3.0 at the earliest and stops no earlier than 4.0 and 24 months after 2.0. `relsynth ir migrate` stays in every release.
 
 ## 1.0.0 
 
