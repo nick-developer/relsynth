@@ -153,3 +153,33 @@ def test_link_degree_spec_values():
     raw["tables"]["bond"]["fact"] = {"link_degree": "sometimes"}
     with pytest.raises(SpecError, match="link_degree"):
         rs.Spec(raw).resolved
+
+
+def test_complete_grid_stays_complete():
+    """Every product on every date (AdventureWorks inventory): complete blocks are
+    structural, so the degree law leaves them as the occupancy model draws them."""
+    from relsynth.data import coerce
+    prods = pd.DataFrame({"product_id": [f"p{i}" for i in range(40)],
+                          "colour": np.random.default_rng(0).choice(["red", "blue"], size=40)})
+    dates = pd.DataFrame({"date_id": [f"d{i}" for i in range(30)]})
+    inv = pd.DataFrame([(p, d) for p in prods["product_id"] for d in dates["date_id"]],
+                       columns=["product_id", "date_id"])
+    inv["units"] = np.random.default_rng(1).poisson(5, size=len(inv))
+    raw = {"name": "grid", "tables": {
+        "product": {"columns": {"product_id": "id", "colour": "categorical"}, "primary_key": "product_id"},
+        "date": {"columns": {"date_id": "id"}, "primary_key": "date_id"},
+        "inventory": {"columns": {"product_id": "id", "date_id": "id", "units": "integer"}, "role": "fact",
+                      "unique": [["product_id", "date_id"]]}},
+        "relationships": [{"child": "inventory", "child_key": "product_id", "parent": "product"},
+                          {"child": "inventory", "child_key": "date_id", "parent": "date"}]}
+    out = {}
+    for setting in ("segment", "auto"):
+        spec = rs.Spec(raw).resolved
+        spec["synthesis"]["facts"]["link_degree"] = setting
+        real = {t: coerce(df, spec["tables"][t]) for t, df in {"product": prods, "date": dates, "inventory": inv}.items()}
+        syn = Synthesizer(spec).fit(real).sample(scale=spec["synthesis"]["scale"], index=0)
+        g = syn["inventory"]
+        assert len(g) == len(syn["product"]) * len(syn["date"])
+        assert not g.duplicated(["product_id", "date_id"]).any()
+        out[setting] = g
+    pd.testing.assert_frame_equal(out["segment"], out["auto"])          # complete blocks untouched

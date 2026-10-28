@@ -1933,7 +1933,7 @@ class Synthesizer:
                 dec[f"{key} degree_model"] = f"nb (size {r:.3g})"
         info["no_loops"] = e1 is e2 and not bool(np.any(rel.u == rel.v))
 
-    def _link_degrees(self, f, info, rel, z1, z2, u, v, blk, elig1=None, elig2=None, unique=False):
+    def _link_degrees(self, f, info, rel, z1, z2, u, v, blk, elig1=None, elig2=None, unique=False, skip=None):
         """Rows of a pair fact with the DP degree law on its keys (_fit_link_degree).
         The block of every row is kept, so the block totals N_kl and with them the
         scale rule and the attribute groups are those of the block model.  Per side
@@ -1947,7 +1947,8 @@ class Synthesizer:
         block configuration model).  Repeated pairs (occupancy facts, whose pairs are
         unique) and self-links (a link table to one parent whose source has none) are
         then removed by swapping partners within the block, which keeps both degree
-        sequences and the blocks (_repair_pairs)."""
+        sequences and the blocks (_repair_pairs).  skip = (anchor segments, partner
+        segments) whose rows keep their draw (segments touching complete blocks)."""
         ld = info.get("link_degree")
         if not ld or not len(u):
             return u, v, blk
@@ -1955,7 +1956,7 @@ class Synthesizer:
         rng = self.rng
         sides = (("anchor", z1, u, blk // K2, elig1), ("partner", z2, v, blk % K2, elig2))
         out = {}
-        for (side, z, idx, seg, mask), (_, other_z, _, other_seg, _) in zip(sides, sides[::-1]):
+        for si, ((side, z, idx, seg, mask), (_, other_z, _, other_seg, _)) in enumerate(zip(sides, sides[::-1])):
             dp = ld.get(side)
             out[side] = idx
             if dp is None or (side == "anchor" and mask is not None):
@@ -1965,6 +1966,8 @@ class Synthesizer:
             ks, starts = np.unique(seg[order], return_index=True)
             members = z if mask is None else np.where(mask, z, -1)
             for k, E in zip(ks.tolist(), np.split(order, starts[1:])):
+                if skip is not None and k in skip[si]:
+                    continue
                 M = np.flatnonzero(members == k)
                 if not len(M):
                     continue
@@ -3457,8 +3460,8 @@ class Synthesizer:
                 el2 = (m2 > 0) if m2.min() < 1 else None
                 u, v, blk = self._sample_occ(
                     rel, z1, z2, g, min_one=info.get("occ_min_one", False), elig=elig, f=f, elig2=el2,
-                    rewire=lambda u_, v_, b_: self._link_degrees(f, info, rel, z1, z2, u_, v_, b_, elig, el2,
-                                                                 unique=True))
+                    rewire=lambda u_, v_, b_, sk: self._link_degrees(f, info, rel, z1, z2, u_, v_, b_, elig, el2,
+                                                                     unique=True, skip=sk))
             else:
                 u, v, blk = self._sample_poisson_pairs(rel, z1, z2, info, w1, w2, elig=elig, f=f)
                 u, v, blk = self._link_degrees(f, info, rel, z1, z2, u, v, blk, elig,
@@ -4019,8 +4022,17 @@ class Synthesizer:
         u = np.concatenate(us) if us else np.zeros(0, dtype=np.int64)
         v = np.concatenate(vs) if vs else np.zeros(0, dtype=np.int64)
         blk = np.concatenate(bl) if bl else np.zeros(0, dtype=np.int64)
-        if rewire is not None:
-            u, v, blk = rewire(u, v, blk)
+        if rewire is not None and len(u):
+            # pairs of complete blocks (p = 1, e.g. every product on every date) are
+            # structural: they and the segments they touch keep the occupancy draw
+            free = rel.p.reshape(-1)[blk] < 1
+            if free.all():
+                u, v, blk = rewire(u, v, blk, None)
+            elif free.any():
+                skip = (set((blk[~free] // e2.K).tolist()), set((blk[~free] % e2.K).tolist()))
+                uf, vf, bf = rewire(u[free], v[free], blk[free], skip)
+                u, v, blk = np.concatenate([u[~free], uf]), np.concatenate([v[~free], vf]), \
+                    np.concatenate([blk[~free], bf])
         mb = rel.mult_by
         if mb != "none" and len(u):
             if mb == "partner":
