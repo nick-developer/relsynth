@@ -271,7 +271,8 @@ class H(BaseHTTPRequestHandler):
         self.send_response(r.status)
         for k, v in r.getheaders():
             if k.lower() not in ("content-length", "transfer-encoding", "connection"):
-                self.send_header(k, v)
+                # relayed from the Thrift server: drop line breaks so no header can be injected
+                self.send_header(k.replace("\r", "").replace("\n", ""), v.replace("\r", "").replace("\n", ""))
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
