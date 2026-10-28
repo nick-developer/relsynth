@@ -117,11 +117,12 @@ S = {
         "count_model": ("auto | poisson | dp", "auto", "Rows per anchor: Poisson/negative binomial or a "
                         "Dirichlet-process count law."),
         "group_fallback": ("auto | anchor | partner", "auto", "Which dimension's marginals a sparse block borrows."),
-        "link_degree": ("auto | segment | dp", "segment", "Degree law of the two keys of a link table (bonds per "
-                        "atom as the second atom, actors per movie). segment: rows spread within segments as in "
-                        "1.0. auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the "
-                        "count-model Bayes factor gets it, with the block totals kept. dp: the DP law on every "
-                        "modelled key."),
+        "link_degree": ("auto | segment | dp", "auto", "Degree law of the two keys of a link table (bonds per "
+                        "atom as the second atom, actors per movie). auto: a key whose degrees prefer a "
+                        "Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it, with "
+                        "the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows "
+                        "effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on "
+                        "every modelled key."),
         "time_column": ("column", None, "Date column with a seasonal profile per segment."),
         "time_bucket": ("day | week | month | quarter | year", "month", "Bucket of the seasonal profile."),
         "condition_on_parents": ("bool | list of fk.col", True, "Condition measures on parents' continuous "

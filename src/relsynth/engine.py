@@ -1900,7 +1900,7 @@ class Synthesizer:
         rows (their own observed shares), virtual dimensions and eligibility groups
         keep the segment law."""
         T = self.spec["tables"][f]
-        setting = T["fact"].get("link_degree", self.cfg["facts"].get("link_degree", "segment"))
+        setting = T["fact"].get("link_degree", self.cfg["facts"].get("link_degree", "auto"))
         info["link_degree"] = {}
         if setting == "segment" or rel.kind not in ("fact", "occ") or info.get("eligibility") or info.get("vdim"):
             return
