@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """A local stand-in for a Databricks SQL warehouse: forwards the Databricks SQL
 connector's Thrift-over-HTTP calls to an Apache Spark Thrift server (Delta Lake).
 
