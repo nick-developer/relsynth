@@ -30,6 +30,7 @@ CI runs every layer on every pull request; [development/ci.md](development/ci.md
 | `tests/e2e/test_cli.py` | Every CLI command as a CI job runs it: JSON output, exit codes 0–4, `--set`, reports, bundles | |
 | `tests/integration/test_servers.py` | On each live server: write and read, catalog, introspect, pushdown fit, identical output to SQLite, every write mode, cloning both ways, statistics parity, seeded samples, hostile identifiers, masked errors | `RELSYNTH_TEST_*_URL` |
 | `tests/integration/test_mysql.py` | MySQL and MariaDB specifics: exact text statistics under case-insensitive collations, the SHA-256 sample hash against Python, DOUBLE / DATETIME(6) / 4-byte UTF-8 round trips, TEXT keys and wide tables within MySQL's index and row limits, a MariaDB server behind a `mysql://` URL | `RELSYNTH_TEST_MYSQL_URL`, `RELSYNTH_TEST_MARIADB_URL` |
+| `tests/unit/test_warehouses.py` | Cloud warehouses without a warehouse: credentials from the environment (never the spec), each sign-in method's driver arguments, compiled SQL (casts, the SHA-256 sample hash), created types, declared keys per platform, literals, cost guards and query tags | |
 | `tests/science/test_legacy_checks.py` | The check suite C00–C78. Each check tests a numbered proposition on fake data with known ground truth: posterior recovery, calibration, identification, rules, privacy, reproducibility | about an hour |
 
 Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session.
@@ -63,6 +64,7 @@ pytest tests/integration -v
 - Each test works in a fresh schema (`rs_<random>`) and drops it afterwards.
 - On Oracle, a schema is a user, so tests use the connecting user's schema and drop the tables they created.
 - On MySQL and MariaDB, a schema is a database, so the test user must be allowed to create and drop databases (the compose file uses `root`).
+- Databricks runs against a local stand-in (Spark 3.5 with Delta Lake behind a protocol proxy): `tests/emulators/databricks/start.sh`, then the two variables its header lists, then `pytest -m databricks tests/integration`. A real workspace works the same way with its own URL and credentials.
 - SQL Server tests need the Microsoft ODBC Driver 18, or `relsynth[mssql-pymssql]` with a `mssql+pymssql://` URL.
 
 ## The statistical check suite

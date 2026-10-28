@@ -173,6 +173,7 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
+| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.3 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
 | SQLite | yes | yes | yes | SQLite 3.45 |
 | CSV folder | yes (also `.csv.gz`) | yes | yes, with DuckDB over the files | yes |
 | Parquet folder | yes | yes | yes, with DuckDB over the files | yes (pyarrow 26, DuckDB 2.0) |
