@@ -275,7 +275,9 @@ class FabricConnector(WarehouseConnector, MSSQLConnector):
             raise ValueError("bulk.stage must be an https:// URL of an ADLS Gen2 or OneLake folder")
         name = f"relsynth_{tbl.name}_{uuid.uuid4().hex[:12]}.parquet".replace("/", "_")
         buf = io.BytesIO()
-        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), buf)
+        # microseconds (DATETIME2(6)), not the nanoseconds pandas 2 writes
+        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), buf, coerce_timestamps="us",
+                       allow_truncated_timestamps=True)
         from urllib.parse import urlsplit
 
         from azure.storage.filedatalake import DataLakeFileClient
