@@ -72,15 +72,15 @@ pip install "relsynth[speed]"              # optional numba kernels (same output
 From a checkout or a wheel file:
 
 ```bash
-pip install ./layer3            # or: pip install relsynth-1.0.0-py3-none-any.whl
+pip install ./layer3            # or: pip install relsynth-1.0.1-py3-none-any.whl
 relsynth version                # versions of relsynth and its main dependencies
 ```
 
 A container image is described in the [Dockerfile](Dockerfile) (all drivers and ODBC Driver 18 included):
 
 ```bash
-docker build -t relsynth:1.0.0 .
-docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:1.0.0 run /work/spec.yaml --json
+docker build -t relsynth:1.0.1 .
+docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:1.0.1 run /work/spec.yaml --json
 ```
 
 ## Quick start (command line)
@@ -258,7 +258,7 @@ A job that refreshes a test database every night and fails when quality drops:
 
 ```yaml
 # .github/workflows/synthetic-data.yml (excerpt)
-- run: pip install "relsynth[postgres]==1.0.0"
+- run: pip install "relsynth[postgres]==1.0.1"
 - run: relsynth check spec.yaml --connect --json
 - run: relsynth run spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98 --json > run.json
   env:
