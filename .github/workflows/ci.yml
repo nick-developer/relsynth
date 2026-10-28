@@ -168,6 +168,8 @@ jobs:
       RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
       RELSYNTH_TEST_MYSQL_URL: mysql://root:RelSynthTest1@127.0.0.1:3306/relsynth
       RELSYNTH_TEST_MARIADB_URL: mariadb://root:RelSynthTest1@127.0.0.1:3307/relsynth
+      # Microsoft Fabric's T-SQL on the same SQL Server, in a UTF-8 database (tests/emulators/fabric)
+      RELSYNTH_TEST_FABRIC_URL: "fabric://sa:RelSynth_Test1!@localhost:1433/rs_fabric?TrustServerCertificate=yes"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -188,7 +190,7 @@ jobs:
           fi
           sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
           odbcinst -q -d -n "ODBC Driver 18 for SQL Server"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,fabric]"
       - name: Wait for SQL Server
         run: |
           python - <<'EOF'
@@ -202,6 +204,8 @@ jobs:
                   err = e; time.sleep(5)
           else:
               raise SystemExit(f"SQL Server did not accept connections: {err}")
+          from relsynth.connectors.fabric import stand_in_database
+          stand_in_database(url, "rs_fabric")
           EOF
       - run: pytest tests/integration -q
 
