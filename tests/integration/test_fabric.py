@@ -74,7 +74,9 @@ def test_sample_hash_is_sha256_of_the_utf8_key(db):
 def test_statistics_are_exact_in_a_case_insensitive_collation(unique_schema):
     """A Fabric warehouse may be created case-insensitive
     (Latin1_General_100_CI_AS_KS_WS_SC_UTF8): grouping still sees 'a' and 'A'."""
-    url = os.environ["RELSYNTH_TEST_FABRIC_URL"]
+    url = os.environ.get("RELSYNTH_TEST_FABRIC_URL")
+    if not url:
+        pytest.skip("RELSYNTH_TEST_FABRIC_URL is not set")
     if "localhost" not in url and "127.0.0.1" not in url:
         pytest.skip("creates a database: stand-in only")
     master = sa.engine.make_url(url).set(drivername="mssql+pyodbc", database="master").update_query_dict(
