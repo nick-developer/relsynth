@@ -9,6 +9,7 @@ relsynth reads from and writes to one *location* at a time: a schema of a SQL da
 | Oracle | `oracle://user@host:1521/?service_name=ORCLPDB1` | `{kind: oracle, url: ..., schema: SALES}` | python-oracledb, thin mode (`relsynth[oracle]`) | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | `mysql://user@host:3306/sales`, `mariadb://user@host:3306/sales` | `{kind: mysql, url: ..., schema: sales}` | PyMySQL (`relsynth[mysql]`); mysqlclient is used when installed | MySQL 8.4.13, MariaDB 11.4.13 |
 | Databricks SQL | `databricks://<host>?http_path=/sql/1.0/warehouses/<id>&catalog=main` | `{kind: databricks, url: ..., schema: sales, auth: {...}}` | databricks-sqlalchemy (`relsynth[databricks]`) | Spark 3.5.3 + Delta 3.2.1 stand-in; see [warehouses.md](warehouses.md) |
+| Microsoft Fabric | `fabric://<id>.datawarehouse.fabric.microsoft.com/<warehouse>` | `{kind: fabric, url: ..., schema: dbo, auth: {method: azure-cli}}` | pyodbc + ODBC Driver 18, azure-identity (`relsynth[fabric]`) | SQL Server 2022 stand-in in a UTF-8 database; see [warehouses.md](warehouses.md) |
 | SQLite | `sqlite:shop.db`, `sqlite:///shop.db`, or a path ending in `.db` | `{kind: sqlite, path: shop.db}` | standard library | SQLite 3.45 |
 | CSV folder | `csv:data/` (also `files:data/`) | `{kind: csv, path: data, null_values: ["", "n/a"]}` | pandas | yes |
 | Parquet folder | `parquet:lake/sales/` | `{kind: parquet, path: lake/sales}` | pyarrow (`relsynth[parquet]`) | yes |

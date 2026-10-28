@@ -65,6 +65,7 @@ pytest tests/integration -v
 - On Oracle, a schema is a user, so tests use the connecting user's schema and drop the tables they created.
 - On MySQL and MariaDB, a schema is a database, so the test user must be allowed to create and drop databases (the compose file uses `root`).
 - Databricks runs against a local stand-in (Spark 3.5 with Delta Lake behind a protocol proxy): `tests/emulators/databricks/start.sh`, then the two variables its header lists, then `pytest -m databricks tests/integration`. A real workspace works the same way with its own URL and credentials.
+- Microsoft Fabric runs against SQL Server 2022 in a UTF-8 database (`tests/emulators/fabric/README.md`): set `RELSYNTH_TEST_FABRIC_URL`, then `pytest -m fabric tests/integration`. The integration CI job does this on its SQL Server service.
 - SQL Server tests need the Microsoft ODBC Driver 18, or `relsynth[mssql-pymssql]` with a `mssql+pymssql://` URL.
 
 ## The statistical check suite
