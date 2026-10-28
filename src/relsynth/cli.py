@@ -426,6 +426,43 @@ def cmd_profile(a, out):
     return EXIT_OK
 
 
+def cmd_privacy(a, out):
+    from . import privacy as P
+    s = _spec(a)
+    cfg = P.load_config(a.config) if a.config else P.load_config()
+    if a.cache:
+        cfg["cache"] = a.cache
+    if a.jobs:
+        cfg["attacks"]["membership"]["shadow"]["n_jobs"] = a.jobs
+    if a.no_shadow:
+        cfg["attacks"]["membership"]["shadow"]["enabled"] = False
+    salt = bytes.fromhex(Path(a.salt_file).read_text().strip()) if a.salt_file and Path(a.salt_file).exists() else None
+    rep = P.assess(s, cfg, salt=salt, progress=lambda m: out.line(m))
+    P.sign_off(rep, a.signed_off_by)
+    paths = P.write_report(rep, a.out)
+    if salt is None:
+        # the salt maps person labels back to keys: kept apart from the report, readable by the owner only
+        sf = Path(a.salt_file or Path(a.out) / "privacy_salt.key")
+        sf.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(sf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(rep["_salt"] + "\n")
+        out.line(f"pseudonym salt -> {sf} (keep it private; do not share it with the report)")
+    verdicts = {n: c["verdict"] for n, c in rep["contexts"].items()}
+    out.put(privacy={"verdicts": verdicts, "report": paths, "seconds": rep["timings"]["total_seconds"]})
+    for n, v in verdicts.items():
+        out.line(f"{n}: {v.upper()}")
+    out.line(f"report -> {paths['html']}")
+    if a.context:
+        # verdicts from mildest to worst; blocked, and a review still waiting for its sign-off, count as fail
+        rank = ("pass", "review", "fail")
+        ctx = rep["contexts"].get(a.context)
+        v = P.gate_verdict(ctx) if ctx else "fail"
+        if rank.index(v) >= rank.index(a.fail_on):
+            return EXIT_GATE
+    return EXIT_OK
+
+
 def cmd_ping(a, out):
     from .api import ping
     p = ping(_location(a, "source"))
@@ -524,6 +561,23 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--report", help="write the checks as Markdown")
     s.add_argument("--bundle", help="write a diagnostics bundle with the checks (for doctor)")
     s.set_defaults(fn=cmd_verify)
+
+    s = sub.add_parser("privacy", help="attack a release per person and write a privacy report per release context")
+    _spec_args(s)
+    s.add_argument("--config", help="privacy.yaml: privacy unit, sensitive attributes, quasi-identifiers, "
+                                    "contexts and limits (docs/privacy.md)")
+    s.add_argument("--out", default="privacy_report", help="folder for privacy_report.json, .md and .html")
+    s.add_argument("--cache", help="folder that keeps shadow fits between runs")
+    s.add_argument("--jobs", type=int, help="parallel shadow fits")
+    s.add_argument("--no-shadow", action="store_true", help="skip shadow-model membership inference (fast)")
+    s.add_argument("--salt-file", help="secret salt for person labels (hex); reused when it exists, else a new "
+                                       "one is written there (default: OUT/privacy_salt.key)")
+    s.add_argument("--context", help="gate on this release context (internal, partner, public): exit 1 when its "
+                                     "verdict reaches --fail-on")
+    s.add_argument("--fail-on", default="fail", choices=["review", "fail"])
+    s.add_argument("--signed-off-by", help="the person (the DPO) who signs off a 'review' verdict; without it a "
+                                           "review that needs a sign-off counts as fail at the gate")
+    s.set_defaults(fn=cmd_privacy)
 
     s = sub.add_parser("evaluate", help="score synthetic data already written")
     _spec_args(s)
