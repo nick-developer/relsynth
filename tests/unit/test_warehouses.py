@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Cloud warehouse connectors without a warehouse: compiled SQL, created types,
 literals, credentials from the environment and cost guards."""
 from __future__ import annotations
@@ -54,7 +55,7 @@ def test_auth_comes_from_the_environment_never_the_spec(monkeypatch):
 
 
 def test_databricks_token_reaches_the_driver_only(dbx):
-    assert dbx.kind == "databricks" and dbx.schema == "sales" and dbx.catalog == "main"
+    assert dbx.kind == "databricks" and dbx.schema == "sales" and dbx.catalog_name == "main" and callable(dbx.catalog)
     assert "dapi-secret-123" not in dbx.location() and "dapi-secret-123" not in repr(dbx.engine.url)
     assert not hasattr(dbx, "token")
 
@@ -132,7 +133,7 @@ def test_databricks_declares_only_what_it_supports(dbx):
     assert "PRIMARY KEY" not in ddl and "REFERENCES" not in ddl and "IDENTITY" not in ddl
     assert "id BIGINT NOT NULL" in ddl
     dbx._platform = "databricks"
-    dbx.catalog = "hive_metastore"
+    dbx.catalog_name = "hive_metastore"
     assert not dbx.constraints
 
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Databricks SQL warehouses and clusters (databricks-sqlalchemy over the
 Databricks SQL connector).
 
@@ -126,7 +127,8 @@ class DatabricksConnector(WarehouseConnector):
 
     def __init__(self, url=None, schema=None, **kw):
         super().__init__(url, schema, **kw)
-        self.catalog = self.engine.dialect.__dict__.get("catalog") or sa.engine.make_url(
+        # the URL's catalog (not `catalog`, which is Connector.catalog())
+        self.catalog_name = self.engine.dialect.__dict__.get("catalog") or sa.engine.make_url(
             str(self.engine.url)).query.get("catalog")
         if self.schema is None:
             self.schema = sa.engine.make_url(str(self.engine.url)).query.get("schema") or None
@@ -203,7 +205,7 @@ class DatabricksConnector(WarehouseConnector):
     @property
     def constraints(self) -> bool:
         """Whether primary and foreign keys can be declared (Unity Catalog)."""
-        return self.platform == "databricks" and (self.catalog or "").lower() not in NO_CONSTRAINT_CATALOGS
+        return self.platform == "databricks" and (self.catalog_name or "").lower() not in NO_CONSTRAINT_CATALOGS
 
     # ------------------------------------------------------------ catalog
     def tables(self, include=None, exclude=None):
@@ -293,7 +295,8 @@ class DatabricksConnector(WarehouseConnector):
         # identifiers quoted by the dialect, values as escaped typed literals (sql_literal)
         head = f"INSERT INTO {prep.format_table(tbl)} ({', '.join(prep.quote(c) for c in cols)}) VALUES "  # noqa: S608  # nosec B608
         kinds = [_kind(tbl.c[c].type) for c in cols]
-        n, batch, size = 0, [], len(head)
+        batch: list[str] = []
+        n, size = 0, len(head)
         for rec in frame_records(df, cols):
             row = "(" + ", ".join(sql_literal(v, k) for v, k in zip(rec, kinds)) + ")"
             if batch and size + len(row) + 2 > INSERT_BYTES:

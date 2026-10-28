@@ -159,8 +159,8 @@ def row_hash(cols, seed: int, dialect_name: str):
     if dialect_name == "databricks":
         # the same 32 bits again: sha2 gives lower-case hex, conv reads base 16
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
-        hex32 = sa.func.left(sa.func.sha2(txt, sa.literal_column("256")), sa.literal_column("8"))
-        return sa.cast(sa.func.conv(hex32, sa.literal_column("16"), sa.literal_column("10")), sa.BigInteger)
+        hex8 = sa.func.left(sa.func.sha2(txt, sa.literal_column("256")), sa.literal_column("8"))
+        return sa.cast(sa.func.conv(hex8, sa.literal_column("16"), sa.literal_column("10")), sa.BigInteger)
     if dialect_name in ("mysql", "mariadb"):
         # the first 32 bits of SHA-256('seed|text'), as py_row_hash_sha256 computes them
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))

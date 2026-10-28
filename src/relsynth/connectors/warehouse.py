@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """What the cloud warehouses (Databricks SQL, Microsoft Fabric, Snowflake,
 BigQuery) share: credentials from the environment or the platform's credential
 chain, cost guards, and loads through staged Parquet files.
@@ -69,11 +70,12 @@ def parse_bytes(v) -> int | None:
 def human_bytes(n: int | None) -> str:
     if n is None:
         return "unknown"
+    x = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(n) < 1000 or unit == "TB":
-            return f"{n:,.0f} {unit}" if unit == "B" else f"{n:,.1f} {unit}"
-        n /= 1000
-    return f"{n:,.1f} PB"
+        if abs(x) < 1000 or unit == "TB":
+            return f"{x:,.0f} {unit}" if unit == "B" else f"{x:,.1f} {unit}"
+        x /= 1000
+    return f"{x:,.1f} PB"
 
 
 def resolve_auth(auth: dict | None, methods: dict[str, tuple[str, ...]], default: str | None = None) -> dict:
@@ -171,7 +173,8 @@ class WarehouseConnector(SqlConnector):
         """Bytes a statement scans at most: the stored size of the tables it reads
         (the BigQuery connector asks for a dry run instead)."""
         sizes = [self.table_bytes(t) for t in tables]
-        return None if any(s is None for s in sizes) else sum(sizes)  # type: ignore[misc]
+        known = [s for s in sizes if s is not None]
+        return sum(known) if len(known) == len(sizes) else None
 
     def guard_scan(self, table: str, q=None, what: str = "statement") -> None:
         if self.max_bytes is None:

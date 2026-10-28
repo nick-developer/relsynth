@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Databricks SQL specifics on a live warehouse or the local stand-in (skipped
 unless RELSYNTH_TEST_DATABRICKS_URL is set; see tests/emulators/databricks):
 values that survive the INSERT literals and Delta types exactly, the SHA-256
@@ -72,6 +73,7 @@ def test_table_names_are_found_without_regard_to_case(db):
     assert conn.has_table("Album") and conn.has_table("album")
     assert conn.count("Album") == 2 and conn.read_table("Album").columns.tolist() == ["AlbumId", "Title"]
     assert conn.describe("Album").name == "Album"
+    assert "album" in {t.lower() for t in conn.catalog()}          # Connector.catalog() stays a method
 
 
 def test_staged_parquet_load(unique_schema, tmp_path):
