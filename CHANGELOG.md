@@ -8,6 +8,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 - relsynth is open source under the Apache License 2.0 (previously all rights reserved). The repository has LICENSE, NOTICE, a contributor guide with DCO sign-off, a code of conduct, a security policy with private vulnerability reporting, and a dataset register (`docs/datasets.md`).
 
+### Fixed
+
+- `relsynth run --bundle` (and `api.run(..., bundle=...)`) no longer fails after writing and scoring when a numeric column of a nullable pandas dtype is constant: its skew in the bundle's profile is recorded as null (seen on AdventureWorks DW).
+
 ## 1.0.0 
 
 The first packaged release: a pip-installable library and command-line tool built on the v0.2–v0.9 engine.

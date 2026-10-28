@@ -1,0 +1,7591 @@
+{
+ "schema": 1,
+ "relsynth": "1.0.0",
+ "git": {
+  "sha": "9503d36e3bcc6c1b2379477286a091fe069cb178",
+  "branch": "roadmap/T01-benchmark-harness",
+  "dirty": false
+ },
+ "machine": {
+  "node": "vm",
+  "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+  "cpus": 4,
+  "python": "3.13.17",
+  "numpy": "2.5.4",
+  "pandas": "3.1.0",
+  "scipy": "1.18.1",
+  "ci": false
+ },
+ "started": "2026-10-26T22:48:00+00:00",
+ "label": "baseline",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "runs": [
+  {
+   "dataset": "contoso_sqlite",
+   "seed": 1,
+   "pushdown": "auto",
+   "seconds": 515.6,
+   "exit_code": 0,
+   "rows": {
+    "CurrencyExchange": 100450,
+    "Customer": 104990,
+    "Date": 4018,
+    "OrderRows": 224802,
+    "Orders": 93470,
+    "Product": 2517,
+    "Sales": 224802,
+    "Store": 74
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 249,
+    "total": 250
+   },
+   "checks": [
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:CurrencyExchange|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StartDT|marginal_ks",
+     "pass": true,
+     "value": 0.0082,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StartDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.EndDT|marginal_ks",
+     "pass": true,
+     "value": 0.0054,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.EndDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Continent|marginal_tvd",
+     "pass": true,
+     "value": 0.0024,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Continent|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Gender|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Gender|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|marginal_tvd",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0287,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StateFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0306,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StateFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.0034,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0034,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Birthday|marginal_ks",
+     "pass": true,
+     "value": 0.0066,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Birthday|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Age|marginal_ks",
+     "pass": true,
+     "value": 0.0066,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Age|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Occupation|marginal_tvd",
+     "pass": true,
+     "value": 0.0857,
+     "limit": 0.2199
+    },
+    {
+     "id": "scorecard:Customer.Occupation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Company|marginal_tvd",
+     "pass": true,
+     "value": 0.0558,
+     "limit": 0.1395
+    },
+    {
+     "id": "scorecard:Customer.Company|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Latitude|marginal_ks",
+     "pass": true,
+     "value": 0.0099,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Latitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Longitude|marginal_ks",
+     "pass": true,
+     "value": 0.0123,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Longitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": false,
+     "value": 0.1659,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4911,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Date.Date|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Year|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Year|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1459
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Quarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Quarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonth|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonth|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Month|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Month|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0241,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows|association_max_diff",
+     "pass": true,
+     "value": 0.0118,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows|discriminator_auc",
+     "pass": true,
+     "value": 0.4934,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|marginal_ks",
+     "pass": true,
+     "value": 0.0123,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|marginal_ks",
+     "pass": true,
+     "value": 0.0122,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Orders|discriminator_auc",
+     "pass": true,
+     "value": 0.5015,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|marginal_tvd",
+     "pass": true,
+     "value": 0.0215,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Brand|marginal_tvd",
+     "pass": true,
+     "value": 0.0215,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Brand|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Color|marginal_tvd",
+     "pass": true,
+     "value": 0.0346,
+     "limit": 0.0887
+    },
+    {
+     "id": "scorecard:Product.Color|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|marginal_tvd",
+     "pass": true,
+     "value": 0.0131,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Weight|marginal_ks",
+     "pass": true,
+     "value": 0.0234,
+     "limit": 0.0974
+    },
+    {
+     "id": "scorecard:Product.Weight|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Cost|marginal_ks",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Cost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Price|marginal_ks",
+     "pass": true,
+     "value": 0.0171,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|marginal_tvd",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|marginal_ks",
+     "pass": true,
+     "value": 0.0127,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0393,
+     "limit": 0.1518
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product|association_max_diff",
+     "pass": true,
+     "value": 0.0717,
+     "limit": 0.2064
+    },
+    {
+     "id": "scorecard:Product|discriminator_auc",
+     "pass": true,
+     "value": 0.4816,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Sales.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0241,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales|association_max_diff",
+     "pass": true,
+     "value": 0.0119,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Sales|discriminator_auc",
+     "pass": true,
+     "value": 0.498,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Store.StoreCode|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.StoreCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryCode|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.OpenDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.OpenDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CloseDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1339
+    },
+    {
+     "id": "scorecard:Store.CloseDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1692
+    },
+    {
+     "id": "scorecard:Store.Description|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.Description|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.537
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store.Status|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1663
+    },
+    {
+     "id": "scorecard:Store.Status|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5956
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.OrderDate|join_ks",
+     "pass": true,
+     "value": 0.0138,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.DeliveryDate|join_ks",
+     "pass": true,
+     "value": 0.0138,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Manufacturer|join_tvd",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.1238
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Brand|join_tvd",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.1238
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Color|join_tvd",
+     "pass": true,
+     "value": 0.0383,
+     "limit": 0.1312
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.WeightUnit|join_tvd",
+     "pass": true,
+     "value": 0.0082,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Weight|join_ks",
+     "pass": true,
+     "value": 0.0544,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Cost|join_ks",
+     "pass": true,
+     "value": 0.0289,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Price|join_ks",
+     "pass": true,
+     "value": 0.0224,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryKey|join_tvd",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 0.1083
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 0.1083
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryKey|join_ks",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.2157
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StartDT|join_ks",
+     "pass": true,
+     "value": 0.0093,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.EndDT|join_ks",
+     "pass": true,
+     "value": 0.0105,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Continent|join_tvd",
+     "pass": true,
+     "value": 0.006,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Gender|join_tvd",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Title|join_tvd",
+     "pass": true,
+     "value": 0.0074,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.MiddleInitial|join_tvd",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0454,
+     "limit": 0.1124
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StateFull|join_tvd",
+     "pass": true,
+     "value": 0.0483,
+     "limit": 0.1187
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Country|join_tvd",
+     "pass": true,
+     "value": 0.0069,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.CountryFull|join_tvd",
+     "pass": true,
+     "value": 0.0069,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Birthday|join_ks",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Age|join_ks",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Occupation|join_tvd",
+     "pass": true,
+     "value": 0.1516,
+     "limit": 0.3878
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Company|join_tvd",
+     "pass": true,
+     "value": 0.1012,
+     "limit": 0.247
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Latitude|join_ks",
+     "pass": true,
+     "value": 0.0197,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Longitude|join_ks",
+     "pass": true,
+     "value": 0.0506,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.StoreCode|join_ks",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.9401
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.9401
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryCode|join_tvd",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 1.3152
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryName|join_tvd",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 1.3152
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.State|join_tvd",
+     "pass": true,
+     "value": 0.028,
+     "limit": 3.5869
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.OpenDate|join_ks",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.9401
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CloseDate|join_ks",
+     "pass": true,
+     "value": 0.204,
+     "limit": 0.9401
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Description|join_tvd",
+     "pass": true,
+     "value": 0.028,
+     "limit": 3.5869
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.SquareMeters|join_ks",
+     "pass": true,
+     "value": 0.0192,
+     "limit": 0.9401
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Status|join_tvd",
+     "pass": true,
+     "value": 0.0103,
+     "limit": 0.1569
+    },
+    {
+     "id": "scorecard:OrderRows.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 3.1092,
+     "limit": 3.707
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0262,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0085,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.1216,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4464
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0085,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0282,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.1081,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4457
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_tstr_ratio",
+     "pass": true,
+     "value": 1.1088,
+     "limit": 0.85
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer|dcr_ratio",
+     "pass": true,
+     "value": 1.1261,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Customer|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Product|dcr_ratio",
+     "pass": true,
+     "value": 2.0633,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Product|exact_match_rate",
+     "pass": true,
+     "value": 0.022,
+     "limit": 0.0611
+    },
+    {
+     "id": "scorecard:Customer: Age = years_between(Birthday, '2021-02-02')|soft_rule_rate_diff",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Customer: days(StartDT) <= days(EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(CustomerKey.EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(StoreKey.OpenDate) < days(OrderDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(StoreKey.CloseDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.1e-05
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) == days(DeliveryDate) or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) != days(DeliveryDate) or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country != StoreKey.CountryCode or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Product: Cost < Price|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CurrencyCode = CustomerKey.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: OrderDate = OrderKey.OrderDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: DeliveryDate = OrderKey.DeliveryDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CustomerKey = OrderKey.CustomerKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: StoreKey = OrderKey.StoreKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CurrencyCode = OrderKey.CurrencyCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: ExchangeRate = {'table': 'CurrencyExchange', 'match': {'Date': 'OrderDate', 'FromCurrency': \"'USD'\", 'ToCurrency': 'CurrencyCode'}, 'value': 'Exchange'}|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:CurrencyExchange: unique ['Date', 'FromCurrency', 'ToCurrency']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: unique ['OrderKey', 'LineNumber']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: pairs (OrderKey, ProductKey)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:rows sales",
+     "pass": null,
+     "value": 224802.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:rows orderrows",
+     "pass": null,
+     "value": 224802.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows customer",
+     "pass": null,
+     "value": 104990.0,
+     "real": 104990.0
+    },
+    {
+     "id": "domain:rows product",
+     "pass": null,
+     "value": 2517.0,
+     "real": 2517.0
+    },
+    {
+     "id": "domain:rows store",
+     "pass": null,
+     "value": 74.0,
+     "real": 74.0
+    },
+    {
+     "id": "domain:rows date",
+     "pass": null,
+     "value": 4018.0,
+     "real": 4018.0
+    },
+    {
+     "id": "domain:rows currencyexchange",
+     "pass": null,
+     "value": 100450.0,
+     "real": 100450.0
+    },
+    {
+     "id": "domain:T1 sales: orders with one header (customer, store, dates, currency)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: unique (order, line)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:T1 sales: lines per order (mean)",
+     "pass": null,
+     "value": 2.405,
+     "real": 2.396
+    },
+    {
+     "id": "domain:T1 sales: max lines per order",
+     "pass": null,
+     "value": 7.0,
+     "real": 7.0
+    },
+    {
+     "id": "domain:T1 sales: first line number is 0",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: line numbers without gaps (generator skips some)",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.984508
+    },
+    {
+     "id": "domain:T2 order key order = date order",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T3 ExchangeRate = rate(OrderDate, USD -> CurrencyCode)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T4 CurrencyCode = currency of customer's country",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T7 customer active: StartDT < OrderDate < EndDT",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T5 online share of lines",
+     "pass": null,
+     "value": 0.4161,
+     "real": 0.4177
+    },
+    {
+     "id": "domain:T5 store in the customer's geo area (physical stores)",
+     "pass": null,
+     "value": 0.123503,
+     "real": 0.12638
+    },
+    {
+     "id": "domain:T5 store in the customer's country (physical stores)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T6 store open on the order date",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 physical store: DeliveryDate = OrderDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: DeliveryDate >= OrderDate + 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: mean delivery days",
+     "pass": null,
+     "value": 3.261,
+     "real": 3.252
+    },
+    {
+     "id": "domain:T9 NetPrice = UnitPrice x (1 - d/100), d integer 0..14",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T9 share without discount",
+     "pass": null,
+     "value": 0.3906,
+     "real": 0.3887
+    },
+    {
+     "id": "domain:T10 Quantity in 1..10",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T10 Quantity mean",
+     "pass": null,
+     "value": 3.145,
+     "real": 3.142
+    },
+    {
+     "id": "domain:T11 UnitPrice/Price = UnitCost/Cost (one price factor)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T11 one price factor per (category, day)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 sales = orders x orderrows: rows matched both ways",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 matched rows identical in every column",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 order rows whose order exists",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 orders with at least one row",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: SubCategoryKey -> SubCategoryName, CategoryKey",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: Price > Cost",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CountryCode -> CountryName",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: one online store (GeoAreaKey -1)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CloseDate set <=> Status set (Closed, Restructured)",
+     "pass": null,
+     "value": 0.986486,
+     "real": 0.986486
+    },
+    {
+     "id": "domain:T13 store: OpenDate < CloseDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: Country -> Continent",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: (Country, State) -> StateFull",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: StartDT < EndDT",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.99999
+    },
+    {
+     "id": "domain:T14 customer: Age = whole years to one reference date (modal share)",
+     "pass": null,
+     "value": 0.906,
+     "real": 0.9048
+    },
+    {
+     "id": "domain:T14 customer: unique key",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customers with at least one order",
+     "pass": null,
+     "value": 0.4886,
+     "real": 0.4971
+    },
+    {
+     "id": "domain:T14 orders per buying customer (mean)",
+     "pass": null,
+     "value": 1.822,
+     "real": 1.791
+    },
+    {
+     "id": "domain:T15 date: Year = year(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: MonthNumber = month(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: DateKey = yyyymmdd",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: one row per day, no gaps",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> X) = 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> Y) x rate(Y -> X) = 1 (4 decimals)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 unique (date, from, to)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T17 orders by customer country: TVD",
+     "pass": null,
+     "value": 0.0076,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 online share by customer country: max |diff|",
+     "pass": null,
+     "value": 0.0165,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 mean latitude by country (customers): max |diff|",
+     "pass": null,
+     "value": 1.1661,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by geography code: TVD",
+     "pass": null,
+     "value": 0.0306,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by country: TVD",
+     "pass": null,
+     "value": 0.0034,
+     "real": 0.0
+    }
+   ]
+  },
+  {
+   "dataset": "contoso_sqlite",
+   "seed": 2,
+   "pushdown": "auto",
+   "seconds": 565.9,
+   "exit_code": 0,
+   "rows": {
+    "CurrencyExchange": 100450,
+    "Customer": 104990,
+    "Date": 4018,
+    "OrderRows": 224058,
+    "Orders": 93470,
+    "Product": 2517,
+    "Sales": 224058,
+    "Store": 74
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 250,
+    "total": 250
+   },
+   "checks": [
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:CurrencyExchange|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0125,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StartDT|marginal_ks",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StartDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.EndDT|marginal_ks",
+     "pass": true,
+     "value": 0.0052,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.EndDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Continent|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Continent|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Gender|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Gender|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|marginal_tvd",
+     "pass": true,
+     "value": 0.009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0649,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StateFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0667,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StateFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Birthday|marginal_ks",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Birthday|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Age|marginal_ks",
+     "pass": true,
+     "value": 0.0033,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Age|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Occupation|marginal_tvd",
+     "pass": true,
+     "value": 0.0859,
+     "limit": 0.2199
+    },
+    {
+     "id": "scorecard:Customer.Occupation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Company|marginal_tvd",
+     "pass": true,
+     "value": 0.0569,
+     "limit": 0.1395
+    },
+    {
+     "id": "scorecard:Customer.Company|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Latitude|marginal_ks",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Latitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Longitude|marginal_ks",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Longitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.0926,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.5357,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Date.Date|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Year|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Year|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1459
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Quarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Quarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonth|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonth|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Month|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Month|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0138,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0121,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0132,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows|association_max_diff",
+     "pass": true,
+     "value": 0.0123,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows|discriminator_auc",
+     "pass": true,
+     "value": 0.5087,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|marginal_ks",
+     "pass": true,
+     "value": 0.0045,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|marginal_ks",
+     "pass": true,
+     "value": 0.0045,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Orders|discriminator_auc",
+     "pass": true,
+     "value": 0.4921,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|marginal_tvd",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Brand|marginal_tvd",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Brand|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Color|marginal_tvd",
+     "pass": true,
+     "value": 0.0358,
+     "limit": 0.0887
+    },
+    {
+     "id": "scorecard:Product.Color|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|marginal_tvd",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Weight|marginal_ks",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.0977
+    },
+    {
+     "id": "scorecard:Product.Weight|null_rate_diff",
+     "pass": true,
+     "value": 0.0095,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Cost|marginal_ks",
+     "pass": true,
+     "value": 0.0127,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Cost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Price|marginal_ks",
+     "pass": true,
+     "value": 0.0203,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|marginal_tvd",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|marginal_ks",
+     "pass": true,
+     "value": 0.0143,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0393,
+     "limit": 0.1518
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product|association_max_diff",
+     "pass": true,
+     "value": 0.0458,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Product|discriminator_auc",
+     "pass": true,
+     "value": 0.5029,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Sales.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0138,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0121,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0132,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales|association_max_diff",
+     "pass": true,
+     "value": 0.0123,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Sales|discriminator_auc",
+     "pass": true,
+     "value": 0.4979,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Store.StoreCode|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.StoreCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryCode|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.OpenDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.OpenDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CloseDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1339
+    },
+    {
+     "id": "scorecard:Store.CloseDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1692
+    },
+    {
+     "id": "scorecard:Store.Description|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.Description|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.537
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store.Status|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1663
+    },
+    {
+     "id": "scorecard:Store.Status|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5956
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.OrderDate|join_ks",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.DeliveryDate|join_ks",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Manufacturer|join_tvd",
+     "pass": true,
+     "value": 0.0303,
+     "limit": 0.123
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Brand|join_tvd",
+     "pass": true,
+     "value": 0.0303,
+     "limit": 0.123
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Color|join_tvd",
+     "pass": true,
+     "value": 0.0507,
+     "limit": 0.1303
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.WeightUnit|join_tvd",
+     "pass": true,
+     "value": 0.0084,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Weight|join_ks",
+     "pass": true,
+     "value": 0.0281,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Cost|join_ks",
+     "pass": true,
+     "value": 0.0161,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Price|join_ks",
+     "pass": true,
+     "value": 0.0274,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryKey|join_tvd",
+     "pass": true,
+     "value": 0.0045,
+     "limit": 0.1075
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0045,
+     "limit": 0.1075
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryKey|join_ks",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0068,
+     "limit": 0.2142
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0195,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StartDT|join_ks",
+     "pass": true,
+     "value": 0.0077,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.EndDT|join_ks",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Continent|join_tvd",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Gender|join_tvd",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Title|join_tvd",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.MiddleInitial|join_tvd",
+     "pass": true,
+     "value": 0.0165,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0828,
+     "limit": 0.1124
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StateFull|join_tvd",
+     "pass": true,
+     "value": 0.0845,
+     "limit": 0.1187
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Country|join_tvd",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.CountryFull|join_tvd",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Birthday|join_ks",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Age|join_ks",
+     "pass": true,
+     "value": 0.0069,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Occupation|join_tvd",
+     "pass": true,
+     "value": 0.1521,
+     "limit": 0.3877
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Company|join_tvd",
+     "pass": true,
+     "value": 0.1026,
+     "limit": 0.2469
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Latitude|join_ks",
+     "pass": true,
+     "value": 0.0072,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Longitude|join_ks",
+     "pass": true,
+     "value": 0.0088,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.StoreCode|join_ks",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 0.9408
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0041,
+     "limit": 0.9408
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryCode|join_tvd",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 1.3162
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryName|join_tvd",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 1.3162
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0254,
+     "limit": 3.5897
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.OpenDate|join_ks",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.9408
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CloseDate|join_ks",
+     "pass": true,
+     "value": 0.1269,
+     "limit": 0.9408
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Description|join_tvd",
+     "pass": true,
+     "value": 0.0254,
+     "limit": 3.5897
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.SquareMeters|join_ks",
+     "pass": true,
+     "value": 0.0225,
+     "limit": 0.9408
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Status|join_tvd",
+     "pass": true,
+     "value": 0.0103,
+     "limit": 0.157
+    },
+    {
+     "id": "scorecard:OrderRows.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 2.9405,
+     "limit": 3.707
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0362,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0946,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4442
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0362,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0811,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4468
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_tstr_ratio",
+     "pass": true,
+     "value": 1.1084,
+     "limit": 0.85
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer|dcr_ratio",
+     "pass": true,
+     "value": 1.0286,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Customer|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Product|dcr_ratio",
+     "pass": true,
+     "value": 1.3393,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Product|exact_match_rate",
+     "pass": true,
+     "value": 0.024,
+     "limit": 0.0611
+    },
+    {
+     "id": "scorecard:Customer: Age = years_between(Birthday, '2021-02-02')|soft_rule_rate_diff",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Customer: days(StartDT) <= days(EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(CustomerKey.EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(StoreKey.OpenDate) < days(OrderDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(StoreKey.CloseDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.1e-05
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) == days(DeliveryDate) or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) != days(DeliveryDate) or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country != StoreKey.CountryCode or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Product: Cost < Price|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CurrencyCode = CustomerKey.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: OrderDate = OrderKey.OrderDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: DeliveryDate = OrderKey.DeliveryDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CustomerKey = OrderKey.CustomerKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: StoreKey = OrderKey.StoreKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CurrencyCode = OrderKey.CurrencyCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: ExchangeRate = {'table': 'CurrencyExchange', 'match': {'Date': 'OrderDate', 'FromCurrency': \"'USD'\", 'ToCurrency': 'CurrencyCode'}, 'value': 'Exchange'}|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:CurrencyExchange: unique ['Date', 'FromCurrency', 'ToCurrency']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: unique ['OrderKey', 'LineNumber']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: pairs (OrderKey, ProductKey)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:rows sales",
+     "pass": null,
+     "value": 224058.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:rows orderrows",
+     "pass": null,
+     "value": 224058.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows customer",
+     "pass": null,
+     "value": 104990.0,
+     "real": 104990.0
+    },
+    {
+     "id": "domain:rows product",
+     "pass": null,
+     "value": 2517.0,
+     "real": 2517.0
+    },
+    {
+     "id": "domain:rows store",
+     "pass": null,
+     "value": 74.0,
+     "real": 74.0
+    },
+    {
+     "id": "domain:rows date",
+     "pass": null,
+     "value": 4018.0,
+     "real": 4018.0
+    },
+    {
+     "id": "domain:rows currencyexchange",
+     "pass": null,
+     "value": 100450.0,
+     "real": 100450.0
+    },
+    {
+     "id": "domain:T1 sales: orders with one header (customer, store, dates, currency)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: unique (order, line)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:T1 sales: lines per order (mean)",
+     "pass": null,
+     "value": 2.397,
+     "real": 2.396
+    },
+    {
+     "id": "domain:T1 sales: max lines per order",
+     "pass": null,
+     "value": 7.0,
+     "real": 7.0
+    },
+    {
+     "id": "domain:T1 sales: first line number is 0",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: line numbers without gaps (generator skips some)",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.984508
+    },
+    {
+     "id": "domain:T2 order key order = date order",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T3 ExchangeRate = rate(OrderDate, USD -> CurrencyCode)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T4 CurrencyCode = currency of customer's country",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T7 customer active: StartDT < OrderDate < EndDT",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T5 online share of lines",
+     "pass": null,
+     "value": 0.4166,
+     "real": 0.4177
+    },
+    {
+     "id": "domain:T5 store in the customer's geo area (physical stores)",
+     "pass": null,
+     "value": 0.122921,
+     "real": 0.12638
+    },
+    {
+     "id": "domain:T5 store in the customer's country (physical stores)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T6 store open on the order date",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 physical store: DeliveryDate = OrderDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: DeliveryDate >= OrderDate + 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: mean delivery days",
+     "pass": null,
+     "value": 3.235,
+     "real": 3.252
+    },
+    {
+     "id": "domain:T9 NetPrice = UnitPrice x (1 - d/100), d integer 0..14",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T9 share without discount",
+     "pass": null,
+     "value": 0.3896,
+     "real": 0.3887
+    },
+    {
+     "id": "domain:T10 Quantity in 1..10",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T10 Quantity mean",
+     "pass": null,
+     "value": 3.138,
+     "real": 3.142
+    },
+    {
+     "id": "domain:T11 UnitPrice/Price = UnitCost/Cost (one price factor)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T11 one price factor per (category, day)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 sales = orders x orderrows: rows matched both ways",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 matched rows identical in every column",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 order rows whose order exists",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 orders with at least one row",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: SubCategoryKey -> SubCategoryName, CategoryKey",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: Price > Cost",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CountryCode -> CountryName",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: one online store (GeoAreaKey -1)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CloseDate set <=> Status set (Closed, Restructured)",
+     "pass": null,
+     "value": 0.986486,
+     "real": 0.986486
+    },
+    {
+     "id": "domain:T13 store: OpenDate < CloseDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: Country -> Continent",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: (Country, State) -> StateFull",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: StartDT < EndDT",
+     "pass": null,
+     "value": 0.999981,
+     "real": 0.99999
+    },
+    {
+     "id": "domain:T14 customer: Age = whole years to one reference date (modal share)",
+     "pass": null,
+     "value": 0.9044,
+     "real": 0.9048
+    },
+    {
+     "id": "domain:T14 customer: unique key",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customers with at least one order",
+     "pass": null,
+     "value": 0.4907,
+     "real": 0.4971
+    },
+    {
+     "id": "domain:T14 orders per buying customer (mean)",
+     "pass": null,
+     "value": 1.814,
+     "real": 1.791
+    },
+    {
+     "id": "domain:T15 date: Year = year(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: MonthNumber = month(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: DateKey = yyyymmdd",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: one row per day, no gaps",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> X) = 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> Y) x rate(Y -> X) = 1 (4 decimals)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 unique (date, from, to)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T17 orders by customer country: TVD",
+     "pass": null,
+     "value": 0.0047,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 online share by customer country: max |diff|",
+     "pass": null,
+     "value": 0.0216,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 mean latitude by country (customers): max |diff|",
+     "pass": null,
+     "value": 1.0745,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by geography code: TVD",
+     "pass": null,
+     "value": 0.0667,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by country: TVD",
+     "pass": null,
+     "value": 0.0028,
+     "real": 0.0
+    }
+   ]
+  },
+  {
+   "dataset": "contoso_sqlite",
+   "seed": 3,
+   "pushdown": "auto",
+   "seconds": 624.3,
+   "exit_code": 0,
+   "rows": {
+    "CurrencyExchange": 100450,
+    "Customer": 104990,
+    "Date": 4018,
+    "OrderRows": 224171,
+    "Orders": 93470,
+    "Product": 2517,
+    "Sales": 224171,
+    "Store": 74
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 250,
+    "total": 250
+   },
+   "checks": [
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:CurrencyExchange|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StartDT|marginal_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StartDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.EndDT|marginal_ks",
+     "pass": true,
+     "value": 0.0035,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.EndDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Continent|marginal_tvd",
+     "pass": true,
+     "value": 0.0023,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Continent|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Gender|marginal_tvd",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Gender|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0033,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|marginal_tvd",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0324,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StateFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0342,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StateFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.0038,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0038,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Birthday|marginal_ks",
+     "pass": true,
+     "value": 0.0048,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Birthday|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Age|marginal_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Age|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Occupation|marginal_tvd",
+     "pass": true,
+     "value": 0.0879,
+     "limit": 0.2199
+    },
+    {
+     "id": "scorecard:Customer.Occupation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Company|marginal_tvd",
+     "pass": true,
+     "value": 0.0549,
+     "limit": 0.1395
+    },
+    {
+     "id": "scorecard:Customer.Company|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Latitude|marginal_ks",
+     "pass": true,
+     "value": 0.0067,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Latitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Longitude|marginal_ks",
+     "pass": true,
+     "value": 0.0068,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Longitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.0838,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4985,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Date.Date|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Year|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Year|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1459
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Quarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Quarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonth|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonth|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Month|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Month|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0042,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0226,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0186,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0151,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows|association_max_diff",
+     "pass": true,
+     "value": 0.0157,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows|discriminator_auc",
+     "pass": true,
+     "value": 0.522,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|marginal_ks",
+     "pass": true,
+     "value": 0.0076,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|marginal_ks",
+     "pass": true,
+     "value": 0.0075,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Orders|discriminator_auc",
+     "pass": true,
+     "value": 0.5062,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|marginal_tvd",
+     "pass": true,
+     "value": 0.0266,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Brand|marginal_tvd",
+     "pass": true,
+     "value": 0.0266,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Brand|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Color|marginal_tvd",
+     "pass": true,
+     "value": 0.0465,
+     "limit": 0.0887
+    },
+    {
+     "id": "scorecard:Product.Color|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Weight|marginal_ks",
+     "pass": true,
+     "value": 0.0371,
+     "limit": 0.0975
+    },
+    {
+     "id": "scorecard:Product.Weight|null_rate_diff",
+     "pass": true,
+     "value": 0.004,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Cost|marginal_ks",
+     "pass": true,
+     "value": 0.0159,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Cost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Price|marginal_ks",
+     "pass": true,
+     "value": 0.0242,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|marginal_tvd",
+     "pass": true,
+     "value": 0.0274,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0274,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|marginal_ks",
+     "pass": true,
+     "value": 0.025,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0469,
+     "limit": 0.1518
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product|association_max_diff",
+     "pass": true,
+     "value": 0.0485,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Product|discriminator_auc",
+     "pass": true,
+     "value": 0.5188,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Sales.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0042,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0226,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0186,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0151,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales|association_max_diff",
+     "pass": true,
+     "value": 0.0157,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Sales|discriminator_auc",
+     "pass": true,
+     "value": 0.5181,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Store.StoreCode|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.StoreCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryCode|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.OpenDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.OpenDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CloseDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1339
+    },
+    {
+     "id": "scorecard:Store.CloseDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1692
+    },
+    {
+     "id": "scorecard:Store.Description|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.Description|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.537
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store.Status|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1663
+    },
+    {
+     "id": "scorecard:Store.Status|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5956
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.OrderDate|join_ks",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.DeliveryDate|join_ks",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Manufacturer|join_tvd",
+     "pass": true,
+     "value": 0.0229,
+     "limit": 0.1227
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Brand|join_tvd",
+     "pass": true,
+     "value": 0.0229,
+     "limit": 0.1227
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Color|join_tvd",
+     "pass": true,
+     "value": 0.0382,
+     "limit": 0.13
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.WeightUnit|join_tvd",
+     "pass": true,
+     "value": 0.0125,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Weight|join_ks",
+     "pass": true,
+     "value": 0.0306,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Cost|join_ks",
+     "pass": true,
+     "value": 0.0239,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Price|join_ks",
+     "pass": true,
+     "value": 0.0273,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryKey|join_tvd",
+     "pass": true,
+     "value": 0.0019,
+     "limit": 0.1073
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0019,
+     "limit": 0.1073
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryKey|join_ks",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.2138
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0086,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StartDT|join_ks",
+     "pass": true,
+     "value": 0.0126,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.EndDT|join_ks",
+     "pass": true,
+     "value": 0.0054,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Continent|join_tvd",
+     "pass": true,
+     "value": 0.0021,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Gender|join_tvd",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Title|join_tvd",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.MiddleInitial|join_tvd",
+     "pass": true,
+     "value": 0.0136,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0508,
+     "limit": 0.1122
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StateFull|join_tvd",
+     "pass": true,
+     "value": 0.0535,
+     "limit": 0.1185
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Country|join_tvd",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.CountryFull|join_tvd",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Birthday|join_ks",
+     "pass": true,
+     "value": 0.0091,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Age|join_ks",
+     "pass": true,
+     "value": 0.0086,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Occupation|join_tvd",
+     "pass": true,
+     "value": 0.1546,
+     "limit": 0.3871
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Company|join_tvd",
+     "pass": true,
+     "value": 0.0992,
+     "limit": 0.2465
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Latitude|join_ks",
+     "pass": true,
+     "value": 0.0077,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Longitude|join_ks",
+     "pass": true,
+     "value": 0.0101,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.StoreCode|join_ks",
+     "pass": true,
+     "value": 0.005,
+     "limit": 0.9413
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.9413
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryCode|join_tvd",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 1.3168
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryName|join_tvd",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 1.3168
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0277,
+     "limit": 3.5912
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.OpenDate|join_ks",
+     "pass": true,
+     "value": 0.0082,
+     "limit": 0.9413
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CloseDate|join_ks",
+     "pass": true,
+     "value": 0.1785,
+     "limit": 0.9413
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Description|join_tvd",
+     "pass": true,
+     "value": 0.0277,
+     "limit": 3.5912
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.SquareMeters|join_ks",
+     "pass": true,
+     "value": 0.0195,
+     "limit": 0.9413
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Status|join_tvd",
+     "pass": true,
+     "value": 0.0107,
+     "limit": 0.1571
+    },
+    {
+     "id": "scorecard:OrderRows.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 3.0266,
+     "limit": 3.707
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.033,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0811,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4421
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.033,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0811,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4474
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_tstr_ratio",
+     "pass": true,
+     "value": 1.1096,
+     "limit": 0.85
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer|dcr_ratio",
+     "pass": true,
+     "value": 1.0933,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Customer|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Product|dcr_ratio",
+     "pass": true,
+     "value": 1.8149,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Product|exact_match_rate",
+     "pass": true,
+     "value": 0.026,
+     "limit": 0.0611
+    },
+    {
+     "id": "scorecard:Customer: Age = years_between(Birthday, '2021-02-02')|soft_rule_rate_diff",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Customer: days(StartDT) <= days(EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(CustomerKey.EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(StoreKey.OpenDate) < days(OrderDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(StoreKey.CloseDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.1e-05
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) == days(DeliveryDate) or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) != days(DeliveryDate) or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country != StoreKey.CountryCode or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Product: Cost < Price|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CurrencyCode = CustomerKey.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: OrderDate = OrderKey.OrderDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: DeliveryDate = OrderKey.DeliveryDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CustomerKey = OrderKey.CustomerKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: StoreKey = OrderKey.StoreKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CurrencyCode = OrderKey.CurrencyCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: ExchangeRate = {'table': 'CurrencyExchange', 'match': {'Date': 'OrderDate', 'FromCurrency': \"'USD'\", 'ToCurrency': 'CurrencyCode'}, 'value': 'Exchange'}|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:CurrencyExchange: unique ['Date', 'FromCurrency', 'ToCurrency']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: unique ['OrderKey', 'LineNumber']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: pairs (OrderKey, ProductKey)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:rows sales",
+     "pass": null,
+     "value": 224171.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:rows orderrows",
+     "pass": null,
+     "value": 224171.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows customer",
+     "pass": null,
+     "value": 104990.0,
+     "real": 104990.0
+    },
+    {
+     "id": "domain:rows product",
+     "pass": null,
+     "value": 2517.0,
+     "real": 2517.0
+    },
+    {
+     "id": "domain:rows store",
+     "pass": null,
+     "value": 74.0,
+     "real": 74.0
+    },
+    {
+     "id": "domain:rows date",
+     "pass": null,
+     "value": 4018.0,
+     "real": 4018.0
+    },
+    {
+     "id": "domain:rows currencyexchange",
+     "pass": null,
+     "value": 100450.0,
+     "real": 100450.0
+    },
+    {
+     "id": "domain:T1 sales: orders with one header (customer, store, dates, currency)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: unique (order, line)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:T1 sales: lines per order (mean)",
+     "pass": null,
+     "value": 2.398,
+     "real": 2.396
+    },
+    {
+     "id": "domain:T1 sales: max lines per order",
+     "pass": null,
+     "value": 7.0,
+     "real": 7.0
+    },
+    {
+     "id": "domain:T1 sales: first line number is 0",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: line numbers without gaps (generator skips some)",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.984508
+    },
+    {
+     "id": "domain:T2 order key order = date order",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T3 ExchangeRate = rate(OrderDate, USD -> CurrencyCode)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T4 CurrencyCode = currency of customer's country",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T7 customer active: StartDT < OrderDate < EndDT",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T5 online share of lines",
+     "pass": null,
+     "value": 0.4171,
+     "real": 0.4177
+    },
+    {
+     "id": "domain:T5 store in the customer's geo area (physical stores)",
+     "pass": null,
+     "value": 0.125208,
+     "real": 0.12638
+    },
+    {
+     "id": "domain:T5 store in the customer's country (physical stores)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T6 store open on the order date",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 physical store: DeliveryDate = OrderDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: DeliveryDate >= OrderDate + 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: mean delivery days",
+     "pass": null,
+     "value": 3.225,
+     "real": 3.252
+    },
+    {
+     "id": "domain:T9 NetPrice = UnitPrice x (1 - d/100), d integer 0..14",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T9 share without discount",
+     "pass": null,
+     "value": 0.3871,
+     "real": 0.3887
+    },
+    {
+     "id": "domain:T10 Quantity in 1..10",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T10 Quantity mean",
+     "pass": null,
+     "value": 3.15,
+     "real": 3.142
+    },
+    {
+     "id": "domain:T11 UnitPrice/Price = UnitCost/Cost (one price factor)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T11 one price factor per (category, day)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 sales = orders x orderrows: rows matched both ways",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 matched rows identical in every column",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 order rows whose order exists",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 orders with at least one row",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: SubCategoryKey -> SubCategoryName, CategoryKey",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: Price > Cost",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CountryCode -> CountryName",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: one online store (GeoAreaKey -1)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CloseDate set <=> Status set (Closed, Restructured)",
+     "pass": null,
+     "value": 0.986486,
+     "real": 0.986486
+    },
+    {
+     "id": "domain:T13 store: OpenDate < CloseDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: Country -> Continent",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: (Country, State) -> StateFull",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: StartDT < EndDT",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.99999
+    },
+    {
+     "id": "domain:T14 customer: Age = whole years to one reference date (modal share)",
+     "pass": null,
+     "value": 0.9026,
+     "real": 0.9048
+    },
+    {
+     "id": "domain:T14 customer: unique key",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customers with at least one order",
+     "pass": null,
+     "value": 0.4898,
+     "real": 0.4971
+    },
+    {
+     "id": "domain:T14 orders per buying customer (mean)",
+     "pass": null,
+     "value": 1.818,
+     "real": 1.791
+    },
+    {
+     "id": "domain:T15 date: Year = year(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: MonthNumber = month(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: DateKey = yyyymmdd",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: one row per day, no gaps",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> X) = 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> Y) x rate(Y -> X) = 1 (4 decimals)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 unique (date, from, to)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T17 orders by customer country: TVD",
+     "pass": null,
+     "value": 0.0047,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 online share by customer country: max |diff|",
+     "pass": null,
+     "value": 0.02,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 mean latitude by country (customers): max |diff|",
+     "pass": null,
+     "value": 0.1822,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by geography code: TVD",
+     "pass": null,
+     "value": 0.0342,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by country: TVD",
+     "pass": null,
+     "value": 0.0038,
+     "real": 0.0
+    }
+   ]
+  },
+  {
+   "dataset": "contoso_sqlite",
+   "seed": 4,
+   "pushdown": "auto",
+   "seconds": 438.4,
+   "exit_code": 0,
+   "rows": {
+    "CurrencyExchange": 100450,
+    "Customer": 104990,
+    "Date": 4018,
+    "OrderRows": 223469,
+    "Orders": 93470,
+    "Product": 2517,
+    "Sales": 223469,
+    "Store": 74
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 250,
+    "total": 250
+   },
+   "checks": [
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:CurrencyExchange.Exchange|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:CurrencyExchange|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StartDT|marginal_ks",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StartDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.EndDT|marginal_ks",
+     "pass": true,
+     "value": 0.0044,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.EndDT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Continent|marginal_tvd",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Continent|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Gender|marginal_tvd",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Gender|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Title|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Title|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|marginal_tvd",
+     "pass": true,
+     "value": 0.0067,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.MiddleInitial|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.State|marginal_tvd",
+     "pass": true,
+     "value": 0.032,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.StateFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0339,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.StateFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Country|marginal_tvd",
+     "pass": true,
+     "value": 0.0044,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|marginal_tvd",
+     "pass": true,
+     "value": 0.0044,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.CountryFull|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Birthday|marginal_ks",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Birthday|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Age|marginal_ks",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Age|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Occupation|marginal_tvd",
+     "pass": true,
+     "value": 0.0901,
+     "limit": 0.2199
+    },
+    {
+     "id": "scorecard:Customer.Occupation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Company|marginal_tvd",
+     "pass": true,
+     "value": 0.0531,
+     "limit": 0.1395
+    },
+    {
+     "id": "scorecard:Customer.Company|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Latitude|marginal_ks",
+     "pass": true,
+     "value": 0.009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Latitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.Longitude|marginal_ks",
+     "pass": true,
+     "value": 0.0081,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Customer.Longitude|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer|association_max_diff",
+     "pass": true,
+     "value": 0.1007,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4913,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Date.Date|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Year|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Year|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1459
+    },
+    {
+     "id": "scorecard:Date.YearQuarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearQuarterNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Quarter|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Quarter|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonth|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonth|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.2546
+    },
+    {
+     "id": "scorecard:Date.YearMonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.YearMonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.Month|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.Month|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.MonthNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeek|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekShort|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.DayofWeekNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDay|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Date.WorkingDayNumber|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Date|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0044,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0413,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0396,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0213,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:OrderRows.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows|association_max_diff",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:OrderRows|discriminator_auc",
+     "pass": true,
+     "value": 0.5634,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|marginal_ks",
+     "pass": true,
+     "value": 0.013,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.OrderDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|marginal_ks",
+     "pass": true,
+     "value": 0.013,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Orders.DeliveryDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Orders|discriminator_auc",
+     "pass": true,
+     "value": 0.5006,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|marginal_tvd",
+     "pass": true,
+     "value": 0.0294,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Manufacturer|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Brand|marginal_tvd",
+     "pass": true,
+     "value": 0.0294,
+     "limit": 0.0836
+    },
+    {
+     "id": "scorecard:Product.Brand|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Color|marginal_tvd",
+     "pass": true,
+     "value": 0.0584,
+     "limit": 0.0887
+    },
+    {
+     "id": "scorecard:Product.Color|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|marginal_tvd",
+     "pass": true,
+     "value": 0.0203,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.WeightUnit|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Weight|marginal_ks",
+     "pass": true,
+     "value": 0.0273,
+     "limit": 0.097
+    },
+    {
+     "id": "scorecard:Product.Weight|null_rate_diff",
+     "pass": true,
+     "value": 0.0143,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Cost|marginal_ks",
+     "pass": true,
+     "value": 0.0151,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Cost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.Price|marginal_ks",
+     "pass": true,
+     "value": 0.0219,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.Price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|marginal_tvd",
+     "pass": true,
+     "value": 0.023,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.CategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.023,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Product.CategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|marginal_ks",
+     "pass": true,
+     "value": 0.0179,
+     "limit": 0.0918
+    },
+    {
+     "id": "scorecard:Product.SubCategoryKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0457,
+     "limit": 0.1518
+    },
+    {
+     "id": "scorecard:Product.SubCategoryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Product|association_max_diff",
+     "pass": true,
+     "value": 0.0801,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Product|discriminator_auc",
+     "pass": true,
+     "value": 0.5061,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Sales.Quantity|marginal_tvd",
+     "pass": true,
+     "value": 0.0044,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.Quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0413,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|marginal_ks",
+     "pass": true,
+     "value": 0.0396,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.NetPrice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|marginal_ks",
+     "pass": true,
+     "value": 0.0213,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:Sales.UnitCost|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales|association_max_diff",
+     "pass": true,
+     "value": 0.0137,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:Sales|discriminator_auc",
+     "pass": true,
+     "value": 0.5744,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:Store.StoreCode|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.StoreCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.GeoAreaKey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryCode|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryCode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CountryName|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.4179
+    },
+    {
+     "id": "scorecard:Store.CountryName|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.State|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.State|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.OpenDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5334
+    },
+    {
+     "id": "scorecard:Store.OpenDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.CloseDate|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.1339
+    },
+    {
+     "id": "scorecard:Store.CloseDate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1692
+    },
+    {
+     "id": "scorecard:Store.Description|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3157
+    },
+    {
+     "id": "scorecard:Store.Description|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|marginal_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.537
+    },
+    {
+     "id": "scorecard:Store.SquareMeters|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store.Status|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1663
+    },
+    {
+     "id": "scorecard:Store.Status|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0526
+    },
+    {
+     "id": "scorecard:Store|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.5956
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.OrderDate|join_ks",
+     "pass": true,
+     "value": 0.0113,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.DeliveryDate|join_ks",
+     "pass": true,
+     "value": 0.0112,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Manufacturer|join_tvd",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.1244
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Brand|join_tvd",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.1244
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Color|join_tvd",
+     "pass": true,
+     "value": 0.0535,
+     "limit": 0.1318
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.WeightUnit|join_tvd",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Weight|join_ks",
+     "pass": true,
+     "value": 0.0483,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Cost|join_ks",
+     "pass": true,
+     "value": 0.0311,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.Price|join_ks",
+     "pass": true,
+     "value": 0.042,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryKey|join_tvd",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.1088
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.CategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.1088
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryKey|join_ks",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:ProductKey.SubCategoryName|join_tvd",
+     "pass": true,
+     "value": 0.0046,
+     "limit": 0.2167
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StartDT|join_ks",
+     "pass": true,
+     "value": 0.0119,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.EndDT|join_ks",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Continent|join_tvd",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Gender|join_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Title|join_tvd",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.MiddleInitial|join_tvd",
+     "pass": true,
+     "value": 0.022,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.State|join_tvd",
+     "pass": true,
+     "value": 0.0524,
+     "limit": 0.1122
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.StateFull|join_tvd",
+     "pass": true,
+     "value": 0.0548,
+     "limit": 0.1185
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Country|join_tvd",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.CountryFull|join_tvd",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Birthday|join_ks",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Age|join_ks",
+     "pass": true,
+     "value": 0.0077,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Occupation|join_tvd",
+     "pass": true,
+     "value": 0.1591,
+     "limit": 0.3872
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Company|join_tvd",
+     "pass": true,
+     "value": 0.0979,
+     "limit": 0.2466
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Latitude|join_ks",
+     "pass": true,
+     "value": 0.0108,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.CustomerKey.Longitude|join_ks",
+     "pass": true,
+     "value": 0.0174,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.StoreCode|join_ks",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.9404
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.GeoAreaKey|join_ks",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.9404
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryCode|join_tvd",
+     "pass": true,
+     "value": 0.0046,
+     "limit": 1.3155
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CountryName|join_tvd",
+     "pass": true,
+     "value": 0.0046,
+     "limit": 1.3155
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.State|join_tvd",
+     "pass": true,
+     "value": 0.026,
+     "limit": 3.5879
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.OpenDate|join_ks",
+     "pass": true,
+     "value": 0.0087,
+     "limit": 0.9404
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.CloseDate|join_ks",
+     "pass": true,
+     "value": 0.1848,
+     "limit": 0.9404
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Description|join_tvd",
+     "pass": true,
+     "value": 0.026,
+     "limit": 3.5879
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.SquareMeters|join_ks",
+     "pass": true,
+     "value": 0.0168,
+     "limit": 0.9404
+    },
+    {
+     "id": "scorecard:OrderRows.joined:OrderKey.StoreKey.Status|join_tvd",
+     "pass": true,
+     "value": 0.0115,
+     "limit": 0.157
+    },
+    {
+     "id": "scorecard:OrderRows.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 3.3067,
+     "limit": 3.707
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0023,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0377,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0023,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:OrderRows.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0066,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Orders.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0811,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4455
+    },
+    {
+     "id": "scorecard:Orders.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_ks",
+     "pass": true,
+     "value": 0.0066,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.CustomerKey->Customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_ks",
+     "pass": true,
+     "value": 0.0377,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.ProductKey->Product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_ks",
+     "pass": true,
+     "value": 0.0811,
+     "limit": 0.2667
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.4461
+    },
+    {
+     "id": "scorecard:Sales.StoreKey->Store|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_ks",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:Sales.OrderKey->Orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.City|text_tstr_ratio",
+     "pass": true,
+     "value": 1.1078,
+     "limit": 0.85
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer.Vehicle|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Product.ProductName|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:Customer|dcr_ratio",
+     "pass": true,
+     "value": 1.1037,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Customer|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Product|dcr_ratio",
+     "pass": true,
+     "value": 2.0531,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:Product|exact_match_rate",
+     "pass": true,
+     "value": 0.0167,
+     "limit": 0.0611
+    },
+    {
+     "id": "scorecard:Customer: Age = years_between(Birthday, '2021-02-02')|soft_rule_rate_diff",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:Customer: days(StartDT) <= days(EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(CustomerKey.EndDT)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(StoreKey.OpenDate) < days(OrderDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) < days(StoreKey.CloseDate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.1e-05
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) == days(DeliveryDate) or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: days(OrderDate) != days(DeliveryDate) or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CustomerKey.Country != StoreKey.CountryCode or StoreKey != 999999|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Product: Cost < Price|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Orders: CurrencyCode = CustomerKey.Country|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: OrderDate = OrderKey.OrderDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: DeliveryDate = OrderKey.DeliveryDate|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CustomerKey = OrderKey.CustomerKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: StoreKey = OrderKey.StoreKey|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: CurrencyCode = OrderKey.CurrencyCode|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:Sales: ExchangeRate = {'table': 'CurrencyExchange', 'match': {'Date': 'OrderDate', 'FromCurrency': \"'USD'\", 'ToCurrency': 'CurrencyCode'}, 'value': 'Exchange'}|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:CurrencyExchange: unique ['Date', 'FromCurrency', 'ToCurrency']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: unique ['OrderKey', 'LineNumber']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:OrderRows: pairs (OrderKey, ProductKey)|pair_repeat_share_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:rows sales",
+     "pass": null,
+     "value": 223469.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:rows orderrows",
+     "pass": null,
+     "value": 223469.0,
+     "real": 223974.0
+    },
+    {
+     "id": "domain:rows customer",
+     "pass": null,
+     "value": 104990.0,
+     "real": 104990.0
+    },
+    {
+     "id": "domain:rows product",
+     "pass": null,
+     "value": 2517.0,
+     "real": 2517.0
+    },
+    {
+     "id": "domain:rows store",
+     "pass": null,
+     "value": 74.0,
+     "real": 74.0
+    },
+    {
+     "id": "domain:rows date",
+     "pass": null,
+     "value": 4018.0,
+     "real": 4018.0
+    },
+    {
+     "id": "domain:rows currencyexchange",
+     "pass": null,
+     "value": 100450.0,
+     "real": 100450.0
+    },
+    {
+     "id": "domain:T1 sales: orders with one header (customer, store, dates, currency)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: unique (order, line)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: orders",
+     "pass": null,
+     "value": 93470.0,
+     "real": 93470.0
+    },
+    {
+     "id": "domain:T1 sales: lines per order (mean)",
+     "pass": null,
+     "value": 2.391,
+     "real": 2.396
+    },
+    {
+     "id": "domain:T1 sales: max lines per order",
+     "pass": null,
+     "value": 7.0,
+     "real": 7.0
+    },
+    {
+     "id": "domain:T1 sales: first line number is 0",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T1 sales: line numbers without gaps (generator skips some)",
+     "pass": null,
+     "value": 1.0,
+     "real": 0.984508
+    },
+    {
+     "id": "domain:T2 order key order = date order",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T3 ExchangeRate = rate(OrderDate, USD -> CurrencyCode)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T4 CurrencyCode = currency of customer's country",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T7 customer active: StartDT < OrderDate < EndDT",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T5 online share of lines",
+     "pass": null,
+     "value": 0.4162,
+     "real": 0.4177
+    },
+    {
+     "id": "domain:T5 store in the customer's geo area (physical stores)",
+     "pass": null,
+     "value": 0.1239,
+     "real": 0.12638
+    },
+    {
+     "id": "domain:T5 store in the customer's country (physical stores)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T6 store open on the order date",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 physical store: DeliveryDate = OrderDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: DeliveryDate >= OrderDate + 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T8 online: mean delivery days",
+     "pass": null,
+     "value": 3.256,
+     "real": 3.252
+    },
+    {
+     "id": "domain:T9 NetPrice = UnitPrice x (1 - d/100), d integer 0..14",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T9 share without discount",
+     "pass": null,
+     "value": 0.391,
+     "real": 0.3887
+    },
+    {
+     "id": "domain:T10 Quantity in 1..10",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T10 Quantity mean",
+     "pass": null,
+     "value": 3.147,
+     "real": 3.142
+    },
+    {
+     "id": "domain:T11 UnitPrice/Price = UnitCost/Cost (one price factor)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T11 one price factor per (category, day)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 sales = orders x orderrows: rows matched both ways",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 matched rows identical in every column",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 order rows whose order exists",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T12 orders with at least one row",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: SubCategoryKey -> SubCategoryName, CategoryKey",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 product: Price > Cost",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CountryCode -> CountryName",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: one online store (GeoAreaKey -1)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T13 store: CloseDate set <=> Status set (Closed, Restructured)",
+     "pass": null,
+     "value": 0.986486,
+     "real": 0.986486
+    },
+    {
+     "id": "domain:T13 store: OpenDate < CloseDate",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: Country -> Continent",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: (Country, State) -> StateFull",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customer: StartDT < EndDT",
+     "pass": null,
+     "value": 0.99999,
+     "real": 0.99999
+    },
+    {
+     "id": "domain:T14 customer: Age = whole years to one reference date (modal share)",
+     "pass": null,
+     "value": 0.9057,
+     "real": 0.9048
+    },
+    {
+     "id": "domain:T14 customer: unique key",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T14 customers with at least one order",
+     "pass": null,
+     "value": 0.4905,
+     "real": 0.4971
+    },
+    {
+     "id": "domain:T14 orders per buying customer (mean)",
+     "pass": null,
+     "value": 1.815,
+     "real": 1.791
+    },
+    {
+     "id": "domain:T15 date: Year = year(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: MonthNumber = month(Date)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: DateKey = yyyymmdd",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T15 date: one row per day, no gaps",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> X) = 1",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 rate(X -> Y) x rate(Y -> X) = 1 (4 decimals)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T16 unique (date, from, to)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:T17 orders by customer country: TVD",
+     "pass": null,
+     "value": 0.0049,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 online share by customer country: max |diff|",
+     "pass": null,
+     "value": 0.0188,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 mean latitude by country (customers): max |diff|",
+     "pass": null,
+     "value": 2.8888,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by geography code: TVD",
+     "pass": null,
+     "value": 0.0339,
+     "real": 0.0
+    },
+    {
+     "id": "domain:T17 customers by country: TVD",
+     "pass": null,
+     "value": 0.0044,
+     "real": 0.0
+    }
+   ]
+  }
+ ]
+}

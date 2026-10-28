@@ -39,6 +39,8 @@ oracle = ["oracledb>=2.0"]
 parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
 all = ["relsynth[postgres,mssql,oracle,parquet]"]
+# the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
+bench = ["py7zr>=0.21"]
 dev = [
     "relsynth[all]",
     "pytest>=8",
@@ -74,6 +76,7 @@ relsynth = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]                # the benchmark harness (bench/) is tested from tests/unit
 addopts = "-ra --strict-markers -m 'not science'"
 markers = [
     "postgres: needs a live PostgreSQL (RELSYNTH_TEST_PG_URL)",
@@ -128,6 +131,10 @@ ignore = [
 # fake-data generators (wide literal specs) and the generators of the reference docs
 "tests/fakedata/**" = ["S", "B", "E501", "E401"]
 "docs/*.py" = ["E501"]
+# benchmark builders and domain checks, kept as they were written for layer 2 (bench/README.md);
+# their SQL names come from the dataset's own DDL, not from users
+"bench/builders/**" = ["E501", "S608", "UP031"]
+"bench/checks/**" = ["E501", "S608", "F401", "F841", "E731"]
 
 [tool.bandit]
 exclude_dirs = ["tests"]
