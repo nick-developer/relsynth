@@ -290,8 +290,7 @@ class SqlConnector(Connector):
         else:
             from .sqlfuncs import HASH_RANGE
             q = q.where(h < int(round(HASH_RANGE * n / total)))
-        with self.engine.connect() as con:
-            df = pd.read_sql(q, con)
+        df = self.frame(q)
         df.columns = [str(c) for c in df.columns]
         if h is not None:
             # the sample size is Binomial(total, n / total): far outside it means the
@@ -404,6 +403,11 @@ class SqlConnector(Connector):
         self.refresh()
         return self.location()
 
+    def frame(self, q) -> pd.DataFrame:
+        """The result of a SELECT as a frame (subclasses use a faster fetch path)."""
+        with self.engine.connect() as con:
+            return pd.read_sql(q, con)
+
     def ping(self) -> dict[str, Any]:
         out = super().ping()
         if out["ok"]:
@@ -442,8 +446,7 @@ class SqlStats(TableStats):
     def distinct(self, col):
         x = self.col(col)
         q = sa.select(x.label(col)).where(x.is_not(None)).distinct()
-        with self.conn.engine.connect() as con:
-            df = pd.read_sql(q, con)
+        df = self.conn.frame(q)
         df.columns = [col]
         return normalise_frame(df)[col].reset_index(drop=True)
 
@@ -489,20 +492,23 @@ class SqlStats(TableStats):
             lo, hi = con.execute(sa.select(sa.func.min(c), sa.func.max(c))).one()
         return py_value(lo), py_value(hi)
 
+    def _row_order(self, tbl) -> list:
+        """Columns that order a key's rows after `order`: the primary key."""
+        info = self.conn.describe(self.table)
+        return [tbl.c[c] for c in (info.primary_key or []) if c in tbl.c]
+
     def first_rows(self, key, cols, order=None, differences=True):
         keys = [key] if isinstance(key, str) else list(key)
         cols = [c for c in cols if c not in keys]
         tbl = self.tbl
-        info = self.conn.describe(self.table)
         # nulls last, written portably (SQL Server has no NULLS LAST): the null flag, then the value
         ob = [x for c in (order or []) for x in (sa.case((tbl.c[c].is_(None), 1), else_=0), tbl.c[c].asc())]
-        ob += [tbl.c[c] for c in (info.primary_key or []) if c in tbl.c] or [tbl.c[k] for k in keys]
+        ob += self._row_order(tbl) or [tbl.c[k] for k in keys]
         rn = sa.func.row_number().over(partition_by=[self.col(k) for k in keys], order_by=ob).label("rs_rn")
         inner = sa.select(*[tbl.c[k] for k in keys], *[tbl.c[c] for c in cols], rn).subquery("rs_h")
         q = sa.select(*[inner.c[c] for c in keys + cols]).where(inner.c["rs_rn"] == 1) \
             .order_by(*[inner.c[k] for k in keys])
-        with self.conn.engine.connect() as con:
-            H = pd.read_sql(q, con)
+        H = self.conn.frame(q)
         H.columns = keys + cols
         H = normalise_frame(H)
         diff = None
@@ -576,8 +582,7 @@ class SqlStats(TableStats):
             z = mid.c[f"z{j}"]
             aggs += [sa.func.sum(z).label(f"{SCORE_PREFIX}{j}"), sa.func.sum(z * z).label(f"{SQUARE_PREFIX}{j}")]
         q = sa.select(*keys, *aggs).group_by(*keys)
-        with self.conn.engine.connect() as con:
-            df = pd.read_sql(q, con)
+        df = self.conn.frame(q)
         df.columns = cols + [c for c in df.columns[len(cols):]]
         df = normalise_frame(df)
         df["n"] = df["n"].astype(np.int64)

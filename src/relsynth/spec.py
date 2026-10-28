@@ -722,6 +722,11 @@ def _validate_io(spec):
         for k in ("path", "url", "schema", "url_env", "password_env", "format"):
             if x.get(k) is not None and not isinstance(x[k], str):
                 errs.append(f"{key}.{k} must be a string")
+        if x.get("engine") is not None and x["engine"] not in ("auto", "duckdb", "pandas"):
+            errs.append(f"{key}.engine must be auto, duckdb or pandas")
+        if x.get("duckdb") is not None and (not isinstance(x["duckdb"], dict) or
+                                            set(x["duckdb"]) - {"memory_limit", "threads", "temp_directory"}):
+            errs.append(f"{key}.duckdb must be a mapping of memory_limit, threads and temp_directory")
         for k in ("connect_args", "engine_options"):
             if x.get(k) is not None and not isinstance(x[k], dict):
                 errs.append(f"{key}.{k} must be a mapping")
