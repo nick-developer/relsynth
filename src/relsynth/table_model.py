@@ -260,6 +260,16 @@ class TableModel:
         r = pd.Series(v).rank(method="average").to_numpy()
         return ndtri(r / (len(r) + 1))
 
+    # fitted parameters of the copula generator that 1.0 code read from the table model
+    # (the science checks, the exported model); read through to the generator
+    _GENERATOR_ATTRS = frozenset({"copulas", "pooled", "group_m", "global_m", "coarse_m", "group_n", "independent"})
+
+    def __getattr__(self, name):
+        gen = self.__dict__.get("generator")
+        if name in TableModel._GENERATOR_ATTRS and gen is not None and hasattr(gen, name):
+            return getattr(gen, name)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+
     # ---- the attribute generator (relsynth.generators): the encoding above is the
     # engine's; fitting and sampling the attribute values is the generator's
     @property
