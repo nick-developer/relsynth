@@ -67,6 +67,7 @@ pytest tests/integration -v
 - Databricks runs against a local stand-in (Spark 3.5 with Delta Lake behind a protocol proxy): `tests/emulators/databricks/start.sh`, then the two variables its header lists, then `pytest -m databricks tests/integration`. A real workspace works the same way with its own URL and credentials.
 - Microsoft Fabric runs against SQL Server 2022 in a UTF-8 database (`tests/emulators/fabric/README.md`): set `RELSYNTH_TEST_FABRIC_URL`, then `pytest -m fabric tests/integration`. The integration CI job does this on its SQL Server service.
 - Snowflake runs against fakesnow (Snowflake's protocol over DuckDB): `python tests/emulators/snowflake/serve.py`, then the two variables in `tests/emulators/snowflake/README.md`, then `pytest -m snowflake tests/integration`.
+- BigQuery has unit tests only (`tests/unit/test_bigquery.py`): no emulator could be run in development. Against a sandbox project, set `RELSYNTH_TEST_BIGQUERY_URL=bigquery://<project>/<dataset>` with Application Default Credentials and run `pytest -m bigquery tests/integration`.
 - SQL Server tests need the Microsoft ODBC Driver 18, or `relsynth[mssql-pymssql]` with a `mssql+pymssql://` URL.
 
 ## The statistical check suite
