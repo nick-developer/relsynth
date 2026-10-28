@@ -227,6 +227,17 @@ load_tables.notes = []
 _TS_MIN, _TS_MAX = pd.Timestamp.min, pd.Timestamp.max
 
 
+def _far_date(v) -> bool:
+    """Whether text is a date outside 1677-2262 (pandas 2 parses only nanosecond
+    dates, so it reads 9999-12-31 as no date at all)."""
+    from dateutil import parser
+    try:
+        t = parser.parse(str(v))
+    except (ValueError, OverflowError):
+        return False
+    return t.replace(tzinfo=None) < _TS_MIN.to_pydatetime() or t.replace(tzinfo=None) > _TS_MAX.to_pydatetime()
+
+
 def to_dates(s: pd.Series, notes=None, where="") -> pd.Series:
     """datetime64[ns] values of a date column.  Text in several formats is parsed
     value by value (month first); values that are no date, and dates outside
@@ -245,12 +256,17 @@ def to_dates(s: pd.Series, notes=None, where="") -> pd.Series:
     if getattr(d.dt, "tz", None) is not None:
         d = d.dt.tz_convert("UTC").dt.tz_localize(None)
     n_oob = 0
+    oob = pd.Series(False, index=d.index)
     if d.dtype != "datetime64[ns]":
         oob = d.notna() & ((d < _TS_MIN) | (d > _TS_MAX))
         n_oob = int(oob.sum())
         if n_oob:
             d = d.where(~oob)
         d = d.astype("datetime64[ns]")
+    if text and notes is not None:
+        rest = s.notna() & d.isna() & ~oob
+        if rest.any():
+            n_oob += int(s[rest].map(_far_date).sum())
     if notes is not None:
         if n_oob:
             notes.append(f"{where}: {n_oob} date(s) outside 1677-2262 (e.g. 9999-12-31) read as null")
