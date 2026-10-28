@@ -39,7 +39,9 @@ The decisive check is that **the same data gives the same synthetic database**. 
 | Hook | Use it for | Example |
 |---|---|---|
 | `_connect_args(url)` | Driver arguments the connector adds, such as credentials from the environment (`WarehouseConnector` calls `auth_connect_args`) | Databricks access token or OAuth credentials provider |
-| `adapt_metadata(md)` | Constraints and table options the engine cannot declare, applied to the tables `write_tables` and `clone-schema` create | Databricks: keys only in Unity Catalog, no `UNIQUE` or indexes, Delta column mapping |
+| `_engine_url(url)` | Driver options the URL must carry | Fabric: ODBC Driver 18, `Encrypt=yes`, `Authentication=ActiveDirectoryInteractive` |
+| `adapt_metadata(md)` | Constraints, types and table options the engine needs, applied to the tables `write_tables` and `clone-schema` create | Databricks: keys only in Unity Catalog, no `UNIQUE` or indexes, Delta column mapping. Fabric: `VARCHAR` and `DATETIME2(6)`, keys `NOT ENFORCED` |
+| `_row_hash(cols, seed)` | The sample hash, when the engine shares a dialect but not its functions | Fabric: SQL Server's dialect, but no `NVARCHAR` |
 | `_engine_options(url)` | Engine and pool options | `pool_recycle` (MySQL), `fast_executemany` (SQL Server), `arraysize` (Oracle) |
 | `_setup_engine(engine)` | Per-connection session settings and SQL functions | MySQL `time_zone = '+00:00'`; SQLite registers `rs_ndtri` and `rs_hash`; DuckDB registers `rs_ndtri` |
 | `table(name)` | Fix reflected types | MySQL `DOUBLE` reflects as `asdecimal=True` (rounds to 10 decimals) |
@@ -93,7 +95,7 @@ Each function compiles per dialect with `@compiles(..., "<dialect>")`:
 
 ## Warehouses
 
-Notes for T18. Databricks is done: see [warehouses.md](warehouses.md) for what was found. The rest still need a live check before they are relied on.
+Notes for T18. Databricks and Fabric are done: see [warehouses.md](warehouses.md) for what was found. The rest still need a live check before they are relied on.
 
 | Topic | What to expect | Consequence for the connector |
 |---|---|---|
