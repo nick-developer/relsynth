@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Microsoft Fabric specifics on a live warehouse or the SQL Server 2022 stand-in
 (skipped unless RELSYNTH_TEST_FABRIC_URL is set; see tests/emulators/fabric):
 the Fabric column types, values that survive them exactly, the UTF-8 SHA-256

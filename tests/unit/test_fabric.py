@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The Fabric connector without a warehouse: the driver URL, Entra ID tokens,
 Fabric column types, NOT ENFORCED constraints and the sample hash's SQL."""
 from __future__ import annotations
@@ -106,3 +107,34 @@ def test_sample_hash_sql_and_collation_check(fab):
         fab._row_hash([t.c.k], 5)
     fab._collation = "Latin1_General_100_BIN2_UTF8"
     assert fab._row_hash([t.c.k], 5) is not None
+
+
+def test_copy_into_stages_parquet_in_adls(fab, monkeypatch):
+    import pandas as pd
+    from azure.storage import filedatalake
+    made = []
+
+    class FakeFile:
+        def __init__(self, account_url, fs, path, credential=None):
+            made.append((account_url, fs, path))
+
+        def upload_data(self, data, overwrite=False):
+            assert data[:4] == b"PAR1" and overwrite
+
+        def delete_file(self):
+            made.append("deleted")
+    monkeypatch.setattr(filedatalake, "DataLakeFileClient", FakeFile)
+    sent = []
+
+    class Con:
+        dialect = mssql.dialect()
+
+        def exec_driver_sql(self, sql):
+            sent.append(sql)
+    fab.bulk = {"method": "copy", "stage": "https://acct.dfs.core.windows.net/landing/relsynth/run1"}
+    tbl = sa.Table("t", sa.MetaData(schema="dbo"), sa.Column("id", sa.Integer))
+    assert fab._insert_rows(Con(), tbl, pd.DataFrame({"id": [1, 2]})) == 2
+    acct, fs, path = made[0]
+    assert acct == "https://acct.dfs.core.windows.net" and fs == "landing" and path.startswith("relsynth/run1/relsynth_t_")
+    assert sent[0].startswith("COPY INTO dbo.t (id) FROM 'https://acct.dfs.core.windows.net/landing/relsynth/run1/relsynth_t_")
+    assert "FILE_TYPE = 'PARQUET'" in sent[0] and made[-1] == "deleted"
