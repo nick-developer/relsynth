@@ -430,7 +430,8 @@ def _spec_args(p):
 def _loc_args(p, name, required=True, help_=""):
     # not required by argparse: --NAME-url-env can name the location instead (checked in _location)
     p.add_argument(f"--{name}", help=(help_ or "csv:DIR | parquet:DIR | sqlite:FILE | database URL "
-                                      "(postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://, snowflake://)")
+                                      "(postgresql://, mssql://, oracle://, mysql://, mariadb://, "
+                                      "databricks://, fabric://, snowflake://, bigquery://)")
                    + ("" if not required else f"; or give --{name}-url-env"))
     p.add_argument(f"--{name}-schema", help="database schema")
     p.add_argument(f"--{name}-password-env", help="environment variable holding the password")

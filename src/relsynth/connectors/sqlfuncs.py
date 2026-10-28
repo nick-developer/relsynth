@@ -13,7 +13,7 @@
   computed from the row's key values, for reproducible Bernoulli samples
   (hashtextextended in PostgreSQL, HASHBYTES in SQL Server, ORA_HASH in Oracle,
   SHA2 in MySQL, MariaDB, Databricks and Snowflake, HASHBYTES over UTF-8 in
-  Fabric, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
+  Fabric, SHA256 in BigQuery, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
 """
 from __future__ import annotations
 
@@ -154,6 +154,12 @@ def row_hash(cols, seed: int, dialect_name: str):
         txt = sa.func.concat(sa.literal_column(f"'{seed}|'"), _joined(cols))
         digest = sa.func.hashbytes(sa.literal_column("'SHA2_256'"), sa.cast(txt, sa.VARCHAR(None)))
         return sa.cast(sa.cast(digest, sa.BINARY(4)), sa.BigInteger)
+    if dialect_name == "bigquery":
+        # the same 32 bits: SHA256 gives BYTES, TO_HEX lower-case hex, and a
+        # '0x...' string casts to INT64
+        txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
+        hex8 = sa.func.substr(sa.func.to_hex(sa.func.sha256(txt)), sa.literal_column("1"), sa.literal_column("8"))
+        return sa.cast(sa.func.concat(sa.literal_column("'0x'"), hex8), sa.BigInteger)
     if dialect_name == "snowflake":
         # the same 32 bits: SHA2 gives lower-case hex, read digit by digit with
         # CHARINDEX (TO_NUMBER(h, 'XXXXXXXX') is not in the fakesnow stand-in)
@@ -194,7 +200,8 @@ def py_row_hash(seed: int, text: str) -> int:
 
 
 def py_row_hash_sha256(seed: int, text: str) -> int:
-    """The MySQL, MariaDB, DuckDB, Databricks, Fabric and Snowflake hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
+    """The MySQL, MariaDB, DuckDB, Databricks, Fabric, Snowflake and BigQuery hash:
+    SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
     return int(hashlib.sha256(f"{seed}|{text}".encode()).hexdigest()[:8], 16)
 
 

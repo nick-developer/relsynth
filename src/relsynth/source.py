@@ -104,6 +104,7 @@ class Source:
         d = self.eng.dialect.name
         self._rnd = {"sqlite": func.random(), "postgresql": func.random(), "mssql": func.newid(),
                      "mysql": func.rand(), "mariadb": func.rand(), "databricks": func.rand(), "snowflake": func.random(),
+                     "bigquery": func.rand(),
                      "oracle": literal_column("dbms_random.value")}.get(d)
         self.random_order = self._rnd is not None
         self._counts = {}
