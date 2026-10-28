@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Utility targets of the golden databases for the 2.0 quality report (roadmap T05,
+# decision of 2026-10-28). Each database block is a valid --quality-config fragment:
+#
+#   cfg = yaml.safe_load(open("benchmarks/targets.yaml"))["chinook"]
+#   rs.assess_quality(spec, synthetic, config=cfg)
+#
+# `targets` are single-table tasks (TSTR/TRTS on that table); `mt_targets` are
+# multi-table tasks on the parent table with its children aggregated. Tables not
+# listed fall back to the heuristic of relsynth.quality.utility.pick_target.
+# Columns that are derived from other columns (tax and freight as a share of the
+# amount, calendar attributes, alternate keys) are left out: predicting them tests
+# arithmetic, not the generator. The private bi database keeps the heuristic and is
+# not listed here.
+
+chinook:
+  targets:
+    Track: UnitPrice              # audio 0.99 vs video 1.99, from length and size
+    Invoice: Total
+  mt_targets:
+    Track: UnitPrice
+    Invoice: Total                # from the invoice's lines
+
+contoso_sqlite:
+  targets:
+    Customer: Gender
+    Product: CategoryKey
+    OrderRows: Quantity
+    Sales: Quantity
+  mt_targets:
+    Customer: Gender
+    Product: CategoryKey
+    Store: CountryCode
+
+adventureworks:
+  targets:
+    DimCustomer: EnglishOccupation   # from education, income, children, cars
+    DimEmployee: MaritalStatus
+    DimProduct: Class
+    DimReseller: BankName
+    FactCallCenter: Shift
+    FactCurrencyRate: EndOfDayRate
+    FactProductInventory: UnitCost
+    ProspectiveBuyer: Gender
+  mt_targets:
+    DimAccount: AccountType
+    DimCustomer: EnglishOccupation
+    DimEmployee: MaritalStatus
+    DimGeography: CountryRegionCode
+    DimProduct: Class
+    DimReseller: BankName

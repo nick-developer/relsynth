@@ -47,9 +47,14 @@ Conventions used throughout:
 | "degree and clustering checks" (T15) | KS of degree distributions and W1 of local clustering coefficients, registered as metrics with split-calibrated nulls. | SNAP, OGB graphs | Real-vs-real splits | 0.99 |
 | "agent answers match ground truth at a stated rate" (T16) | Share of `review:` questions answered correctly, with a 95% Clopper–Pearson interval; every wrong answer must be rejected at the approval step in the tests. | Golden databases | Stated rate | 95% |
 
-## What is not decided here
+## Decisions (2026-10-28)
 
-- The **targets per database** for the utility tasks (which column to predict) are a product decision. Until the
-  user lists them, the report uses its documented heuristic and says so in each check's scope.
-- **Tolerances** (practical floors) are judgement calls stated in [metrics.md](metrics.md). An organisation can set
-  its own per metric; the calibrated limit still applies when it is larger.
+- **Utility targets** of the golden databases are declared in
+  [`benchmarks/targets.yaml`](../benchmarks/targets.yaml). Derived columns (tax and freight as a share of the
+  amount, calendar attributes, alternate keys) are not targets. Tables not listed, and the private bi database,
+  use the documented heuristic, and each check's scope names the target used.
+- **Tolerances** (practical floors) are kept as stated in [metrics.md](metrics.md). An organisation can set its
+  own per metric; the calibrated limit still applies when it is larger.
+- **Quality gate.** In 2.x the default gate stays `--fail-under` on the 1.0 share of passed checks; the 2.0
+  vector gate is opt-in with `relsynth evaluate --quality FILE --quality-gate` or `QualityReport.require()`.
+  The default moves to the 2.0 vector in 3.0.

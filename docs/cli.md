@@ -196,8 +196,8 @@ Attack a release per person and write a privacy report per release context.
 
 ```
 usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--cache CACHE]
-                        [--jobs JOBS] [--no-shadow] [--context CONTEXT] [--fail-on {review,fail}]
-                        [--signed-off-by SIGNED_OFF_BY] [--json]
+                        [--jobs JOBS] [--no-shadow] [--salt-file SALT_FILE] [--context CONTEXT]
+                        [--fail-on {review,fail}] [--signed-off-by SIGNED_OFF_BY] [--json]
                         [--log-level {debug,info,warning,error}]
                         spec
 ```
@@ -211,6 +211,7 @@ usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--
 | `--cache` CACHE |  |  | folder that keeps shadow fits between runs |
 | `--jobs` JOBS |  |  | parallel shadow fits |
 | `--no-shadow` |  |  | skip shadow-model membership inference (fast) |
+| `--salt-file` SALT_FILE |  |  | secret salt for person labels (hex); reused when it exists, else a new one is written there (default: OUT/privacy_salt.key) |
 | `--context` CONTEXT |  |  | gate on this release context (internal, partner, public): exit 1 when its verdict reaches --fail-on |
 | `--fail-on` review\|fail |  | `fail` |  |
 | `--signed-off-by` SIGNED_OFF_BY |  |  | the person (the DPO) who signs off a 'review' verdict; without it a review that needs a sign-off counts as fail at the gate |
@@ -222,7 +223,7 @@ Score synthetic data already written.
 ```
 usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output OUTPUT]
                          [--no-privacy] [--fail-under SHARE] [--quality FILE]
-                         [--quality-config YAML] [--holdout LOC] [--json]
+                         [--quality-config YAML] [--holdout LOC] [--quality-gate] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -238,6 +239,7 @@ usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output 
 | `--quality` FILE |  |  | also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON |
 | `--quality-config` YAML |  |  | settings of the 2.0 report (see docs/metrics.md) |
 | `--holdout` LOC |  |  | real tables the model did not see, for TSTR/TRTS |
+| `--quality-gate` |  |  | with --quality: exit 1 when an area of the 2.0 quality vector fails (the default gate stays --fail-under until 3.0) |
 
 ## doctor
 
