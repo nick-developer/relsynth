@@ -1,24 +1,16 @@
 {
  "schema": 1,
  "sources": [
-  "20261026T224800-9503d36-vm-3.json",
-  "20261026T224800-9503d36-vm-4.json",
-  "20261026T224800-9503d36-vm.json",
-  "20261026T232550-9503d36-vm.json",
-  "20261026T235215-9503d36-vm.json",
-  "20261026T235216-9503d36-vm.json",
-  "20261027T001753-2746e70-vm.json",
-  "20261027T001755-2746e70-vm.json",
-  "20261027T001757-2746e70-vm.json",
-  "20261027T001800-2746e70-vm.json",
-  "20261027T001803-2746e70-vm.json"
+  "20261028T135857-038061a-vm-2.json",
+  "20261028T135857-038061a-vm-3.json",
+  "20261028T135857-038061a-vm.json",
+  "20261028T135913-038061a-vm.json"
  ],
  "relsynth": [
-  "1.0.0"
+  "1.0.1"
  ],
  "git": [
-  "2746e7093288",
-  "9503d36e3bcc"
+  "038061a7acf9"
  ],
  "machines": [
   "vm"
@@ -26,25 +18,25 @@
  "datasets": {
   "adventureworks": {
    "seeds": [
+    4,
+    5,
     1,
     2,
-    3,
-    4,
-    5
+    3
    ],
    "pass_rates": [
-    0.958904,
-    0.949772,
     0.958143,
-    0.956621,
-    0.950533
+    0.951294,
+    0.960426,
+    0.950533,
+    0.958904
    ],
    "passed": [
-    1260,
-    1248,
     1259,
-    1257,
-    1249
+    1250,
+    1262,
+    1249,
+    1260
    ],
    "judged": [
     1314,
@@ -53,15 +45,15 @@
     1314,
     1314
    ],
-   "mean": 0.954795,
-   "sd": 0.004325,
-   "spread": 0.00865,
+   "mean": 0.95586,
+   "sd": 0.004598,
+   "spread": 0.009196,
    "seconds": [
-    3338.3,
-    3393.8,
-    3416.5,
-    3293.0,
-    3401.6
+    788.3,
+    857.9,
+    819.2,
+    852.9,
+    814.9
    ],
    "checks": {
     "domain:G1 FIS Cost = StdCost*Qty": {
@@ -639,11 +631,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:DimCustomer|dcr_ratio": {
@@ -1124,8 +1116,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      3,
-      5
+      5,
+      3
      ]
     },
     "scorecard:DimEmployee|exact_match_rate": {
@@ -1834,11 +1826,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:DimProduct|dcr_ratio": {
@@ -2612,9 +2604,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      3,
       4,
-      5
+      5,
+      3
      ]
     },
     "scorecard:FactCurrencyRate.DateKey->DimDate|cardinality_mean_rel_err": {
@@ -3045,8 +3037,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      4
+      4,
+      2
      ]
     },
     "scorecard:FactFinance: support (AccountKey, DateKey)|novel_combination_rate": {
@@ -3064,9 +3056,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
       1,
-      3,
-      4
+      3
      ]
     },
     "scorecard:FactFinance: support (AccountKey, ScenarioKey)|novel_combination_rate": {
@@ -3084,11 +3076,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactFinance: support (DateKey, ScenarioKey)|novel_combination_rate": {
@@ -3096,11 +3088,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactFinance: support (DepartmentGroupKey, OrganizationKey.CurrencyKey)|novel_combination_rate": {
@@ -3108,11 +3100,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactFinance: support (DepartmentGroupKey, ScenarioKey)|novel_combination_rate": {
@@ -3125,11 +3117,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactFinance|association_max_diff": {
@@ -3163,16 +3155,9 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.CustomerKey->DimCustomer|cardinality_ks": {
-     "passed": 0,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1,
-      2,
-      3,
-      4,
-      5
-     ]
+     "calibrated": true
     },
     "scorecard:FactInternetSales.CustomerKey->DimCustomer|cardinality_mean_rel_err": {
      "passed": 5,
@@ -3224,11 +3209,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales.Freight|null_rate_diff": {
@@ -3271,11 +3256,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales.ProductKey->DimProduct|cardinality_mean_rel_err": {
@@ -3368,11 +3353,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales.TaxAmt|null_rate_diff": {
@@ -3415,11 +3400,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales.joined:CustomerKey.EnglishEducation|join_tvd": {
@@ -3552,9 +3537,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
       4,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactInternetSales.joined:CustomerKey.TotalChildren|join_tvd": {
@@ -3762,9 +3747,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      5,
       2,
-      3,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales.joined:ProductKey.DealerPrice|join_ks": {
@@ -4145,12 +4130,9 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales: pairs (CustomerKey, ProductKey)|pair_repeat_share_diff": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1
-     ]
+     "calibrated": true
     },
     "scorecard:FactInternetSales: support (CurrencyKey, CustomerKey.GeographyKey)|novel_combination_rate": {
      "passed": 4,
@@ -4165,11 +4147,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: support (CurrencyKey, ProductKey.ProductSubcategoryKey)|novel_combination_rate": {
@@ -4177,11 +4159,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: support (CurrencyKey, PromotionKey)|novel_combination_rate": {
@@ -4194,11 +4176,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: support (CustomerKey.GeographyKey, PromotionKey)|novel_combination_rate": {
@@ -4211,11 +4193,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: support (OrderDateKey, PromotionKey)|novel_combination_rate": {
@@ -4223,11 +4205,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: support (ProductKey.ProductSubcategoryKey, PromotionKey)|novel_combination_rate": {
@@ -4235,11 +4217,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactInternetSales: unique ['SalesOrderNumber', 'SalesOrderLineNumber']|unique_duplicate_rate": {
@@ -4317,10 +4299,10 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      3,
       4,
-      5
+      5,
+      1,
+      3
      ]
     },
     "scorecard:FactProductInventory.DateKey->DimDate|cardinality_ks": {
@@ -4378,11 +4360,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactProductInventory.UnitsBalance|null_rate_diff": {
@@ -4525,11 +4507,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactProductInventory.joined:ProductKey.FinishedGoodsFlag|join_tvd": {
@@ -4632,9 +4614,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      5,
       1,
-      3,
-      5
+      3
      ]
     },
     "scorecard:FactProductInventory.joined|join_assoc_max_z": {
@@ -4642,10 +4624,10 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
       1,
       2,
-      3,
-      4
+      3
      ]
     },
     "scorecard:FactProductInventory: MovementDate = DateKey.FullDateAlternateKey|rule_violation_rate": {
@@ -4678,10 +4660,10 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      3,
       4,
-      5
+      5,
+      2,
+      3
      ]
     },
     "scorecard:FactProductInventory|discriminator_auc": {
@@ -4697,11 +4679,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.CarrierTrackingNumber|null_rate_diff": {
@@ -4734,11 +4716,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.CustomerPONumber|null_rate_diff": {
@@ -4851,11 +4833,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.ProductKey->DimProduct|cardinality_mean_rel_err": {
@@ -4898,11 +4880,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.ResellerKey->DimReseller|cardinality_mean_rel_err": {
@@ -5305,10 +5287,10 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
       1,
       2,
-      3,
-      4
+      3
      ]
     },
     "scorecard:FactResellerSales.joined:ProductKey.DealerPrice|join_ks": {
@@ -5430,8 +5412,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      4
+      4,
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:PromotionKey.DiscountPct|join_ks": {
@@ -5514,8 +5496,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      4
+      4,
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.AnnualSales|join_tvd": {
@@ -5523,8 +5505,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      4
+      4,
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.BankName|join_tvd": {
@@ -5537,11 +5519,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.FirstOrderYear|join_tvd": {
@@ -5645,11 +5627,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.OrderMonth|join_tvd": {
@@ -5665,8 +5647,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      5
+      5,
+      1
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.YearOpened|join_ks": {
@@ -5820,13 +5802,12 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales: OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek|rule_violation_rate": {
-     "passed": 2,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      3,
-      4,
-      5
+      5,
+      3
      ]
     },
     "scorecard:FactResellerSales: ProductStandardCost = ProductKey.StandardCost|rule_violation_rate": {
@@ -5869,11 +5850,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (CurrencyKey, EmployeeKey.SalesTerritoryKey)|novel_combination_rate": {
@@ -5881,11 +5862,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (CurrencyKey, OrderDateKey)|novel_combination_rate": {
@@ -5898,11 +5879,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (CurrencyKey, PromotionKey)|novel_combination_rate": {
@@ -5915,11 +5896,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (EmployeeKey.SalesTerritoryKey, OrderDateKey)|novel_combination_rate": {
@@ -5927,11 +5908,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (EmployeeKey.SalesTerritoryKey, ProductKey.ProductSubcategoryKey)|novel_combination_rate": {
@@ -5939,11 +5920,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (EmployeeKey.SalesTerritoryKey, PromotionKey)|novel_combination_rate": {
@@ -5956,11 +5937,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (OrderDateKey, ProductKey.ProductSubcategoryKey)|novel_combination_rate": {
@@ -5968,11 +5949,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (OrderDateKey, PromotionKey)|novel_combination_rate": {
@@ -5985,11 +5966,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (ProductKey.ProductSubcategoryKey, PromotionKey)|novel_combination_rate": {
@@ -5997,11 +5978,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (ProductKey.ProductSubcategoryKey, ResellerKey.GeographyKey)|novel_combination_rate": {
@@ -6009,11 +5990,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: support (PromotionKey, ResellerKey.GeographyKey)|novel_combination_rate": {
@@ -6021,11 +6002,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales: unique ['SalesOrderNumber', 'SalesOrderLineNumber']|unique_duplicate_rate": {
@@ -6038,11 +6019,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactResellerSales|discriminator_auc": {
@@ -6050,11 +6031,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactSalesQuota.DateKey->DimDate|cardinality_ks": {
@@ -6122,8 +6103,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.DayNumberOfMonth|join_tvd": {
@@ -6131,8 +6112,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.DayNumberOfWeek|join_tvd": {
@@ -6145,8 +6126,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.EnglishDayNameOfWeek|join_tvd": {
@@ -6159,8 +6140,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.FiscalQuarter|join_tvd": {
@@ -6191,8 +6172,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.FullDateAlternateKey|join_ks": {
@@ -6200,8 +6181,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.MonthNumberOfYear|join_tvd": {
@@ -6209,8 +6190,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.SpanishDayNameOfWeek|join_tvd": {
@@ -6223,8 +6204,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.WeekNumberOfYear|join_tvd": {
@@ -6232,8 +6213,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      5
+      5,
+      2
      ]
     },
     "scorecard:FactSalesQuota.joined:EmployeeKey.BaseRate|join_ks": {
@@ -6434,11 +6415,11 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
+      5,
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "scorecard:FactSurveyResponse.ProductSubcategoryKey->DimProductSubcategory|cardinality_mean_rel_err": {
@@ -6601,10 +6582,10 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
       4,
-      5
+      5,
+      1,
+      2
      ]
     },
     "scorecard:FactSurveyResponse.joined:CustomerKey.TotalChildren|join_tvd": {
@@ -7123,14 +7104,14 @@
     5
    ],
    "pass_rates": [
-    0.992958,
+    1.0,
     1.0,
     1.0,
     1.0,
     1.0
    ],
    "passed": [
-    141,
+    142,
     142,
     142,
     142,
@@ -7143,15 +7124,15 @@
     142,
     142
    ],
-   "mean": 0.998592,
-   "sd": 0.003149,
+   "mean": 1.0,
+   "sd": 0.0,
    "spread": 0.007042,
    "seconds": [
-    34.2,
-    27.2,
-    29.4,
-    27.2,
-    25.4
+    10.7,
+    9.6,
+    10.3,
+    10.2,
+    9.6
    ],
    "checks": {
     "scorecard:Album.ArtistId->Artist|cardinality_ks": {
@@ -7460,12 +7441,9 @@
      "calibrated": true
     },
     "scorecard:InvoiceLine.TrackId->Track|cardinality_ks": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1
-     ]
+     "calibrated": true
     },
     "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err": {
      "passed": 5,
@@ -7903,11 +7881,11 @@
    "sd": 0.001532,
    "spread": 0.003425,
    "seconds": [
-    658.1,
-    628.5,
-    512.3,
-    576.1,
-    448.9
+    285.2,
+    275.3,
+    269.0,
+    282.4,
+    263.3
    ],
    "checks": {
     "domain:T1 sales: first line number is 0": {
@@ -9409,11 +9387,11 @@
    "sd": 0.001575,
    "spread": 0.003521,
    "seconds": [
-    515.6,
-    565.9,
-    624.3,
-    438.4,
-    565.5
+    246.7,
+    271.9,
+    273.9,
+    279.9,
+    286.2
    ],
    "checks": {
     "domain:T1 sales: first line number is 0": {
@@ -10859,7 +10837,7 @@
    "sd": 0.0,
    "spread": 0.012658,
    "seconds": [
-    1286.2
+    936.3
    ],
    "checks": {
     "science:C00": {
