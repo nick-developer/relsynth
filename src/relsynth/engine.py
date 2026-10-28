@@ -1893,6 +1893,8 @@ class Synthesizer:
             (occupancy facts, or frailty off): one size r pooled over the segments,
             and i.i.d. NB(r) degrees given their total are Dirichlet-multinomial(r);
           * otherwise the segment law (Poisson degrees are what the block model gives).
+        Under auto a side whose links are concentrated on fewer effective rows than
+        facts.link_degree_min_rows keeps the segment law (see below).
         The rows are then matched to the block's links uniformly (_link_degrees).
         Sides that already have a degree law (DP counts per anchor), copied or fixed
         rows (their own observed shares), virtual dimensions and eligibility groups
@@ -1917,6 +1919,17 @@ class Synthesizer:
                 continue
             obs = np.asarray(obs).round().astype(np.int64)
             groups = [obs[e.z == k] for k in range(e.K)]
+            # links concentrated on a few rows of a segment (a handful of products
+            # carry most sales): which synthetic rows get them is random under any
+            # exchangeable law, so attributes joined through the key would follow a
+            # few rows.  Kish's effective number of rows of each segment's links,
+            # averaged with the links as weights, must reach link_degree_min_rows.
+            L = np.array([t.sum() for t in groups], float)
+            ess = np.array([t.sum() ** 2 / max(float((t.astype(float) ** 2).sum()), 1.0) for t in groups])
+            ess_w = float((L * ess).sum() / max(L.sum(), 1.0))
+            dec[f"{key} degree_effective_rows"] = round(ess_w, 1)
+            if setting == "auto" and ess_w < self.cfg["facts"].get("link_degree_min_rows", 50.0):
+                continue
             dp, det = choose_count_model(groups, "dp" if setting == "dp" else "auto", a=1.0,
                                          bf=self.cfg["facts"].get("count_model_bf", 100.0))
             if det:

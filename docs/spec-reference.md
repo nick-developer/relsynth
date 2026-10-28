@@ -573,6 +573,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.count_model_bf` | `100.0` | Bayes factor for the Dirichlet-process count law. |
 | `facts.group_fallback` | `auto` | Default of fact.group_fallback. |
 | `facts.link_degree` | `segment` | Default of fact.link_degree. |
+| `facts.link_degree_min_rows` | `50.0` | auto gives a key a degree law only when each segment's links are spread over at least this many rows (Kish effective number, link-weighted); below it a few rows carry the links and attributes joined through the key would follow them. |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |

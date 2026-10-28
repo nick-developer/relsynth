@@ -183,3 +183,30 @@ def test_complete_grid_stays_complete():
         assert not g.duplicated(["product_id", "date_id"]).any()
         out[setting] = g
     pd.testing.assert_frame_equal(out["segment"], out["auto"])          # complete blocks untouched
+
+
+def test_links_on_a_few_rows_keep_the_segment_law():
+    """Three products carry 90% of the sales: an exchangeable degree law would hand
+    those links to three random synthetic products, so auto keeps the segment law."""
+    from relsynth.data import coerce
+    rng = np.random.default_rng(6)
+    prods = pd.DataFrame({"product_id": [f"p{i}" for i in range(100)],
+                          "style": rng.choice(["a", "b", "c"], size=100)})
+    cust = pd.DataFrame({"customer_id": [f"c{i}" for i in range(400)]})
+    heavy = rng.choice(3, size=2700)
+    light = rng.integers(3, 100, size=300)
+    sales = pd.DataFrame({"customer_id": rng.choice(cust["customer_id"], size=3000),
+                          "product_id": [f"p{i}" for i in np.concatenate([heavy, light])]})
+    raw = {"name": "heavy", "tables": {
+        "product": {"columns": {"product_id": "id", "style": "categorical"}, "primary_key": "product_id"},
+        "customer": {"columns": {"customer_id": "id"}, "primary_key": "customer_id"},
+        "sales": {"columns": {"customer_id": "id", "product_id": "id"}, "role": "fact"}},
+        "relationships": [{"child": "sales", "child_key": "customer_id", "parent": "customer"},
+                          {"child": "sales", "child_key": "product_id", "parent": "product"}]}
+    spec = rs.Spec(raw).resolved
+    spec["synthesis"]["facts"]["link_degree"] = "auto"
+    real = {t: coerce(df, spec["tables"][t]) for t, df in {"product": prods, "customer": cust, "sales": sales}.items()}
+    s = Synthesizer(spec).fit(real)
+    dec = s.log["decisions"]["sales"]
+    assert dec["product_id degree_effective_rows"] < 50
+    assert "product_id degree_model" not in dec and "partner" not in s.fact_info["sales"]["link_degree"]
