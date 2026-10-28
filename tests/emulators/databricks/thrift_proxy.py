@@ -187,8 +187,11 @@ class H(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         m = method(body)
         op = None
+        want = None
         if m in ("GetResultSetMetadata", "FetchResults"):
-            op = decode(body, getattr(TCLIService, f"{m}_args"))[3].req.operationHandle.operationId.guid
+            req0 = decode(body, getattr(TCLIService, f"{m}_args"))[3].req
+            op = req0.operationHandle.operationId.guid
+            want = getattr(req0, "maxRows", None)
         if m == "OpenSession":
             # the connector asks for its protocol in client_protocol_i64; Spark reads
             # client_protocol (default V1, row-based results): ask for V10, column based
@@ -245,6 +248,14 @@ class H(BaseHTTPRequestHandler):
                     res.success.resultSetMetadata = META.get(op)
                 rs = res.success.results
                 meta = res.success.resultSetMetadata
+                if rs is not None and rs.columns and want:
+                    # Spark always says hasMoreRows = false and expects clients to fetch
+                    # until a batch is empty; the connector believes the flag: a full
+                    # batch may have more rows after it
+                    got = len(next(v for v in (rs.columns[0].stringVal, rs.columns[0].i32Val, rs.columns[0].i64Val,
+                                              rs.columns[0].boolVal, rs.columns[0].doubleVal, rs.columns[0].byteVal,
+                                              rs.columns[0].i16Val, rs.columns[0].binaryVal) if v is not None).values)
+                    res.success.hasMoreRows = got >= want
                 if rs is not None and rs.columns is None and meta is not None and meta.schema is not None:
                     # an empty result has no columns at all in Spark: send empty ones
                     rs.columns = [ttypes.TColumn(stringVal=ttypes.TStringColumn(values=[], nulls=b""))
