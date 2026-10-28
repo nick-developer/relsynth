@@ -681,10 +681,10 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
 
 
 SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks",
-                "sqlalchemy")
+                "fabric", "sqlalchemy")
 TARGET_KINDS = SOURCE_KINDS
-WAREHOUSE_KINDS = ("databricks",)
-SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "sqlalchemy")
+WAREHOUSE_KINDS = ("databricks", "fabric")
+SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "fabric", "sqlalchemy")
 TARGET_STRUCTURES = ("auto", "clone", "infer", "existing")
 IF_EXISTS = ("replace", "append", "truncate", "fail")
 

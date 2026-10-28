@@ -147,6 +147,12 @@ def row_hash(cols, seed: int, dialect_name: str):
         txt = sa.func.concat(sa.literal_column(f"'{seed}|'"), _joined(cols))
         digest = sa.func.hashbytes(sa.literal_column("'SHA2_256'"), sa.cast(txt, sa.NVARCHAR(None)))
         return sa.cast(sa.cast(digest, sa.BINARY(4)), sa.BigInteger)
+    if dialect_name == "fabric":
+        # SQL Server functions over VARCHAR, whose bytes are UTF-8 in a UTF-8
+        # collation: the same 32 bits as py_row_hash_sha256 (Fabric has no NVARCHAR)
+        txt = sa.func.concat(sa.literal_column(f"'{seed}|'"), _joined(cols))
+        digest = sa.func.hashbytes(sa.literal_column("'SHA2_256'"), sa.cast(txt, sa.VARCHAR(None)))
+        return sa.cast(sa.cast(digest, sa.BINARY(4)), sa.BigInteger)
     if dialect_name == "oracle":
         return sa.func.ora_hash(_joined(cols), sa.literal(HASH_RANGE - 1), sa.literal(seed))
     if dialect_name == "sqlite":
@@ -175,7 +181,7 @@ def py_row_hash(seed: int, text: str) -> int:
 
 
 def py_row_hash_sha256(seed: int, text: str) -> int:
-    """The MySQL, MariaDB, DuckDB and Databricks hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
+    """The MySQL, MariaDB, DuckDB, Databricks and Fabric hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
     return int(hashlib.sha256(f"{seed}|{text}".encode()).hexdigest()[:8], 16)
 
 
