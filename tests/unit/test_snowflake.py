@@ -68,6 +68,7 @@ def test_types_and_declared_keys():
     assert isinstance(S.snowflake_type(sa.DateTime()), TIMESTAMP_NTZ)
     assert type(S.snowflake_type(sa.Float(precision=24))) is sa.Float
     c = connect(URL)
+    c._platform = "snowflake"           # no account to ask
     md = sa.MetaData(schema="PUBLIC")
     p = sa.Table("Parent", md, sa.Column("id", sa.Integer, primary_key=True), sa.Column("code", sa.String(5)),
                  sa.UniqueConstraint("code"))
@@ -90,3 +91,12 @@ def test_sample_hash_sql_reads_the_first_eight_hex_digits():
     # the same arithmetic in Python gives the reference hash
     h = hashlib.sha256(b"5|abc").hexdigest()
     assert sum(("0123456789abcdef".index(h[i])) * 16 ** (7 - i) for i in range(8)) == py_row_hash_sha256(5, "abc")
+
+
+def test_insert_statements_stay_small():
+    rows_per_statement = S.rows_per_statement
+    recs = [(i, "x" * 100, 1.5) for i in range(10)]
+    n = rows_per_statement(recs, 20_000, limit=10_000)
+    assert 1 <= n < 100 and n * max(sum(len(repr(v)) + 2 for v in r) for r in recs) <= 10_000
+    assert rows_per_statement([], 500) == 500
+    assert rows_per_statement([("y" * 50_000,)], 500, limit=1_000) == 1

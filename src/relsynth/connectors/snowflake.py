@@ -49,6 +49,19 @@ from .warehouse import WarehouseConnector, resolve_auth
 
 log = logging.getLogger("relsynth.connectors")
 
+# rows of one multi-row INSERT are capped by the statement's size: Snowflake
+# refuses statements over 1 MB of text, and a long statement can outlast the
+# driver's request timeout, which then resends it
+STATEMENT_BYTES = 256_000
+
+
+def rows_per_statement(recs, chunk: int, limit: int = STATEMENT_BYTES) -> int:
+    """How many rows like `recs` (a sample) fit in one INSERT of at most `limit` bytes."""
+    if not recs:
+        return chunk
+    width = max(sum(len(repr(v)) + 2 for v in r) for r in recs)
+    return max(1, min(chunk, limit // max(width, 1)))
+
 
 def snowflake_type(ty):
     """The Snowflake type of a column type (see the module docstring)."""
@@ -202,9 +215,10 @@ class SnowflakeConnector(WarehouseConnector):
         # multi-row INSERT and cannot parse parameters named after unusual columns
         cols = list(df.columns)
         stmt = tbl.insert().values({c: sa.bindparam(f"p{j}", type_=tbl.c[c].type) for j, c in enumerate(cols)})
+        step = rows_per_statement(frame_records(df.head(200), cols), chunk)
         n = 0
-        for i in range(0, len(df), chunk):
-            recs = [{f"p{j}": v for j, v in enumerate(r)} for r in frame_records(df.iloc[i:i + chunk], cols)]
+        for i in range(0, len(df), step):
+            recs = [{f"p{j}": v for j, v in enumerate(r)} for r in frame_records(df.iloc[i:i + step], cols)]
             if recs:
                 con.execute(stmt, recs)
                 n += len(recs)
@@ -225,4 +239,4 @@ class SnowflakeConnector(WarehouseConnector):
         return int(rows)
 
 
-__all__ = ["SnowflakeConnector", "snowflake_type"]
+__all__ = ["SnowflakeConnector", "rows_per_statement", "snowflake_type"]
