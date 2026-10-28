@@ -140,8 +140,9 @@ class DatabricksConnector(WarehouseConnector):
         if auth is None:
             if url.password:
                 return {}
-            auth = {"method": "token", "token_env": "DATABRICKS_TOKEN"} if os.environ.get("DATABRICKS_TOKEN") \
-                else {"method": "default"}
+            # names the variable, not a secret
+            token = {"method": "token", "token_env": "DATABRICKS_TOKEN"}  # nosec B105
+            auth = token if os.environ.get("DATABRICKS_TOKEN") else {"method": "default"}
         a = resolve_auth(auth, self.AUTH_METHODS)
         m = a["method"]
         host = url.host
