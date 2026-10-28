@@ -9,9 +9,13 @@ Live database servers are used when their URL is in the environment:
     RELSYNTH_TEST_ORACLE_URL  oracle://user:pw@host:1521/?service_name=FREEPDB1
     RELSYNTH_TEST_MYSQL_URL   mysql://root:pw@host:3306/relsynth   (a user that may create databases)
     RELSYNTH_TEST_MARIADB_URL mariadb://root:pw@host:3307/relsynth
+    RELSYNTH_TEST_DATABRICKS_URL databricks://host?http_path=/sql/1.0/warehouses/id&catalog=main
+                              (credentials as in production: DATABRICKS_TOKEN or the SDK's chain)
 
-docker-compose.test.yml starts all five; tests for a server that is not
-configured are skipped.
+Extra driver arguments for a server come from RELSYNTH_TEST_<KIND>_CONNECT_ARGS
+(JSON); the local Databricks stand-in (tests/emulators/databricks) needs them.
+docker-compose.test.yml starts the five database servers; tests for a server
+that is not configured are skipped.
 """
 from __future__ import annotations
 
@@ -34,7 +38,7 @@ from relsynth.spec import load_spec  # noqa: E402
 
 SERVER_ENVS = {"postgresql": "RELSYNTH_TEST_PG_URL", "mssql": "RELSYNTH_TEST_MSSQL_URL",
                "oracle": "RELSYNTH_TEST_ORACLE_URL", "mysql": "RELSYNTH_TEST_MYSQL_URL",
-               "mariadb": "RELSYNTH_TEST_MARIADB_URL"}
+               "mariadb": "RELSYNTH_TEST_MARIADB_URL", "databricks": "RELSYNTH_TEST_DATABRICKS_URL"}
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +112,17 @@ def server_target(kind: str, schema: str) -> dict:
     sec = {"kind": kind, "url": url}
     if kind != "oracle":
         sec["schema"] = schema
+    args = server_connect_args(kind)
+    if args:
+        sec["connect_args"] = args
     return sec
+
+
+def server_connect_args(kind: str) -> dict:
+    """Extra driver arguments of a test server (RELSYNTH_TEST_<KIND>_CONNECT_ARGS, JSON)."""
+    import json
+    v = os.environ.get(SERVER_ENVS[kind].replace("_URL", "_CONNECT_ARGS"))
+    return json.loads(v) if v else {}
 
 
 def drop_schema(kind: str, schema: str, tables=()):
@@ -119,7 +133,7 @@ def drop_schema(kind: str, schema: str, tables=()):
     url = os.environ.get(SERVER_ENVS[kind])
     if not url:
         return
-    conn = connect(url)
+    conn = connect(url, connect_args=server_connect_args(kind) or None)
     try:
         with conn.engine.begin() as con:
             if kind == "postgresql":
@@ -131,6 +145,8 @@ def drop_schema(kind: str, schema: str, tables=()):
                     md.reflect(con)
                     md.drop_all(con)
                     con.execute(sa.text(f"DROP SCHEMA [{schema}]"))
+            elif kind == "databricks":
+                con.exec_driver_sql(f"DROP SCHEMA IF EXISTS `{schema}` CASCADE")
             elif kind in ("mysql", "mariadb"):     # a schema is a database
                 con.execute(sa.text(f"DROP DATABASE IF EXISTS `{schema}`"))
             elif kind == "oracle":          # the user's schema: drop the named tables only
