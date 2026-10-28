@@ -6,6 +6,9 @@
     src = connect("mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server")
     src = connect("oracle://user@host:1521/?service_name=ORCLPDB1")
     src = connect("mysql://user@host:3306/sales")      # or mariadb://
+    src = connect("databricks://adb-1.azuredatabricks.net?http_path=/sql/1.0/warehouses/ab&catalog=main",
+                  schema="sales", auth={"method": "oauth-m2m", "client_id_env": "DATABRICKS_CLIENT_ID",
+                                        "client_secret_env": "DATABRICKS_CLIENT_SECRET"})
     src = connect("sqlite:shop.db")          # or sqlite:///shop.db
     src = connect("csv:./data")              # a folder of CSV files
     src = connect("parquet:./lake/sales")    # a folder of Parquet files
@@ -19,6 +22,7 @@ A specification's `source` and `target` sections are connected with
 | mssql      | SQL Server 2016+, Azure SQL  | pyodbc + ODBC Driver 18, or pymssql (relsynth[mssql]) |
 | oracle     | Oracle Database 19c+         | python-oracledb thin (relsynth[oracle]) |
 | mysql      | MySQL 8.0+, MariaDB 10.6+    | PyMySQL (relsynth[mysql]); mysqlclient when installed |
+| databricks | Databricks SQL warehouses, clusters | databricks-sqlalchemy (relsynth[databricks]) |
 | sqlite     | SQLite 3.25+ files           | standard library                   |
 | csv        | folder of .csv / .csv.gz     | pandas                             |
 | parquet    | folder of .parquet           | pyarrow (relsynth[parquet])        |
@@ -37,7 +41,7 @@ from .files import FileConnector
 __all__ = ["connect", "from_spec", "Connector", "TableInfo", "ColumnInfo", "ForeignKey", "FileConnector",
            "KINDS"]
 
-KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "sqlalchemy")
 _FILE_PREFIXES = {"csv:": "csv", "files:": "csv", "parquet:": "parquet"}
 
 
@@ -57,20 +61,27 @@ def _sql_class(dialect: str):
     if dialect in ("mysql", "mariadb"):
         from .mysql import MySQLConnector
         return MySQLConnector
+    if dialect == "databricks":
+        from .databricks import DatabricksConnector
+        return DatabricksConnector
     from .sql import SqlConnector
     return SqlConnector
 
 
 def connect(source, *, schema: str | None = None, url_env: str | None = None, password_env: str | None = None,
             null_values=None, fmt: str | None = None, create: bool = False, connect_args: dict | None = None,
-            engine_options: dict | None = None, base_dir: str | Path | None = None) -> Connector:
+            engine_options: dict | None = None, base_dir: str | Path | None = None,
+            auth: dict | None = None, guards: dict | None = None, bulk: dict | None = None) -> Connector:
     """A connector for a data location.
 
     source: a URL (any SQLAlchemy URL; postgresql://, mssql://, oracle:// pick the
     recommended driver), 'sqlite:FILE', 'csv:DIR', 'files:DIR', 'parquet:DIR', a
     spec section ({kind, path or url, schema, ...}) or a Connector (returned as is).
     Credentials: url_env names a variable holding the whole URL, password_env one
-    holding only the password; neither is written to logs or bundles."""
+    holding only the password; neither is written to logs or bundles.
+    Warehouses (databricks) also take auth (credentials from environment
+    variables or the platform's credential chain), guards (cost guards) and bulk
+    (the load path); see connectors/warehouse.py."""
     if isinstance(source, Connector):
         return source
     if isinstance(source, dict):
@@ -100,8 +111,18 @@ def connect(source, *, schema: str | None = None, url_env: str | None = None, pa
     cls = _sql_class(dialect)
     if dialect == "sqlite":
         return cls(url=s, connect_args=connect_args, engine_options=engine_options)
+    extra = _warehouse_options(cls, auth=auth, guards=guards, bulk=bulk)
     return cls(s, schema=schema, url_env=url_env, password_env=password_env, connect_args=connect_args,
-               engine_options=engine_options)
+               engine_options=engine_options, **extra)
+
+
+def _warehouse_options(cls, **opts) -> dict:
+    """auth, guards and bulk for a warehouse connector (refused elsewhere)."""
+    from .warehouse import WarehouseConnector
+    given = {k: v for k, v in opts.items() if v is not None}
+    if given and not issubclass(cls, WarehouseConnector):
+        raise ValueError(f"{', '.join(given)}: only for cloud warehouses (databricks)")
+    return given
 
 
 def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = False) -> Connector:
@@ -137,4 +158,5 @@ def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = 
     if dialect == "sqlite":
         from .sql import resolve_url
         return cls(url=resolve_url(url, env), **common)
-    return cls(url, schema=sec.get("schema"), url_env=env, password_env=sec.get("password_env"), **common)
+    extra = _warehouse_options(cls, auth=sec.get("auth"), guards=sec.get("guards"), bulk=sec.get("bulk"))
+    return cls(url, schema=sec.get("schema"), url_env=env, password_env=sec.get("password_env"), **common, **extra)
