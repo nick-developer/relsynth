@@ -4,6 +4,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+## 1.0.1 (2026-10-28)
+
+Synthetic draws for the same seed are unchanged from 1.0.0.
+
 ### Changed
 
 - relsynth is open source under the Apache License 2.0 (previously all rights reserved). The repository has LICENSE, NOTICE, a contributor guide with DCO sign-off, a code of conduct, a security policy with private vulnerability reporting, and a dataset register (`docs/datasets.md`).
