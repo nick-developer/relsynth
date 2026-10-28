@@ -30,7 +30,7 @@ from pathlib import Path
 
 import yaml
 
-FIELDS = {"device": ("cpu", "gpu"), "gpus": None, "devices": None, "backend": ("auto", "cuda", "rocm"),
+FIELDS: dict[str, tuple | None] = {"device": ("cpu", "gpu"), "gpus": None, "devices": None, "backend": ("auto", "cuda", "rocm"),
           "precision": ("fp32", "tf32", "bf16", "fp16"), "batch_size": None, "memory_limit": None,
           "threads": None, "fallback": ("cpu", "error")}
 PRESET_FILE = Path(__file__).with_name("data") / "compute.yaml"
@@ -106,8 +106,8 @@ def validate(settings: dict, base_dir=None) -> list[str]:
     for k, v in merged.items():
         if k not in FIELDS:
             errs.append(f"synthesis.compute: unknown field {k!r} (allowed: {', '.join(FIELDS)})")
-        elif FIELDS[k] and v not in FIELDS[k]:
-            errs.append(f"synthesis.compute.{k} must be one of {', '.join(FIELDS[k])}, not {v!r}")
+        elif (allowed := FIELDS[k]) and v not in allowed:
+            errs.append(f"synthesis.compute.{k} must be one of {', '.join(allowed)}, not {v!r}")
     if merged.get("gpus") not in ("all", None) and not (isinstance(merged.get("gpus"), int) and merged["gpus"] >= 0):
         errs.append(f"synthesis.compute.gpus must be a number >= 0 or all, not {merged.get('gpus')!r}")
     for k in ("batch_size", "threads"):

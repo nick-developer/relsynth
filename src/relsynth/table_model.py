@@ -5,6 +5,8 @@ generator plug-in that fits and samples them (relsynth.generators; the default
 is the Bayesian Gaussian copula of generators/copula.py)."""
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy.special import gammaln, ndtr, ndtri
@@ -130,8 +132,8 @@ class TableModel:
         self._join_dependent_categoricals(cfg["marginals"].get("joint_max_levels", 64),
                                           cfg["marginals"].get("joint_min_cramers_v", 0.3))
         self._order_nominal_levels()
-        self.generator = None       # set by the engine (relsynth.generators); copula if left unset
-        self.compute = None
+        self.generator: Any = None   # set by the engine (relsynth.generators); copula if left unset
+        self.compute: Any = None
 
     def _join_functional_dependencies(self, bf):
         """Categoricals linked by functional dependencies (city -> state -> country,
