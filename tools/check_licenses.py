@@ -38,6 +38,8 @@ OVERRIDES = {
     "numba": "BSD-2-Clause",
     "llvmlite": "BSD-2-Clause AND Apache-2.0",
     "greenlet": "MIT AND PSF-2.0",
+    "protobuf": "BSD-3-Clause",
+    "pyasn1": "BSD-2-Clause",
 }
 
 CLASSIFIERS = {
