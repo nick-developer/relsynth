@@ -78,7 +78,8 @@ def cmd_all(a) -> int:
         if subprocess.run(s, cwd=ROOT, check=False).returncode:  # noqa: S603
             failed.append(" ".join(s[:4]))
     from .runner import run
-    path = run(a.datasets or GOLDEN, _seeds(a.seeds), fake=True, pushdown=a.pushdown, label=a.label or "all")
+    path = run(a.datasets or GOLDEN, _seeds(a.seeds), fake=True, pushdown=a.pushdown, label=a.label or "all",
+               overrides=tuple(a.overrides))
     rc = cmd_compare(path, Path(a.baseline), full=True, summary_to=os.environ.get("GITHUB_STEP_SUMMARY"))
     if failed:
         print("failed suites: " + "; ".join(failed))
@@ -94,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--seeds", default="1,2,3,4,5")
         p.add_argument("--pushdown", default="auto", choices=["auto", "on", "off"])
         p.add_argument("--label", default="")
+        p.add_argument("--set", dest="overrides", action="append", default=[], metavar="KEY=VALUE",
+                       help="spec override passed to every `relsynth run` (e.g. synthesis.facts.link_degree=auto)")
         p.add_argument("--baseline", default=str(BASELINE))
         if name == "run":
             p.add_argument("--no-fake", action="store_true", help="skip the statistical check suite")
@@ -121,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "run":
         from .runner import run
         path = run(a.datasets or GOLDEN, _seeds(a.seeds), fake=not a.no_fake, pushdown=a.pushdown,
-                   out_dir=Path(a.out_dir), label=a.label)
+                   out_dir=Path(a.out_dir), label=a.label, overrides=tuple(a.overrides))
         print(path)
         return 0
     if a.cmd == "compare":

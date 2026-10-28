@@ -49,6 +49,27 @@ def nb_loglik(t):
     return max(-res.fun, poisson_loglik(t, m))
 
 
+def nb_size_pooled(groups):
+    """Maximum-likelihood NB size r shared by the segments, each with its own mean
+    (the sample mean, its MLE): one dispersion for a key's degrees instead of one
+    per segment, so small segments borrow strength.  inf when the pooled counts
+    are not over-dispersed (the Poisson limit)."""
+    gs = [np.asarray(t, float) for t in groups if len(t) >= 2 and np.asarray(t).sum() > 0]
+    if not gs:
+        return np.inf
+    ms = [t.mean() for t in gs]
+    if sum(t.var() * len(t) for t in gs) <= sum(m * len(t) for t, m in zip(gs, ms)):
+        return np.inf
+
+    def nll(lr):
+        r = np.exp(lr)
+        return -sum(float((gammaln(t + r) - gammaln(r) + r * np.log(r / (r + m)) + t * np.log(m / (r + m))).sum())
+                    for t, m in zip(gs, ms))
+
+    res = minimize_scalar(nll, bounds=(-8.0, 12.0), method="bounded")
+    return float(np.exp(res.x)) if res.x < 11.9 else np.inf
+
+
 def dp_logmarginal(t, a=1.0):
     """Polya-urn marginal of the counts under DP(a, Poisson(mean))."""
     t = np.asarray(t, np.int64)

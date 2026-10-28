@@ -117,6 +117,11 @@ S = {
         "count_model": ("auto | poisson | dp", "auto", "Rows per anchor: Poisson/negative binomial or a "
                         "Dirichlet-process count law."),
         "group_fallback": ("auto | anchor | partner", "auto", "Which dimension's marginals a sparse block borrows."),
+        "link_degree": ("auto | segment | dp", "segment", "Degree law of the two keys of a link table (bonds per "
+                        "atom as the second atom, actors per movie). segment: rows spread within segments as in "
+                        "1.0. auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the "
+                        "count-model Bayes factor gets it, with the block totals kept. dp: the DP law on every "
+                        "modelled key."),
         "time_column": ("column", None, "Date column with a seasonal profile per segment."),
         "time_bucket": ("day | week | month | quarter | year", "month", "Bucket of the seasonal profile."),
         "condition_on_parents": ("bool | list of fk.col", True, "Condition measures on parents' continuous "
@@ -312,6 +317,7 @@ SYNTH_DOC = {
     "facts.count_model": "Default of fact.count_model.",
     "facts.count_model_bf": "Bayes factor for the Dirichlet-process count law.",
     "facts.group_fallback": "Default of fact.group_fallback.",
+    "facts.link_degree": "Default of fact.link_degree.",
     "structure.structural_prior": "Prior probability that an unseen combination is forbidden.",
     "structure.structural_pooling": "Prior concentration of the structural weights learned from a relation's "
                                     "group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * "
