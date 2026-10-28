@@ -30,7 +30,7 @@ The connector finds out which engine it is on from `SERVERPROPERTY('EngineEditio
 
 - `NOT ENFORCED` keys. SQL Server has no such form, so the stand-in creates
   ordinary constraints; the Fabric DDL is checked as text in
-  `tests/unit/test_fabric.py`.
+  `tests/unit/test_fabric_connector.py`.
 - Microsoft Entra ID sign-in. The token reaching the driver is checked in the
   unit tests with a fake credential.
 - `COPY INTO` from ADLS Gen2 or OneLake, and Fabric's capacity billing.
