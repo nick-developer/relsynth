@@ -81,6 +81,14 @@ def test_run_writes_data_bundle_and_report(capsys, tmp_path, spec_file):
                       "--quality", str(tmp_path / "q.json"), "--quality-config", str(qcfg))
     assert code == 0, j
     assert j["quality"]["verdict"]["rule"] and (tmp_path / "q.json").exists()
+    # the opt-in 2.0 gate: zero tolerances without calibration fail the fidelity area
+    strict = tmp_path / "strict.yaml"
+    strict.write_text("calibrate: false\ntolerances: {w1_raw_sd: 0, w1_rank_normal: 0, js_distance: 0}\n")
+    code, j, _ = jcli(capsys, "evaluate", spec_file, "--synthetic", f"csv:{tmp_path / 'out'}", "--no-privacy",
+                      "--quality", str(tmp_path / "q2.json"), "--quality-config", str(strict), "--quality-gate")
+    assert code == 1 and "fidelity" in j["gate"]["failed_areas"], j.get("gate")
+    code, _, _ = jcli(capsys, "evaluate", spec_file, "--synthetic", f"csv:{tmp_path / 'out'}", "--quality-gate")
+    assert code == 2
     code, j, _ = jcli(capsys, "doctor", bundle)
     assert code == 0 and "issues" in j
 

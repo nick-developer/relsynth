@@ -299,6 +299,9 @@ def cmd_evaluate(a, out):
     missing = [t for t in r["tables"] if t not in syn]
     if missing:
         raise SpecError("synthetic data lacks tables: " + ", ".join(missing))
+    if a.quality_gate and not a.quality:
+        raise SpecError("--quality-gate needs --quality FILE")
+    q = None
     if a.quality:
         from .api import assess_quality
         from .spec import read_yaml
@@ -324,6 +327,11 @@ def cmd_evaluate(a, out):
     _scorecard_lines(out, rep)
     if a.fail_under is not None and rep.score + 1e-12 < a.fail_under:
         out.line(f"quality gate failed: {rep.score:.3f} < {a.fail_under:.3f}")
+        return EXIT_GATE
+    if a.quality_gate and not q.ok:
+        bad = [k for k in ("fidelity", "utility", "integrity") if not q.vector[k]["pass"]]
+        out.line("quality gate failed: " + ", ".join(bad) + " did not pass (2.0 report)")
+        out.put(gate={"quality_vector": True, "passed": False, "failed_areas": bad})
         return EXIT_GATE
     return EXIT_OK
 
@@ -528,6 +536,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON")
     s.add_argument("--quality-config", metavar="YAML", help="settings of the 2.0 report (see docs/metrics.md)")
     s.add_argument("--holdout", metavar="LOC", help="real tables the model did not see, for TSTR/TRTS")
+    s.add_argument("--quality-gate", action="store_true",
+                   help="with --quality: exit 1 when an area of the 2.0 quality vector fails "
+                        "(the default gate stays --fail-under until 3.0)")
     s.set_defaults(fn=cmd_evaluate)
 
     s = sub.add_parser("doctor", help="causes and spec fixes for a run's failures")
