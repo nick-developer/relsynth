@@ -6,7 +6,7 @@ The test suite has four layers, from fast checks of single functions to an hour-
 pip install -e ".[dev]"
 pytest                                   # unit, end-to-end and security tests: SQLite, CSV, Parquet (a few minutes)
 pytest -m "not slow"                     # skip the longer end-to-end runs
-pytest tests/integration                 # live PostgreSQL, SQL Server and Oracle (skipped unless configured)
+pytest tests/integration                 # live PostgreSQL, SQL Server, Oracle, MySQL and MariaDB (skipped unless configured)
 pytest -m science                        # the statistical check suite C00–C78 (about an hour on 4 cores)
 RELSYNTH_SCIENCE_SHARD=2/4 pytest -m science   # one of four shards of about equal run time (as CI runs it)
 pytest tests/unit/core                   # the fast core-engine tests (about 15 s; mutation testing uses them)
@@ -28,6 +28,7 @@ CI runs every layer on every pull request; [development/ci.md](development/ci.md
 | `tests/unit/test_security.py` | URL masking, scrubbed messages, masked bundles and specs, the expression sandbox, regex vetting, path confinement, privacy defaults, no copied rows | |
 | `tests/e2e/test_cli.py` | Every CLI command as a CI job runs it: JSON output, exit codes 0–4, `--set`, reports, bundles | |
 | `tests/integration/test_servers.py` | On each live server: write and read, catalog, introspect, pushdown fit, identical output to SQLite, every write mode, cloning both ways, statistics parity, seeded samples, hostile identifiers, masked errors | `RELSYNTH_TEST_*_URL` |
+| `tests/integration/test_mysql.py` | MySQL and MariaDB specifics: exact text statistics under case-insensitive collations, the SHA-256 sample hash against Python, DOUBLE / DATETIME(6) / 4-byte UTF-8 round trips, TEXT keys and wide tables within MySQL's index and row limits, a MariaDB server behind a `mysql://` URL | `RELSYNTH_TEST_MYSQL_URL`, `RELSYNTH_TEST_MARIADB_URL` |
 | `tests/science/test_legacy_checks.py` | The check suite C00–C78. Each check tests a numbered proposition on fake data with known ground truth: posterior recovery, calibration, identification, rules, privacy, reproducibility | about an hour |
 
 Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session.
@@ -53,11 +54,14 @@ docker compose -f docker-compose.test.yml up -d --wait
 export RELSYNTH_TEST_PG_URL=postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
 export RELSYNTH_TEST_MSSQL_URL="mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
 export RELSYNTH_TEST_ORACLE_URL="oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1"
+export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynth
+export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
 pytest tests/integration -v
 ```
 
 - Each test works in a fresh schema (`rs_<random>`) and drops it afterwards.
 - On Oracle, a schema is a user, so tests use the connecting user's schema and drop the tables they created.
+- On MySQL and MariaDB, a schema is a database, so the test user must be allowed to create and drop databases (the compose file uses `root`).
 - SQL Server tests need the Microsoft ODBC Driver 18, or `relsynth[mssql-pymssql]` with a `mssql+pymssql://` URL.
 
 ## The statistical check suite
@@ -94,4 +98,4 @@ pip-audit                         # known vulnerabilities in installed dependenc
 python -m build && twine check dist/*
 ```
 
-The project's CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs lint and security scans, the type ratchet, unit tests on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, the end-to-end tests, the three live servers, the statistical suite in four shards, and a wheel build with SBOM and signature, on every pull request. See [development/ci.md](development/ci.md).
+The project's CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs lint and security scans, the type ratchet, unit tests on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, the end-to-end tests, the five live servers, the statistical suite in four shards, and a wheel build with SBOM and signature, on every pull request. See [development/ci.md](development/ci.md).

@@ -150,10 +150,24 @@ jobs:
         ports: ["1521:1521"]
         options: >-
           --health-cmd healthcheck.sh --health-interval 10s --health-retries 60
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: RelSynthTest1, MYSQL_DATABASE: relsynth }
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pRelSynthTest1 --silent" --health-interval 5s --health-retries 30
+      mariadb:
+        image: mariadb:11.4
+        env: { MARIADB_ROOT_PASSWORD: RelSynthTest1, MARIADB_DATABASE: relsynth }
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 30
     env:
       RELSYNTH_TEST_PG_URL: postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
       RELSYNTH_TEST_MSSQL_URL: "mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
       RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
+      RELSYNTH_TEST_MYSQL_URL: mysql://root:RelSynthTest1@127.0.0.1:3306/relsynth
+      RELSYNTH_TEST_MARIADB_URL: mariadb://root:RelSynthTest1@127.0.0.1:3307/relsynth
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }

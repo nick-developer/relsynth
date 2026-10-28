@@ -32,7 +32,7 @@ Tests: `test_mask_url` (six URL forms), `test_scrub_masks_urls_inside_messages`,
 - The only literals inlined into SQL are integers relsynth computes itself (the sample seed and hash range). On SQL Server the hash algorithm name is inlined too, because `HASHBYTES` does not accept it as a parameter.
 - Rule expressions are never translated into SQL text; they are evaluated in Python on loaded rows.
 
-Tests: `test_hostile_table_and_column_names_are_quoted` (SQLite) and `test_hostile_identifiers_on_server` (PostgreSQL, SQL Server, Oracle). Both use names such as `x"; DROP TABLE keep; --` and `v'); DELETE FROM keep; --`, read, write, sample and compute statistics on them, and check that the other tables are untouched.
+Tests: `test_hostile_table_and_column_names_are_quoted` (SQLite) and `test_hostile_identifiers_on_server` (PostgreSQL, SQL Server, Oracle, MySQL, MariaDB). Both use names such as `x"; DROP TABLE keep; --` and `v'); DELETE FROM keep; --`, read, write, sample and compute statistics on them, and check that the other tables are untouched.
 
 ## Specifications
 

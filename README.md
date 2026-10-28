@@ -172,6 +172,7 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | PostgreSQL | yes | yes (COPY) | yes | PostgreSQL 16.15 |
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
+| MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
 | SQLite | yes | yes | yes | SQLite 3.45 |
 | CSV folder | yes (also `.csv.gz`) | yes | statistics computed in memory, streamed | yes |
 | Parquet folder | yes | yes | statistics computed in memory, column by column | yes (pyarrow 26) |
@@ -361,10 +362,12 @@ The method is described in two papers shipped with the package:
 ```bash
 pip install -e ".[dev]"
 pytest                                    # unit, end-to-end and security tests (SQLite, CSV, Parquet)
-docker compose -f docker-compose.test.yml up -d       # PostgreSQL, SQL Server, Oracle
+docker compose -f docker-compose.test.yml up -d       # PostgreSQL, SQL Server, Oracle, MySQL, MariaDB
 export RELSYNTH_TEST_PG_URL=postgresql://relsynth:RelSynthTest1@localhost/relsynth
 export RELSYNTH_TEST_MSSQL_URL="mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
 export RELSYNTH_TEST_ORACLE_URL="oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1"
+export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynth
+export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
 pytest tests/integration                  # the same checks against live servers
 pytest -m science                         # the statistical check suite C00–C78 (about an hour)
 pytest --cov=relsynth --cov-report=term   # coverage

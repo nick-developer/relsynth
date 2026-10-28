@@ -21,8 +21,9 @@ import sqlalchemy as sa
 log = logging.getLogger("relsynth.connectors")
 
 # longest VARCHAR before a text type is used (Oracle VARCHAR2 limit in bytes for
-# the default MAX_STRING_SIZE; SQL Server NVARCHAR(n) up to 4000)
-MAX_VARCHAR = {"oracle": 4000, "mssql": 4000}
+# the default MAX_STRING_SIZE; SQL Server NVARCHAR(n) up to 4000; MySQL's 65,535-byte
+# row limit in utf8mb4 characters)
+MAX_VARCHAR = {"oracle": 4000, "mssql": 4000, "mysql": 16383, "mariadb": 16383}
 
 
 def load_order(spec: dict, names: list[str]) -> list[str]:
@@ -144,7 +145,7 @@ def clone_metadata(source, names: list[str], dialect: str, schema: str | None) -
         for ix in st.indexes:
             if all(c.name in tbl.c for c in ix.columns) and ix.columns:
                 sa.Index(None, *[tbl.c[c.name] for c in ix.columns], unique=ix.unique)
-    return md
+    return md if same else adapt_types(md, dialect)
 
 
 def _type_for(cs: dict, s: pd.Series, dialect: str):
@@ -213,6 +214,66 @@ def metadata_from_spec(spec: dict, tables: dict[str, pd.DataFrame], dialect: str
         ct, pt = md.tables[f"{schema}.{c}" if schema else c], md.tables[f"{schema}.{p}" if schema else p]
         if ck in ct.c and pk in pt.c and pt.c[pk].primary_key:
             ct.append_constraint(sa.ForeignKeyConstraint([ck], [pt.c[pk]]))
+    return adapt_types(md, dialect)
+
+
+#: MySQL / MariaDB: longest index key in bytes (InnoDB, DYNAMIC rows) and bytes per utf8mb4 character
+MYSQL_INDEX_BYTES, MYSQL_CHAR_BYTES = 3072, 4
+#: bytes of a row left to VARCHAR columns (65,535 less room for the other columns)
+MYSQL_ROW_BYTES = 60_000
+
+
+def adapt_types(md: sa.MetaData, dialect: str) -> sa.MetaData:
+    """Column types that keep the data on engines whose generic types lose it.
+
+    MySQL and MariaDB: FLOAT is single precision (DOUBLE instead), DATETIME keeps
+    whole seconds (DATETIME(6)), the default text collations ignore case and
+    accents (the binary no-pad collation instead, so unique keys and grouping see
+    the exact values), and TEXT cannot be indexed without a prefix (key and
+    index columns become VARCHAR, sized to fit the index limit)."""
+    if dialect not in ("mysql", "mariadb"):
+        return md
+    from sqlalchemy.dialects import mysql
+
+    from .mysql import NOPAD_BIN
+    coll = NOPAD_BIN[dialect]
+    for tbl in md.tables.values():
+        width: dict[str, int] = {}
+        groups = [list(tbl.primary_key.columns)]
+        groups += [list(c.columns) for c in tbl.constraints if isinstance(c, sa.UniqueConstraint)]
+        groups += [list(fk.columns) for fk in tbl.foreign_key_constraints]
+        groups += [list(ix.columns) for ix in tbl.indexes]
+        for g in groups:
+            for c in g:
+                n = MYSQL_INDEX_BYTES // MYSQL_CHAR_BYTES // max(len(g), 1)
+                width[c.name] = min(width.get(c.name, n), n)
+        for c in tbl.columns:
+            ty = c.type
+            if isinstance(ty, sa.Float) and not isinstance(ty, (mysql.DOUBLE, sa.Double)) and \
+                    (getattr(ty, "precision", None) or 53) > 24:
+                c.type = mysql.DOUBLE()
+            elif isinstance(ty, sa.DateTime) and not isinstance(ty, mysql.TIMESTAMP):
+                c.type = mysql.DATETIME(fsp=6)
+            elif isinstance(ty, sa.String) and not isinstance(ty, sa.Enum):
+                length: int | None = getattr(ty, "length", None)
+                if c.name in width and (isinstance(ty, sa.Text) or length is None or length > width[c.name]):
+                    c.type = mysql.VARCHAR(width[c.name], collation=coll)
+                elif isinstance(ty, sa.Text) or length is None:
+                    c.type = mysql.LONGTEXT(collation=coll)
+                else:
+                    c.type = mysql.VARCHAR(length, collation=coll)
+        # the VARCHAR columns of a row share 65,535 bytes: move the widest
+        # non-key ones to LONGTEXT (stored off the row) until the rest fit
+        def chars(c) -> int:
+            return int(getattr(c.type, "length", None) or 0)
+        var = sorted((c for c in tbl.columns if isinstance(c.type, mysql.VARCHAR) and c.name not in width),
+                     key=lambda c: -chars(c))
+        total = sum(MYSQL_CHAR_BYTES * chars(c) + 2 for c in tbl.columns if isinstance(c.type, mysql.VARCHAR))
+        for c in var:
+            if total <= MYSQL_ROW_BYTES:
+                break
+            total -= MYSQL_CHAR_BYTES * chars(c) + 2
+            c.type = mysql.LONGTEXT(collation=coll)
     return md
 
 
