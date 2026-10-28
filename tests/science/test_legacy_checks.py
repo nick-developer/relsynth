@@ -6,6 +6,7 @@ privacy, ...).  Slow (about an hour on 4 cores):
 
     pytest -m science                      # the whole suite, one test per check
     python legacy/checks/run_checks.py C05 # one check, from a checkout laid out as below
+    RELSYNTH_SCIENCE_SHARD=2/4 pytest -m science   # the second of four balanced shards (CI)
 
 The suite runs once per session in a mirror of the layout it was written for
 (relsynth/, fakedata/, checks/, docs/, examples/, realdata/), in a subprocess,
@@ -31,12 +32,35 @@ HERE = Path(__file__).resolve().parent
 PKG = HERE.parents[1]
 LEGACY = PKG / "legacy"
 LAYER2 = Path(os.environ.get("RELSYNTH_LAYER2_ROOT", "/mnt/project-files/layer2"))
-NEEDS_LAYER2 = {"C76"}            # v09_eval reads realdata/chinook
+NEEDS_LAYER2 = {"C76"}            # v09_eval reads realdata/chinook and the Chinook database
+CHINOOK_DB = Path(os.environ.get("RELSYNTH_CHINOOK_DB", PKG / "bench" / ".cache" / "downloads" / "Chinook_Sqlite.sqlite"))
 
 
 def _ids() -> list[str]:
     src = (LEGACY / "checks" / "run_checks.py").read_text()
     return re.findall(r'@check\("(C\d+)"', src)
+
+
+def shard(ids: list[str], spec: str | None) -> list[str]:
+    """The checks of shard "i/n": longest-processing-time assignment on the
+    durations measured in layer 2 (tests/science/durations.json), so that n CI
+    jobs finish at about the same time.  Every check is in exactly one shard."""
+    if not spec:
+        return ids
+    i, n = (int(x) for x in spec.split("/"))
+    if not 1 <= i <= n:
+        raise ValueError(f"RELSYNTH_SCIENCE_SHARD={spec}: expected i/n with 1 <= i <= n")
+    secs = json.loads((HERE / "durations.json").read_text())
+    load = [0.0] * n
+    owner = {}
+    for cid in sorted(ids, key=lambda c: (-secs.get(c, 60.0), c)):
+        k = min(range(n), key=lambda j: (load[j], j))
+        owner[cid] = k
+        load[k] += secs.get(cid, 60.0)
+    return [c for c in ids if owner[c] == i - 1]
+
+
+SHARD = os.environ.get("RELSYNTH_SCIENCE_SHARD")
 
 
 @pytest.fixture(scope="session")
@@ -53,19 +77,21 @@ def results(tmp_path_factory):
     (root.parent / "research").symlink_to(LEGACY / "research")
     if (LAYER2 / "realdata").is_dir():
         (root / "realdata").symlink_to(LAYER2 / "realdata")
-    env = {**os.environ, "PYTHONPATH": str(root), "RELSYNTH_QUIET": "1", "PYTHONDONTWRITEBYTECODE": "1"}
-    subprocess.run([sys.executable, str(root / "checks" / "run_checks.py")], cwd=root, env=env,
+    out = root / "checks" / "shard_results.json"
+    env = {**os.environ, "PYTHONPATH": str(root), "RELSYNTH_QUIET": "1", "PYTHONDONTWRITEBYTECODE": "1",
+           "RELSYNTH_CHECK_RESULTS": str(out), "RELSYNTH_CHINOOK_DB": str(CHINOOK_DB)}
+    ids = shard(_ids(), SHARD) if SHARD else []
+    subprocess.run([sys.executable, str(root / "checks" / "run_checks.py"), *ids], cwd=root, env=env,
                    timeout=4 * 3600, check=False)
-    out = root / "checks" / "results.json"
     if out.exists():
         return {r["id"]: r for r in json.loads(out.read_text())}
     return {}
 
 
-@pytest.mark.parametrize("cid", _ids())
+@pytest.mark.parametrize("cid", shard(_ids(), SHARD))
 def test_check(results, cid):
-    if cid in NEEDS_LAYER2 and not (LAYER2 / "realdata").is_dir():
-        pytest.skip(f"{cid} needs the layer 2 real data (RELSYNTH_LAYER2_ROOT)")
+    if cid in NEEDS_LAYER2 and not ((LAYER2 / "realdata").is_dir() and CHINOOK_DB.is_file()):
+        pytest.skip(f"{cid} needs the layer 2 real data (RELSYNTH_LAYER2_ROOT) and Chinook (RELSYNTH_CHINOOK_DB)")
     assert results, "the check suite wrote no results.json"
     r = results.get(cid)
     assert r is not None, f"{cid} did not run"

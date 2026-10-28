@@ -174,8 +174,13 @@ def c02():
             item("max |posterior mean - true|", float(err.max()), "<= 0.08", err.max() <= 0.08),
             (item("MH acceptance", cop.info["mh_acceptance"], "in [0.1, 0.6]", 0.1 <= cop.info["mh_acceptance"] <= 0.6)
              if cop.info["mode"] == "bayes" else
-             item("split R-hat, worst single correlation", cop.info["rhat_max_entry"], "<= 1.1",
-                  cop.info["rhat_max_entry"] <= 1.1)),
+             # the engine's run-length rule (chain_converged, docs/spec-reference.md copula.rhat_target):
+             # each correlation has split R-hat <= 1.1 or a Monte Carlo standard error <= 0.01 on the
+             # Fisher-z scale. R-hat alone is not the rule: the worst of 21 entries of a converged
+             # 400-draw chain is 1.04 or 1.13 depending on the CPU's BLAS kernel (AVX-512 or not).
+             item("chain converged: per correlation split R-hat <= 1.1 or MCSE(z) <= 0.01",
+                  f"R-hat max {cop.info['rhat_max_entry']:.4f}, MCSE(z) max {cop.info['mcse_z_max']:.4f}",
+                  "converged", bool(cop.info["converged"]))),
             item("split R-hat (log det C)", cop.info["rhat_logdet"], "<= 1.1", cop.info["rhat_logdet"] <= 1.1)]
 
 
@@ -3068,6 +3073,9 @@ def main(ids):
             record(fn, [], time.time() - t0, traceback.format_exc())
     npass = sum(r["pass"] for r in RESULTS)
     print(f"\n{npass}/{len(RESULTS)} checks passed in {time.time() - t00:.0f}s")
+    if os.environ.get("RELSYNTH_CHECK_RESULTS"):
+        # results of a selection (a CI shard) for the pytest wrapper
+        Path(os.environ["RELSYNTH_CHECK_RESULTS"]).write_text(json.dumps(RESULTS, indent=1, default=str))
     if not ids:
         (ROOT / "checks" / "results.json").write_text(json.dumps(RESULTS, indent=1, default=str))
         lines = ["# Layer 2 check results", "", f"{npass} of {len(RESULTS)} checks passed "

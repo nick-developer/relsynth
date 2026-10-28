@@ -28,7 +28,8 @@ warnings.filterwarnings("ignore")
 
 E = __import__("importlib").import_module("relsynth.evaluate")  # the module (rs.evaluate is the API function)
 
-CHINOOK = "/tmp/claude-0/-home-claude/bb3ce53c-120b-56d9-8782-51605abd2883/scratchpad/chinook/Chinook.db"
+# Chinook 1.4.5 as SQLite (`python -m bench fetch --datasets chinook` caches it in bench/.cache/downloads)
+CHINOOK = os.environ.get("RELSYNTH_CHINOOK_DB", "")
 
 
 def item(what, value, target, ok):
