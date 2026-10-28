@@ -654,6 +654,8 @@ def clone_schema(source, target, *, tables: list[str] | None = None, schema: str
         if hasattr(tgt, "create_schema"):
             tgt.create_schema(sch)
         md = clone_metadata(src, order, tgt.dialect, sch)
+        if hasattr(tgt, "adapt_metadata"):
+            md = tgt.adapt_metadata(md)
         create_tables(tgt.engine, md, order, replace=replace, schema=sch)
         return order
     finally:
