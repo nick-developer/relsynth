@@ -319,7 +319,9 @@ class DatabricksConnector(WarehouseConnector):
         prep = con.dialect.identifier_preparer
         name = f"relsynth_{tbl.name}_{uuid.uuid4().hex[:12]}.parquet".replace("/", "_")
         local = os.path.join(tempfile.mkdtemp(prefix="relsynth_"), name)
-        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), local)
+        # microseconds: Spark rejects the nanosecond timestamps pandas 2 writes
+        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), local, coerce_timestamps="us",
+                       allow_truncated_timestamps=True)
         if method == "volume":
             vol = str(self.bulk.get("volume", "")).rstrip("/")
             if not vol.startswith("/Volumes/"):
