@@ -9,10 +9,27 @@
 See docs/ir-guide.md, docs/ir-reference.md and docs/adr/0001-canonical-ir.md.
 """
 from .model import IR_VERSION, Attribute, Entity, Estate, IRError, Key, Relationship, Rule
-from .v1 import canonical, diff, is_ir, lift, lower
+from .v1 import canonical, diff, is_ir, lift, lower, update
 
-__all__ = ["IR_VERSION", "Estate", "Entity", "Attribute", "Key", "Relationship", "Rule", "IRError", "lift", "lower",
-           "canonical", "diff", "is_ir", "load", "loads", "dump", "dumps", "from_document"]
+__all__ = ["IR_VERSION", "IR_DEFAULT_FROM", "Estate", "Entity", "Attribute", "Key", "Relationship", "Rule", "IRError",
+           "lift", "lower", "update", "canonical", "diff", "is_ir", "load", "loads", "dump", "dumps", "from_document",
+           "default_format"]
+
+# the release from which introspect writes IR documents by default (T02 decision,
+# accepted 2026-10-28); 1.0 specs stay readable as docs/ir-guide.md describes
+IR_DEFAULT_FROM = "2.0"
+
+
+def default_format(version: str | None = None) -> str:
+    """The format introspect writes when none is asked for: "ir" from release
+    IR_DEFAULT_FROM on, "v1" before (version: relsynth's own by default)."""
+    import re
+
+    from .._version import __version__
+
+    def key(v):
+        return tuple(int(x) for x in re.findall(r"\d+", str(v).split("+")[0])[:3])
+    return "ir" if key(version or __version__) >= key(IR_DEFAULT_FROM) else "v1"
 
 
 def from_document(doc: dict) -> Estate:

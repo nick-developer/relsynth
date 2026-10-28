@@ -34,6 +34,9 @@ tables:
       options: {min_leaf: 10}  # passed to the generator
 ```
 
+In an IR document the same choice is `entities.<name>.synthesis.generator` (`{name, version, options}`), and the
+default stays in `synthesis.generator`. `relsynth ir migrate` and `ir convert` carry it both ways.
+
 Copied tables (`mode: copy`) and views are not generated, so they take no `generator`.
 
 `relsynth check` validates the choice before anything is fitted. The generator must be installed, its version must

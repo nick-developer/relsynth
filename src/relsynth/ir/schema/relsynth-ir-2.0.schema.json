@@ -1224,12 +1224,41 @@
         "unknown_members": {
           "type": "array",
           "description": "Key values of records that stand for 'no member' (-1 'Unknown')."
+        },
+        "generator": {
+          "$ref": "#/$defs/GeneratorChoice",
+          "description": "Generator of the attributes; absent means the estate's synthesis.generator (copula by default)."
         }
       },
       "patternProperties": {
         "^x-": {}
       },
       "additionalProperties": false
+    },
+    "GeneratorChoice": {
+      "type": "object",
+      "description": "The generator plug-in that models an entity's attributes (relsynth.generators).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Registered generator name (`relsynth generators list`): copula, independent, cart or a plug-in's."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version specifier the plug-in's model version must satisfy, e.g. '>=1.0,<2'."
+        },
+        "options": {
+          "type": "object",
+          "description": "Options passed unchanged to the generator."
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ]
     },
     "FactModel": {
       "type": "object",

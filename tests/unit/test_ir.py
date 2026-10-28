@@ -483,3 +483,99 @@ def test_introspect_can_write_ir(star_sqlite, tmp_path):
     assert main(["introspect", "--source", f"sqlite:{db}", "--out", str(out), "--format", "ir"]) == 0
     est = ir.load(out)
     assert set(est.entities) == {"customer", "product", "sales"} and check(est)[0] == []
+
+
+# ---------------------------------------------------------------------------
+# Generator choice (T03 / RFC-T03-01), IR version of a loaded spec, writing IR back
+# ---------------------------------------------------------------------------
+
+def _with_generators():
+    raw = read_yaml(ROOT / "tests/data/specs_v1/chinook.yaml")
+    raw["synthesis"] = {**(raw.get("synthesis") or {}), "generator": "copula"}
+    raw["tables"]["Customer"]["generator"] = "cart"
+    raw["tables"]["Track"]["generator"] = {"name": "independent"}
+    raw["tables"]["InvoiceLine"]["generator"] = {"name": "cart", "version": ">=1.0,<2",
+                                                 "options": {"min_leaf": 10}}
+    return raw
+
+
+def test_generator_choice_round_trips():
+    raw = _with_generators()
+    _assert_round_trip(raw)
+    est = ir.lift(raw)
+    g = est.entities["InvoiceLine"].synthesis.generator
+    assert (g.name, g.version, g.options) == ("cart", ">=1.0,<2", {"min_leaf": 10})
+    assert est.entities["Track"].synthesis.generator.name == "independent"
+    assert est.entities["Invoice"].synthesis is None or est.entities["Invoice"].synthesis.generator is None
+    v1, _ = ir.lower(est)
+    assert v1["tables"]["Customer"]["generator"] == "cart"
+    assert v1["synthesis"]["generator"] == "copula"
+
+
+def test_spec_loaded_from_ir_checks_generators_against_its_ir_version(tmp_path):
+    from relsynth.generators import Capabilities, default_registry
+    from relsynth.generators.independent import IndependentGenerator
+    from relsynth.spec import load_spec
+
+    class OldIR(IndependentGenerator):
+        name = "old_ir"
+        capabilities = Capabilities(ir_versions=">=1.0,<2")
+
+    reg = default_registry()
+    reg.register(OldIR)
+    try:
+        raw = read_yaml(ROOT / "tests/data/specs_v1/chinook.yaml")
+        raw["tables"]["Customer"]["generator"] = "old_ir"
+        p1 = tmp_path / "v1.yaml"
+        p1.write_text(yaml.safe_dump(raw))
+        assert "_ir_version" not in load_spec(p1)            # a 1.0 spec is IR 1.0 to the registry
+        p2 = tmp_path / "v2.yaml"
+        ir.dump(ir.lift(raw), p2)
+        with pytest.raises(SpecError, match="supports IR >=1.0,<2, the spec is IR 2.0"):
+            load_spec(p2)
+        raw["tables"]["Customer"]["generator"] = "independent"
+        ir.dump(ir.lift(raw), p2)
+        spec = load_spec(p2)
+        assert spec["_ir_version"] == ir.IR_VERSION
+        assert load_spec(spec)["_ir_version"] == ir.IR_VERSION   # kept when the spec is passed back
+    finally:
+        reg.entries.pop("old_ir", None)
+
+
+def test_update_merges_a_1_0_change_and_keeps_annotations():
+    from relsynth.ir.migrate import migrate_doc
+    from relsynth.ir.v1 import update
+    est = migrate_doc(read_yaml(ROOT / "tests/data/specs_v1/chinook.yaml"), privacy_unit="Customer",
+                      public=["Genre"]).estate
+    est.entities["Track"].extensions["x-owner"] = "music team"
+    v1 = copy.deepcopy(ir.lower(est)[0])
+    v1["synthesis"] = {"marginals": {"dirichlet_prior": 0.125}}
+    v1["tables"]["Customer"]["generator"] = "cart"
+    del v1["tables"]["Invoice"]["columns"]["BillingPostalCode"]
+    new = update(est, v1)
+    # the 1.0 changes arrive ...
+    assert new.synthesis == {"marginals": {"dirichlet_prior": 0.125}}
+    assert new.entities["Customer"].synthesis.generator.name == "cart"
+    assert set(est.entities["Invoice"].attributes) - set(new.entities["Invoice"].attributes) == {"BillingPostalCode"}
+    # ... and what a 1.0 spec cannot say is kept
+    assert new.privacy == est.privacy and new.entities["Genre"].privacy.public is True
+    assert new.entities["Track"].extensions == {"x-owner": "music team"}
+    assert check(new)[0] == []
+    # no change gives the document back
+    assert update(est, ir.lower(est)[0]) == est
+
+
+def test_introspect_format_follows_the_release(monkeypatch, star_sqlite, tmp_path):
+    from relsynth import _version
+    assert ir.default_format("1.9.3") == "v1" and ir.default_format("2.0.0") == "ir"
+    assert ir.default_format("3.1") == "ir" and ir.IR_DEFAULT_FROM == "2.0"
+    _, db = star_sqlite
+    monkeypatch.setattr(_version, "__version__", "1.4.0")
+    assert main(["introspect", "--source", f"sqlite:{db}", "--out", str(tmp_path / "a.yaml")]) == 0
+    assert not ir.is_ir(read_yaml(tmp_path / "a.yaml"))
+    monkeypatch.setattr(_version, "__version__", "2.0.0")
+    assert main(["introspect", "--source", f"sqlite:{db}", "--out", str(tmp_path / "b.yaml")]) == 0
+    assert ir.is_ir(read_yaml(tmp_path / "b.yaml"))
+    assert main(["introspect", "--source", f"sqlite:{db}", "--out", str(tmp_path / "c.yaml"),
+                 "--format", "v1"]) == 0
+    assert not ir.is_ir(read_yaml(tmp_path / "c.yaml"))

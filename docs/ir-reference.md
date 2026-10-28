@@ -319,6 +319,17 @@ relsynth engine options of an entity (1.0 table options).
 | `group_effects` | list of [GroupEffect](#groupeffect) |  | Attributes shared by the records of a group. |
 | `link_affinity` | list of [LinkAffinity](#linkaffinity) |  | Links that point at matching parents more often than chance. |
 | `unknown_members` | list |  | Key values of records that stand for 'no member' (-1 'Unknown'). |
+| `generator` | [GeneratorChoice](#generatorchoice) |  | Generator of the attributes; absent means the estate's synthesis.generator (copula by default). |
+
+## GeneratorChoice
+
+The generator plug-in that models an entity's attributes (relsynth.generators).
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `name` **(required)** | string |  | Registered generator name (`relsynth generators list`): copula, independent, cart or a plug-in's. |
+| `version` | string |  | Version specifier the plug-in's model version must satisfy, e.g. '>=1.0,<2'. |
+| `options` | mapping |  | Options passed unchanged to the generator. |
 
 ## FactModel
 

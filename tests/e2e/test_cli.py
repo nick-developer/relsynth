@@ -142,6 +142,43 @@ def test_doctor_reports_and_applies_patches(capsys, tmp_path, spec_file, monkeyp
     assert jcli(capsys, "check", fixed)[0] == 0
 
 
+@pytest.fixture
+def ir_spec_file(tmp_path, spec_file):
+    """spec_file as an IR document with annotations a 1.0 spec cannot carry."""
+    from relsynth import ir
+    from relsynth.ir.migrate import migrate_doc
+    est = migrate_doc(yaml.safe_load(spec_file.read_text()), privacy_unit="customer").estate
+    est.entities["product"].extensions["x-owner"] = "catalogue team"
+    p = tmp_path / "spec.ir.yaml"
+    ir.dump(est, p)
+    return p
+
+
+def test_doctor_and_tune_write_ir_when_given_ir(capsys, tmp_path, ir_spec_file, monkeypatch):
+    """doctor --apply and tune keep an IR document an IR document, with its annotations."""
+    import importlib
+
+    from relsynth import ir
+    D = importlib.import_module("relsynth.doctor")
+    bundle = tmp_path / "b.json"
+    assert jcli(capsys, "run", ir_spec_file, "--no-write", "--no-privacy", "--bundle", bundle)[0] == 0
+    issue = D.Issue(id="D05", severity="warn", kind="spec", where="customer.segment", message="drift",
+                    patches=[{"path": "synthesis.marginals.dirichlet_prior", "value": 0.125}])
+    monkeypatch.setattr(D, "diagnose", lambda b: [issue])
+    fixed = tmp_path / "fixed.yaml"
+    assert jcli(capsys, "doctor", bundle, "--spec", ir_spec_file, "--apply", "--out", fixed)[0] == 0
+    doc = yaml.safe_load(fixed.read_text())
+    assert ir.is_ir(doc) and doc["synthesis"]["marginals"]["dirichlet_prior"] == 0.125
+    assert doc["privacy"]["unit"]["entity"] == "customer"
+    assert doc["entities"]["product"]["x-owner"] == "catalogue team"
+    assert jcli(capsys, "check", fixed)[0] == 0
+    tuned = tmp_path / "tuned.yaml"
+    assert jcli(capsys, "tune", ir_spec_file, "--rounds", "1", "--out", tuned)[0] == 0
+    doc = yaml.safe_load(tuned.read_text())
+    assert ir.is_ir(doc) and doc["privacy"]["unit"]["entity"] == "customer"
+    assert jcli(capsys, "check", tuned)[0] == 0
+
+
 def test_verify_command(capsys, tmp_path, spec_file):
     rep = tmp_path / "verify.md"
     code, j, _ = jcli(capsys, "verify", spec_file, "--draws", "2", "--no-stability", "--no-privacy", "--report", rep)

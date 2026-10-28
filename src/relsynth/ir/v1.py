@@ -26,6 +26,7 @@ Field correspondence (1.0 -> IR):
       bridge                       allocation
       group_effects, link_affinity synthesis.group_effects, synthesis.link_affinity
       unknown_members              synthesis.unknown_members
+      generator                    synthesis.generator {name, version, options}
     relationships[]                relationships[] (child -> from, parent -> to)
     rules[]                        rules[] (table -> entity, column -> attribute, from -> source)
     version: 1                     ir_version: "2.0"
@@ -33,11 +34,13 @@ Field correspondence (1.0 -> IR):
 from __future__ import annotations
 
 import copy
+import dataclasses
 from typing import Any
 
 from .model import (KIND_TYPE, TYPE_KIND, Allocation, Attribute, AttributeSynthesis, Dependency, End, Entity,
-                    EntitySynthesis, Estate, FactModel, GroupEffect, Header, IRError, Key, KeyedLookup, LinkAffinity,
-                    Offset, Relationship, Rule, Sequence, Time, ValidTime, Versioning, View, ends)
+                    EntitySynthesis, Estate, FactModel, GeneratorChoice, GroupEffect, Header, IRError, Key,
+                    KeyedLookup, LinkAffinity, Node, Offset, Relationship, Rule, Sequence, Time, ValidTime, Versioning,
+                    View, ends)
 
 TOP_KEYS = ("version", "name", "description", "source", "target", "tables", "relationships", "rules", "synthesis",
             "review")
@@ -175,6 +178,12 @@ def _lift_table(tname: str, T: dict, rels) -> Entity:
     um = T.get("unknown_members")
     if um is not None:
         syn.unknown_members = um if isinstance(um, list) else [um]
+    g = T.get("generator")
+    if isinstance(g, str):
+        syn.generator = GeneratorChoice(name=g)
+    elif isinstance(g, dict):
+        syn.generator = GeneratorChoice(name=g.get("name"), version=g.get("version"),
+                                        options=copy.deepcopy(g["options"]) if g.get("options") is not None else None)
     if syn != EntitySynthesis():
         e.synthesis = syn
     return e
@@ -247,6 +256,34 @@ def lower_for_engine(est: Estate | dict) -> dict:
     if unsupported:
         raise IRError(["not synthesised by this release (relational records only): " + u for u in unsupported])
     return out
+
+
+def update(est: Estate | dict, v1: dict) -> Estate:
+    """est with the changes of a 1.0 spec written from it (doctor --apply, tune).
+
+    A three-way merge whose base is est's 1.0 projection, lift(lower(est)): a
+    value the 1.0 spec changed, added or removed takes the 1.0 value; every other
+    value keeps est's, so annotations a 1.0 spec cannot carry (privacy roles,
+    shapes, extensions) survive the round trip."""
+    doc: Estate = Estate.from_dict(est) if isinstance(est, dict) else est
+    return _merge3(doc, lift(_lower(doc)[0]), lift(v1))
+
+
+def _merge3(o, b, n):
+    if n == b:
+        return copy.deepcopy(o)
+    if isinstance(n, Node) and type(o) is type(b) is type(n):
+        return dataclasses.replace(n, **{f.name: _merge3(getattr(o, f.name), getattr(b, f.name), getattr(n, f.name))
+                                         for f in dataclasses.fields(n)})
+    if isinstance(o, dict) and isinstance(b, dict) and isinstance(n, dict):
+        out = {}
+        for k in list(o) + [k for k in n if k not in o]:
+            if k in n:
+                out[k] = _merge3(o[k], b[k], n[k]) if k in o and k in b else copy.deepcopy(n[k])
+            elif k not in b:            # not in the 1.0 projection: the 1.0 spec could not remove it
+                out[k] = copy.deepcopy(o[k])
+        return out
+    return copy.deepcopy(n)
 
 
 def _lower(est: Estate) -> tuple[dict, list[str]]:
@@ -368,6 +405,12 @@ def _lower_entity(name: str, e: Entity, est: Estate, unsupported: list) -> dict:
         T["scd"] = sc
     if s.unknown_members is not None:
         T["unknown_members"] = list(s.unknown_members)
+    if s.generator is not None:
+        g = s.generator
+        # a bare name stays a name: the form a 1.0 spec writes most often
+        T["generator"] = g.name if g.version is None and g.options is None else {
+            "name": g.name, **({"version": g.version} if g.version is not None else {}),
+            **({"options": copy.deepcopy(g.options)} if g.options is not None else {})}
     if e.allocation is not None:
         T["bridge"] = {k: getattr(e.allocation, k) for k in ("group", "weight", "total", "decimals")
                        if getattr(e.allocation, k) is not None}

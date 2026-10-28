@@ -135,7 +135,11 @@ def cmd_introspect(a, out):
     import yaml
     shown = mask_spec_urls(spec)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    if getattr(a, "format", "v1") == "ir":
+    fmt = getattr(a, "format", "auto")
+    if fmt == "auto":
+        from .ir import default_format
+        fmt = default_format()
+    if fmt == "ir":
         from . import ir
         Path(a.out).write_text(ir.dumps(ir.lift(json.loads(json.dumps(shown, default=str)))), encoding="utf-8")
     else:
@@ -310,9 +314,22 @@ def cmd_evaluate(a, out):
     return EXIT_OK
 
 
-def cmd_doctor(a, out):
+def _write_like(doc, spec: dict, dest) -> None:
+    """Write spec (a 1.0 spec) to dest in the format of doc, the file it was read
+    from: an IR document stays an IR document, with the 1.0 spec's changes merged
+    into it (ir.update), so its annotations survive."""
     import yaml
-    from .spec import read_spec
+    from .ir import dumps, is_ir, update
+    clean = {k: v for k, v in spec.items() if not str(k).startswith("_")}
+    if is_ir(doc):
+        text = dumps(update(doc, json.loads(json.dumps(clean, default=str))))
+    else:
+        text = yaml.safe_dump(clean, sort_keys=False, width=110)
+    Path(dest).write_text(text, encoding="utf-8")
+
+
+def cmd_doctor(a, out):
+    from .spec import from_ir, read_yaml
     b = read_bundle(a.bundle)
     issues = D.diagnose(b)
     patches = D.merge_patches(issues)
@@ -323,21 +340,21 @@ def cmd_doctor(a, out):
     out.put(issues=[{"id": i.id, "severity": i.severity, "kind": i.kind, "where": i.where, "message": i.message}
                     for i in issues], patches=patches)
     if a.apply:
-        raw = read_spec(a.spec) if a.spec else b["spec"]
+        doc = read_yaml(a.spec) if a.spec else b["spec"]
+        raw = from_ir(doc)
         new = D.apply_patches(raw, patches)
         dest = a.out or (str(Path(a.spec).with_suffix("")) + ".fixed.yaml" if a.spec else "spec.fixed.yaml")
-        Path(dest).write_text(yaml.safe_dump(new, sort_keys=False, width=110), encoding="utf-8")
+        _write_like(doc, new, dest)
         out.line(f"applied {len(patches)} change(s) -> {dest}")
         out.put(fixed_spec=dest)
     return EXIT_OK
 
 
 def cmd_tune(a, out):
-    import yaml
+    from .spec import read_yaml
     best, bundle, hist = tune(a.spec, a.rounds)
     dest = a.out or str(Path(a.spec).with_suffix("")) + ".tuned.yaml"
-    Path(dest).write_text(yaml.safe_dump({k: v for k, v in best.items() if k != "_base_dir"}, sort_keys=False,
-                                         width=110), encoding="utf-8")
+    _write_like(read_yaml(a.spec), best, dest)
     if a.bundle:
         write_bundle(bundle, a.bundle)
     for h in hist:
@@ -498,8 +515,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="identify keys and links from values and names (default) or from values only")
     s.add_argument("--ignore-declared", action="store_true",
                    help="hide the catalog's keys and links and identify them from the data (for testing)")
-    s.add_argument("--format", choices=["v1", "ir"], default="v1",
-                   help="write a relsynth 1.0 spec (default) or an IR 2.0 document")
+    s.add_argument("--format", choices=["auto", "v1", "ir"], default="auto",
+                   help="write a relsynth 1.0 spec or an IR 2.0 document; auto (default) writes IR from "
+                        "release 2.0 and 1.0 before")
     s.set_defaults(fn=cmd_introspect)
 
     for name, hlp in (("check", "validate a spec"), ("validate", "validate a spec (alias of check)")):
