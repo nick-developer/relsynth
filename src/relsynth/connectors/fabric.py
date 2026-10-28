@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Microsoft Fabric: the Warehouse, and the SQL analytics endpoint of a Lakehouse
 (read only), over TDS with the Microsoft ODBC Driver 18.
 
@@ -275,8 +276,15 @@ class FabricConnector(WarehouseConnector, MSSQLConnector):
         name = f"relsynth_{tbl.name}_{uuid.uuid4().hex[:12]}.parquet".replace("/", "_")
         buf = io.BytesIO()
         pq.write_table(pa.Table.from_pandas(df, preserve_index=False), buf)
+        from urllib.parse import urlsplit
+
         from azure.storage.filedatalake import DataLakeFileClient
-        client = DataLakeFileClient.from_file_url(f"{stage}/{name}", credential=self._credential)
+        u = urlsplit(stage)
+        fs, _, folder = u.path.strip("/").partition("/")       # container (OneLake: workspace), then the folder
+        if not fs:
+            raise ValueError("bulk.stage must name a container (or OneLake workspace) and a folder")
+        client = DataLakeFileClient(f"{u.scheme}://{u.netloc}", fs, f"{folder}/{name}" if folder else name,
+                                    credential=self._credential)
         client.upload_data(buf.getvalue(), overwrite=True)
         prep = con.dialect.identifier_preparer
         cols = ", ".join(prep.quote(c) for c in df.columns)
