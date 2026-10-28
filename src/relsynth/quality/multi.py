@@ -80,10 +80,28 @@ def grandchild_counts(tables, gp, gpk, p, ppk, fk1, c, fk2):
 
 
 # ---------------------------------------------------------------- k-hop trends
-def _pair_trend(xa, xb, ya, yb, cat_x, cat_y, bins=10):
+def _discretise(a, b, cat, bins=10):
+    """Codes of two columns for a pair trend: the real column's levels, or 10
+    equal-width bins on the real range (null is its own code)."""
+    if cat:
+        ca, cb, _ = codes(a, b, True, max_levels=10 ** 6)
+        return ca, cb
+    fa, fb = _num(a), _num(b)
+    ok = fa[~np.isnan(fa)]
+    if not len(ok):
+        return np.zeros(len(fa), int), np.zeros(len(fb), int)
+    edges = np.histogram_bin_edges(ok, bins=bins)[1:-1]
+    ea, eb = np.searchsorted(edges, fa, side="right"), np.searchsorted(edges, fb, side="right")
+    ea[np.isnan(fa)] = bins
+    eb[np.isnan(fb)] = bins
+    return ea, eb
+
+
+def _pair_trend(xa, xb, ya, yb, cat_x, cat_y, bins=10, dx=None, dy=None):
     """SDMetrics column-pair trend score in [0, 1] (1 = equal): 1 - |r_a - r_b| / 2
     with Pearson r for two numeric columns, else 1 - TVD of the joint table of the
-    discretised columns (numeric columns in 10 equal-width bins on the real range)."""
+    discretised columns (numeric columns in 10 equal-width bins on the real range).
+    dx, dy: the columns' codes from _discretise, when the caller has them."""
     if not cat_x and not cat_y:
         fa, fb = _num(xa), _num(xb)
         ga, gb = _num(ya), _num(yb)
@@ -93,22 +111,8 @@ def _pair_trend(xa, xb, ya, yb, cat_x, cat_y, bins=10):
         ra = pearsonr(fa[oka], ga[oka]).statistic
         rb = pearsonr(fb[okb], gb[okb]).statistic if np.ptp(fb[okb]) > 0 and np.ptp(gb[okb]) > 0 else 0.0
         return float(1 - abs(ra - rb) / 2)
-
-    def disc(a, b, cat):
-        if cat:
-            ca, cb, _ = codes(a, b, True, max_levels=10 ** 6)
-            return ca, cb
-        fa, fb = _num(a), _num(b)
-        ok = fa[~np.isnan(fa)]
-        if not len(ok):
-            return np.zeros(len(fa), int), np.zeros(len(fb), int)
-        edges = np.histogram_bin_edges(ok, bins=bins)[1:-1]
-        ea, eb = np.searchsorted(edges, fa, side="right"), np.searchsorted(edges, fb, side="right")
-        ea[np.isnan(fa)] = bins
-        eb[np.isnan(fb)] = bins
-        return ea, eb
-    xa_, xb_ = disc(xa, xb, cat_x)
-    ya_, yb_ = disc(ya, yb, cat_y)
+    xa_, xb_ = dx if dx is not None else _discretise(xa, xb, cat_x, bins)
+    ya_, yb_ = dy if dy is not None else _discretise(ya, yb, cat_y, bins)
     ka = xa_.astype(np.int64) * (10 ** 6 + 2) + ya_
     kb = xb_.astype(np.int64) * (10 ** 6 + 2) + yb_
     _, inv = np.unique(np.r_[ka, kb], return_inverse=True)
@@ -168,12 +172,21 @@ def hop_trends(spec, real, other, max_hops=2, max_rows=20000, seed=0):
             a = a.sample(max_rows, random_state=seed)
         if len(b) > max_rows:
             b = b.sample(max_rows, random_state=seed)
-        pairs = {}
+        pairs, cache = {}, {}
+
+        def dis(col, cat):                          # each column is coded once per path
+            if col not in cache:
+                cache[col] = _discretise(a[col], b[col], cat)
+            return cache[col]
         for x in cc:
             cx = is_categorical(spec, c, x, real[c][x])
             for y in pc:
                 cy = is_categorical(spec, p, y, real[p][y])
-                s = _pair_trend(a[x], b[x], a["^." + y], b["^." + y], cx, cy)
+                if cx or cy:
+                    s = _pair_trend(a[x], b[x], a["^." + y], b["^." + y], cx, cy,
+                                    dx=dis(x, cx), dy=dis("^." + y, cy))
+                else:
+                    s = _pair_trend(a[x], b[x], a["^." + y], b["^." + y], cx, cy)
                 if s is not None:
                     pairs[f"{c}.{x}~{p}.{y}"] = s
         if pairs:

@@ -60,12 +60,23 @@ def freeze_kinds(spec, real):
     return out
 
 
+def _is_null(x):
+    return x is None or x is pd.NA or x is pd.NaT or (isinstance(x, float) and np.isnan(x))
+
+
 def spellings(s):
-    """One text spelling per value (numbers by value), None for null."""
+    """One text spelling per value (numbers by value), None for null.  Each
+    distinct value is spelled once (the hot path of the k-hop trends)."""
     v = s.to_numpy(dtype=object)
-    out = np.array([None if (x is None or x is pd.NA or x is pd.NaT or (isinstance(x, float) and np.isnan(x)))
-                    else _canon(x) for x in v], dtype=object)
-    return out
+    if not len(v):
+        return np.array([], dtype=object)
+    codes, uniq = pd.factorize(v, use_na_sentinel=True)
+    is_bool = np.fromiter((type(x) in (bool, np.bool_) for x in v), bool, len(v))
+    if is_bool.any() and (~is_bool & (codes >= 0)).any():
+        # True == 1 under hashing, so factorize would merge them: spell value by value
+        return np.array([None if _is_null(x) else _canon(x) for x in v], dtype=object)
+    spelled = np.array([None if _is_null(x) else _canon(x) for x in uniq] + [None], dtype=object)
+    return spelled[codes]                                   # -1 (missing) picks the trailing None
 
 
 def rank_normal(ref, x):
@@ -93,7 +104,10 @@ def codes(real, other, categorical, max_levels=20, bins=5):
         k_other, k_null = len(top), len(top) + 1
 
         def enc(v):
-            return np.array([k_null if x is None else lut.get(x, k_other) for x in v], dtype=np.int64)
+            sv = pd.Series(v, dtype=object)
+            c = sv.map(lut).fillna(k_other).to_numpy(dtype=np.int64, copy=True)
+            c[sv.isna().to_numpy()] = k_null
+            return c
         return enc(a), enc(b), len(top) + 2
     xa, xb = _num(real), _num(other)
     ok = xa[~np.isnan(xa)]
