@@ -18,6 +18,7 @@ import copy
 import hashlib
 import json
 import time
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,7 @@ def relsynth_generator(spec: dict):
         s["synthesis"]["seed"] = int(seed)
         syn = Synthesizer(s).fit({t: df.reset_index(drop=True) for t, df in tables.items()}).sample(index=0)
         return {t: coerce(df, s["tables"][t]) for t, df in syn.items()}
-    gen.ident = hashlib.sha256(json.dumps(base, sort_keys=True, default=str).encode()).hexdigest()
+    gen.ident = hashlib.sha256(json.dumps(base, sort_keys=True, default=str).encode()).hexdigest()  # type: ignore[attr-defined]
     return gen
 
 
@@ -118,8 +119,9 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
     sensitive = [c for c in cfg["sensitive"] if c in cols]
     missing = [c for c in cfg["sensitive"] if c not in cols]
     A = cfg["attacks"]
-    res = {"record_isolation": [], "linkage": [], "inference": [], "attribute_inference": [], "membership": {}}
-    flags = {k: set() for k in ("isolated", "linked", "inferred", "attribute")}
+    res: dict[str, Any] = {"record_isolation": [], "linkage": [], "inference": [], "attribute_inference": [],
+                           "membership": {}}
+    flags: dict[str, set] = {k: set() for k in ("isolated", "linked", "inferred", "attribute")}
 
     t = time.time()
     say("record isolation")
@@ -132,11 +134,11 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             flags["isolated"] |= set(r.isolated_ids)
     say("linkage")
     aux = A["linkage"]["aux_cols"] or default_linkage_columns(s, unit, P_all, qis)
-    r = criteria.linkage(P_tr, P_syn, P_c, aux_cols=aux, n_attacks=A["linkage"]["n_attacks"],
-                         n_neighbors=A["linkage"]["n_neighbors"], seed=seed, level=level)
-    res["linkage"].append(r.to_dict())
-    if r.risk.ci[0] > 0:
-        flags["linked"] |= set(r.linked_ids)
+    lk = criteria.linkage(P_tr, P_syn, P_c, aux_cols=aux, n_attacks=A["linkage"]["n_attacks"],
+                          n_neighbors=A["linkage"]["n_neighbors"], seed=seed, level=level)
+    res["linkage"].append(lk.to_dict())
+    if lk.risk.ci[0] > 0:
+        flags["linked"] |= set(lk.linked_ids)
     say("inference")
     # without declared sensitive attributes, the person's behaviour in the owned
     # tables (what they bought, how much) stands in, then their other attributes
@@ -147,14 +149,14 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             known = [c for c in known if c != sec]
             if not known:
                 continue
-            r = criteria.inference(P_tr, P_syn, P_c, attribute=sec, aux_cols=known, n_attacks=A["inference"]["n_attacks"],
-                                   seed=seed, level=level)
-            d = r.to_dict()
+            inf = criteria.inference(P_tr, P_syn, P_c, attribute=sec, aux_cols=known,
+                                     n_attacks=A["inference"]["n_attacks"], seed=seed, level=level)
+            d = inf.to_dict()
             d["attacker_knows"] = knows
             d["declared_sensitive"] = sec in sensitive
             res["inference"].append(d)
-            if sec in sensitive and r.risk.ci[0] > 0:
-                flags["inferred"] |= set(r.correct_ids)
+            if sec in sensitive and inf.risk.ci[0] > 0:
+                flags["inferred"] |= set(inf.correct_ids)
             if A["attribute_inference"] is not False and len(P_r) >= 20:
                 a = attribute_inference(P_tr, P_c, P_syn, P_r, attribute=sec, known=known,
                                         max_rows=A["attribute_inference"].get("max_rows", 20000), seed=seed,
@@ -197,12 +199,12 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             return U.profiles(s, unit, db, kinds=col_kinds)[cols].reset_index(drop=True)
         n_test = _n_test(cfg)
         say(f"shadow modelling: {sh['n_train'] + n_test} fits of {size} people")
-        r = mia.shadow_attack(pool, targets, kinds, synth_profiles, shadow_size=size, n_train=sh["n_train"],
-                              n_test=n_test, seed=seed, ref_profiles=P_r if len(P_r) >= 20 else P_all,
-                              cache=cache, vuln=vul, level=level, n_jobs=int(sh.get("n_jobs", 1)),
-                              progress=lambda i, n: say(f"  shadow {i}/{n}") if i % 8 == 0 else None)
-        res["membership"]["shadow"] = r.to_dict()
-        targets_tab = r.targets
+        shr = mia.shadow_attack(pool, targets, kinds, synth_profiles, shadow_size=size, n_train=sh["n_train"],
+                                n_test=n_test, seed=seed, ref_profiles=P_r if len(P_r) >= 20 else P_all,
+                                cache=cache, vuln=vul, level=level, n_jobs=int(sh.get("n_jobs", 1)),
+                                progress=lambda i, n: say(f"  shadow {i}/{n}") if i % 8 == 0 else None)
+        res["membership"]["shadow"] = shr.to_dict()
+        targets_tab = shr.targets
     timings["shadow_seconds"] = time.time() - t
 
     # the people most at risk: shadow targets ranked by their best attack

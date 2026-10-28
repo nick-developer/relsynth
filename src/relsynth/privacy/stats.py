@@ -82,8 +82,8 @@ def risk(n_attack: int, k_attack: float, n_control: int | None = None, k_control
     """Residual risk against the control set (or the attack rate itself without
     one), clipped to [0, 1] with the clipped interval, as in Anonymeter."""
     a = wilson(n_attack, k_attack, level)
-    c = wilson(n_control, k_control, level) if n_control else None
-    b = wilson(n_base, k_base, level) if n_base else None
+    c = wilson(n_control, k_control, level) if n_control and k_control is not None else None
+    b = wilson(n_base, k_base, level) if n_base and k_base is not None else None
     v, e = residual(a, c) if c is not None else (a.value, a.error)
     clip = lambda x: float(min(max(x, 0.0), 1.0))  # noqa: E731
     return Risk(clip(v), (clip(v - e), clip(v + e)), a, c, b)

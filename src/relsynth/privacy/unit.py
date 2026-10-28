@@ -88,7 +88,7 @@ def resolve(spec, table: str | None = None) -> Unit:
     ts = spec["tables"].get(table)
     if ts is None or not ts.get("primary_key"):
         raise ValueError(f"privacy unit {table!r} must be a table with a single-column primary key")
-    paths = {table: []}
+    paths: dict[str, list] = {table: []}
     q = deque([table])
     fks = _single_fks(spec)
     others = set(person_tables(spec)) - {table}

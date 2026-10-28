@@ -18,12 +18,13 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 CONTEXTS = ("internal", "partner", "public")
 
-DEFAULTS = {
+DEFAULTS: dict[str, Any] = {
     "unit": None,                     # person table; detected when omitted
     "sensitive": [],                  # profile columns whose values must not be inferable
     "quasi_identifiers": None,        # profile columns a recipient may know; default: the unit table's attributes

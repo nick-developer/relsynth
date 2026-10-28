@@ -96,12 +96,14 @@ def _univariate_queries(syn: _Table, kinds, rng):
 def _multivariate_queries(syn: _Table, kinds, n_cols, n_queries, rng, max_attempts, batch=1000):
     cols = list(syn.col)
     med = {c: np.nanmedian(syn.col[c]) for c in cols if kinds[c] == "num" and np.isfinite(syn.col[c]).any()}
-    out, seen, tries = [], set(), 0
+    out: list = []
+    seen: set = set()
+    tries = 0
     while len(out) < n_queries and tries < max_attempts:
         for r in rng.integers(0, syn.n, batch):
             tries += 1
             sel = sorted(rng.choice(cols, size=min(n_cols, len(cols)), replace=False).tolist())
-            terms = []
+            terms: list[tuple] = []
             for c in sel:
                 v = syn.col[c][r]
                 if v is None or (isinstance(v, float) and np.isnan(v)):
@@ -125,7 +127,7 @@ def _random_queries(syn: _Table, kinds, n_cols, n, rng):
     qs = []
     for _ in range(n):
         sel = sorted(rng.choice(cols, size=min(n_cols, len(cols)), replace=False).tolist())
-        terms = []
+        terms: list[tuple] = []
         for c in sel:
             v = uniq[c][rng.integers(len(uniq[c]))]
             ops = ["==", "!="] if kinds[c] == "cat" else list(OPS)

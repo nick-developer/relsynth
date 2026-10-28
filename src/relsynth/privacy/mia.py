@@ -30,6 +30,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -126,10 +127,10 @@ class TargetFeatures:
     def __call__(self, syn: pd.DataFrame) -> np.ndarray:
         m = self._match(syn)
         n = max(len(syn), 1)
-        f = [np.logical_and.reduce([m[c] for c in q]).sum() / n for q in self.queries]
+        f: list[float] = [float(np.all([m[c] for c in q], axis=0).sum() / n) for q in self.queries]
         _, d = kneighbors(self.enc, self.frame, syn, k=min(5, len(syn)))
         d = d[0]
-        f += [d[0], d.mean(), float(np.log(n))]
+        f += [float(d[0]), float(d.mean()), float(np.log(n))]
         return np.asarray(f, float)
 
     @staticmethod
@@ -251,7 +252,7 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
     n_other = max(shadow_size - len(tids) // 2, 1)
     feats = {t: TargetFeatures(targets.loc[t], ref_profiles, rng=np.random.default_rng(seed + 7 + i))
              for i, t in enumerate(tids)}
-    X = {t: [] for t in tids}
+    X: dict[Any, list] = {t: [] for t in tids}
     Y = np.zeros((n_train + n_test, len(tids)), int)
     plans = []
     for s_ in range(n_train + n_test):
@@ -260,7 +261,7 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
         others = rng.choice(pop, size=min(n_other, len(pop)), replace=False)
         plans.append((list(others) + [t for t, m in zip(tids, member) if m], seed * 100003 + s_))
     keys = [cache.key(ids, sd) for ids, sd in plans] if cache else [None] * len(plans)
-    syns = [cache.get(k) if cache else None for k in keys]
+    syns: list[Any] = [cache.get(k) if cache else None for k in keys]
     todo = [i for i, x in enumerate(syns) if x is None]
     cached = len(plans) - len(todo)
     for i, syn in _run_fits(synth_profiles, [plans[i] for i in todo], todo, n_jobs, progress, len(plans), cached):
@@ -271,8 +272,10 @@ def shadow_attack(population_ids, targets: pd.DataFrame, target_kind: pd.Series,
         syn = syn[[c for c in ref_profiles.columns if c in syn.columns]]
         for t in tids:
             X[t].append(feats[t](syn))
-    rows, pooled_scores = [], {"classifier": ([], [], [], []), "lira": ([], [], [], [])}
-    vul_scores = {"classifier": ([], []), "lira": ([], [])}       # test scores of the vulnerable targets
+    rows = []
+    pooled_scores: dict[str, tuple[list, list, list, list]] = {"classifier": ([], [], [], []), "lira": ([], [], [], [])}
+    # test scores of the vulnerable targets
+    vul_scores: dict[str, tuple[list, list]] = {"classifier": ([], []), "lira": ([], [])}
     tr, te = slice(0, n_train), slice(n_train, None)
     for j, t in enumerate(tids):
         F = np.vstack(X[t])
@@ -334,7 +337,7 @@ def domias(members: pd.DataFrame, non_members: pd.DataFrame, syn: pd.DataFrame, 
     R = vec(ref)
     mu = R.mean(0)
     U, S, Vt = np.linalg.svd(R - mu, full_matrices=False)
-    k = int(min(dims, (S > 1e-9).sum()))
+    k = min(dims, int((S > 1e-9).sum()))
     P = Vt[:k].T
     emb = lambda df: (vec(df) - mu) @ P  # noqa: E731
     try:
