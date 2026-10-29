@@ -27,13 +27,16 @@ CI runs every layer on every pull request; [development/ci.md](development/ci.md
 | `tests/unit/test_pushdown.py` | Planner decisions and reasons (Prop. 105); a full-sample pushdown equals in-memory fitting for every fact shape (Prop. 101); sampled fits keep quality and use exact counts (Prop. 104) | |
 | `tests/unit/test_api.py` | The Python API end to end: introspect, fit, sample (datasets, scale), evaluate, write, run with quality gates, doctor, export, clone, profile, ping, typed errors | |
 | `tests/unit/test_security.py` | URL masking, scrubbed messages, masked bundles and specs, the expression sandbox, regex vetting, path confinement, privacy defaults, no copied rows | |
+| `tests/unit/test_ir.py` | The IR: 1.0 round trips of the golden and fake specs (Prop. 106), identical synthetic data from an IR document, the five examples against the model and the JSON Schema, refusals, schema and reference drift, privacy paths of the four real databases, ownership and unit removal on S9 (Props. 107–108), ODCS and OpenLineage against their official schemas, migration and the `ir` commands | `relsynth[ir]` for the schema checks |
 | `tests/e2e/test_cli.py` | Every CLI command as a CI job runs it: JSON output, exit codes 0–4, `--set`, reports, bundles | |
 | `tests/integration/test_servers.py` | On each live server: write and read, catalog, introspect, pushdown fit, identical output to SQLite, every write mode, cloning both ways, statistics parity, seeded samples, hostile identifiers, masked errors | `RELSYNTH_TEST_*_URL` |
 | `tests/integration/test_mysql.py` | MySQL and MariaDB specifics: exact text statistics under case-insensitive collations, the SHA-256 sample hash against Python, DOUBLE / DATETIME(6) / 4-byte UTF-8 round trips, TEXT keys and wide tables within MySQL's index and row limits, a MariaDB server behind a `mysql://` URL | `RELSYNTH_TEST_MYSQL_URL`, `RELSYNTH_TEST_MARIADB_URL` |
 | `tests/unit/test_warehouses.py` | Cloud warehouses without a warehouse: credentials from the environment (never the spec), each sign-in method's driver arguments, compiled SQL (casts, the SHA-256 sample hash), created types, declared keys per platform, literals, cost guards and query tags | |
+| `tests/unit/test_quality.py` | The 2.0 quality report: metric values with known answers, the tie-corrected precision/recall curve (Prop. 110), cluster splits, prediction bounds, the area rule (Prop. 111), schema validity, the 1.0 scorecard carried over unchanged | |
+| `tests/science/test_quality_calibration.py` | Checks C79–C82: false-failure rate of the calibrated limits under the null at equal and unequal sizes, power against four planted defects, the scorecard carried over (Props. 109–113) | about 30 minutes on 4 cores |
 | `tests/science/test_legacy_checks.py` | The check suite C00–C78. Each check tests a numbered proposition on fake data with known ground truth: posterior recovery, calibration, identification, rules, privacy, reproducibility | about an hour |
 
-Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session.
+Fake databases with known generating models are in `tests/fakedata/scenarios.py` (S1–S11), and `tests/conftest.py` caches them per session. `tests/fakedata/quality_null.py` draws a shop database (customers, orders, order lines, products) from a law whose parameters do not depend on the seed, so two seeds give two draws of one law, and derives databases with one planted defect each.
 
 | Scenario | Shape |
 |---|---|
@@ -93,6 +96,10 @@ mutmut run "relsynth.counts*"        # every mutant of one module
 mutmut results; mutmut show <name>   # the survivors, and the diff of one
 python tools/mutation_sample.py --per-module 150 --seed 1
 ```
+
+## The quality report on benchmark databases
+
+`benchmarks/syntherela/run_syntherela.py` runs relsynth on the SyntheRela benchmark databases (downloaded outside the repository; never commit them or synthetic data derived from them) and writes the SyntheRela-compatible numbers of the 2.0 report. Results and the comparison with published methods are in [benchmarks/syntherela/README.md](../benchmarks/syntherela/README.md). Needs `pip install relsynth[benchmark]` for the XGBoost detector.
 
 ## Quality checks in CI
 

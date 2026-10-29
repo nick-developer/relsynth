@@ -393,6 +393,9 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
+| [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
+| [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |
+| [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/cli.md](docs/cli.md) | Every command and option |
 | [docs/api.md](docs/api.md) | Every public class and function |
 | [docs/connectors.md](docs/connectors.md) | Databases and files: URLs, drivers, schemas, write modes, types |

@@ -1,0 +1,124 @@
+# relsynth v0.3 spec for the bi schema, module COREP_LR, latest submissions (IsLatest = 1).
+# Same data as v02_run (../data). What changed against v02_run/spec.yaml, all with generic v0.3 features:
+#   * DIM_Cell.TemplateCode is a derived column (not in the database): computed on load by a rule
+#   * unique keys state the grain: one report per entity x quarter, one row per submission x template
+#   * FACT_TemplateFiling: TemplateCode completes its unique key -> treated as a virtual dimension
+#   * FACT_ReportedValue is nested under FACT_TemplateFiling through a composite key
+#     (submission, cell's template), so omitted templates have no cells and cells sit in filed templates
+#   * ReportedCellCount is an aggregate (count of the template's facts); FilingStatus is derived from it
+#   * the module-version rule is a key rule (checked on foreign keys), so it is enforced by conditioning
+#   * a filtered unique key: one value per submission and fixed cell (open-row cells may repeat)
+name: bi_corep_lr
+source: {kind: csv, path: ../data, null_values: ["", "n/a"]}
+target: {kind: csv, path: ./synthetic}
+
+tables:
+  # ---------------------------------------------------------------- public EBA metadata: copied
+  DIM_Date:
+    mode: copy
+    primary_key: DateKey
+    columns: {DateKey: id, Date: date, Year: integer, QuarterLabel: categorical}
+  DIM_Module:
+    mode: copy
+    primary_key: ModuleKey
+    columns: {ModuleKey: id, ModuleCode: categorical, ModuleVersion: categorical,
+              ApplicableFromDateKey: integer, ApplicableToDateKey: integer}
+  DIM_Cell:
+    mode: copy
+    primary_key: CellKey
+    columns: {CellKey: id, TableCode: categorical, CellReference: categorical, ValueType: categorical,
+              OpenKeyCount: integer, TemplateCode: categorical}
+  DIM_Value:
+    mode: copy
+    primary_key: ValueKey
+    columns: {ValueKey: id, ValueCode: categorical, CodeListCode: categorical}
+
+  # ---------------------------------------------------------------- reporter side: synthesised
+  DIM_Entity:
+    primary_key: EntityKey
+    columns:
+      EntityKey: id
+      LEI: {type: pii, pii: {generator: pattern, pattern: "SYN9AAAAAAAAAAAAAA99"}}
+      EntityName: {type: pii, pii: {generator: pattern, pattern: "Synthetic institution 999"}}
+      EntityType: categorical
+      ConsolidationScope: categorical
+      CountryCode: categorical
+      DataOrigin: categorical
+
+  DIM_Submission:
+    primary_key: SubmissionKey
+    unique: [[EntityKey, ReferenceDateKey]]          # one (latest) report per entity and quarter
+    columns:
+      SubmissionKey: id
+      EntityKey: id
+      ModuleKey: id
+      ReferenceDateKey: id
+      SubmissionLagDays: integer
+      LoadDelayMinutes: integer
+      IsResubmission: boolean
+      ValidationStatus: categorical
+      FailedErrorRules: integer
+      HasReferenceDateMismatch: boolean
+      DataOrigin: categorical
+      FileFormat: constant
+      FailedWarningRules: constant
+      UnresolvedValueCount: constant
+      ModuleVersionSource: constant
+      BaseCurrency: constant
+      SubmissionNumber: integer
+      SubmissionsForReport: integer
+
+  FACT_TemplateFiling:                    # grain: submission x template
+    role: fact
+    fact: {anchor: DIM_Submission}
+    unique: [[SubmissionKey, TemplateCode]]
+    columns:
+      SubmissionKey: id
+      TemplateCode: categorical
+      FilingStatus: categorical
+      IsTemplateOfModule: boolean
+      ReportedCellCount: {type: integer, min: 0}
+
+  FACT_ReportedValue:                     # grain: submission x cell (x open row)
+    role: fact
+    fact:
+      anchor: FACT_TemplateFiling         # nested: cells are reported inside a template filing
+      partner: DIM_Cell
+      condition_on_parents: false
+    # one value per submission and fixed cell; open-row cells (OpenKeyCount > 0) may repeat
+    unique: [{columns: [SubmissionKey, CellKey], where: "CellKey.OpenKeyCount == 0"}]
+    columns:
+      SubmissionKey: id
+      CellKey: id
+      ValueKey: id
+      NumericValue: float
+      BooleanValue: boolean
+      UnitCode: categorical
+
+relationships:
+- {child: DIM_Submission, child_key: EntityKey, parent: DIM_Entity}
+- {child: DIM_Submission, child_key: ModuleKey, parent: DIM_Module}
+- {child: DIM_Submission, child_key: ReferenceDateKey, parent: DIM_Date}
+- {child: FACT_TemplateFiling, child_key: SubmissionKey, parent: DIM_Submission}
+- {child: FACT_ReportedValue, child_key: SubmissionKey, parent: DIM_Submission}
+- {child: FACT_ReportedValue, child_key: CellKey, parent: DIM_Cell}
+- {child: FACT_ReportedValue, child_key: ValueKey, parent: DIM_Value}
+- {child: FACT_ReportedValue, child_key: [SubmissionKey, CellKey.TemplateCode],
+   parent: FACT_TemplateFiling, parent_key: [SubmissionKey, TemplateCode]}
+
+rules:
+- {table: DIM_Cell, type: derive, expr: 'TemplateCode = regex_replace(TableCode, "\\.[a-z]$", "")'}
+- {table: DIM_Submission, type: check,
+   expr: "between(ReferenceDateKey, ModuleKey.ApplicableFromDateKey, ModuleKey.ApplicableToDateKey)"}
+- {table: DIM_Submission, type: check, expr: "(ValidationStatus == 'Failed') == (FailedErrorRules > 0)"}
+- {table: DIM_Entity, type: check, expr: "(EntityType == 'Unknown') == (DataOrigin == 'EBA sample file')"}
+- {table: DIM_Submission, type: derive, expr: "SubmissionNumber = where(IsResubmission, 2, 1)"}
+- {table: DIM_Submission, type: derive, expr: "SubmissionsForReport = where(IsResubmission, 2, 1)"}
+- {table: FACT_TemplateFiling, type: aggregate, column: ReportedCellCount, agg: count,
+   from: FACT_ReportedValue, via: "FACT_ReportedValue.(SubmissionKey+CellKey.TemplateCode)->FACT_TemplateFiling"}
+- {table: FACT_TemplateFiling, type: derive,
+   expr: "FilingStatus = where(ReportedCellCount > 0, 'Filed', 'Declared not filed')"}
+
+synthesis:
+  seed: 7
+  scale: {default: 1.0}
