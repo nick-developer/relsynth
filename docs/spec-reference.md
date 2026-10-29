@@ -297,7 +297,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle (or sqlalchemy for any other engine): `url`. |
+| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`. |
 | `path` | str |  | Folder (files) or file (sqlite); relative to the spec's folder. |
 | `url` | str |  | Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen when omitted). |
 | `url_env` | str |  | Environment variable that holds the URL (with its password), used instead of `url`: keeps the password out of the file. Specs written for sharing (introspect drafts, exported spec.yaml, bundles) show the URL with *** for the password and set url_env (RELSYNTH_SOURCE_URL). |
@@ -309,12 +309,14 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `connect_args` | map |  | Driver connection arguments (TLS settings, timeouts), passed to the driver as they are. |
 | `engine_options` | map |  | SQLAlchemy engine options (pool_size, pool_recycle, ...). |
 | `format` | csv | parquet | `csv` | File format written (target of kind files). |
+| `engine` | auto | duckdb | pandas | `auto` | Folders: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
+| `duckdb` | map |  | Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory (where larger-than-memory sorts and groupings spill). |
 
 ### `target`
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
+| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
 | `path` | str | `synthetic` | Output folder or SQLite file; dataset i > 1 goes to <path>_i. |
 | `url` | str |  | URL of the target database. |
 | `url_env` | str |  | As for source (RELSYNTH_TARGET_URL in shared specs). |

@@ -41,7 +41,7 @@ Consider any run. If it never touched data, its true loss is $0$ and its charge 
 \noindent Check C802 runs 40 concurrent runs in 20 trials with random give-ups before reading, crashes mid-run and settlements; the charged total was never below the true loss nor above the cap, and refunding a run that touched data is refused.
 
 \setcounter{proposition}{802}
-\begin{proposition}[Tamper evidence]\label{prop:chain}
+\begin{proposition}[Tamper evidence]\label{prop:govchain}
 Let the registry log be entries $e_0,\dots,e_n$ with $h_{-1}=0^{256}$, $h_i=\mathrm{SHA256}(h_{i-1}\,\|\,\mathrm{JCS}(e_i))$, and let a checkpoint $(n,h_n)$ be signed with Ed25519 by a key the verifier trusts. If an adversary without the key produces a log $e'_0,\dots,e'_{m}$ that verifies against the checkpoint, then $m=n$ and $e'_i=e_i$ for all $i$, unless it has found a SHA-256 collision or forged an Ed25519 signature.
 \end{proposition}
 \begin{proof}

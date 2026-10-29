@@ -14,6 +14,8 @@
     relsynth profile --source ...                  # in-database counts (no rows leave)
     relsynth ping --source ...                     # connection test
     relsynth version
+    relsynth ir migrate spec.yaml --out spec.ir.yaml   # 1.0 spec -> IR 2.0 (and ir validate, convert,
+                                                   # privacy, odcs, from-odcs, openlineage, schema)
 
 Exit codes: 0 success, 1 quality gate failed, 2 invalid spec or arguments,
 3 connection / read / write failure, 4 fitting, sampling or internal error.
@@ -133,8 +135,12 @@ def cmd_introspect(a, out):
     import yaml
     shown = mask_spec_urls(spec)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(a.out).write_text(yaml.safe_dump(json.loads(json.dumps(shown, default=str)), sort_keys=False, width=110),
-                           encoding="utf-8")
+    if getattr(a, "format", "v1") == "ir":
+        from . import ir
+        Path(a.out).write_text(ir.dumps(ir.lift(json.loads(json.dumps(shown, default=str)))), encoding="utf-8")
+    else:
+        Path(a.out).write_text(yaml.safe_dump(json.loads(json.dumps(shown, default=str)), sort_keys=False, width=110),
+                               encoding="utf-8")
     if shown.get("source") != spec.get("source"):
         out.line(f"the source URL's password is masked in {a.out}: set the environment variable "
                  f"{shown['source']['url_env']} to the full URL to run the spec")
@@ -293,7 +299,28 @@ def cmd_evaluate(a, out):
     missing = [t for t in r["tables"] if t not in syn]
     if missing:
         raise SpecError("synthetic data lacks tables: " + ", ".join(missing))
-    rep = evaluate(s, syn, privacy=not a.no_privacy)
+    if a.quality_gate and not a.quality:
+        raise SpecError("--quality-gate needs --quality FILE")
+    q = None
+    if a.quality:
+        from .api import assess_quality
+        from .spec import read_yaml
+        cfg = read_yaml(a.quality_config) if a.quality_config else None
+        hold = None
+        if a.holdout:
+            with from_spec(parse_source(a.holdout), Path(".")) as conn:
+                hold = {t: conn.read_table(t) for t in r["tables"] if conn.has_table(t)}
+        q = assess_quality(s, syn, holdout=hold, config=cfg, privacy=not a.no_privacy)
+        q.to_json(a.quality)
+        rep = q.scorecard
+        out.put(quality={k: q.vector[k] for k in ("fidelity", "utility", "integrity", "verdict")})
+        for k in ("fidelity", "utility", "integrity"):
+            v = q.vector[k]
+            out.line(f"{k}: {v['passed']}/{v['checks']} passed, {v['failed']} failed "
+                     f"({v['allowed_failures']} allowed) -> {'pass' if v['pass'] else 'FAIL'}")
+        out.line(f"quality report -> {a.quality}")
+    else:
+        rep = evaluate(s, syn, privacy=not a.no_privacy)
     if a.output:
         rep.to_json(a.output)
     out.put(scorecard={"passed": rep.passed, "total": rep.total, "score": rep.score, "failed": rep.failed})
@@ -301,12 +328,17 @@ def cmd_evaluate(a, out):
     if a.fail_under is not None and rep.score + 1e-12 < a.fail_under:
         out.line(f"quality gate failed: {rep.score:.3f} < {a.fail_under:.3f}")
         return EXIT_GATE
+    if a.quality_gate and not q.ok:
+        bad = [k for k in ("fidelity", "utility", "integrity") if not q.vector[k]["pass"]]
+        out.line("quality gate failed: " + ", ".join(bad) + " did not pass (2.0 report)")
+        out.put(gate={"quality_vector": True, "passed": False, "failed_areas": bad})
+        return EXIT_GATE
     return EXIT_OK
 
 
 def cmd_doctor(a, out):
     import yaml
-    from .spec import read_yaml
+    from .spec import read_spec
     b = read_bundle(a.bundle)
     issues = D.diagnose(b)
     patches = D.merge_patches(issues)
@@ -317,7 +349,7 @@ def cmd_doctor(a, out):
     out.put(issues=[{"id": i.id, "severity": i.severity, "kind": i.kind, "where": i.where, "message": i.message}
                     for i in issues], patches=patches)
     if a.apply:
-        raw = read_yaml(a.spec) if a.spec else b["spec"]
+        raw = read_spec(a.spec) if a.spec else b["spec"]
         new = D.apply_patches(raw, patches)
         dest = a.out or (str(Path(a.spec).with_suffix("")) + ".fixed.yaml" if a.spec else "spec.fixed.yaml")
         Path(dest).write_text(yaml.safe_dump(new, sort_keys=False, width=110), encoding="utf-8")
@@ -342,8 +374,8 @@ def cmd_tune(a, out):
 
 
 def cmd_model(a, out):
-    from .spec import read_yaml
-    raw = read_yaml(a.spec)
+    from .spec import read_spec
+    raw = read_spec(a.spec)
     stem = a.out or str(Path(a.spec).with_suffix("")) + ".model"
     md = write_model(raw, stem)
     out.line(f"wrote {md} and {stem}.json")
@@ -394,6 +426,43 @@ def cmd_profile(a, out):
     return EXIT_OK
 
 
+def cmd_privacy(a, out):
+    from . import privacy as P
+    s = _spec(a)
+    cfg = P.load_config(a.config) if a.config else P.load_config()
+    if a.cache:
+        cfg["cache"] = a.cache
+    if a.jobs:
+        cfg["attacks"]["membership"]["shadow"]["n_jobs"] = a.jobs
+    if a.no_shadow:
+        cfg["attacks"]["membership"]["shadow"]["enabled"] = False
+    salt = bytes.fromhex(Path(a.salt_file).read_text().strip()) if a.salt_file and Path(a.salt_file).exists() else None
+    rep = P.assess(s, cfg, salt=salt, progress=lambda m: out.line(m))
+    P.sign_off(rep, a.signed_off_by)
+    paths = P.write_report(rep, a.out)
+    if salt is None:
+        # the salt maps person labels back to keys: kept apart from the report, readable by the owner only
+        sf = Path(a.salt_file or Path(a.out) / "privacy_salt.key")
+        sf.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(sf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write(rep["_salt"] + "\n")
+        out.line(f"pseudonym salt -> {sf} (keep it private; do not share it with the report)")
+    verdicts = {n: c["verdict"] for n, c in rep["contexts"].items()}
+    out.put(privacy={"verdicts": verdicts, "report": paths, "seconds": rep["timings"]["total_seconds"]})
+    for n, v in verdicts.items():
+        out.line(f"{n}: {v.upper()}")
+    out.line(f"report -> {paths['html']}")
+    if a.context:
+        # verdicts from mildest to worst; blocked, and a review still waiting for its sign-off, count as fail
+        rank = ("pass", "review", "fail")
+        ctx = rep["contexts"].get(a.context)
+        v = P.gate_verdict(ctx) if ctx else "fail"
+        if rank.index(v) >= rank.index(a.fail_on):
+            return EXIT_GATE
+    return EXIT_OK
+
+
 def cmd_ping(a, out):
     from .api import ping
     p = ping(_location(a, "source"))
@@ -422,7 +491,7 @@ def _spec_args(p):
 def _loc_args(p, name, required=True, help_=""):
     # not required by argparse: --NAME-url-env can name the location instead (checked in _location)
     p.add_argument(f"--{name}", help=(help_ or "csv:DIR | parquet:DIR | sqlite:FILE | database URL "
-                                      "(postgresql://, mssql://, oracle://)")
+                                      "(postgresql://, mssql://, oracle://, mysql://, mariadb://)")
                    + ("" if not required else f"; or give --{name}-url-env"))
     p.add_argument(f"--{name}-schema", help="database schema")
     p.add_argument(f"--{name}-password-env", help="environment variable holding the password")
@@ -448,6 +517,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="identify keys and links from values and names (default) or from values only")
     s.add_argument("--ignore-declared", action="store_true",
                    help="hide the catalog's keys and links and identify them from the data (for testing)")
+    s.add_argument("--format", choices=["v1", "ir"], default="v1",
+                   help="write a relsynth 1.0 spec (default) or an IR 2.0 document")
     s.set_defaults(fn=cmd_introspect)
 
     for name, hlp in (("check", "validate a spec"), ("validate", "validate a spec (alias of check)")):
@@ -491,6 +562,23 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--bundle", help="write a diagnostics bundle with the checks (for doctor)")
     s.set_defaults(fn=cmd_verify)
 
+    s = sub.add_parser("privacy", help="attack a release per person and write a privacy report per release context")
+    _spec_args(s)
+    s.add_argument("--config", help="privacy.yaml: privacy unit, sensitive attributes, quasi-identifiers, "
+                                    "contexts and limits (docs/privacy.md)")
+    s.add_argument("--out", default="privacy_report", help="folder for privacy_report.json, .md and .html")
+    s.add_argument("--cache", help="folder that keeps shadow fits between runs")
+    s.add_argument("--jobs", type=int, help="parallel shadow fits")
+    s.add_argument("--no-shadow", action="store_true", help="skip shadow-model membership inference (fast)")
+    s.add_argument("--salt-file", help="secret salt for person labels (hex); reused when it exists, else a new "
+                                       "one is written there (default: OUT/privacy_salt.key)")
+    s.add_argument("--context", help="gate on this release context (internal, partner, public): exit 1 when its "
+                                     "verdict reaches --fail-on")
+    s.add_argument("--fail-on", default="fail", choices=["review", "fail"])
+    s.add_argument("--signed-off-by", help="the person (the DPO) who signs off a 'review' verdict; without it a "
+                                           "review that needs a sign-off counts as fail at the gate")
+    s.set_defaults(fn=cmd_privacy)
+
     s = sub.add_parser("evaluate", help="score synthetic data already written")
     _spec_args(s)
     s.add_argument("--synthetic", required=True, help="where the synthetic tables are (csv:DIR, sqlite:FILE, URL)")
@@ -498,6 +586,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-privacy", action="store_true", help="skip distance-to-closest-record checks")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    s.add_argument("--quality", metavar="FILE",
+                   help="also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON")
+    s.add_argument("--quality-config", metavar="YAML", help="settings of the 2.0 report (see docs/metrics.md)")
+    s.add_argument("--holdout", metavar="LOC", help="real tables the model did not see, for TSTR/TRTS")
+    s.add_argument("--quality-gate", action="store_true",
+                   help="with --quality: exit 1 when an area of the 2.0 quality vector fails "
+                        "(the default gate stays --fail-under until 3.0)")
     s.set_defaults(fn=cmd_evaluate)
 
     s = sub.add_parser("doctor", help="causes and spec fixes for a run's failures")
@@ -549,6 +644,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("version", help="versions of relsynth and its main dependencies")
     s.set_defaults(fn=cmd_version)
+
+    from .ir.cli import add_parser as _add_ir_parser
+    _add_ir_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)

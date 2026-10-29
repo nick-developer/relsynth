@@ -27,9 +27,9 @@ S = {
         "review": ("list of str", [], "What introspect inferred, and its questions (lines starting ASK)."),
     },
     "source": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy", "csv",
                  "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: "
-                 "`path` to a file; postgresql, mssql, oracle (or sqlalchemy for any other engine): `url`."),
+                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`."),
         "path": ("str", None, "Folder (files) or file (sqlite); relative to the spec's folder."),
         "url": ("str", None, "Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC"
                 "+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen "
@@ -49,9 +49,14 @@ S = {
                          "as they are."),
         "engine_options": ("map", None, "SQLAlchemy engine options (pool_size, pool_recycle, ...)."),
         "format": ("csv | parquet", "csv", "File format written (target of kind files)."),
+        "engine": ("auto | duckdb | pandas", "auto", "Folders: what computes the statistics and samples of "
+                   "pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the "
+                   "needed columns into memory (the 1.0 path); auto is duckdb when it is installed."),
+        "duckdb": ("map", None, "Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory "
+                   "(where larger-than-memory sorts and groupings spill)."),
     },
     "target": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy", "csv",
                  "As for source; csv and parquet write one file per table."),
         "path": ("str", "synthetic", "Output folder or SQLite file; dataset i > 1 goes to <path>_i."),
         "url": ("str", None, "URL of the target database."),

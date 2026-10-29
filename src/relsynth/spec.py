@@ -80,6 +80,24 @@ def read_yaml(path) -> dict:
         raise SpecError(f"{path} is not valid YAML: {e}") from None
 
 
+def read_spec(path) -> dict:
+    """A spec file as a 1.0 spec mapping: an IR 2.0 document (it has `ir_version`)
+    is lowered to the 1.0 spec the engine reads (relsynth.ir.v1)."""
+    return from_ir(read_yaml(path))
+
+
+def from_ir(doc):
+    """doc itself when it is a 1.0 spec, else the 1.0 spec of an IR document."""
+    from .ir import IRError, is_ir
+    if not is_ir(doc):
+        return doc
+    from .ir.v1 import lower_for_engine
+    try:
+        return lower_for_engine(doc)
+    except IRError as e:
+        raise SpecError("Spec has errors:\n  - " + "\n  - ".join(e.errors)) from None
+
+
 def deep_merge(base: dict, over: dict) -> dict:
     out = copy.deepcopy(base)
     for k, v in (over or {}).items():
@@ -92,13 +110,14 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 def load_spec(path_or_dict) -> dict:
     if isinstance(path_or_dict, dict):
+        path_or_dict = from_ir(path_or_dict)
         # private keys of an in-memory spec (a normalised spec passed back) are dropped
         raw = copy.deepcopy({k: v for k, v in path_or_dict.items() if not str(k).startswith("_")})
         base = Path(".")
         errs = []
     else:
         p = Path(path_or_dict)
-        raw = read_yaml(p)
+        raw = read_spec(p)
         base = p.parent
         if not isinstance(raw, dict):
             raise SpecError(f"Spec has errors:\n  - {p}: the spec must be a mapping")
@@ -116,7 +135,7 @@ def load_spec(path_or_dict) -> dict:
 
 
 def normalise(raw: dict) -> dict:
-    spec = copy.deepcopy(raw)
+    spec = copy.deepcopy(from_ir(raw))
     spec.setdefault("version", 1)
     spec.setdefault("relationships", [])
     spec.setdefault("rules", [])
@@ -680,8 +699,9 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
     return errs
 
 
-SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "sqlalchemy")
-TARGET_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "sqlalchemy")
+SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+TARGET_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
 TARGET_STRUCTURES = ("auto", "clone", "infer", "existing")
 IF_EXISTS = ("replace", "append", "truncate", "fail")
 
@@ -721,10 +741,15 @@ def _validate_io(spec):
         for k in ("path", "url", "schema", "url_env", "password_env", "format"):
             if x.get(k) is not None and not isinstance(x[k], str):
                 errs.append(f"{key}.{k} must be a string")
+        if x.get("engine") is not None and x["engine"] not in ("auto", "duckdb", "pandas"):
+            errs.append(f"{key}.engine must be auto, duckdb or pandas")
+        if x.get("duckdb") is not None and (not isinstance(x["duckdb"], dict) or
+                                            set(x["duckdb"]) - {"memory_limit", "threads", "temp_directory"}):
+            errs.append(f"{key}.duckdb must be a mapping of memory_limit, threads and temp_directory")
         for k in ("connect_args", "engine_options"):
             if x.get(k) is not None and not isinstance(x[k], dict):
                 errs.append(f"{key}.{k} must be a mapping")
-        if x.get("kind", "csv") in ("postgresql", "mssql", "oracle", "sqlalchemy") and not (x.get("url") or x.get("url_env")):
+        if x.get("kind", "csv") in SERVER_KINDS and not (x.get("url") or x.get("url_env")):
             errs.append(f"{key}: kind {x.get('kind')} needs `url` or `url_env`")
         if x.get("format") is not None and x["format"] not in ("csv", "parquet"):
             errs.append(f"{key}.format must be csv or parquet")

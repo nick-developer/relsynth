@@ -1,0 +1,37 @@
+name: mutation
+
+# Weekly mutation score of the core engine modules (counts, posterior, copula,
+# relational, evaluate) against the fast core tests (tests/unit/core), from a
+# seeded random sample of mutants per module (tools/mutation_sample.py). The
+# score is reported, not enforced: surviving mutants are read as missing tests
+# (Petrovic and Ivankovic, ICSE-SEIP 2018). Baseline: docs/development/mutation-baseline.md.
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      per_module:
+        description: "Mutants sampled per module"
+        default: "150"
+
+permissions:
+  contents: read
+
+jobs:
+  mutmut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - name: Sampled mutation score
+        env:
+          PER_MODULE: ${{ inputs.per_module || '150' }}
+        run: python tools/mutation_sample.py --per-module "$PER_MODULE" --seed 1 --out mutation.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: mutation, path: mutation.json }

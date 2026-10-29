@@ -5,6 +5,7 @@
     src = connect("postgresql://user@host/db", schema="sales", password_env="PGPASSWORD")
     src = connect("mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server")
     src = connect("oracle://user@host:1521/?service_name=ORCLPDB1")
+    src = connect("mysql://user@host:3306/sales")      # or mariadb://
     src = connect("sqlite:shop.db")          # or sqlite:///shop.db
     src = connect("csv:./data")              # a folder of CSV files
     src = connect("parquet:./lake/sales")    # a folder of Parquet files
@@ -17,9 +18,14 @@ A specification's `source` and `target` sections are connected with
 | postgresql | PostgreSQL 12+               | psycopg 3 (relsynth[postgres])     |
 | mssql      | SQL Server 2016+, Azure SQL  | pyodbc + ODBC Driver 18, or pymssql (relsynth[mssql]) |
 | oracle     | Oracle Database 19c+         | python-oracledb thin (relsynth[oracle]) |
+| mysql      | MySQL 8.0+, MariaDB 10.6+    | PyMySQL (relsynth[mysql]); mysqlclient when installed |
 | sqlite     | SQLite 3.25+ files           | standard library                   |
 | csv        | folder of .csv / .csv.gz     | pandas                             |
 | parquet    | folder of .parquet           | pyarrow (relsynth[parquet])        |
+
+Folders compute the statistics of pushed-down facts with DuckDB (SQL over the
+files, see connectors/duckfiles.py); `engine: pandas` in the source section
+keeps the 1.0 in-memory path.
 """
 from __future__ import annotations
 
@@ -31,7 +37,7 @@ from .files import FileConnector
 __all__ = ["connect", "from_spec", "Connector", "TableInfo", "ColumnInfo", "ForeignKey", "FileConnector",
            "KINDS"]
 
-KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "sqlalchemy")
+KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
 _FILE_PREFIXES = {"csv:": "csv", "files:": "csv", "parquet:": "parquet"}
 
 
@@ -48,6 +54,9 @@ def _sql_class(dialect: str):
     if dialect == "oracle":
         from .oracle import OracleConnector
         return OracleConnector
+    if dialect in ("mysql", "mariadb"):
+        from .mysql import MySQLConnector
+        return MySQLConnector
     from .sql import SqlConnector
     return SqlConnector
 
@@ -107,7 +116,8 @@ def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = 
     common = dict(connect_args=sec.get("connect_args"), engine_options=sec.get("engine_options"))
     if kind in ("csv", "files", "parquet"):
         return FileConnector(_p(sec.get("path", ".")), fmt=sec.get("format") or ("parquet" if kind == "parquet" else "csv"),
-                             null_values=sec.get("null_values"), create=create)
+                             null_values=sec.get("null_values"), create=create, engine=sec.get("engine", "auto"),
+                             duckdb=sec.get("duckdb"))
     if kind == "sqlite" and (sec.get("path") and not sec.get("url_env")):
         from .sqlite import SQLiteConnector
         return SQLiteConnector(str(_p(sec["path"])), **common)

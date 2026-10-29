@@ -392,6 +392,9 @@ $\pi_s=0.9$ for occupancy, activity, null-rate and category-level priors, i.e.\ 
 \input{sec_v08.tex}
 \input{sec_v09.tex}
 \input{sec_v10.tex}
+\input{sec_v20_ir.tex}
+\input{sec_v20.tex}
+\input{sec_v25_privacy.tex}
 \input{sec_v25_governance.tex}
 
 %=====================================================================
@@ -471,10 +474,19 @@ The bundle holds the spec (credentials masked), a column profile without values 
 \bibitem{mironov2017} I.~Mironov (2017). R\'enyi differential privacy. \emph{IEEE CSF}.
 \bibitem{dworkroth2014} C.~Dwork, A.~Roth (2014). The algorithmic foundations of differential privacy. \emph{Found.\ Trends Theor.\ Comput.\ Sci.} 9.
 \bibitem{ballewang2018} B.~Balle, Y.-X.~Wang (2018). Improving the Gaussian mechanism for differential privacy: analytical calibration and optimal denoising. \emph{ICML}.
-\bibitem{kairouz2015} P.~Kairouz, S.~Oh, P.~Viswanath (2015). The composition theorem for differential privacy. \emph{ICML}.
 \bibitem{dong2022} J.~Dong, A.~Roth, W.~J.~Su (2022). Gaussian differential privacy. \emph{J.\ R.\ Statist.\ Soc.\ B} 84.
 \bibitem{rfc8785} A.~Rundgren, B.~Jordan, S.~Erdtman (2020). JSON Canonicalization Scheme (JCS). RFC 8785.
 \bibitem{rfc8032} S.~Josefsson, I.~Liusvaara (2017). Edwards-curve digital signature algorithm (EdDSA). RFC 8032.
+\bibitem{giomi2023} M.~Giomi, F.~Boenisch, C.~Wehmeyer, B.~Tasn\'adi (2023). A unified framework for quantifying privacy risk in synthetic data. \emph{Proc.\ Privacy Enhancing Technologies} 2023(2).
+\bibitem{wilson1927} E.~B.~Wilson (1927). Probable inference, the law of succession, and statistical inference. \emph{J.\ Amer.\ Statist.\ Assoc.} 22.
+\bibitem{clopper1934} C.~J.~Clopper, E.~S.~Pearson (1934). The use of confidence or fiducial limits illustrated in the case of the binomial. \emph{Biometrika} 26.
+\bibitem{kairouz2015} P.~Kairouz, S.~Oh, P.~Viswanath (2015). The composition theorem for differential privacy. \emph{ICML}.
+\bibitem{houssiau2022} F.~Houssiau, J.~Jordon, S.~N.~Cohen, O.~Daniel, A.~Elliott, J.~Geddes, C.~Mole, C.~Rangel-Smith, L.~Szpruch (2022). TAPAS: a toolbox for adversarial privacy auditing of synthetic data. \emph{NeurIPS Workshop on Synthetic Data for Empowering ML Research}.
+\bibitem{meeus2023} M.~Meeus, F.~Gu\'epin, A.-M.~Cre\c{t}u, Y.-A.~de Montjoye (2023). Achilles' heels: vulnerable record identification in synthetic data publishing. \emph{ESORICS}.
+\bibitem{stadler2022} T.~Stadler, B.~Oprisanu, C.~Troncoso (2022). Synthetic data -- anonymisation groundhog day. \emph{USENIX Security}.
+\bibitem{vanbreugel2023} B.~van Breugel, H.~Sun, Z.~Qian, M.~van der Schaar (2023). Membership inference attacks against synthetic data through overfitting detection. \emph{AISTATS}.
+\bibitem{carlini2022} N.~Carlini, S.~Chien, M.~Nasr, S.~Song, A.~Terzis, F.~Tram\`er (2022). Membership inference attacks from first principles. \emph{IEEE S\&P}.
+\bibitem{edpb2026} European Data Protection Board (2026). Guidelines 02/2026 on anonymisation, version 1.0 for public consultation, adopted 7 July 2026.
 \bibitem{ferguson} T.~Ferguson (1973). A Bayesian analysis of some nonparametric problems. \emph{Ann.\ Statist.} 1.
 \bibitem{rubin} D.~Rubin (1981). The Bayesian bootstrap. \emph{Ann.\ Statist.} 9.
 \bibitem{lkj} D.~Lewandowski, D.~Kurowicka, H.~Joe (2009). Generating random correlation matrices based on vines and extended onion method. \emph{J.\ Multivar.\ Anal.} 100.
@@ -504,5 +516,16 @@ The bundle holds the spec (credentials masked), a column profile without values 
 \bibitem{shental} N.~Shental, A.~Bar-Hillel, T.~Hertz, D.~Weinshall (2003). Computing Gaussian mixture models with EM using equivalence constraints. \emph{NIPS}.
 \bibitem{parciak} M.~Parciak et al.\ (2024). Measuring approximate functional dependencies: a comparative study. \emph{ICDE}.
 \bibitem{kimball} R.~Kimball, M.~Ross (2013). \emph{The Data Warehouse Toolkit}, 3rd ed. Wiley.
+\bibitem{alaa} A.~Alaa, B.~van Breugel, E.~Saveliev, M.~van der Schaar (2022). How faithful is your synthetic data? Sample-level metrics for evaluating and auditing generative models. \emph{ICML}.
+\bibitem{esteban} C.~Esteban, S.~Hyland, G.~R\"atsch (2017). Real-valued (medical) time series generation with recurrent conditional GANs. arXiv:1706.02633.
+\bibitem{pang} W.~Pang, M.~Shafieinejad, L.~Liu, S.~Hazlewood, X.~He (2024). ClavaDDPM: multi-relational data synthesis with cluster-guided diffusion models. \emph{NeurIPS}.
+\bibitem{syntherela} V.~Hudovernik, M.~Jurkovi\v{c}, E.~\v{S}trumbelj (2026). SyntheRela: a benchmark for synthetic relational database generation. \emph{TMLR}; arXiv:2410.03411.
+\bibitem{synthcity} Z.~Qian, B.-C.~Cebere, M.~van der Schaar (2023). Synthcity: a benchmark framework for diverse use cases of tabular synthetic data. \emph{NeurIPS Datasets and Benchmarks}.
+\bibitem{vdvw} A.~van der Vaart, J.~Wellner (1996). \emph{Weak Convergence and Empirical Processes}. Springer.
+\bibitem{vdv} A.~van der Vaart (1998). \emph{Asymptotic Statistics}. Cambridge University Press.
+\bibitem{delbarrio} E.~del Barrio, E.~Gin\'e, C.~Matr\'an (1999). Central limit theorems for the Wasserstein distance between the empirical and the true distributions. \emph{Ann.\ Probab.} 27.
+\bibitem{hahn} G.~Hahn, W.~Meeker, L.~Escobar (2017). \emph{Statistical Intervals}, 2nd ed. Wiley.
+\bibitem{ruschendorf} L.~R\"uschendorf (2009). On the distributional transform, Sklar's theorem, and the empirical copula process. \emph{J.\ Statist.\ Plann.\ Inference} 139.
+\bibitem{lopezpaz} D.~Lopez-Paz, M.~Oquab (2017). Revisiting classifier two-sample tests. \emph{ICLR}.
 \end{thebibliography}
 \end{document}

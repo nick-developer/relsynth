@@ -22,7 +22,7 @@ from .data import coerce, write_tables
 from .diagnostics import build_bundle, write_bundle
 from .engine import Synthesizer
 from .evaluate import evaluate
-from .spec import load_spec, normalise, read_yaml
+from .spec import from_ir, load_spec, normalise, read_spec
 
 D = importlib.import_module("relsynth.doctor")  # the module, not the API function
 
@@ -46,7 +46,7 @@ def parse_source(s: str) -> dict:
         return {"kind": "csv", "path": s}
     scheme = s.split(":", 1)[0].split("+", 1)[0].lower()
     kind = {"postgres": "postgresql", "postgresql": "postgresql", "mssql": "mssql", "oracle": "oracle",
-            "sqlite": "sqlite"}.get(scheme, "sqlalchemy")
+            "mysql": "mysql", "mariadb": "mariadb", "sqlite": "sqlite"}.get(scheme, "sqlalchemy")
     return {"kind": kind, "url": s}
 
 
@@ -214,7 +214,7 @@ def tune(spec_path, rounds=3, workdir=None, tables=None, quiet=False):
     """run -> doctor -> apply until no spec-level fix remains or rounds run out.
     Returns (best raw spec, its bundle, history); the best spec has the highest
     share of passed scorecard checks."""
-    raw = read_yaml(spec_path) if isinstance(spec_path, (str, Path)) else spec_path
+    raw = read_spec(spec_path) if isinstance(spec_path, (str, Path)) else from_ir(spec_path)
     base = Path(spec_path).parent if isinstance(spec_path, (str, Path)) else Path(raw.get("_base_dir", "."))
     history, best = [], None
     for r in range(rounds):

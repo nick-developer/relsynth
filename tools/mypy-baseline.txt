@@ -1,0 +1,77 @@
+src/relsynth/api.py: [attr-defined] "Connector" has no attribute "dialect"
+src/relsynth/api.py: [attr-defined] "Connector" has no attribute "schema"
+src/relsynth/api.py: [union-attr] Item "None" of "Synthesizer | None" has no attribute "sample_log"
+src/relsynth/cli.py: [attr-defined] "StreamHandler[TextIO | Any]" has no attribute "_relsynth"
+src/relsynth/connectors/ddl.py: [arg-type] Argument "primary_key" to "Column" has incompatible type "Any | numpy.bool[builtins.bool] | builtins.bool"; expected "builtins.bool"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "FetchedValue | str | TextClause | ColumnElement[Any] | None"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "Literal['auto', 'ignore_fk'] | bool"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "bool"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "dict[Any, Any] | None"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "str | None"
+src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "type[TypeEngine[Any]] | TypeEngine[Any] | None"
+src/relsynth/connectors/ddl.py: [operator] Unsupported operand types for < ("int" and "None")
+src/relsynth/connectors/ddl.py: [operator] Unsupported operand types for >= ("int" and "None")
+src/relsynth/connectors/sql.py: [index] Invalid index type "str | None" for "ReadOnlyColumnCollection[str, Column[Any]]"; expected type "str | int"
+src/relsynth/data.py: [attr-defined] "Callable[[Any, Any, Any, Any], dict[str, DataFrame]]" has no attribute "notes"
+src/relsynth/data.py: [attr-defined] "Callable[[Any, Any, Any, Any], dict[str, DataFrame]]" has no attribute "notes"
+src/relsynth/data.py: [var-annotated] Need type annotation for "notes" (hint: "notes: list[<type>] = ...")
+src/relsynth/data.py: [var-annotated] Need type annotation for "out" (hint: "out: dict[<type>, <type>] = ...")
+src/relsynth/doctor.py: [call-overload] No overload variant of "get" of "dict" matches argument type "str"
+src/relsynth/doctor.py: [var-annotated] Need type annotation for "r"
+src/relsynth/engine.py: [assignment] Incompatible types in assignment (expression has type "OccRel", variable has type "PairRel")
+src/relsynth/engine.py: [assignment] Incompatible types in assignment (expression has type "TreeRel", variable has type "PairRel")
+src/relsynth/engine.py: [attr-defined] "Entity" has no attribute "copied"
+src/relsynth/engine.py: [attr-defined] "Entity" has no attribute "copied"
+src/relsynth/engine.py: [attr-defined] "PairRel" has no attribute "child_only"
+src/relsynth/engine.py: [attr-defined] "PairRel" has no attribute "null_mask"
+src/relsynth/engine.py: [call-overload] All overload variants of "argmax" of "ndarray" require at least one argument
+src/relsynth/engine.py: [call-overload] All overload variants of "max" of "ndarray" require at least one argument
+src/relsynth/engine.py: [var-annotated] Need type annotation for "fact_entity" (hint: "fact_entity: dict[<type>, <type>] = ...")
+src/relsynth/engine.py: [var-annotated] Need type annotation for "fact_key_index" (hint: "fact_key_index: dict[<type>, <type>] = ...")
+src/relsynth/expr.py: [misc] Generator has incompatible item type "tuple[AST, int]"; expected "tuple[expr, int]"
+src/relsynth/expr.py: [var-annotated] Need type annotation for "_cache" (hint: "_cache: dict[<type>, <type>] = ...")
+src/relsynth/introspect.py: [misc] Invalid self argument "SeriesStringMethods[list[str]]" to attribute function "len" with type "Callable[[SeriesStringMethods[str]], Series[int]]"
+src/relsynth/keyfind.py: [var-annotated] Need type annotation for "depth" (hint: "depth: dict[<type>, <type>] = ...")
+src/relsynth/keyfind.py: [var-annotated] Need type annotation for "df" (hint: "df: dict[<type>, <type>] = ...")
+src/relsynth/keyfind.py: [var-annotated] Need type annotation for "state" (hint: "state: dict[<type>, <type>] = ...")
+src/relsynth/marginals.py: [assignment] Incompatible types in assignment (expression has type "None", variable has type "list[Any]")
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_c"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_c"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_c"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_v"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_v"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "knots_v"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
+src/relsynth/pipeline.py: [assignment] Incompatible types in assignment (expression has type "list[Any]", target has type "float")
+src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample"
+src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample_log"
+src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample_log"
+src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample_log"
+src/relsynth/prepare.py: [var-annotated] Need type annotation for "out"
+src/relsynth/profiling.py: [var-annotated] Need type annotation for "pairs" (hint: "pairs: dict[<type>, <type>] = ...")
+src/relsynth/pushdown/loader.py: [attr-defined] "Callable[[Any, Any, Any, Any], dict[str, DataFrame]]" has no attribute "notes"
+src/relsynth/pushdown/loader.py: [attr-defined] "Callable[[Any, Any, Any, Any], dict[str, DataFrame]]" has no attribute "notes"
+src/relsynth/pushdown/stats.py: [misc] "None" not callable
+src/relsynth/relational.py: [var-annotated] Need type annotation for "history" (hint: "history: dict[<type>, <type>] = ...")
+src/relsynth/relational.py: [var-annotated] Need type annotation for "trace" (hint: "trace: list[<type>] = ...")
+src/relsynth/source.py: [attr-defined] "Connector" has no attribute "engine"
+src/relsynth/source.py: [attr-defined] "Connector" has no attribute "schema"
+src/relsynth/source.py: [var-annotated] Need type annotation for "_col_cache" (hint: "_col_cache: dict[<type>, <type>] = ...")
+src/relsynth/source.py: [var-annotated] Need type annotation for "_counts" (hint: "_counts: dict[<type>, <type>] = ...")
+src/relsynth/source.py: [var-annotated] Need type annotation for "_frames" (hint: "_frames: dict[<type>, <type>] = ...")
+src/relsynth/source.py: [var-annotated] Need type annotation for "unseeded" (hint: "unseeded: list[<type>] = ...")
+src/relsynth/spec.py: [attr-defined] "bool" has no attribute "__iter__"; maybe "__invert__"? (not iterable)
+src/relsynth/table_model.py: [call-arg] Too many arguments for "_latent_draw"
+src/relsynth/table_model.py: [index] Invalid index type "tuple[slice[None, None, None], int]" for "float64"; expected type "tuple[()]"
+src/relsynth/table_model.py: [index] Value of type "DataFrame | None" is not indexable
+src/relsynth/table_model.py: [var-annotated] Need type annotation for "fd_groups" (hint: "fd_groups: list[<type>] = ...")
+src/relsynth/verify.py: [attr-defined] "object" has no attribute "stats"
+src/relsynth/verify.py: [attr-defined] "object" has no attribute "tables"

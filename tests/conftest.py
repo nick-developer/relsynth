@@ -7,8 +7,10 @@ Live database servers are used when their URL is in the environment:
     RELSYNTH_TEST_PG_URL      postgresql://user:pw@host/db
     RELSYNTH_TEST_MSSQL_URL   mssql://sa:pw@host:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server
     RELSYNTH_TEST_ORACLE_URL  oracle://user:pw@host:1521/?service_name=FREEPDB1
+    RELSYNTH_TEST_MYSQL_URL   mysql://root:pw@host:3306/relsynth   (a user that may create databases)
+    RELSYNTH_TEST_MARIADB_URL mariadb://root:pw@host:3307/relsynth
 
-docker-compose.test.yml starts all three; tests for a server that is not
+docker-compose.test.yml starts all five; tests for a server that is not
 configured are skipped.
 """
 from __future__ import annotations
@@ -31,7 +33,8 @@ from relsynth.data import write_tables  # noqa: E402
 from relsynth.spec import load_spec  # noqa: E402
 
 SERVER_ENVS = {"postgresql": "RELSYNTH_TEST_PG_URL", "mssql": "RELSYNTH_TEST_MSSQL_URL",
-               "oracle": "RELSYNTH_TEST_ORACLE_URL"}
+               "oracle": "RELSYNTH_TEST_ORACLE_URL", "mysql": "RELSYNTH_TEST_MYSQL_URL",
+               "mariadb": "RELSYNTH_TEST_MARIADB_URL"}
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +131,8 @@ def drop_schema(kind: str, schema: str, tables=()):
                     md.reflect(con)
                     md.drop_all(con)
                     con.execute(sa.text(f"DROP SCHEMA [{schema}]"))
+            elif kind in ("mysql", "mariadb"):     # a schema is a database
+                con.execute(sa.text(f"DROP DATABASE IF EXISTS `{schema}`"))
             elif kind == "oracle":          # the user's schema: drop the named tables only
                 insp = sa.inspect(con)
                 for t in tables:

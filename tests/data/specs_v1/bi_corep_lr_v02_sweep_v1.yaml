@@ -1,0 +1,101 @@
+# relsynth spec for the bi schema, module COREP_LR, latest submissions (IsLatest = 1).
+# Data: export_subset.py -> data/*.csv.  Rebuild the full bi column layout: postprocess.py.
+# Written by hand: `introspect` finds no keys in PascalCase *Key columns and would copy DIM_Entity as-is.
+name: bi_corep_lr
+source: {kind: csv, path: ./data}
+target: {kind: csv, path: ./synthetic}
+
+tables:
+  # ---------------------------------------------------------------- public EBA metadata: copied
+  DIM_Date:
+    mode: copy
+    primary_key: DateKey
+    columns: {DateKey: id, Date: date, Year: integer, QuarterLabel: categorical}
+  DIM_Module:
+    mode: copy
+    primary_key: ModuleKey
+    columns: {ModuleKey: id, ModuleCode: categorical, ModuleVersion: categorical,
+              ApplicableFromDateKey: integer, ApplicableToDateKey: integer}
+  DIM_Cell:
+    mode: copy
+    primary_key: CellKey
+    columns: {CellKey: id, TableCode: categorical, CellReference: categorical, ValueType: categorical,
+              OpenKeyCount: integer}
+  DIM_Value:
+    mode: copy
+    primary_key: ValueKey
+    columns: {ValueKey: id, ValueCode: categorical, CodeListCode: categorical}
+
+  # ---------------------------------------------------------------- reporter side: synthesised
+  DIM_Entity:
+    primary_key: EntityKey
+    columns:
+      EntityKey: id
+      LEI: {type: pii, pii: {generator: pattern, pattern: "SYN9AAAAAAAAAAAAAA99"}}
+      EntityName: {type: pii, pii: {generator: pattern, pattern: "Synthetic institution 999"}}
+      EntityType: categorical
+      ConsolidationScope: categorical
+      CountryCode: categorical
+      DataOrigin: categorical
+
+  DIM_Submission:
+    primary_key: SubmissionKey
+    columns:
+      SubmissionKey: id
+      EntityKey: id
+      ModuleKey: id
+      ReferenceDateKey: id
+      SubmissionLagDays: integer          # SubmittedAt - ReferenceDate (days)
+      LoadDelayMinutes: integer           # LoadedAt - SubmittedAt (minutes)
+      IsResubmission: boolean             # SubmissionNumber / SubmissionsForReport are rebuilt from it
+      ValidationStatus: categorical
+      FailedErrorRules: integer
+      HasReferenceDateMismatch: boolean
+      DataOrigin: categorical
+      FileFormat: constant
+      FailedWarningRules: constant
+      UnresolvedValueCount: constant
+      ModuleVersionSource: constant
+      BaseCurrency: constant
+      SubmissionNumber: constant          # placeholder, rebuilt by postprocess.py
+      SubmissionsForReport: constant      # placeholder, rebuilt by postprocess.py
+
+  FACT_TemplateFiling:                    # grain: submission x template
+    role: fact
+    fact: {anchor: DIM_Submission}
+    columns:
+      SubmissionKey: id
+      TemplateCode: categorical
+      FilingStatus: categorical
+      IsTemplateOfModule: boolean
+      ReportedCellCount: {type: integer, min: 0}
+
+  FACT_ReportedValue:                     # grain: submission x cell (x open row)
+    role: fact
+    fact:
+      anchor: DIM_Submission              # rows per submission are preserved when scaling
+      partner: DIM_Cell                   # block model: submission segment x cell
+      condition_on_parents: false         # the cell itself drives the value; parent numerics are noise here
+    columns:
+      SubmissionKey: id
+      CellKey: id
+      ValueKey: id
+      NumericValue: float
+      BooleanValue: boolean
+      UnitCode: categorical
+
+relationships:
+- {child: DIM_Submission, child_key: EntityKey, parent: DIM_Entity}
+- {child: DIM_Submission, child_key: ModuleKey, parent: DIM_Module}
+- {child: DIM_Submission, child_key: ReferenceDateKey, parent: DIM_Date}
+- {child: FACT_TemplateFiling, child_key: SubmissionKey, parent: DIM_Submission}
+- {child: FACT_ReportedValue, child_key: SubmissionKey, parent: DIM_Submission}
+- {child: FACT_ReportedValue, child_key: CellKey, parent: DIM_Cell}
+- {child: FACT_ReportedValue, child_key: ValueKey, parent: DIM_Value}
+
+rules:
+- {table: FACT_TemplateFiling, type: check, expr: "ReportedCellCount >= 0"}
+
+synthesis:
+  seed: 7
+  scale: {default: 1.0}

@@ -1,20 +1,26 @@
 name: ci
 
+# Every pull request and every push to main runs the whole regression gate:
+# lint and security scans, the type ratchet, unit and end-to-end tests with
+# branch coverage, the live database servers, the statistical check suite
+# (C00-C78, in four balanced shards), and a wheel build with an SBOM and a
+# Sigstore signature. docs/development/ci.md explains each job; the job names
+# are the required status checks of the main branch ruleset.
+#
+# Actions are pinned to commit SHAs (the tag is in the comment); Dependabot
+# keeps them current (.github/dependabot.yml).
+
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 3 * * 1"          # weekly: the statistical check suite
+    - cron: "0 3 * * 1"          # weekly, so that new dependency releases and advisories are caught
   workflow_dispatch:
+  workflow_call:                 # pypi_upload.yml runs the whole gate before publishing
     inputs:
-      science:
-        description: "Run the statistical check suite (about an hour)"
-        type: boolean
-        default: false
-  workflow_call:                 # pypi_upload.yml runs the whole suite before publishing
-    inputs:
-      science:
+      skip_sign:
+        description: "Skip the signing dry run (the release workflow signs its own build)"
         type: boolean
         default: false
 
@@ -23,29 +29,50 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: bandit -q -c pyproject.toml -r src
-      - run: pip-audit --skip-editable
-      - run: python tools/check_spdx.py
-      - run: python tools/check_licenses.py
+      - name: ruff (style, bugs and the S security rules)
+        run: ruff check src tests tools bench
+      - name: bandit
+        run: bandit -q -c pyproject.toml -r src
+      - name: pip-audit (known vulnerabilities in the dependency closure)
+        run: pip-audit --skip-editable
+      - name: SPDX headers
+        run: python tools/check_spdx.py
+      - name: Dependency licences
+        run: python tools/check_licenses.py --report licenses.md && cat licenses.md >> "$GITHUB_STEP_SUMMARY"
+
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - name: mypy may not report an error outside the baseline
+        run: python tools/mypy_ratchet.py
 
   dco:
     # Every commit of a pull request is signed off by its author (CONTRIBUTING.md)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false }
       - name: Check Signed-off-by lines
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -74,14 +101,34 @@ jobs:
           - { os: macos-latest, python: "3.12" }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "${{ matrix.python }}" }
       - run: pip install -e ".[dev]"
-      - run: pytest -m "not science" --ignore=tests/integration --cov=relsynth --cov-report=xml -q
-      - uses: actions/upload-artifact@v4
+      - name: Unit tests with branch coverage
+        run: pytest tests/unit -q --cov=relsynth --cov-branch --cov-report=xml --cov-report=term
+      - name: Coverage per module
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
-        with: { name: coverage, path: coverage.xml }
+        shell: bash
+        run: |
+          { echo "## Unit-test coverage per module (statements and branches)"; echo
+            coverage report --format=markdown --sort=cover; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        with: { name: coverage-unit, path: coverage.xml }
+
+  e2e:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - name: End-to-end CLI tests
+        run: pytest tests/e2e -q
 
   integration:
     needs: lint
@@ -103,13 +150,28 @@ jobs:
         ports: ["1521:1521"]
         options: >-
           --health-cmd healthcheck.sh --health-interval 10s --health-retries 60
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: RelSynthTest1, MYSQL_DATABASE: relsynth }
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pRelSynthTest1 --silent" --health-interval 5s --health-retries 30
+      mariadb:
+        image: mariadb:11.4
+        env: { MARIADB_ROOT_PASSWORD: RelSynthTest1, MARIADB_DATABASE: relsynth }
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 30
     env:
       RELSYNTH_TEST_PG_URL: postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
       RELSYNTH_TEST_MSSQL_URL: "mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
       RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
+      RELSYNTH_TEST_MYSQL_URL: mysql://root:RelSynthTest1@127.0.0.1:3306/relsynth
+      RELSYNTH_TEST_MARIADB_URL: mariadb://root:RelSynthTest1@127.0.0.1:3307/relsynth
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
       # The runner image already registers packages.microsoft.com (microsoft-prod.list,
       # keyring microsoft-prod.gpg); adding a second entry for it with another keyring
@@ -143,31 +205,112 @@ jobs:
           EOF
       - run: pytest tests/integration -q
 
+  science:
+    # The statistical check suite C00-C78 on every change, split into four shards
+    # of about equal run time (tests/science/durations.json)
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/4", "2/4", "3/4", "4/4"]
+    name: science (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]" datasketches
+      - name: Checks of this shard
+        env: { RELSYNTH_SCIENCE_SHARD: "${{ matrix.shard }}" }
+        run: pytest -m science -q tests/science
+
+  bench:
+    # Regression check against bench/baseline.json on every change: Chinook on
+    # five seeds and Contoso (Parquet) on one. The full set of golden databases
+    # runs in bench.yml. docs/development/benchmarks.md describes the rule.
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev,bench]" datasketches
+      - name: Cache the downloaded databases (pinned by SHA-256 in bench/datasets.py)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: Chinook, 5 seeds
+        run: python -m bench run --datasets chinook --seeds 1,2,3,4,5 --no-fake --out-dir bench-out --label ci
+      - name: Contoso (Parquet), seed 1
+        run: python -m bench run --datasets contoso_parquet --seeds 1 --no-fake --out-dir bench-out --label ci
+      - name: Compare with the baseline
+        run: |
+          rc=0
+          for f in bench-out/*.json; do python -m bench compare "$f" || rc=1; done
+          exit $rc
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: bench, path: bench-out/ }
+
   build:
-    needs: [unit, integration]
+    needs: [unit, e2e, types]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install build twine
-      - run: rm -rf dist && python -m build     # dist/ is in the repository: build from a clean folder
+      - run: pip install build twine cyclonedx-bom==7.5.0
+      - run: rm -rf dist && python -m build
       - run: twine check dist/*
       - name: Smoke test the wheel in a clean environment
         run: |
-          python -m venv /tmp/v && /tmp/v/bin/pip install "$(ls dist/*.whl)"
+          python -m venv /tmp/v && /tmp/v/bin/pip install "$(ls dist/*.whl)[all]"
           /tmp/v/bin/relsynth version --json
-      - uses: actions/upload-artifact@v4
+      - name: CycloneDX SBOM of the installed wheel with every extra
+        run: |
+          cyclonedx-py environment --pyproject pyproject.toml --mc-type library --output-reproducible \
+            --of JSON -o dist/relsynth.cdx.json /tmp/v/bin/python
+          python tools/sbom_serial.py dist/relsynth.cdx.json "$(ls dist/*.whl)"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: dist, path: dist/ }
 
-  science:
-    if: github.event_name == 'schedule' || inputs.science
-    needs: unit
+  sign:
+    # Dry run of the release signature on every change from this repository:
+    # the wheel, sdist and SBOM are signed with Sigstore keyless signing (GitHub
+    # OIDC identity of this workflow) and verified against that identity. The
+    # signatures are recorded in the public Rekor transparency log.
+    needs: build
+    # Skipped when the release workflow calls this one with skip_sign: true. On
+    # other events `inputs` is empty, so inputs.skip_sign is null and !null is
+    # true. (A test of `inputs.sign != false` does not work: GitHub compares
+    # null and false as numbers, 0 == 0, so the job was skipped everywhere.)
+    if: >-
+      !inputs.skip_sign &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: dist, path: dist/ }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[dev]" datasketches
-      - run: pytest -m science -q
+      - run: pip install sigstore==4.5.1
+      - name: Sign
+        run: python -m sigstore sign dist/*.whl dist/*.tar.gz dist/relsynth.cdx.json
+      - name: Verify against this workflow's identity
+        env:
+          IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          python -m sigstore verify identity --cert-identity "$IDENTITY" \
+            --cert-oidc-issuer https://token.actions.githubusercontent.com \
+            dist/*.whl dist/*.tar.gz dist/relsynth.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: dist-signed, path: dist/ }

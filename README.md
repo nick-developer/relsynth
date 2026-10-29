@@ -72,15 +72,15 @@ pip install "relsynth[speed]"              # optional numba kernels (same output
 From a checkout or a wheel file:
 
 ```bash
-pip install ./layer3            # or: pip install relsynth-1.0.0-py3-none-any.whl
+pip install ./layer3            # or: pip install relsynth-1.0.1-py3-none-any.whl
 relsynth version                # versions of relsynth and its main dependencies
 ```
 
 A container image is described in the [Dockerfile](Dockerfile) (all drivers and ODBC Driver 18 included):
 
 ```bash
-docker build -t relsynth:1.0.0 .
-docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:1.0.0 run /work/spec.yaml --json
+docker build -t relsynth:1.0.1 .
+docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:1.0.1 run /work/spec.yaml --json
 ```
 
 ## Quick start (command line)
@@ -172,9 +172,10 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | PostgreSQL | yes | yes (COPY) | yes | PostgreSQL 16.15 |
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
+| MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
 | SQLite | yes | yes | yes | SQLite 3.45 |
-| CSV folder | yes (also `.csv.gz`) | yes | statistics computed in memory, streamed | yes |
-| Parquet folder | yes | yes | statistics computed in memory, column by column | yes (pyarrow 26) |
+| CSV folder | yes (also `.csv.gz`) | yes | yes, with DuckDB over the files | yes |
+| Parquet folder | yes | yes | yes, with DuckDB over the files | yes (pyarrow 26, DuckDB 2.0) |
 
 Writes come in four modes:
 - `replace`: drop and create.
@@ -258,7 +259,7 @@ A job that refreshes a test database every night and fails when quality drops:
 
 ```yaml
 # .github/workflows/synthetic-data.yml (excerpt)
-- run: pip install "relsynth[postgres]==1.0.0"
+- run: pip install "relsynth[postgres]==1.0.1"
 - run: relsynth check spec.yaml --connect --json
 - run: relsynth run spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98 --json > run.json
   env:
@@ -361,10 +362,12 @@ The method is described in two papers shipped with the package:
 ```bash
 pip install -e ".[dev]"
 pytest                                    # unit, end-to-end and security tests (SQLite, CSV, Parquet)
-docker compose -f docker-compose.test.yml up -d       # PostgreSQL, SQL Server, Oracle
+docker compose -f docker-compose.test.yml up -d       # PostgreSQL, SQL Server, Oracle, MySQL, MariaDB
 export RELSYNTH_TEST_PG_URL=postgresql://relsynth:RelSynthTest1@localhost/relsynth
 export RELSYNTH_TEST_MSSQL_URL="mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
 export RELSYNTH_TEST_ORACLE_URL="oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1"
+export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynth
+export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
 pytest tests/integration                  # the same checks against live servers
 pytest -m science                         # the statistical check suite C00–C78 (about an hour)
 pytest --cov=relsynth --cov-report=term   # coverage
@@ -387,10 +390,15 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
+| [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
+| [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |
+| [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/cli.md](docs/cli.md) | Every command and option |
 | [docs/api.md](docs/api.md) | Every public class and function |
 | [docs/connectors.md](docs/connectors.md) | Databases and files: URLs, drivers, schemas, write modes, types |
 | [docs/pushdown.md](docs/pushdown.md) | Fitting inside the database; performance |
+| [docs/connector-sdk.md](docs/connector-sdk.md) | Writing a connector for a new database or warehouse |
+| [docs/profiling.md](docs/profiling.md) | Where 1.0 spends time and memory, and which changes that justifies |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
 | [docs/security.md](docs/security.md) | Threat model and protections |
 | [docs/theory.md](docs/theory.md) | The model in brief and the v1.0 propositions with proofs |
