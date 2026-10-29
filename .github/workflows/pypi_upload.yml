@@ -75,6 +75,7 @@ jobs:
           mkdir -p meta
           cyclonedx-py environment --pyproject pyproject.toml --mc-type library --output-reproducible \
             --of JSON -o meta/relsynth.cdx.json /tmp/v/bin/python
+          python tools/sbom_serial.py meta/relsynth.cdx.json "$(ls dist/*.whl)"
       - name: Sigstore signatures
         run: |
           python -m sigstore sign dist/*.whl dist/*.tar.gz meta/relsynth.cdx.json

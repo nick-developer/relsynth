@@ -38,6 +38,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`plan`](#plan) | which tables are fitted from in-database statistics (no fitting) |
 | [`run`](#run) | fit, sample, write and score |
 | [`verify`](#verify) | model checks on real data (R1-R7): scorecard, convergence, posterior predictive checks, scale rule, structure, stability |
+| [`privacy`](#privacy) | attack a release per person and write a privacy report per release context |
 | [`evaluate`](#evaluate) | score synthetic data already written |
 | [`doctor`](#doctor) | causes and spec fixes for a run's failures |
 | [`tune`](#tune) | run -> doctor -> apply until no fix remains |
@@ -191,13 +192,40 @@ usage: relsynth verify [-h] [--set KEY=VALUE] [--draws DRAWS] [--no-stability]
 | `--report` REPORT |  |  | write the checks as Markdown |
 | `--bundle` BUNDLE |  |  | write a diagnostics bundle with the checks (for doctor) |
 
+## privacy
+
+Attack a release per person and write a privacy report per release context.
+
+```
+usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--cache CACHE]
+                        [--jobs JOBS] [--no-shadow] [--salt-file SALT_FILE] [--context CONTEXT]
+                        [--fail-on {review,fail}] [--signed-off-by SIGNED_OFF_BY] [--json]
+                        [--log-level {debug,info,warning,error}]
+                        spec
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `spec` | yes |  | the YAML specification |
+| `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--config` CONFIG |  |  | privacy.yaml: privacy unit, sensitive attributes, quasi-identifiers, contexts and limits (docs/privacy.md) |
+| `--out` OUT |  | `privacy_report` | folder for privacy_report.json, .md and .html |
+| `--cache` CACHE |  |  | folder that keeps shadow fits between runs |
+| `--jobs` JOBS |  |  | parallel shadow fits |
+| `--no-shadow` |  |  | skip shadow-model membership inference (fast) |
+| `--salt-file` SALT_FILE |  |  | secret salt for person labels (hex); reused when it exists, else a new one is written there (default: OUT/privacy_salt.key) |
+| `--context` CONTEXT |  |  | gate on this release context (internal, partner, public): exit 1 when its verdict reaches --fail-on |
+| `--fail-on` review\|fail |  | `fail` |  |
+| `--signed-off-by` SIGNED_OFF_BY |  |  | the person (the DPO) who signs off a 'review' verdict; without it a review that needs a sign-off counts as fail at the gate |
+
 ## evaluate
 
 Score synthetic data already written.
 
 ```
 usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output OUTPUT]
-                         [--no-privacy] [--fail-under SHARE] [--json]
+                         [--no-privacy] [--fail-under SHARE] [--quality FILE]
+                         [--quality-config YAML] [--holdout LOC] [--quality-gate] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -210,6 +238,10 @@ usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output 
 | `--output` OUTPUT |  |  | write every metric as JSON |
 | `--no-privacy` |  |  | skip distance-to-closest-record checks |
 | `--fail-under` SHARE |  |  | quality gate: exit 1 when the share of passed checks is below SHARE (0-1) |
+| `--quality` FILE |  |  | also write the calibrated 2.0 quality report (fidelity, utility, integrity) as JSON |
+| `--quality-config` YAML |  |  | settings of the 2.0 report (see docs/metrics.md) |
+| `--holdout` LOC |  |  | real tables the model did not see, for TSTR/TRTS |
+| `--quality-gate` |  |  | with --quality: exit 1 when an area of the 2.0 quality vector fails (the default gate stays --fail-under until 3.0) |
 
 ## doctor
 
