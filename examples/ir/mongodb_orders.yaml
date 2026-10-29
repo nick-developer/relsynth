@@ -1,0 +1,96 @@
+# A MongoDB shop: customers and their orders as documents.  An order embeds its
+# customer's contact details, an array of line items (1 to 50), an optional
+# shipping address that may also be absent, and a payment sub-document whose
+# fields depend on its `method` (a polymorphic sub-document with a discriminator).
+ir_version: "2.0"
+name: mongodb_orders
+description: Document collections with nested objects, arrays and polymorphic sub-documents.
+containers:
+  shop:
+    kind: collection
+    system: mongodb
+    name: shop
+entities:
+  customers:
+    shape: document
+    attributes:
+      _id: {type: string, kind: id, physical_type: ObjectId, nullable: false}
+      name: {type: string, kind: pii, synthesis: {pii: {generator: person_name}},
+             privacy: {role: direct_identifier}}
+      email: {type: string, kind: pii, synthesis: {pii: {generator: email}}, privacy: {role: direct_identifier}}
+      birth_year: {type: integer, min: 1900, privacy: {role: quasi_identifier}}
+      segment: {type: string, kind: categorical}
+      addresses:
+        type: array
+        length: {min: 0, max: 5}
+        items:
+          type: object
+          fields:
+            label: {type: string}
+            city: {type: string, privacy: {role: quasi_identifier}}
+            postcode: {type: string, privacy: {role: quasi_identifier}}
+    keys:
+      - {attributes: [_id], primary: true, kind: surrogate}
+      - {attributes: [email], kind: natural}
+    physical: {name: customers}
+  orders:
+    shape: document
+    role: fact
+    attributes:
+      _id: {type: string, kind: id, physical_type: ObjectId, nullable: false}
+      customer:
+        type: object
+        description: Copy of the customer's contact data at order time (extended reference pattern).
+        fields:
+          customer_id: {type: string, physical_type: ObjectId, nullable: false}
+          name: {type: string, kind: pii, privacy: {role: direct_identifier}}
+      created_at: {type: timestamp, nullable: false}
+      status: {type: string, kind: categorical}
+      items:
+        type: array
+        length: {min: 1, max: 50}
+        items:
+          type: object
+          fields:
+            sku: {type: string, kind: categorical}
+            quantity: {type: integer, min: 1}
+            unit_price: {type: number, min: 0, decimals: 2}
+      shipping:
+        type: object
+        optional: true
+        fields:
+          city: {type: string}
+          postcode: {type: string, privacy: {role: quasi_identifier}}
+      payment:
+        type: object
+        fields:
+          method: {type: string, kind: categorical, nullable: false}
+          amount: {type: number, min: 0, decimals: 2}
+        variants:
+          discriminator: method
+          cases:
+            card:
+              last4: {type: string, privacy: {role: sensitive}}
+              network: {type: string, kind: categorical}
+            paypal:
+              payer_email: {type: string, kind: pii, privacy: {role: direct_identifier}}
+            bank_transfer:
+              iban: {type: string, kind: pii, privacy: {role: direct_identifier, special_category: false}}
+      tags:
+        type: array
+        optional: true
+        items: {type: string, kind: categorical}
+    keys:
+      - {attributes: [_id], primary: true, kind: surrogate}
+    time: {event_time: created_at}
+    physical: {name: orders, clustering: [created_at]}
+relationships:
+  - name: order_customer
+    from: {entity: orders, attributes: [customer.customer_id]}
+    to: {entity: customers, attributes: [_id]}
+rules:
+  - entity: orders
+    type: check
+    expr: payment.amount >= 0
+privacy:
+  unit: {entity: customers, description: A customer and every order they placed.}

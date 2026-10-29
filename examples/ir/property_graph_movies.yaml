@@ -1,0 +1,78 @@
+# A property graph (the Neo4j movies sample): Person and Movie nodes, and
+# ACTED_IN, DIRECTED and FOLLOWS edges with properties.  An edge type is an
+# entity with shape edge; its two endpoints are relationships from the edge to
+# the node entities.  The endpoint attributes are virtual: a graph database
+# stores the endpoints as the edge's identity, not as properties.
+ir_version: "2.0"
+name: property_graph_movies
+description: Labelled nodes and typed edges with properties.
+containers:
+  movies:
+    kind: graph
+    system: neo4j
+entities:
+  Person:
+    shape: node
+    attributes:
+      id: {type: integer, kind: id, nullable: false}
+      name: {type: string, kind: pii, privacy: {role: direct_identifier}}
+      born: {type: integer, min: 1850, max: 2025, privacy: {role: quasi_identifier}}
+    keys:
+      - {attributes: [id], primary: true}
+    physical: {container: movies, name: Person}
+  Movie:
+    shape: node
+    attributes:
+      id: {type: integer, kind: id, nullable: false}
+      title: {type: string, kind: text}
+      released: {type: integer, min: 1900}
+      tagline: {type: string, kind: text, optional: true}
+    keys:
+      - {attributes: [id], primary: true}
+    physical: {container: movies, name: Movie}
+  ACTED_IN:
+    shape: edge
+    role: fact
+    attributes:
+      person_id: {type: integer, virtual: true, nullable: false}
+      movie_id: {type: integer, virtual: true, nullable: false}
+      roles:
+        type: array
+        length: {min: 1, max: 4}
+        items: {type: string, kind: text}
+    keys:
+      - {attributes: [person_id, movie_id]}
+    edge: {source: acted_in_person, target: acted_in_movie, multiple: false}
+    physical: {container: movies, name: ACTED_IN}
+  DIRECTED:
+    shape: edge
+    role: fact
+    attributes:
+      person_id: {type: integer, virtual: true, nullable: false}
+      movie_id: {type: integer, virtual: true, nullable: false}
+    edge: {source: directed_person, target: directed_movie, multiple: false}
+    physical: {container: movies, name: DIRECTED}
+  FOLLOWS:
+    shape: edge
+    role: fact
+    attributes:
+      follower_id: {type: integer, virtual: true, nullable: false}
+      followed_id: {type: integer, virtual: true, nullable: false}
+      since: {type: date}
+    edge: {source: follows_from, target: follows_to, multiple: false, loops: false}
+    physical: {container: movies, name: FOLLOWS}
+relationships:
+  - {name: acted_in_person, from: {entity: ACTED_IN, attributes: [person_id]}, to: {entity: Person}}
+  - {name: acted_in_movie, from: {entity: ACTED_IN, attributes: [movie_id]}, to: {entity: Movie}}
+  - {name: directed_person, from: {entity: DIRECTED, attributes: [person_id]}, to: {entity: Person}}
+  - {name: directed_movie, from: {entity: DIRECTED, attributes: [movie_id]}, to: {entity: Movie}}
+  - {name: follows_from, from: {entity: FOLLOWS, attributes: [follower_id]}, to: {entity: Person}}
+  - {name: follows_to, from: {entity: FOLLOWS, attributes: [followed_id]}, to: {entity: Person}}
+  - name: person_movie
+    description: Who played in what, through the ACTED_IN edges (a many-to-many view).
+    from: {entity: Person}
+    to: {entity: Movie}
+    cardinality: many_to_many
+    via: {entity: ACTED_IN, from: acted_in_person, to: acted_in_movie}
+privacy:
+  unit: {entity: Person, description: Node-level privacy - a person and all edges touching them.}

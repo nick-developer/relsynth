@@ -72,6 +72,23 @@ def test_evaluate_external_tables(star_sqlite):
     assert rs.evaluate(spec, bad, real=real, privacy=False).score < 1.0
 
 
+def test_quality_report_api(star_sqlite, tmp_path):
+    spec, _ = star_sqlite
+    real = spec_tables(spec)
+    syn = rs.fit(spec, seed=1).sample()
+    q = rs.assess_quality(spec, syn, config={"null_splits": 4, "multi_splits": 3})
+    assert set(q.vector) == {"fidelity", "utility", "integrity", "verdict"}
+    assert q.scorecard.total > 0 and q.raw["scorecard_1"]["total"] == q.scorecard.total
+    q.to_json(tmp_path / "q.json")
+    assert '"schema_version": "2.0.0"' in (tmp_path / "q.json").read_text()
+    bad = {t: df.copy() for t, df in real.items()}
+    bad["sales"]["customer_id"] = bad["sales"]["customer_id"].sample(frac=1, random_state=3).to_numpy()
+    with pytest.raises(QualityGateError):
+        rs.assess_quality(spec, bad, real=real, privacy=False, config={"calibrate": False}).require(["fidelity"])
+    with pytest.raises(rs.SpecError):
+        rs.assess_quality(spec, real, real=real, config={"classifier": "svm"})
+
+
 def test_run_and_quality_gate(star_sqlite, tmp_path):
     spec, _ = star_sqlite
     r = rs.run(spec, out=tmp_path / "o", bundle=tmp_path / "b.json", privacy=False, seed=1)

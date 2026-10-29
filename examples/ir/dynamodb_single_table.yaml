@@ -1,0 +1,88 @@
+# A DynamoDB single-table design: customers, orders and order items share one
+# table.  Each item's partition key (PK) and sort key (SK) are built from the
+# entity's own attributes by key templates, `entity_type` tells the item types
+# apart, and a global secondary index (GSI1) inverts the order -> items access
+# path.  The logical model (entities, keys, relationships) is the same as in a
+# relational schema; only the physical mapping differs.
+ir_version: "2.0"
+name: dynamodb_single_table
+description: Three entity types stored in one DynamoDB table with overloaded keys and a GSI.
+containers:
+  AppTable:
+    kind: key_value_table
+    system: dynamodb
+    name: app-table
+    partition_key: PK
+    sort_key: SK
+    indexes:
+      - {name: GSI1, partition_key: GSI1PK, sort_key: GSI1SK, projection: all}
+    options: {billing_mode: PAY_PER_REQUEST}
+entities:
+  Customer:
+    attributes:
+      entity_type: {type: string, kind: constant}
+      customer_id: {type: string, kind: id, nullable: false}
+      email: {type: string, kind: pii, privacy: {role: direct_identifier}}
+      country: {type: string, kind: categorical, privacy: {role: quasi_identifier}}
+      created_at: {type: timestamp}
+    keys:
+      - {attributes: [customer_id], primary: true, kind: natural}
+    physical:
+      container: AppTable
+      discriminator: {attribute: entity_type, value: CUSTOMER}
+      key_templates: {PK: "CUSTOMER#{customer_id}", SK: "PROFILE"}
+  Order:
+    role: fact
+    attributes:
+      entity_type: {type: string, kind: constant}
+      order_id: {type: string, kind: id, nullable: false}
+      customer_id: {type: string, nullable: false}
+      ordered_at: {type: timestamp, nullable: false}
+      status: {type: string, kind: categorical}
+      total: {type: number, min: 0, decimals: 2}
+    keys:
+      - {attributes: [order_id], primary: true}
+    time: {event_time: ordered_at}
+    physical:
+      container: AppTable
+      discriminator: {attribute: entity_type, value: ORDER}
+      key_templates:
+        PK: "CUSTOMER#{customer_id}"
+        SK: "ORDER#{ordered_at}#{order_id}"
+        GSI1PK: "ORDER#{order_id}"
+        GSI1SK: "ORDER#{order_id}"
+  OrderItem:
+    role: fact
+    attributes:
+      entity_type: {type: string, kind: constant}
+      order_id: {type: string, nullable: false}
+      line_no: {type: integer, kind: sequence, sequence: {within: order_id, start: 1}}
+      sku: {type: string, kind: categorical}
+      quantity: {type: integer, min: 1}
+      price: {type: number, min: 0, decimals: 2}
+    keys:
+      - {attributes: [order_id, line_no], primary: true}
+    physical:
+      container: AppTable
+      discriminator: {attribute: entity_type, value: ITEM}
+      key_templates:
+        PK: "ORDER#{order_id}"
+        SK: "ITEM#{line_no}"
+        GSI1PK: "ORDER#{order_id}"
+        GSI1SK: "ITEM#{line_no}"
+relationships:
+  - name: order_customer
+    from: {entity: Order, attributes: [customer_id]}
+    to: {entity: Customer}
+  - name: item_order
+    from: {entity: OrderItem, attributes: [order_id]}
+    to: {entity: Order}
+rules:
+  - entity: Order
+    type: aggregate
+    attribute: total
+    agg: sum
+    source: OrderItem
+    of: price * quantity
+privacy:
+  unit: {entity: Customer}

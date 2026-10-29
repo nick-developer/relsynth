@@ -1,0 +1,1638 @@
+version: 1
+name: draft
+source:
+  kind: sqlite
+  path: ../../awsrc/aw.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  DatabaseLog:
+    role: entity
+    columns:
+      DatabaseLogID:
+        type: id
+      PostTime:
+        type: constant
+      DatabaseUser:
+        type: constant
+      Event:
+        type: constant
+      Schema:
+        type: constant
+      Object:
+        type: constant
+      TSQL:
+        type: constant
+      XmlEvent:
+        type: constant
+    primary_key: DatabaseLogID
+    mode: copy
+  DimAccount:
+    role: entity
+    columns:
+      AccountKey:
+        type: id
+      ParentAccountKey:
+        type: id
+      AccountCodeAlternateKey:
+        type: integer
+      ParentAccountCodeAlternateKey:
+        type: integer
+      AccountDescription:
+        type: categorical
+      AccountType:
+        type: categorical
+      Operator:
+        type: categorical
+      CustomMembers:
+        type: constant
+      ValueType:
+        type: categorical
+      CustomMemberOptions:
+        type: constant
+    primary_key: AccountKey
+    mode: copy
+  DimCurrency:
+    role: entity
+    columns:
+      CurrencyKey:
+        type: id
+      CurrencyAlternateKey:
+        type: categorical
+      CurrencyName:
+        type: categorical
+    primary_key: CurrencyKey
+    mode: copy
+  DimCustomer:
+    role: entity
+    columns:
+      CustomerKey:
+        type: id
+      GeographyKey:
+        type: id
+      CustomerAlternateKey:
+        type: pii
+        pii:
+          generator: pattern
+      Title:
+        type: categorical
+      FirstName:
+        type: pii
+        pii:
+          generator: person_name
+      MiddleName:
+        type: pii
+        pii:
+          generator: person_name
+      LastName:
+        type: pii
+        pii:
+          generator: person_name
+      NameStyle:
+        type: integer
+      BirthDate:
+        type: date
+      MaritalStatus:
+        type: categorical
+      Suffix:
+        type: constant
+      Gender:
+        type: categorical
+      EmailAddress:
+        type: pii
+        pii:
+          generator: email
+      YearlyIncome:
+        type: integer
+      TotalChildren:
+        type: integer
+      NumberChildrenAtHome:
+        type: integer
+      EnglishEducation:
+        type: categorical
+      SpanishEducation:
+        type: categorical
+      FrenchEducation:
+        type: categorical
+      EnglishOccupation:
+        type: categorical
+      SpanishOccupation:
+        type: categorical
+      FrenchOccupation:
+        type: categorical
+      HouseOwnerFlag:
+        type: boolean
+      NumberCarsOwned:
+        type: integer
+      AddressLine1:
+        type: pii
+        pii:
+          generator: pattern
+      AddressLine2:
+        type: pii
+        pii:
+          generator: pattern
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      DateFirstPurchase:
+        type: date
+      CommuteDistance:
+        type: categorical
+    primary_key: CustomerKey
+    dimensions:
+    - key: EnglishEducation
+      columns:
+      - SpanishEducation
+      - FrenchEducation
+      anchor: SpanishEducation
+    - key: EnglishOccupation
+      columns:
+      - SpanishOccupation
+      - FrenchOccupation
+      anchor: SpanishOccupation
+  DimDate:
+    role: entity
+    columns:
+      DateKey:
+        type: id
+      FullDateAlternateKey:
+        type: date
+      DayNumberOfWeek:
+        type: integer
+      EnglishDayNameOfWeek:
+        type: categorical
+      SpanishDayNameOfWeek:
+        type: categorical
+      FrenchDayNameOfWeek:
+        type: categorical
+      DayNumberOfMonth:
+        type: integer
+      DayNumberOfYear:
+        type: integer
+      WeekNumberOfYear:
+        type: integer
+      EnglishMonthName:
+        type: categorical
+      SpanishMonthName:
+        type: categorical
+      FrenchMonthName:
+        type: categorical
+      MonthNumberOfYear:
+        type: integer
+      CalendarQuarter:
+        type: integer
+      CalendarYear:
+        type: integer
+      CalendarSemester:
+        type: integer
+      FiscalQuarter:
+        type: integer
+      FiscalYear:
+        type: integer
+      FiscalSemester:
+        type: integer
+    primary_key: DateKey
+    mode: copy
+  DimDepartmentGroup:
+    role: entity
+    columns:
+      DepartmentGroupKey:
+        type: id
+      ParentDepartmentGroupKey:
+        type: id
+      DepartmentGroupName:
+        type: categorical
+    primary_key: DepartmentGroupKey
+    mode: copy
+  DimEmployee:
+    role: entity
+    columns:
+      EmployeeKey:
+        type: id
+      ParentEmployeeKey:
+        type: id
+      EmployeeNationalIDAlternateKey:
+        type: id
+      ParentEmployeeNationalIDAlternateKey:
+        type: constant
+      SalesTerritoryKey:
+        type: id
+      FirstName:
+        type: pii
+        pii:
+          generator: person_name
+      LastName:
+        type: pii
+        pii:
+          generator: person_name
+      MiddleName:
+        type: pii
+        pii:
+          generator: person_name
+      NameStyle:
+        type: integer
+      Title:
+        type: text
+      HireDate:
+        type: date
+      BirthDate:
+        type: date
+      LoginID:
+        type: pii
+        pii:
+          generator: pattern
+      EmailAddress:
+        type: pii
+        pii:
+          generator: email
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      MaritalStatus:
+        type: categorical
+      EmergencyContactName:
+        type: pii
+        pii:
+          generator: person_name
+      EmergencyContactPhone:
+        type: pii
+        pii:
+          generator: phone
+      SalariedFlag:
+        type: boolean
+      Gender:
+        type: categorical
+      PayFrequency:
+        type: integer
+      BaseRate:
+        type: float
+      VacationHours:
+        type: integer
+      SickLeaveHours:
+        type: integer
+      CurrentFlag:
+        type: integer
+      SalesPersonFlag:
+        type: boolean
+      DepartmentName:
+        type: categorical
+      StartDate:
+        type: date
+        offset_from: HireDate
+      EndDate:
+        type: date
+      Status:
+        type: constant
+      EmployeePhoto:
+        type: binary
+    primary_key: EmployeeKey
+    scd:
+      type: 2
+      natural_key: EmployeeNationalIDAlternateKey
+      valid_from: StartDate
+      valid_to: EndDate
+    key_order: HireDate
+  DimGeography:
+    role: entity
+    columns:
+      GeographyKey:
+        type: id
+      City:
+        type: categorical
+      StateProvinceCode:
+        type: categorical
+      StateProvinceName:
+        type: categorical
+      CountryRegionCode:
+        type: categorical
+      EnglishCountryRegionName:
+        type: categorical
+      SpanishCountryRegionName:
+        type: categorical
+      FrenchCountryRegionName:
+        type: categorical
+      PostalCode:
+        type: categorical
+      SalesTerritoryKey:
+        type: id
+      IpAddressLocator:
+        type: categorical
+    primary_key: GeographyKey
+    mode: copy
+  DimOrganization:
+    role: entity
+    columns:
+      OrganizationKey:
+        type: id
+      ParentOrganizationKey:
+        type: id
+      PercentageOfOwnership:
+        type: float
+      OrganizationName:
+        type: pii
+        pii:
+          generator: pattern
+      CurrencyKey:
+        type: id
+    primary_key: OrganizationKey
+  DimProduct:
+    role: entity
+    columns:
+      ProductKey:
+        type: id
+      ProductAlternateKey:
+        type: id
+      ProductSubcategoryKey:
+        type: id
+      WeightUnitMeasureCode:
+        type: categorical
+      SizeUnitMeasureCode:
+        type: constant
+      EnglishProductName:
+        type: text
+      SpanishProductName:
+        type: text
+      FrenchProductName:
+        type: text
+      StandardCost:
+        type: float
+        ratio_of: DealerPrice
+      FinishedGoodsFlag:
+        type: boolean
+      Color:
+        type: categorical
+      SafetyStockLevel:
+        type: integer
+      ReorderPoint:
+        type: integer
+      ListPrice:
+        type: float
+      Size:
+        type: categorical
+      SizeRange:
+        type: categorical
+      Weight:
+        type: float
+      DaysToManufacture:
+        type: integer
+      ProductLine:
+        type: categorical
+      DealerPrice:
+        type: float
+      Class:
+        type: categorical
+      Style:
+        type: categorical
+      ModelName:
+        type: text
+      LargePhoto:
+        type: binary
+      EnglishDescription:
+        type: text
+      FrenchDescription:
+        type: text
+      ChineseDescription:
+        type: text
+      ArabicDescription:
+        type: text
+      HebrewDescription:
+        type: text
+      ThaiDescription:
+        type: text
+      GermanDescription:
+        type: text
+      JapaneseDescription:
+        type: text
+      TurkishDescription:
+        type: text
+      StartDate:
+        type: date
+      EndDate:
+        type: date
+      Status:
+        type: constant
+    primary_key: ProductKey
+    unique:
+    - - ProductAlternateKey
+      - StartDate
+    scd:
+      type: 2
+      natural_key: ProductAlternateKey
+      valid_from: StartDate
+      valid_to: EndDate
+  DimProductCategory:
+    role: entity
+    columns:
+      ProductCategoryKey:
+        type: id
+      ProductCategoryAlternateKey:
+        type: integer
+      EnglishProductCategoryName:
+        type: categorical
+      SpanishProductCategoryName:
+        type: categorical
+      FrenchProductCategoryName:
+        type: categorical
+    primary_key: ProductCategoryKey
+    mode: copy
+    unique:
+    - - ProductCategoryAlternateKey
+  DimProductSubcategory:
+    role: entity
+    columns:
+      ProductSubcategoryKey:
+        type: id
+      ProductSubcategoryAlternateKey:
+        type: integer
+      EnglishProductSubcategoryName:
+        type: categorical
+      SpanishProductSubcategoryName:
+        type: categorical
+      FrenchProductSubcategoryName:
+        type: categorical
+      ProductCategoryKey:
+        type: id
+    primary_key: ProductSubcategoryKey
+    mode: copy
+    unique:
+    - - ProductSubcategoryAlternateKey
+  DimPromotion:
+    role: entity
+    columns:
+      PromotionKey:
+        type: id
+      PromotionAlternateKey:
+        type: integer
+      EnglishPromotionName:
+        type: categorical
+      SpanishPromotionName:
+        type: categorical
+      FrenchPromotionName:
+        type: categorical
+      DiscountPct:
+        type: float
+      EnglishPromotionType:
+        type: categorical
+      SpanishPromotionType:
+        type: categorical
+      FrenchPromotionType:
+        type: categorical
+      EnglishPromotionCategory:
+        type: categorical
+      SpanishPromotionCategory:
+        type: categorical
+      FrenchPromotionCategory:
+        type: categorical
+      StartDate:
+        type: date
+      EndDate:
+        type: date
+      MinQty:
+        type: integer
+      MaxQty:
+        type: integer
+    primary_key: PromotionKey
+    mode: copy
+    unique:
+    - - PromotionAlternateKey
+  DimReseller:
+    role: entity
+    columns:
+      ResellerKey:
+        type: id
+      GeographyKey:
+        type: id
+      ResellerAlternateKey:
+        type: pii
+        pii:
+          generator: pattern
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      BusinessType:
+        type: categorical
+      ResellerName:
+        type: pii
+        pii:
+          generator: pattern
+      NumberEmployees:
+        type: integer
+      OrderFrequency:
+        type: categorical
+      OrderMonth:
+        type: integer
+      FirstOrderYear:
+        type: integer
+      LastOrderYear:
+        type: integer
+      ProductLine:
+        type: categorical
+      AddressLine1:
+        type: pii
+        pii:
+          generator: pattern
+      AddressLine2:
+        type: pii
+        pii:
+          generator: pattern
+      AnnualSales:
+        type: integer
+      BankName:
+        type: categorical
+      MinPaymentType:
+        type: integer
+      MinPaymentAmount:
+        type: integer
+      AnnualRevenue:
+        type: integer
+      YearOpened:
+        type: integer
+    primary_key: ResellerKey
+    unique:
+    - - ResellerAlternateKey
+  DimSalesReason:
+    role: entity
+    columns:
+      SalesReasonKey:
+        type: id
+      SalesReasonAlternateKey:
+        type: integer
+      SalesReasonName:
+        type: categorical
+      SalesReasonReasonType:
+        type: categorical
+    primary_key: SalesReasonKey
+    mode: copy
+  DimSalesTerritory:
+    role: entity
+    columns:
+      SalesTerritoryKey:
+        type: id
+      SalesTerritoryAlternateKey:
+        type: integer
+      SalesTerritoryRegion:
+        type: categorical
+      SalesTerritoryCountry:
+        type: categorical
+      SalesTerritoryGroup:
+        type: categorical
+      SalesTerritoryImage:
+        type: binary
+    primary_key: SalesTerritoryKey
+    mode: copy
+    unique:
+    - - SalesTerritoryAlternateKey
+  DimScenario:
+    role: entity
+    columns:
+      ScenarioKey:
+        type: id
+      ScenarioName:
+        type: categorical
+    primary_key: ScenarioKey
+    mode: copy
+  FactAdditionalInternationalProductDescription:
+    role: fact
+    columns:
+      ProductKey:
+        type: id
+      CultureName:
+        type: id
+      ProductDescription:
+        type: text
+    unique:
+    - - ProductKey
+      - CultureName
+    fact:
+      anchor: DimProduct
+  FactCallCenter:
+    role: fact
+    columns:
+      FactCallCenterID:
+        type: id
+      DateKey:
+        type: id
+      WageType:
+        type: categorical
+      Shift:
+        type: categorical
+      LevelOneOperators:
+        type: integer
+      LevelTwoOperators:
+        type: integer
+      TotalOperators:
+        type: integer
+      Calls:
+        type: integer
+      AutomaticResponses:
+        type: integer
+      Orders:
+        type: integer
+      IssuesRaised:
+        type: integer
+      AverageTimePerIssue:
+        type: integer
+      ServiceGrade:
+        type: float
+      Date:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+    primary_key: FactCallCenterID
+    unique:
+    - - DateKey
+      - Shift
+    fact:
+      anchor: DimDate
+  FactCurrencyRate:
+    role: fact
+    columns:
+      CurrencyKey:
+        type: id
+      DateKey:
+        type: id
+      AverageRate:
+        type: float
+      EndOfDayRate:
+        type: float
+      Date:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+    unique:
+    - - CurrencyKey
+      - DateKey
+    fact:
+      anchor: DimCurrency
+      partner: DimDate
+  FactFinance:
+    role: fact
+    columns:
+      FinanceKey:
+        type: id
+      DateKey:
+        type: id
+      OrganizationKey:
+        type: id
+      DepartmentGroupKey:
+        type: id
+      ScenarioKey:
+        type: id
+      AccountKey:
+        type: id
+      Amount:
+        type: float
+      Date:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+    primary_key: FinanceKey
+    fact:
+      anchor: DimOrganization
+      partner: DimAccount
+  FactInternetSales:
+    role: fact
+    columns:
+      ProductKey:
+        type: id
+      OrderDateKey:
+        type: id
+      DueDateKey:
+        type: id
+      ShipDateKey:
+        type: id
+      CustomerKey:
+        type: id
+      PromotionKey:
+        type: id
+      CurrencyKey:
+        type: id
+      SalesTerritoryKey:
+        type: lookup
+        lookup: CustomerKey.GeographyKey.SalesTerritoryKey
+      SalesOrderNumber:
+        type: id
+      SalesOrderLineNumber:
+        type: sequence
+        within: SalesOrderNumber
+      RevisionNumber:
+        type: integer
+      OrderQuantity:
+        type: integer
+      UnitPrice:
+        type: lookup
+        lookup: ProductKey.ListPrice
+      ExtendedAmount:
+        type: lookup
+        lookup: ProductKey.ListPrice
+      UnitPriceDiscountPct:
+        type: integer
+      DiscountAmount:
+        type: integer
+      ProductStandardCost:
+        type: lookup
+        lookup: ProductKey.StandardCost
+      TotalProductCost:
+        type: lookup
+        lookup: ProductKey.StandardCost
+      SalesAmount:
+        type: lookup
+        lookup: ProductKey.ListPrice
+      TaxAmt:
+        type: float
+      Freight:
+        type: float
+      CarrierTrackingNumber:
+        type: constant
+      CustomerPONumber:
+        type: constant
+      OrderDate:
+        type: lookup
+        lookup: OrderDateKey.FullDateAlternateKey
+      DueDate:
+        type: lookup
+        lookup: DueDateKey.FullDateAlternateKey
+      ShipDate:
+        type: lookup
+        lookup: ShipDateKey.FullDateAlternateKey
+    unique:
+    - - SalesOrderNumber
+      - SalesOrderLineNumber
+    fact:
+      anchor: DimCustomer
+      partner: DimProduct
+      header:
+        key: SalesOrderNumber
+        columns:
+        - OrderDateKey
+        - DueDateKey
+        - ShipDateKey
+        - CustomerKey
+        - CurrencyKey
+        - SalesTerritoryKey
+        - OrderDate
+        - DueDate
+        - ShipDate
+        line_number: SalesOrderLineNumber
+  FactInternetSalesReason:
+    role: fact
+    columns:
+      SalesOrderNumber:
+        type: id
+      SalesOrderLineNumber:
+        type: id
+      SalesReasonKey:
+        type: id
+    unique:
+    - - SalesOrderNumber
+      - SalesOrderLineNumber
+      - SalesReasonKey
+    fact: {}
+  FactProductInventory:
+    role: fact
+    columns:
+      ProductKey:
+        type: id
+      DateKey:
+        type: id
+      MovementDate:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+      UnitCost:
+        type: float
+      UnitsIn:
+        type: integer
+      UnitsOut:
+        type: integer
+      UnitsBalance:
+        type: integer
+    unique:
+    - - ProductKey
+      - DateKey
+    fact:
+      anchor: DimProduct
+      partner: DimDate
+  FactResellerSales:
+    role: fact
+    columns:
+      ProductKey:
+        type: id
+      OrderDateKey:
+        type: id
+      DueDateKey:
+        type: id
+      ShipDateKey:
+        type: id
+      ResellerKey:
+        type: id
+      EmployeeKey:
+        type: id
+      PromotionKey:
+        type: id
+      CurrencyKey:
+        type: id
+      SalesTerritoryKey:
+        type: lookup
+        lookup: ResellerKey.GeographyKey.SalesTerritoryKey
+      SalesOrderNumber:
+        type: id
+      SalesOrderLineNumber:
+        type: sequence
+        within: SalesOrderNumber
+      RevisionNumber:
+        type: integer
+      OrderQuantity:
+        type: integer
+      UnitPrice:
+        type: float
+        ratio_of: ProductKey.ListPrice
+      ExtendedAmount:
+        type: float
+      UnitPriceDiscountPct:
+        type: lookup
+        lookup: PromotionKey.DiscountPct
+      DiscountAmount:
+        type: float
+      ProductStandardCost:
+        type: lookup
+        lookup: ProductKey.StandardCost
+      TotalProductCost:
+        type: float
+      SalesAmount:
+        type: float
+      TaxAmt:
+        type: float
+      Freight:
+        type: float
+      CarrierTrackingNumber:
+        type: categorical
+      CustomerPONumber:
+        type: categorical
+      OrderDate:
+        type: lookup
+        lookup: OrderDateKey.FullDateAlternateKey
+      DueDate:
+        type: lookup
+        lookup: DueDateKey.FullDateAlternateKey
+      ShipDate:
+        type: lookup
+        lookup: ShipDateKey.FullDateAlternateKey
+    unique:
+    - - SalesOrderNumber
+      - SalesOrderLineNumber
+    fact:
+      anchor: DimReseller
+      partner: DimProduct
+      header:
+        key: SalesOrderNumber
+        columns:
+        - OrderDateKey
+        - DueDateKey
+        - ShipDateKey
+        - ResellerKey
+        - EmployeeKey
+        - CurrencyKey
+        - SalesTerritoryKey
+        - CarrierTrackingNumber
+        - CustomerPONumber
+        - OrderDate
+        - DueDate
+        - ShipDate
+        line_number: SalesOrderLineNumber
+  FactSalesQuota:
+    role: fact
+    columns:
+      SalesQuotaKey:
+        type: id
+      EmployeeKey:
+        type: id
+      DateKey:
+        type: id
+      CalendarYear:
+        type: lookup
+        lookup: DateKey.CalendarYear
+      CalendarQuarter:
+        type: lookup
+        lookup: DateKey.CalendarQuarter
+      SalesAmountQuota:
+        type: integer
+      Date:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+    primary_key: SalesQuotaKey
+    unique:
+    - - EmployeeKey
+      - DateKey
+    fact:
+      anchor: DimEmployee
+      partner: DimDate
+  FactSurveyResponse:
+    role: fact
+    columns:
+      SurveyResponseKey:
+        type: id
+      DateKey:
+        type: id
+      CustomerKey:
+        type: id
+      ProductCategoryKey:
+        type: lookup
+        lookup: ProductSubcategoryKey.ProductCategoryKey
+      EnglishProductCategoryName:
+        type: lookup
+        lookup: ProductCategoryKey.EnglishProductCategoryName
+      ProductSubcategoryKey:
+        type: id
+      EnglishProductSubcategoryName:
+        type: lookup
+        lookup: ProductSubcategoryKey.EnglishProductSubcategoryName
+      Date:
+        type: lookup
+        lookup: DateKey.FullDateAlternateKey
+    primary_key: SurveyResponseKey
+    fact:
+      anchor: DimCustomer
+      partner: DimProductSubcategory
+  NewFactCurrencyRate:
+    role: fact
+    columns:
+      AverageRate:
+        type: float
+      CurrencyID:
+        type: constant
+      CurrencyDate:
+        type: date
+      EndOfDayRate:
+        type: float
+      CurrencyKey:
+        type: id
+      DateKey:
+        type: constant
+    fact:
+      anchor: DimCurrency
+      time_column: CurrencyDate
+      time_bucket: month
+  ProspectiveBuyer:
+    role: entity
+    columns:
+      ProspectiveBuyerKey:
+        type: id
+      ProspectAlternateKey:
+        type: integer
+      FirstName:
+        type: pii
+        pii:
+          generator: person_name
+      MiddleName:
+        type: pii
+        pii:
+          generator: person_name
+      LastName:
+        type: pii
+        pii:
+          generator: person_name
+      BirthDate:
+        type: date
+      MaritalStatus:
+        type: categorical
+      Gender:
+        type: categorical
+      EmailAddress:
+        type: pii
+        pii:
+          generator: email
+      YearlyIncome:
+        type: integer
+      TotalChildren:
+        type: integer
+      NumberChildrenAtHome:
+        type: integer
+      Education:
+        type: categorical
+      Occupation:
+        type: categorical
+      HouseOwnerFlag:
+        type: boolean
+      NumberCarsOwned:
+        type: integer
+      AddressLine1:
+        type: pii
+        pii:
+          generator: pattern
+      AddressLine2:
+        type: pii
+        pii:
+          generator: pattern
+      City:
+        type: text
+        text:
+          condition_on: StateProvinceCode
+          whole_values: true
+      StateProvinceCode:
+        type: categorical
+      PostalCode:
+        type: pii
+        pii:
+          generator: pattern
+      Phone:
+        type: pii
+        pii:
+          generator: phone
+      Salutation:
+        type: categorical
+      Unknown:
+        type: integer
+    primary_key: ProspectiveBuyerKey
+    dimensions:
+    - key: StateProvinceCode
+      columns:
+      - Unknown
+      anchor: StateProvinceCode
+  sysdiagrams:
+    role: entity
+    columns:
+      name:
+        type: categorical
+      principal_id:
+        type: integer
+      diagram_id:
+        type: id
+      version:
+        type: integer
+      definition:
+        type: binary
+    primary_key: diagram_id
+    mode: copy
+relationships:
+- child: DimAccount
+  child_key: ParentAccountKey
+  parent: DimAccount
+  parent_key: AccountKey
+  kind: self_reference
+- child: DimCustomer
+  child_key: GeographyKey
+  parent: DimGeography
+  parent_key: GeographyKey
+- child: DimDepartmentGroup
+  child_key: ParentDepartmentGroupKey
+  parent: DimDepartmentGroup
+  parent_key: DepartmentGroupKey
+  kind: self_reference
+- child: DimEmployee
+  child_key: SalesTerritoryKey
+  parent: DimSalesTerritory
+  parent_key: SalesTerritoryKey
+- child: DimEmployee
+  child_key: ParentEmployeeKey
+  parent: DimEmployee
+  parent_key: EmployeeKey
+  kind: self_reference
+- child: DimGeography
+  child_key: SalesTerritoryKey
+  parent: DimSalesTerritory
+  parent_key: SalesTerritoryKey
+- child: DimOrganization
+  child_key: CurrencyKey
+  parent: DimCurrency
+  parent_key: CurrencyKey
+- child: DimOrganization
+  child_key: ParentOrganizationKey
+  parent: DimOrganization
+  parent_key: OrganizationKey
+  kind: self_reference
+- child: DimProduct
+  child_key: ProductSubcategoryKey
+  parent: DimProductSubcategory
+  parent_key: ProductSubcategoryKey
+- child: DimProductSubcategory
+  child_key: ProductCategoryKey
+  parent: DimProductCategory
+  parent_key: ProductCategoryKey
+- child: DimReseller
+  child_key: GeographyKey
+  parent: DimGeography
+  parent_key: GeographyKey
+- child: FactCallCenter
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactCurrencyRate
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactCurrencyRate
+  child_key: CurrencyKey
+  parent: DimCurrency
+  parent_key: CurrencyKey
+- child: FactFinance
+  child_key: ScenarioKey
+  parent: DimScenario
+  parent_key: ScenarioKey
+- child: FactFinance
+  child_key: OrganizationKey
+  parent: DimOrganization
+  parent_key: OrganizationKey
+- child: FactFinance
+  child_key: DepartmentGroupKey
+  parent: DimDepartmentGroup
+  parent_key: DepartmentGroupKey
+- child: FactFinance
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactFinance
+  child_key: AccountKey
+  parent: DimAccount
+  parent_key: AccountKey
+- child: FactInternetSales
+  child_key: CurrencyKey
+  parent: DimCurrency
+  parent_key: CurrencyKey
+- child: FactInternetSales
+  child_key: CustomerKey
+  parent: DimCustomer
+  parent_key: CustomerKey
+- child: FactInternetSales
+  child_key: OrderDateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactInternetSales
+  child_key: DueDateKey
+  parent: DimDate
+  parent_key: DateKey
+  offset_from: OrderDateKey
+  order_by: FullDateAlternateKey
+- child: FactInternetSales
+  child_key: ShipDateKey
+  parent: DimDate
+  parent_key: DateKey
+  offset_from: OrderDateKey
+  order_by: FullDateAlternateKey
+- child: FactInternetSales
+  child_key: ProductKey
+  parent: DimProduct
+  parent_key: ProductKey
+- child: FactInternetSales
+  child_key: PromotionKey
+  parent: DimPromotion
+  parent_key: PromotionKey
+- child: FactInternetSales
+  child_key: SalesTerritoryKey
+  parent: DimSalesTerritory
+  parent_key: SalesTerritoryKey
+- child: FactInternetSalesReason
+  child_key:
+  - SalesOrderNumber
+  - SalesOrderLineNumber
+  parent: FactInternetSales
+  parent_key:
+  - SalesOrderNumber
+  - SalesOrderLineNumber
+- child: FactInternetSalesReason
+  child_key: SalesReasonKey
+  parent: DimSalesReason
+  parent_key: SalesReasonKey
+- child: FactProductInventory
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactProductInventory
+  child_key: ProductKey
+  parent: DimProduct
+  parent_key: ProductKey
+- child: FactResellerSales
+  child_key: CurrencyKey
+  parent: DimCurrency
+  parent_key: CurrencyKey
+- child: FactResellerSales
+  child_key: OrderDateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactResellerSales
+  child_key: DueDateKey
+  parent: DimDate
+  parent_key: DateKey
+  offset_from: OrderDateKey
+  order_by: FullDateAlternateKey
+- child: FactResellerSales
+  child_key: ShipDateKey
+  parent: DimDate
+  parent_key: DateKey
+  offset_from: OrderDateKey
+  order_by: FullDateAlternateKey
+- child: FactResellerSales
+  child_key: EmployeeKey
+  parent: DimEmployee
+  parent_key: EmployeeKey
+- child: FactResellerSales
+  child_key: ProductKey
+  parent: DimProduct
+  parent_key: ProductKey
+- child: FactResellerSales
+  child_key: PromotionKey
+  parent: DimPromotion
+  parent_key: PromotionKey
+- child: FactResellerSales
+  child_key: ResellerKey
+  parent: DimReseller
+  parent_key: ResellerKey
+- child: FactResellerSales
+  child_key: SalesTerritoryKey
+  parent: DimSalesTerritory
+  parent_key: SalesTerritoryKey
+- child: FactSalesQuota
+  child_key: EmployeeKey
+  parent: DimEmployee
+  parent_key: EmployeeKey
+- child: FactSalesQuota
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactSurveyResponse
+  child_key: DateKey
+  parent: DimDate
+  parent_key: DateKey
+- child: FactSurveyResponse
+  child_key: CustomerKey
+  parent: DimCustomer
+  parent_key: CustomerKey
+- child: FactAdditionalInternationalProductDescription
+  child_key: ProductKey
+  parent: DimProduct
+- child: FactSurveyResponse
+  child_key: ProductCategoryKey
+  parent: DimProductCategory
+- child: FactSurveyResponse
+  child_key: ProductSubcategoryKey
+  parent: DimProductSubcategory
+- child: NewFactCurrencyRate
+  child_key: CurrencyKey
+  parent: DimCurrency
+rules:
+- table: DimProduct
+  type: derive
+  expr: DealerPrice = 0.6 * ListPrice
+  tolerance: 0.0001
+- table: DimProduct
+  type: derive
+  expr: ReorderPoint = 0.75 * SafetyStockLevel
+- table: DimReseller
+  type: derive
+  expr: AnnualRevenue = 0.1 * AnnualSales
+- table: FactInternetSales
+  type: derive
+  expr: Freight = 0.025 * ExtendedAmount
+  tolerance: 0.0001
+- table: FactInternetSales
+  type: derive
+  expr: TaxAmt = 0.08 * ExtendedAmount
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: TotalProductCost = OrderQuantity * ProductStandardCost
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: ExtendedAmount = OrderQuantity * UnitPrice
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: DiscountAmount = ExtendedAmount * UnitPriceDiscountPct
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: SalesAmount = ExtendedAmount - DiscountAmount
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: Freight = 0.025 * SalesAmount
+  tolerance: 0.0001
+- table: FactResellerSales
+  type: derive
+  expr: TaxAmt = 0.08 * SalesAmount
+  tolerance: 0.0001
+- table: FactProductInventory
+  type: cumulative
+  column: UnitsBalance
+  by: ProductKey
+  order: DateKey
+  step: UnitsIn - UnitsOut
+- table: DimCustomer
+  type: aggregate
+  column: DateFirstPurchase
+  agg: min
+  from: FactInternetSales
+  of: OrderDate
+- table: DimProduct
+  type: check
+  expr: DaysToManufacture < Weight
+- table: DimReseller
+  type: check
+  expr: FirstOrderYear <= LastOrderYear
+- table: FactCallCenter
+  type: check
+  expr: Orders < Calls
+- table: FactInternetSales
+  type: check
+  expr: OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek
+- table: FactResellerSales
+  type: check
+  expr: OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek
+- table: FactResellerSales
+  type: check
+  expr: DueDateKey.EnglishMonthName == ShipDateKey.EnglishMonthName
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'NOTE: samples of FactFinance (no declared primary or unique key, or very large) use the database''s random order,
+  so a second introspect may draft slightly different rules for them'
+- 'DimProduct: unique key [''ProductAlternateKey'', ''StartDate''] (declared)'
+- 'DimProductCategory: unique key [''ProductCategoryAlternateKey''] (declared)'
+- 'DimProductSubcategory: unique key [''ProductSubcategoryAlternateKey''] (declared)'
+- 'DimPromotion: unique key [''PromotionAlternateKey''] (declared)'
+- 'DimReseller: unique key [''ResellerAlternateKey''] (declared)'
+- 'DimSalesTerritory: unique key [''SalesTerritoryAlternateKey''] (declared)'
+- 'FactAdditionalInternationalProductDescription: composite primary key [''ProductKey'', ''CultureName''] (declared);
+  kept as a unique key'
+- 'FactCallCenter: unique key [''DateKey'', ''Shift''] (declared)'
+- 'FactCurrencyRate: composite primary key [''CurrencyKey'', ''DateKey''] (declared); kept as a unique key'
+- 'FactFinance: primary key FinanceKey inferred (unique, non-null, key-like name)'
+- 'FactInternetSales: composite primary key [''SalesOrderNumber'', ''SalesOrderLineNumber''] (declared); kept as
+  a unique key'
+- 'FactInternetSalesReason: composite primary key [''SalesOrderNumber'', ''SalesOrderLineNumber'', ''SalesReasonKey'']
+  (declared); kept as a unique key'
+- 'FactProductInventory: composite primary key [''ProductKey'', ''DateKey''] (declared); kept as a unique key'
+- 'FactResellerSales: composite primary key [''SalesOrderNumber'', ''SalesOrderLineNumber''] (declared); kept as
+  a unique key'
+- 'FactAdditionalInternationalProductDescription.ProductKey -> DimProduct: foreign key inferred (100% of values
+  found in the parent)'
+- 'FactSurveyResponse.ProductCategoryKey -> DimProductCategory: foreign key inferred (100% of values found in the
+  parent)'
+- 'FactSurveyResponse.ProductSubcategoryKey -> DimProductSubcategory: foreign key inferred (100% of values found
+  in the parent)'
+- 'NewFactCurrencyRate.CurrencyKey -> DimCurrency: foreign key inferred (100% of values found in the parent)'
+- 'DimDate: calendar (one row per day, 2005-01-01 to 2014-12-31, order column FullDateAlternateKey); copied as public
+  reference data'
+- 'AdventureWorksDWBuildVersion: no primary key and no link to another table; left out of the draft (add it with
+  a primary key to synthesise it)'
+- 'DatabaseLog.PostTime: constant (all values are empty)'
+- 'DatabaseLog.DatabaseUser: constant (all values are empty)'
+- 'DatabaseLog.Event: constant (all values are empty)'
+- 'DatabaseLog.Schema: constant (all values are empty)'
+- 'DatabaseLog.Object: constant (all values are empty)'
+- 'DatabaseLog.TSQL: constant (all values are empty)'
+- 'DatabaseLog.XmlEvent: constant (all values are empty)'
+- 'DimAccount.AccountDescription: categorical (labels of a small reference table)'
+- 'DimAccount.CustomMembers: constant (a single value)'
+- 'DimAccount.CustomMemberOptions: constant (all values are empty)'
+- 'DimCustomer.CustomerAlternateKey: pii (near-unique strings: treated as an identifier)'
+- 'DimCustomer.FirstName: pii (name matches person_name)'
+- 'DimCustomer.MiddleName: pii (name matches person_name)'
+- 'DimCustomer.LastName: pii (name matches person_name)'
+- 'DimCustomer.Suffix: constant (a single value)'
+- 'DimCustomer.EmailAddress: pii (name matches email)'
+- 'DimCustomer.HouseOwnerFlag: boolean (only 0/1 values)'
+- 'DimCustomer.AddressLine1: pii (name matches pattern)'
+- 'DimCustomer.AddressLine2: pii (name matches pattern)'
+- 'DimCustomer.Phone: pii (name matches phone)'
+- 'DimEmployee.EmployeeNationalIDAlternateKey: pii (name matches pattern)'
+- 'DimEmployee.ParentEmployeeNationalIDAlternateKey: constant (all values are empty)'
+- 'DimEmployee.FirstName: pii (name matches person_name)'
+- 'DimEmployee.LastName: pii (name matches person_name)'
+- 'DimEmployee.MiddleName: pii (name matches person_name)'
+- 'DimEmployee.Title: text (long-tail labels (36% of rows hold values seen fewer than 5 times, mean 3.3 words):
+  generated as short text; declare pii if they name people)'
+- 'DimEmployee.LoginID: pii (near-unique strings: treated as an identifier)'
+- 'DimEmployee.EmailAddress: pii (name matches email)'
+- 'DimEmployee.Phone: pii (name matches phone)'
+- 'DimEmployee.EmergencyContactName: pii (name matches person_name)'
+- 'DimEmployee.EmergencyContactPhone: pii (name matches phone)'
+- 'DimEmployee.SalariedFlag: boolean (only 0/1 values)'
+- 'DimEmployee.SalesPersonFlag: boolean (only 0/1 values)'
+- 'DimEmployee.Status: constant (a single value)'
+- 'DimEmployee.EmployeePhoto: binary (binary data (images, files): not synthesised, left empty)'
+- 'DimOrganization.PercentageOfOwnership: float (numeric strings)'
+- 'DimOrganization.OrganizationName: pii (a (nearly) unique party name: treated as an identifier)'
+- 'DimProduct.SizeUnitMeasureCode: constant (a single value)'
+- 'DimProduct.EnglishProductName: text (long-tail labels (100% of rows hold values seen fewer than 5 times, mean
+  3.7 words): generated as short text; declare pii if they name people)'
+- 'DimProduct.SpanishProductName: text (long-tail labels (53% of rows hold values seen fewer than 5 times, mean
+  3.0 words): generated as short text; declare pii if they name people)'
+- 'DimProduct.FrenchProductName: text (long-tail labels (53% of rows hold values seen fewer than 5 times, mean 3.8
+  words): generated as short text; declare pii if they name people)'
+- 'DimProduct.FinishedGoodsFlag: boolean (only 0/1 values)'
+- 'DimProduct.ModelName: text (long-tail labels (35% of rows hold values seen fewer than 5 times, mean 2.2 words):
+  generated as short text; declare pii if they name people)'
+- 'DimProduct.LargePhoto: binary (binary data (images, files): not synthesised, left empty)'
+- 'DimProduct.EnglishDescription: text (free text (mean 18.0 words))'
+- 'DimProduct.FrenchDescription: text (free text (mean 21.7 words))'
+- 'DimProduct.ChineseDescription: text (long-tail labels (35% of rows hold values seen fewer than 5 times, mean
+  1.8 words): generated as short text; declare pii if they name people)'
+- 'DimProduct.ArabicDescription: text (free text (mean 23.1 words))'
+- 'DimProduct.HebrewDescription: text (free text (mean 17.5 words))'
+- 'DimProduct.ThaiDescription: text (long-tail labels (35% of rows hold values seen fewer than 5 times, mean 4.3
+  words): generated as short text; declare pii if they name people)'
+- 'DimProduct.GermanDescription: text (free text (mean 16.2 words))'
+- 'DimProduct.JapaneseDescription: text (long-tail labels (35% of rows hold values seen fewer than 5 times, mean
+  2.8 words): generated as short text; declare pii if they name people)'
+- 'DimProduct.TurkishDescription: text (free text (mean 16.9 words))'
+- 'DimProduct.StartDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'DimProduct.EndDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'DimProduct.Status: constant (a single value)'
+- 'DimProductSubcategory.EnglishProductSubcategoryName: categorical (labels of a small reference table)'
+- 'DimProductSubcategory.SpanishProductSubcategoryName: categorical (labels of a small reference table)'
+- 'DimProductSubcategory.FrenchProductSubcategoryName: categorical (labels of a small reference table)'
+- 'DimPromotion.EnglishPromotionName: categorical (labels of a small reference table)'
+- 'DimPromotion.StartDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'DimPromotion.EndDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'DimReseller.ResellerAlternateKey: pii (near-unique strings: treated as an identifier)'
+- 'DimReseller.Phone: pii (name matches phone)'
+- 'DimReseller.ResellerName: pii (a (nearly) unique party name: treated as an identifier)'
+- 'DimReseller.AddressLine1: pii (name matches pattern)'
+- 'DimReseller.AddressLine2: pii (name matches pattern)'
+- 'DimSalesReason.SalesReasonName: categorical (labels of a small reference table)'
+- 'DimSalesTerritory.SalesTerritoryRegion: categorical (labels of a small reference table)'
+- 'DimSalesTerritory.SalesTerritoryImage: binary (binary data (images, files): not synthesised, left empty)'
+- 'FactAdditionalInternationalProductDescription.ProductDescription: text (free text (mean 13.0 words))'
+- 'FactInternetSales.CarrierTrackingNumber: constant (all values are empty)'
+- 'FactInternetSales.CustomerPONumber: constant (all values are empty)'
+- 'NewFactCurrencyRate.CurrencyID: constant (a single value)'
+- 'NewFactCurrencyRate.DateKey: constant (all values are empty)'
+- 'ProspectiveBuyer.ProspectAlternateKey: integer (numeric strings)'
+- 'ProspectiveBuyer.FirstName: pii (name matches person_name)'
+- 'ProspectiveBuyer.MiddleName: pii (name matches person_name)'
+- 'ProspectiveBuyer.LastName: pii (name matches person_name)'
+- 'ProspectiveBuyer.BirthDate: date (every value is at midnight: a calendar date stored as a date-time)'
+- 'ProspectiveBuyer.EmailAddress: pii (name matches email)'
+- 'ProspectiveBuyer.HouseOwnerFlag: boolean (only 0/1 values)'
+- 'ProspectiveBuyer.AddressLine1: pii (name matches pattern)'
+- 'ProspectiveBuyer.AddressLine2: pii (name matches pattern)'
+- 'ProspectiveBuyer.PostalCode: pii (name matches pattern)'
+- 'ProspectiveBuyer.Phone: pii (name matches phone)'
+- 'sysdiagrams.definition: binary (binary data (images, files): not synthesised, left empty)'
+- 'DatabaseLog: 0 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimAccount: 99 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimCurrency: 105 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimDepartmentGroup: 7 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimProductCategory: 4 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimProductSubcategory: 37 rows of reference data, copied as-is (set mode: synthesize if it holds confidential
+  data)'
+- 'DimPromotion: 16 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimSalesReason: 10 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimSalesTerritory: 11 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimScenario: 3 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'sysdiagrams: 9 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'DimGeography: code list (655 rows of codes and labels that other tables point to), copied as-is (set mode: synthesize
+  if it holds confidential data)'
+- 'FactCallCenter.Date: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 120 sampled rows; 3.3% expected
+  by chance)'
+- 'FactCurrencyRate.Date: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 14,264 sampled rows; 0.1% expected
+  by chance)'
+- 'FactFinance.Date: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows; 2.8% expected
+  by chance)'
+- 'FactInternetSales.ProductStandardCost: lookup ProductKey.StandardCost (equal on 100.0% of 20,000 sampled rows;
+  5.1% expected by chance)'
+- 'FactInternetSales.OrderDate: lookup OrderDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows;
+  0.2% expected by chance)'
+- 'FactInternetSales.DueDate: lookup DueDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows; 0.2%
+  expected by chance)'
+- 'FactInternetSales.ShipDate: lookup ShipDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows;
+  0.2% expected by chance)'
+- 'FactInternetSales.TotalProductCost: lookup ProductKey.StandardCost (equal on 100.0% of 20,000 sampled rows; 5.1%
+  expected by chance)'
+- 'FactInternetSales.UnitPrice: lookup ProductKey.ListPrice (equal on 100.0% of 20,000 sampled rows; 5.4% expected
+  by chance)'
+- 'FactInternetSales.ExtendedAmount: lookup ProductKey.ListPrice (equal on 100.0% of 20,000 sampled rows; 5.4% expected
+  by chance)'
+- 'FactInternetSales.SalesAmount: lookup ProductKey.ListPrice (equal on 100.0% of 20,000 sampled rows; 5.4% expected
+  by chance)'
+- 'FactInternetSales.SalesTerritoryKey: lookup CustomerKey.GeographyKey.SalesTerritoryKey (equal on 100.0% of 20,000
+  sampled rows; 15.8% expected by chance)'
+- 'FactProductInventory.MovementDate: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows;
+  0.1% expected by chance)'
+- 'FactResellerSales.ProductStandardCost: lookup ProductKey.StandardCost (equal on 100.0% of 20,000 sampled rows;
+  1.5% expected by chance)'
+- 'FactResellerSales.UnitPriceDiscountPct: lookup PromotionKey.DiscountPct (equal on 100.0% of 20,000 sampled rows;
+  89.3% expected by chance)'
+- 'FactResellerSales.OrderDate: lookup OrderDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows;
+  3.6% expected by chance)'
+- 'FactResellerSales.DueDate: lookup DueDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows; 3.6%
+  expected by chance)'
+- 'FactResellerSales.ShipDate: lookup ShipDateKey.FullDateAlternateKey (equal on 100.0% of 20,000 sampled rows;
+  3.6% expected by chance)'
+- 'FactResellerSales.SalesTerritoryKey: lookup ResellerKey.GeographyKey.SalesTerritoryKey (equal on 100.0% of 20,000
+  sampled rows; 13.5% expected by chance)'
+- 'FactSalesQuota.CalendarQuarter: lookup DateKey.CalendarQuarter (equal on 100.0% of 163 sampled rows; 25.8% expected
+  by chance)'
+- 'FactSalesQuota.CalendarYear: lookup DateKey.CalendarYear (equal on 100.0% of 163 sampled rows; 30.2% expected
+  by chance)'
+- 'FactSalesQuota.Date: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 163 sampled rows; 8.7% expected
+  by chance)'
+- 'FactSurveyResponse.EnglishProductSubcategoryName: lookup ProductSubcategoryKey.EnglishProductSubcategoryName
+  (equal on 100.0% of 2,727 sampled rows; 5.1% expected by chance)'
+- 'FactSurveyResponse.ProductCategoryKey: lookup ProductSubcategoryKey.ProductCategoryKey (equal on 100.0% of 2,727
+  sampled rows; 50.8% expected by chance)'
+- 'FactSurveyResponse.EnglishProductCategoryName: lookup ProductCategoryKey.EnglishProductCategoryName (equal on
+  100.0% of 2,727 sampled rows; 50.8% expected by chance)'
+- 'FactSurveyResponse.Date: lookup DateKey.FullDateAlternateKey (equal on 100.0% of 2,727 sampled rows; 1.7% expected
+  by chance)'
+- 'FactInternetSales: order header SalesOrderNumber (14,991 values in the sample) determines OrderDateKey, DueDateKey,
+  ShipDateKey, CustomerKey, CurrencyKey, SalesTerritoryKey, OrderDate, DueDate, ShipDate; SalesOrderLineNumber numbers
+  the lines 1..n; generated as one header per order with its lines'
+- 'FactResellerSales: order header SalesOrderNumber (3,085 values in the sample) determines OrderDateKey, DueDateKey,
+  ShipDateKey, ResellerKey, EmployeeKey, CurrencyKey, SalesTerritoryKey, CarrierTrackingNumber, CustomerPONumber,
+  OrderDate, DueDate, ShipDate; SalesOrderLineNumber numbers the lines 1..n; generated as one header per order with
+  its lines'
+- 'FactInternetSales.DueDateKey: offset from OrderDateKey in DimDate.FullDateAlternateKey (gap never negative on
+  100.0% of rows; most common gaps 12 (100%)); generated as OrderDateKey plus a modelled gap'
+- 'FactInternetSales.ShipDateKey: offset from OrderDateKey in DimDate.FullDateAlternateKey (gap never negative on
+  100.0% of rows; most common gaps 7 (100%)); generated as OrderDateKey plus a modelled gap'
+- 'FactResellerSales.DueDateKey: offset from OrderDateKey in DimDate.FullDateAlternateKey (gap never negative on
+  100.0% of rows; most common gaps 12 (100%), 13 (0%)); generated as OrderDateKey plus a modelled gap'
+- 'FactResellerSales.ShipDateKey: offset from OrderDateKey in DimDate.FullDateAlternateKey (gap never negative on
+  100.0% of rows; most common gaps 7 (100%), 8 (0%)); generated as OrderDateKey plus a modelled gap'
+- 'DimEmployee.StartDate: offset from HireDate (never earlier; 7 distinct gaps, most common 0 (98%), 156 (0%), 506
+  (0%)); generated as HireDate plus a modelled gap'
+- 'DimProduct: derive rule DealerPrice = 0.6 * ListPrice (holds on the sampled rows to the stored precision 0.0001)'
+- 'DimProduct: derive rule ReorderPoint = 0.75 * SafetyStockLevel (holds on the sampled rows)'
+- 'DimReseller: derive rule AnnualRevenue = 0.1 * AnnualSales (holds on the sampled rows)'
+- 'FactInternetSales: derive rule Freight = 0.025 * ExtendedAmount (holds on the sampled rows to the stored precision
+  0.0001)'
+- 'FactInternetSales: derive rule TaxAmt = 0.08 * ExtendedAmount (holds on the sampled rows to the stored precision
+  0.0001)'
+- 'FactResellerSales: derive rule TotalProductCost = OrderQuantity * ProductStandardCost (holds on the sampled rows
+  to the stored precision 0.0001)'
+- 'FactResellerSales: derive rule ExtendedAmount = OrderQuantity * UnitPrice (holds on the sampled rows to the stored
+  precision 0.0001)'
+- 'FactResellerSales: derive rule DiscountAmount = ExtendedAmount * UnitPriceDiscountPct (holds on the sampled rows
+  to the stored precision 0.0001)'
+- 'FactResellerSales: derive rule SalesAmount = ExtendedAmount - DiscountAmount (holds on the sampled rows to the
+  stored precision 0.0001)'
+- 'FactResellerSales: derive rule Freight = 0.025 * SalesAmount (holds on the sampled rows to the stored precision
+  0.0001)'
+- 'FactResellerSales: derive rule TaxAmt = 0.08 * SalesAmount (holds on the sampled rows to the stored precision
+  0.0001)'
+- 'DimEmployee: slowly changing dimension (type 2): 290 values of EmployeeNationalIDAlternateKey with up to 3 versions
+  (5 with 2+), valid from StartDate to EndDate (open versions are the latest); versions are synthesised per natural
+  key'
+- 'DimProduct: slowly changing dimension (type 2): 504 values of ProductAlternateKey with up to 3 versions (77 with
+  2+), valid from StartDate to EndDate (open versions are the latest); versions are synthesised per natural key'
+- 'DimCustomer: EnglishEducation (5 values) determines SpanishEducation, FrenchEducation on at least 99.9% of the
+  sampled rows; generated through a copied dimension of their observed combinations, SpanishEducation modelled with
+  the other columns and EnglishEducation drawn within it'
+- 'DimCustomer: EnglishOccupation (5 values) determines SpanishOccupation, FrenchOccupation on at least 99.9% of
+  the sampled rows; generated through a copied dimension of their observed combinations, SpanishOccupation modelled
+  with the other columns and EnglishOccupation drawn within it'
+- 'ProspectiveBuyer: StateProvinceCode (38 values) determines Unknown on at least 99.9% of the sampled rows; generated
+  through a copied dimension of their observed combinations; StateProvinceCode stays modelled with the other columns
+  and the others are read by its value'
+- 'ProspectiveBuyer.City: 374 labels, 99.1% of 1,851 sampled rows with a repeated label sit in the label''s most
+  common StateProvinceCode (53.7% by chance); generated within StateProvinceCode from the labels held by enough
+  rows (text.whole_values)'
+- 'DimProduct.StandardCost: ratio of DealerPrice: StandardCost = DealerPrice x one of 27 factors (to 5 decimals;
+  reproduces 100.0% of rows to the stored precision, 2.3% by chance); the factor is modelled, the value derived'
+- 'FactResellerSales.UnitPrice: ratio of ProductKey.ListPrice: UnitPrice = ProductKey.ListPrice x one of 9 factors
+  (to 2 decimals; reproduces 100.0% of rows to the stored precision, 1.8% by chance); the factor is modelled, the
+  value derived'
+- 'FactProductInventory: running balance UnitsBalance = previous UnitsBalance + UnitsIn - UnitsOut within ProductKey,
+  in order of DateKey (holds on complete groups)'
+- 'DimCustomer.DateFirstPurchase = min(OrderDate) of FactInternetSales: aggregate inferred (holds for every one
+  of 400 parents checked)'
+- 'FactSalesQuota: unique key [EmployeeKey, DateKey] inferred (163 rows, no repeated pair where about 65 would be
+  expected by chance); it is kept in the synthetic data'
+- 'DimProduct: check DaysToManufacture < Weight (holds on 100.0% of 282 sampled rows, 79.7% by chance)'
+- 'DimReseller: check FirstOrderYear <= LastOrderYear (holds on 100.0% of 635 sampled rows, 90.2% by chance)'
+- 'FactCallCenter: check Orders < Calls (holds on 100.0% of 120 sampled rows, 71.7% by chance)'
+- 'FactInternetSales: check OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek (equal on 100.00% of 20,000
+  sampled rows, 14.3% by chance)'
+- 'FactResellerSales: check OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek (equal on 99.98% of 20,000
+  sampled rows, 15.2% by chance)'
+- 'FactResellerSales: check DueDateKey.EnglishMonthName == ShipDateKey.EnglishMonthName (equal on 100.00% of 20,000
+  sampled rows, 9.0% by chance)'
+- 'DimEmployee: keys numbered in the order of HireDate (non-decreasing on 100.0% of 295 consecutive sampled keys,
+  51.2% by chance)'
+- 'FactAdditionalInternationalProductDescription: role fact (anchor DimProduct); check the anchor is the ''one''
+  side whose row counts should be preserved'
+- 'FactCallCenter: role fact (anchor DimDate); check the anchor is the ''one'' side whose row counts should be preserved'
+- 'FactCurrencyRate: role fact (anchor DimCurrency, partner DimDate); check the anchor is the ''one'' side whose
+  row counts should be preserved'
+- 'FactFinance: role fact (anchor DimOrganization, partner DimAccount); check the anchor is the ''one'' side whose
+  row counts should be preserved'
+- 'FactInternetSales: role fact (anchor DimCustomer, partner DimProduct); check the anchor is the ''one'' side whose
+  row counts should be preserved'
+- 'FactInternetSalesReason: role fact (nested in its parent fact); check the anchor is the ''one'' side whose row
+  counts should be preserved'
+- 'FactProductInventory: role fact (anchor DimProduct, partner DimDate); check the anchor is the ''one'' side whose
+  row counts should be preserved'
+- 'FactResellerSales: role fact (anchor DimReseller, partner DimProduct); check the anchor is the ''one'' side whose
+  row counts should be preserved'
+- 'FactSalesQuota: role fact (anchor DimEmployee, partner DimDate); check the anchor is the ''one'' side whose row
+  counts should be preserved'
+- 'FactSurveyResponse: role fact (anchor DimCustomer, partner DimProductSubcategory); check the anchor is the ''one''
+  side whose row counts should be preserved'
+- 'NewFactCurrencyRate: role fact (anchor DimCurrency, time column CurrencyDate); check the anchor is the ''one''
+  side whose row counts should be preserved'
