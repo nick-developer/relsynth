@@ -4,7 +4,7 @@ Every release of relsynth ships, next to the wheel and sdist on the GitHub relea
 
 | File | What it is | Standard |
 |---|---|---|
-| `relsynth.cdx.json` | Software bill of materials of the wheel installed with every extra (all Python dependencies, versions, licences, package URLs) | CycloneDX 1.6 |
+| `relsynth.cdx.json` | Software bill of materials of the wheel installed with every extra (all Python dependencies, versions, licences, package URLs); generated reproducibly, with a serial number derived from the wheel's SHA-256 (`tools/sbom_serial.py`) because the SBOM attestation requires one | CycloneDX 1.6 |
 | `*.sigstore.json` | Sigstore bundle of each wheel, sdist and the SBOM: keyless signature by the release workflow's GitHub identity, with its Rekor transparency-log entry | Sigstore |
 | `SHA256SUMS` | Checksums of the wheel and sdist | |
 | GitHub attestations | SLSA v1 build provenance of the wheel and sdist, and the SBOM bound to the wheel | SLSA v1.0, in-toto |

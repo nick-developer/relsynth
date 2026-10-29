@@ -1,0 +1,97 @@
+%=====================================================================
+\section{The canonical intermediate representation (v2.0)}\label{sec:v20}
+Version 2.0 replaces the relational spec as relsynth's internal description of the data by one modality-neutral
+document, the \emph{IR} (\texttt{relsynth/ir}; reference \texttt{docs/ir-reference.md}, design record
+\texttt{docs/adr/0001-canonical-ir.md}). An IR document $E$ (an \emph{estate}) lists entities with a shape (record,
+document, node, edge, event), attributes (nested objects, arrays, polymorphic variants), keys, references, time,
+physical layout, rules and privacy annotations. The engine of this release synthesises the relational part: it runs
+the 1.0 spec $\lambda(E)$ that $E$ \emph{lowers} to. A 1.0 spec $s$ is \emph{lifted} to an IR document $\ell(s)$.
+Write $\nu$ for the normalisation of a 1.0 spec (\texttt{spec.normalise}: defaults, shorthands, named
+references), so that the engine is a function of $\nu(s)$, the data and the seed. The checks are in
+\texttt{tests/unit/test\_ir.py}.
+
+\subsection{Converting 1.0 specs}
+\begin{proposition}[Loss-free conversion and identical output]\label{prop:irround}
+For every 1.0 spec $s$ that the 1.0 key schema accepts, $\nu(\lambda(\ell(s)))=\nu(s)$. Hence, for the same data
+and seed, the IR document $\ell(s)$ and the spec $s$ give the same fitted model and the same synthetic datasets.
+Moreover $\ell(\lambda(\ell(s)))=\ell(s)$ up to the canonical form $\kappa$ (Definition~\ref{def:canon}), so a lifted
+document is a fixed point of lowering and lifting.
+\end{proposition}
+\begin{definition}[Canonical form]\label{def:canon}
+$\kappa(E)$ makes explicit what follows from other fields (an attribute's modelling kind from its logical type,
+a reference's target attributes from the parent's primary key, the privacy role of a \texttt{pii} attribute) and
+drops what is implied (a logical type that the kind fixes).
+\end{definition}
+\begin{proof}
+$\ell$ and $\lambda$ are defined field by field by a fixed correspondence (module \texttt{ir/v1.py}, table in its
+docstring). Every key of the 1.0 key schema has an image: either an IR field holding the same value
+(\texttt{columns}$\to$\texttt{attributes}, \texttt{primary\_key}/\texttt{unique}/\texttt{partial\_unique}$\to$
+\texttt{keys}, \texttt{scd}$\to$\texttt{time.valid\_time}+\texttt{time.versioning},
+\texttt{fact.time\_column}$\to$\texttt{time.event\_time}, \texttt{dimensions}$\to$\texttt{dependencies}, \ldots) or
+a value that $\nu$ itself would produce (a default relationship name, kind or parent key; a string column
+shorthand; a soft rule written as a derive rule with \texttt{holds}$<1$). $\lambda$ inverts the field images and
+emits defaults that $\nu$ fills in the same way. Order is kept: entities, attributes, keys, references and rules
+are ordered maps or lists in $E$, and $\nu$ does not reorder them (the engine breaks ties in generation order by
+these orders, so order is part of the meaning). Therefore $\nu$ applied to both sides sees the same values at the
+same keys in the same order. The engine reads only $\nu(s)$, the data and the seed, so its output is the same.
+For the fixed point: $\ell(\lambda(\ell(s)))$ reads back the values $\lambda$ wrote, which are those of $\ell(s)$
+except where $\ell$ derives one from another; $\kappa$ normalises exactly those derivations.
+\end{proof}
+\noindent\emph{Checks.} \texttt{test\_real\_specs\_round\_trip}: the eleven 1.0 specs of the four golden databases
+(Chinook, Contoso SQLite and Parquet, AdventureWorks DW, bi/COREP\_LR, including an introspect draft that does not
+validate) and the two shipped examples convert both ways with $\nu(\lambda(\ell(s)))=\nu(s)$, as do their normalised
+forms; \texttt{test\_fake\_scenario\_specs\_round\_trip} does the same for S1--S11. \texttt{test\_ir\_document\_gives\_identical\_synthetic\_data}
+fits S2, S9 and S10 from $s$ and from $\ell(s)$ and compares the synthetic frames cell by cell;
+\texttt{test\_cli\_runs\_an\_ir\_file} compares the written files byte by byte. The real databases were run the same way
+(report \texttt{roadmap/reports/T02.md}). A lowering $\lambda(E)$ of a document that uses what a 1.0 spec cannot
+hold returns the list of those paths, computed as the difference between $\kappa(E)$ and $\kappa(\ell(\lambda(E)))$, so
+nothing is dropped in silence (\texttt{test\_lower\_reports\_annotations\_it\_drops}).
+
+\subsection{The privacy unit}
+Differential privacy on a database protects a \emph{unit}---a customer, a patient---rather than a row: neighbouring
+databases differ in all the records of one unit (add/remove adjacency at the unit level; Ponomareva et al., JAIR 2026;
+for foreign keys, Cai, Xiao and Cormode, PrivLava, SIGMOD 2023). Let $U$ be the unit entity. Let $G$ be the graph
+whose vertices are the entities and whose arcs are the references $\rho:A\to B$ ($A\neq B$, many-to-one or
+one-to-one) that are not hierarchies and not listed in \texttt{privacy.exclude\_paths}. For a path
+$P=\rho_1\cdots\rho_k$ from entity $A$ to $U$ in $G$ write $o_P:\mathrm{rows}(A)\to\mathrm{rows}(U)\cup\{\bot\}$ for the
+composition of the reference maps (a null or dangling reference gives $\bot$).
+
+\begin{proposition}[Ownership along reference paths]\label{prop:irowner}
+Under referential integrity, each $o_P$ is a function: a record of $A$ has at most one owner along each path. If $G$
+is acyclic, the set $\mathcal P(A)$ of simple paths from $A$ to $U$ that \texttt{privacy.trace} returns is the set of
+all paths, and the records of $A$ that belong to a unit $u$ are $C_u(A)=\bigcup_{P\in\mathcal P(A)}o_P^{-1}(u)$; a
+record has at most $|\mathcal P(A)|$ owners. The status of every other entity is \emph{context} (reachable from an
+owned entity: the unit's records reference it) or \emph{unrelated}.
+\end{proposition}
+\begin{proof}
+A many-to-one or one-to-one reference maps each record to at most one parent record (the referenced attributes are a
+key of the parent; validation requires this), so it is a partial function, and a composition of partial functions is
+a partial function. In an acyclic graph every path is simple, and the depth-first search of \texttt{trace} enumerates
+all simple paths from $A$ to $U$ (it extends every path by every outgoing arc to a vertex not yet on it). A record
+belongs to $u$ when some chain of its references leads to $u$, which is the union over paths. The bound on owners
+follows because each path contributes at most one. Context and unrelated entities have no path to $U$ by
+construction. If $G$ has a cycle, a non-simple path can lead to a different owner than the simple ones; \texttt{trace}
+reports the cycle as a warning (a 1.0 spec cannot have one: its validator requires a topological order).
+\end{proof}
+
+\begin{proposition}[Removing a unit keeps referential integrity]\label{prop:irremove}
+Let $G$ be acyclic and suppose no reference outside $G$ (a hierarchy or an excluded reference) points into a record of
+an owned entity or of $U$. Removing the units of a set $S$ and every record in $\bigcup_{u\in S}C_u(\cdot)$ leaves a
+database in which every non-null reference resolves.
+\end{proposition}
+\begin{proof}
+Suppose a kept record $r$ of $A$ references a removed record $t$ of $B$ through $\rho$. By the assumption $\rho$ is an
+arc of $G$. As $t$ was removed, $o_P(t)\in S$ for a path $P$ from $B$ to $U$ (or $t$ is a unit in $S$, $P$ empty).
+Then $\rho P$ is a path from $A$ to $U$; it is simple because $G$ is acyclic, so $\rho P\in\mathcal P(A)$ and
+$o_{\rho P}(r)=o_P(t)\in S$, hence $r$ was removed: a contradiction.
+\end{proof}
+\noindent When the assumption fails (a customer who referred another, an employee's manager when employees are the
+unit) the reference links two units; \texttt{trace} lists it as a cross-unit link and warns that removal leaves it
+dangling, so the privacy design (T07) must null or bound it. \emph{Checks.}
+\texttt{test\_privacy\_unit\_paths\_of\_the\_real\_databases} states the unit of each golden database and checks its
+paths (an invoice line of Chinook belongs to its invoice's customer; a Contoso sale has two paths, directly and
+through its order; a COREP reported value has two paths to its reporting entity);
+\texttt{test\_contribution\_matches\_the\_joins} recomputes the owners of the S9 shop by joins along every path
+(Prop.~\ref{prop:irowner}); \texttt{test\_removing\_a\_unit\_keeps\_referential\_integrity} removes every seventh
+customer with its records and checks every reference (Prop.~\ref{prop:irremove});
+\texttt{test\_hierarchy\_on\_the\_unit\_is\_a\_cross\_unit\_link} checks the warning.
