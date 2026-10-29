@@ -27,9 +27,10 @@ S = {
         "review": ("list of str", [], "What introspect inferred, and its questions (lines starting ASK)."),
     },
     "source": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | sqlalchemy", "csv",
                  "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: "
-                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`."),
+                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks (or sqlalchemy for any other "
+                 "engine): `url`."),
         "path": ("str", None, "Folder (files) or file (sqlite); relative to the spec's folder."),
         "url": ("str", None, "Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC"
                 "+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen "
@@ -48,6 +49,16 @@ S = {
         "connect_args": ("map", None, "Driver connection arguments (TLS settings, timeouts), passed to the driver "
                          "as they are."),
         "engine_options": ("map", None, "SQLAlchemy engine options (pool_size, pool_recycle, ...)."),
+        "auth": ("map", None, "Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: "
+                 "token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default) and the environment variables that hold "
+                 "the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env) or key "
+                 "files as <name>_file. Without it: DATABRICKS_TOKEN when set, else the platform's credential chain."),
+        "guards": ("map", None, "Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in "
+                   "the warehouse's history), max_rows (largest table read into memory), max_bytes (largest "
+                   "estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs."),
+        "bulk": ("map", None, "Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row "
+                 "INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a "
+                 "Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}."),
         "format": ("csv | parquet", "csv", "File format written (target of kind files)."),
         "engine": ("auto | duckdb | pandas", "auto", "Folders: what computes the statistics and samples of "
                    "pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the "
@@ -56,7 +67,7 @@ S = {
                    "(where larger-than-memory sorts and groupings spill)."),
     },
     "target": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | sqlalchemy", "csv",
                  "As for source; csv and parquet write one file per table."),
         "path": ("str", "synthetic", "Output folder or SQLite file; dataset i > 1 goes to <path>_i."),
         "url": ("str", None, "URL of the target database."),
@@ -75,6 +86,9 @@ S = {
                       "when possible, else infer."),
         "connect_args": ("map", None, "As for source."),
         "engine_options": ("map", None, "As for source."),
+        "auth": ("map", None, "As for source."),
+        "guards": ("map", None, "As for source."),
+        "bulk": ("map", None, "As for source."),
         "format": ("csv | parquet", "csv", "File format of a files target."),
     },
     "table": {

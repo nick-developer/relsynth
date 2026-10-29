@@ -26,7 +26,7 @@
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "description": "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`."
+          "description": "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks (or sqlalchemy for any other engine): `url`."
         },
         "path": {
           "description": "Folder (files) or file (sqlite); relative to the spec's folder."
@@ -57,6 +57,15 @@
         },
         "engine_options": {
           "description": "SQLAlchemy engine options (pool_size, pool_recycle, ...)."
+        },
+        "auth": {
+          "description": "Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default) and the environment variables that hold the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env) or key files as <name>_file. Without it: DATABRICKS_TOKEN when set, else the platform's credential chain."
+        },
+        "guards": {
+          "description": "Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in the warehouse's history), max_rows (largest table read into memory), max_bytes (largest estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs."
+        },
+        "bulk": {
+          "description": "Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}."
         },
         "format": {
           "description": "File format written (target of kind files)."
@@ -102,6 +111,15 @@
           "description": "As for source."
         },
         "engine_options": {
+          "description": "As for source."
+        },
+        "auth": {
+          "description": "As for source."
+        },
+        "guards": {
+          "description": "As for source."
+        },
+        "bulk": {
           "description": "As for source."
         },
         "format": {

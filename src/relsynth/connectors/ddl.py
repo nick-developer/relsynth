@@ -231,6 +231,8 @@ def adapt_types(md: sa.MetaData, dialect: str) -> sa.MetaData:
     accents (the binary no-pad collation instead, so unique keys and grouping see
     the exact values), and TEXT cannot be indexed without a prefix (key and
     index columns become VARCHAR, sized to fit the index limit)."""
+    if dialect == "databricks":
+        return _adapt_databricks(md)
     if dialect not in ("mysql", "mariadb"):
         return md
     from sqlalchemy.dialects import mysql
@@ -274,6 +276,23 @@ def adapt_types(md: sa.MetaData, dialect: str) -> sa.MetaData:
                 break
             total -= MYSQL_CHAR_BYTES * chars(c) + 2
             c.type = mysql.LONGTEXT(collation=coll)
+    return md
+
+
+def _adapt_databricks(md: sa.MetaData) -> sa.MetaData:
+    """Databricks: FLOAT is single precision (DOUBLE instead); text is STRING
+    whatever its declared length (VARCHAR(n) would reject longer values);
+    date-times are TIMESTAMP_NTZ (the dialect's mapping of DateTime)."""
+    for tbl in md.tables.values():
+        for c in tbl.columns:
+            ty = c.type
+            if isinstance(ty, sa.Float) and not isinstance(ty, sa.Double) and \
+                    (getattr(ty, "precision", None) or 53) > 24:
+                c.type = sa.Double()
+            elif isinstance(ty, sa.String) and not isinstance(ty, sa.Enum):
+                c.type = sa.String()
+            elif isinstance(ty, sa.DateTime):
+                c.type = sa.DateTime()
     return md
 
 
