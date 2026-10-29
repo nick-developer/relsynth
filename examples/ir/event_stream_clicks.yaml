@@ -1,0 +1,62 @@
+# A Kafka click stream: events keyed by session, ordered by event time within
+# a session, arriving up to five minutes late (the watermark lag), with an
+# ingestion timestamp set by the broker.  Each session belongs to a user when
+# the user is logged in; anonymous sessions have no user (optional reference).
+ir_version: "2.0"
+name: event_stream_clicks
+description: An event stream with event time, ingestion time, keys and bounded lateness.
+containers:
+  clicks_topic:
+    kind: topic
+    system: kafka
+    name: web.clicks.v1
+    options: {retention.ms: 604800000, cleanup.policy: delete}
+entities:
+  users:
+    attributes:
+      user_id: {type: string, kind: id, nullable: false}
+      country: {type: string, kind: categorical, privacy: {role: quasi_identifier}}
+    keys:
+      - {attributes: [user_id], primary: true}
+  sessions:
+    attributes:
+      session_id: {type: string, kind: id, nullable: false}
+      user_id: {type: string, nullable: true}
+      started_at: {type: timestamp, nullable: false}
+      user_agent: {type: string, kind: categorical}
+    keys:
+      - {attributes: [session_id], primary: true}
+    time: {event_time: started_at}
+  clicks:
+    shape: event
+    role: fact
+    attributes:
+      event_id: {type: string, kind: id, nullable: false}
+      session_id: {type: string, nullable: false}
+      seq: {type: integer, kind: sequence, sequence: {within: session_id}}
+      event_time: {type: timestamp, nullable: false}
+      ingested_at: {type: timestamp, nullable: false, virtual: true,
+                    description: "Broker timestamp (LogAppendTime), not part of the payload."}
+      event_type: {type: string, kind: categorical}
+      page: {type: string, kind: categorical}
+      properties: {type: map, optional: true}
+    keys:
+      - {attributes: [event_id], primary: true}
+    time: {event_time: event_time, ingestion_time: ingested_at}
+    stream:
+      key: [session_id]
+      order_by: seq
+      partitions: 12
+      max_lateness: PT5M
+      delivery: at_least_once
+    physical: {container: clicks_topic, format: avro}
+relationships:
+  - name: click_session
+    from: {entity: clicks, attributes: [session_id]}
+    to: {entity: sessions}
+  - name: session_user
+    from: {entity: sessions, attributes: [user_id]}
+    to: {entity: users}
+    optional: true
+privacy:
+  unit: {entity: users, description: A logged-in user; anonymous sessions belong to no unit.}

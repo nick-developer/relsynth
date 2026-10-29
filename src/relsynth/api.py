@@ -13,6 +13,7 @@
     data = model.sample(scale=2.0)                         # one synthetic database
     report = model.evaluate(data)                          # quality scorecard
     report.require(1.0)                                    # quality gate (raises QualityGateError)
+    q = rs.assess_quality(spec, data)                      # calibrated 2.0 report: fidelity, utility, integrity
     data.write()                                           # to the spec's target
     model.export("model/")                                 # the model as JSON / Markdown / PDF / Python
 
@@ -36,12 +37,12 @@ import pandas as pd
 import yaml
 
 from .errors import EngineError, QualityGateError, RelsynthError, SourceError
-from .spec import SpecError, load_spec, normalise, read_yaml, validate
+from .spec import SpecError, from_ir, load_spec, normalise, read_spec, validate
 
 log = logging.getLogger("relsynth")
 
-__all__ = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "RunResult", "Diagnosis",
-           "introspect", "validate_spec", "fit", "sample", "evaluate", "run", "doctor", "tune",
+__all__ = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "QualityReport", "RunResult", "Diagnosis",
+           "introspect", "validate_spec", "fit", "sample", "evaluate", "assess_quality", "run", "doctor", "tune",
            "export_model", "verify", "clone_schema", "profile", "ping", "connect"]
 
 
@@ -58,7 +59,9 @@ class Spec:
     def __init__(self, raw: dict, base_dir: str | Path | None = None, path: str | Path | None = None):
         if not isinstance(raw, dict):
             raise SpecError("a spec is a mapping (YAML document)")
-        self.raw = raw
+        # an IR 2.0 document is held as the 1.0 spec the engine runs (its relational
+        # part); relsynth.ir reads and writes the whole document
+        self.raw = from_ir(raw)
         self.path = Path(path) if path else None
         self.base_dir = Path(base_dir) if base_dir else (self.path.parent if self.path else Path("."))
 
@@ -69,7 +72,7 @@ class Spec:
         p = Path(path)
         if not p.is_file():
             raise SpecError(f"spec file not found: {p}")
-        return cls(read_yaml(p), path=p)
+        return cls(read_spec(p), path=p)
 
     @classmethod
     def from_dict(cls, d: dict, base_dir: str | Path | None = None) -> Spec:
@@ -509,20 +512,91 @@ def evaluate(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | None =
     source, with large facts as samples plus exact statistics)."""
     from .evaluate import evaluate as _evaluate
     s = _resolved(spec)
-    stats = {}
-    if real is None:
-        from .pushdown import load_for_fit
-        fd = load_for_fit(s)
-        real, stats = fd.tables, fd.stats
-    else:
-        from .data import coerce
-        from .prepare import computed_columns, prepare_source
-        comp = computed_columns(s)
-        real = prepare_source(s, {t: coerce(df, s["tables"][t], optional=set(comp[t])) for t, df in real.items()})[0]
+    real, stats = _load_real(s, real)
     from .data import coerce
     syn = {t: coerce(df, s["tables"][t]) for t, df in dict(synthetic).items()}
     return EvaluationReport(_evaluate(s, real, syn, privacy=privacy,
                                       sample_log=getattr(synthetic, "sample_log", None), real_stats=stats))
+
+
+def _load_real(s: dict, real: Mapping | None):
+    """Real tables as evaluate reads them: the spec's source (large facts as a
+    sample plus exact statistics) or given frames, prepared like the source."""
+    if real is None:
+        from .pushdown import load_for_fit
+        fd = load_for_fit(s)
+        return fd.tables, fd.stats
+    from .data import coerce
+    from .prepare import computed_columns, prepare_source
+    comp = computed_columns(s)
+    return prepare_source(s, {t: coerce(df, s["tables"][t], optional=set(comp[t])) for t, df in real.items()})[0], {}
+
+
+@dataclass
+class QualityReport:
+    """The 2.0 quality report (`raw`, schema quality-report-2.0): every check with
+    its definition, null limit and confidence level, and the quality vector
+    (fidelity, utility, integrity).  `scorecard` is the 1.0 report it includes."""
+    raw: dict
+    scorecard: EvaluationReport
+
+    @property
+    def vector(self) -> dict:
+        return self.raw["vector"]
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.vector["verdict"]["pass"])
+
+    @property
+    def failed(self) -> list[dict]:
+        return [c for c in self.raw["checks"] if not c["pass"]]
+
+    def require(self, areas=("fidelity", "utility", "integrity")) -> QualityReport:
+        """Quality gate: raise QualityGateError when one of `areas` fails its pass rule."""
+        bad = [a for a in areas if not self.vector[a]["pass"]]
+        if bad:
+            msg = "; ".join(f"{a}: {self.vector[a]['failed']} failed, {self.vector[a]['allowed_failures']} allowed"
+                            for a in bad)
+            raise QualityGateError(f"quality vector fails ({msg})", report=self)
+        return self
+
+    def to_dict(self) -> dict:
+        return self.raw
+
+    def to_json(self, path: str | Path | None = None) -> str:
+        txt = json.dumps(self.raw, indent=1)
+        if path is not None:
+            Path(path).write_text(txt, encoding="utf-8")
+        return txt
+
+
+def assess_quality(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | None = None,
+            holdout: Mapping | None = None, config: dict | None = None, privacy: bool = True) -> QualityReport:
+    """The calibrated 2.0 quality report of synthetic tables (relsynth.quality.assess).
+    real: the tables the model was fitted on (default: the spec's source);
+    holdout: real tables the model did not see, for TSTR/TRTS (default: an internal
+    split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS
+    (scale defaults to the spec's synthesis.scale)."""
+    from .data import coerce
+    from .evaluate import evaluate as _evaluate
+    from .quality import assess
+    from .quality.report import resolve_config
+    try:
+        resolve_config(config)
+    except ValueError as e:
+        raise SpecError(f"quality config: {e}") from e
+    s = _resolved(spec)
+    real, stats = _load_real(s, real)
+    syn = {t: coerce(df, s["tables"][t]) for t, df in dict(synthetic).items()}
+    base = _evaluate(s, real, syn, privacy=privacy, sample_log=getattr(synthetic, "sample_log", None),
+                     real_stats=stats)
+    hold = None if holdout is None else {t: coerce(df, s["tables"][t]) for t, df in dict(holdout).items()}
+    config = dict(config or {})
+    if config.get("scale") is None:
+        config["scale"] = s["synthesis"]["scale"]       # the size the synthetic data was drawn at
+    raw = assess(s, real, syn, holdout=hold, base=base, config=config)
+    return QualityReport(raw, EvaluationReport(base))
 
 
 @dataclass

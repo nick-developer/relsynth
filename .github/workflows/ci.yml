@@ -299,7 +299,7 @@ jobs:
         run: |
           cyclonedx-py environment --pyproject pyproject.toml --mc-type library --output-reproducible \
             --of JSON -o dist/relsynth.cdx.json /tmp/v/bin/python
-          python -c "import json; d = json.load(open('dist/relsynth.cdx.json')); print(d['specVersion'], len(d['components']), 'components')"
+          python tools/sbom_serial.py dist/relsynth.cdx.json "$(ls dist/*.whl)"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: dist, path: dist/ }
 

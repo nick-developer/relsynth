@@ -46,6 +46,28 @@ def test_calibrated_check_failing_is_r1():
     assert any(r.startswith("R1 db seed 1") and "c4" in r for r in reg)
 
 
+def _stat(seed, fails=()):
+    # c0 exact (limit 0), c1 statistical (positive limit), as the scorecard records them
+    return {"dataset": "db", "seed": seed, "checks": [{"id": "c0", "pass": "c0" not in fails, "value": 0, "limit": 0},
+                                                      {"id": "c1", "pass": "c1" not in fails, "value": 0.1, "limit": 0.2}]}
+
+
+def test_statistical_check_regresses_only_on_most_seeds():
+    base = regress.build([{"runs": [_stat(s) for s in range(1, 6)]}])
+    # one or two seeds of five: a flip on this machine, reported as a note
+    reg, notes, _ = regress.compare(base, {"runs": [_stat(s, ("c1",) if s in (2, 4) else ()) for s in range(1, 6)]})
+    assert reg == [] and any("c1 failed on 2 of 5" in n for n in notes)
+    # three of five: the check is broken
+    reg, _, _ = regress.compare(base, {"runs": [_stat(s, ("c1",) if s <= 3 else ()) for s in range(1, 6)]})
+    assert len([r for r in reg if r.startswith("R1") and "c1" in r]) == 3
+    # an exact check regresses on a single seed
+    reg, _, _ = regress.compare(base, {"runs": [_stat(s, ("c0",) if s == 5 else ()) for s in range(1, 6)]})
+    assert [r for r in reg if r.startswith("R1")] == [next(r for r in reg if r.startswith("R1 db seed 5"))]
+    # a one-seed run (the pull-request job) keeps the old rule
+    reg, _, _ = regress.compare(base, {"runs": [_stat(1, ("c1",))]})
+    assert any(r.startswith("R1 db seed 1") for r in reg)
+
+
 def test_pass_rate_drop_is_r2():
     # three unstable-check failures cannot be R1, but drop the rate by 0.10 > spread
     base = _baseline()

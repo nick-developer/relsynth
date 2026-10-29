@@ -1,0 +1,169 @@
+version: 1
+name: bi_corep_lr
+source:
+  kind: csv
+  path: ../bi_corep_lr/data
+target:
+  kind: csv
+  path: synthetic
+tables:
+  DIM_Cell:
+    role: entity
+    columns:
+      CellKey:
+        type: integer
+      TableCode:
+        type: categorical
+      CellReference:
+        type: categorical
+      ValueType:
+        type: categorical
+      OpenKeyCount:
+        type: boolean
+  DIM_Date:
+    role: entity
+    columns:
+      DateKey:
+        type: integer
+      Date:
+        type: date
+      Year:
+        type: integer
+      QuarterLabel:
+        type: categorical
+    mode: copy
+  DIM_Entity:
+    role: entity
+    columns:
+      EntityKey:
+        type: integer
+      LEI:
+        type: categorical
+      EntityName:
+        type: categorical
+      EntityType:
+        type: categorical
+      ConsolidationScope:
+        type: categorical
+      CountryCode:
+        type: categorical
+      DataOrigin:
+        type: categorical
+    mode: copy
+  DIM_Module:
+    role: entity
+    columns:
+      ModuleKey:
+        type: integer
+      ModuleCode:
+        type: categorical
+      ModuleVersion:
+        type: categorical
+      ApplicableFromDateKey:
+        type: integer
+      ApplicableToDateKey:
+        type: integer
+    mode: copy
+  DIM_Submission:
+    role: entity
+    columns:
+      SubmissionKey:
+        type: integer
+      EntityKey:
+        type: integer
+      ModuleKey:
+        type: integer
+      ReferenceDateKey:
+        type: integer
+      FileFormat:
+        type: categorical
+      SubmissionLagDays:
+        type: integer
+      LoadDelayMinutes:
+        type: integer
+      SubmissionNumber:
+        type: integer
+      SubmissionsForReport:
+        type: integer
+      IsResubmission:
+        type: boolean
+      ValidationStatus:
+        type: categorical
+      FailedErrorRules:
+        type: boolean
+      FailedWarningRules:
+        type: integer
+      UnresolvedValueCount:
+        type: integer
+      ModuleVersionSource:
+        type: categorical
+      HasReferenceDateMismatch:
+        type: boolean
+      BaseCurrency:
+        type: categorical
+      DataOrigin:
+        type: categorical
+  DIM_Value:
+    role: entity
+    columns:
+      ValueKey:
+        type: integer
+      ValueCode:
+        type: categorical
+      CodeListCode:
+        type: categorical
+    mode: copy
+  FACT_ReportedValue:
+    role: entity
+    columns:
+      SubmissionKey:
+        type: integer
+      CellKey:
+        type: integer
+      ValueKey:
+        type: integer
+      NumericValue:
+        type: float
+      BooleanValue:
+        type: boolean
+      UnitCode:
+        type: categorical
+  FACT_TemplateFiling:
+    role: entity
+    columns:
+      SubmissionKey:
+        type: integer
+      TemplateCode:
+        type: categorical
+      FilingStatus:
+        type: categorical
+      IsTemplateOfModule:
+        type: boolean
+      ReportedCellCount:
+        type: integer
+relationships: []
+rules: []
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'DIM_Cell.OpenKeyCount: boolean (only 0/1 values)'
+- 'DIM_Cell: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Date.Date: date (values parse as dates)'
+- 'DIM_Date: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Entity: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Module: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Submission.FailedErrorRules: boolean (only 0/1 values)'
+- 'DIM_Submission: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Value: no primary key found; declare one or mark the table as a fact'
+- 'FACT_ReportedValue: no primary key found; declare one or mark the table as a fact'
+- 'FACT_TemplateFiling: no primary key found; declare one or mark the table as a fact'
+- 'DIM_Date: 8 rows, treated as reference data and copied as-is (set mode: synthesize if it holds personal or confidential
+  data)'
+- 'DIM_Entity: 41 rows, treated as reference data and copied as-is (set mode: synthesize if it holds personal or
+  confidential data)'
+- 'DIM_Module: 2 rows, treated as reference data and copied as-is (set mode: synthesize if it holds personal or
+  confidential data)'
+- 'DIM_Value: 38 rows, treated as reference data and copied as-is (set mode: synthesize if it holds personal or
+  confidential data)'

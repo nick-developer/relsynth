@@ -1,0 +1,55 @@
+# An Apache Iceberg table with hidden partitioning: page views are partitioned
+# by day(event_ts) and bucket(16, user_id), so queries filter on event_ts and
+# user_id and never name a partition column (Iceberg table spec, partition
+# transforms).  Files are sorted by event_ts.  A small users dimension lives in
+# the same catalog.
+ir_version: "2.0"
+name: iceberg_page_views
+description: A lakehouse fact table with hidden partitions and a sort order.
+containers:
+  lake:
+    kind: iceberg_table
+    system: iceberg
+    options: {catalog: rest, warehouse: "s3://analytics-lake/warehouse"}
+entities:
+  users:
+    attributes:
+      user_id: {type: integer, kind: id, nullable: false}
+      signup_date: {type: date}
+      country: {type: string, kind: categorical, privacy: {role: quasi_identifier}}
+      plan: {type: string, kind: categorical}
+    keys:
+      - {attributes: [user_id], primary: true}
+    physical: {name: web.users, format: iceberg, location: "s3://analytics-lake/warehouse/web/users"}
+  page_views:
+    role: fact
+    attributes:
+      view_id: {type: string, kind: id, physical_type: uuid, nullable: false}
+      user_id: {type: integer, nullable: false}
+      event_ts: {type: timestamp, nullable: false, physical_type: timestamptz}
+      url_path: {type: string, kind: categorical}
+      referrer: {type: string, kind: categorical, optional: true}
+      duration_ms: {type: integer, min: 0}
+      device: {type: string, kind: categorical}
+    keys:
+      - {attributes: [view_id], primary: true, kind: surrogate}
+    time: {event_time: event_ts}
+    physical:
+      name: web.page_views
+      format: iceberg
+      location: "s3://analytics-lake/warehouse/web/page_views"
+      partitioning:
+        - {source: event_ts, transform: day, name: event_day}
+        - {source: user_id, transform: bucket, param: 16}
+      sort_order:
+        - {source: event_ts, direction: asc, nulls: last}
+      options: {format-version: "2", write.parquet.compression-codec: zstd}
+relationships:
+  - name: view_user
+    from: {entity: page_views, attributes: [user_id]}
+    to: {entity: users}
+privacy:
+  unit: {entity: users}
+synthesis:
+  seed: 11
+  scale: {default: 1.0}
