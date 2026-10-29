@@ -80,7 +80,10 @@ dataset it keeps the per-seed pass rate (passed / judged) and, for every check,
 the seeds on which it failed. A new record regresses when
 
 - **R1** a *calibrated* check fails: one that passed on every baseline seed (at
-  least three; one for the deterministic statistical checks);
+  least three; one for the deterministic statistical checks). An exact check
+  (an identity, a scorecard item with limit 0, a statistical-suite check)
+  regresses on any failing seed; a statistical scorecard item (a distance under
+  a positive limit) only when it fails on more than half of the new seeds;
 - **R2** the mean pass rate over the new seeds falls below the baseline mean by
   more than the spread, max(2 × standard deviation of the baseline's per-seed
   rates, 1 / number of judged checks);
@@ -97,7 +100,13 @@ every single flip.
 Results depend slightly on the machine (BLAS and thread counts change the
 order of floating-point sums), so compare records from the same kind of
 machine; the CI baseline and a laptop baseline can differ by an unstable check
-or two.
+or two. Five seeds cannot show that a statistical item never fails: of the
+roughly 1,300 AdventureWorks items, a few pass five times by chance and then
+fail on one seed of a GitHub runner (seen on main after the harness merged:
+two items on one or two seeds each). The majority rule keeps these flips out
+of R1 and lists them as notes, while a broken table, which fails on most
+seeds, is still reported. A pull-request run of one seed keeps the
+single-failure rule.
 
 ## In CI
 

@@ -41,6 +41,7 @@ oracle = ["oracledb>=2.0"]
 mysql = ["pymysql>=1.1.1"]
 parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
+benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
 all = ["relsynth[postgres,mssql,oracle,mysql,parquet]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
@@ -50,6 +51,7 @@ dev = [
     "pytest>=8",
     "pytest-cov>=5",
     "hypothesis>=6.100",
+    "jsonschema>=4.18",
     "ruff>=0.5",
     "bandit>=1.7",
     "pip-audit>=2.7",
@@ -76,7 +78,7 @@ version = { attr = "relsynth._version.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-relsynth = ["py.typed", "ir/schema/*.json", "data/*.yaml"]
+relsynth = ["py.typed", "ir/schema/*.json", "quality/schema/*.json", "privacy/report_schema.json", "data/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
