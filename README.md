@@ -173,6 +173,7 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
+| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.3 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
 | SQLite | yes | yes | yes | SQLite 3.45 |
 | CSV folder | yes (also `.csv.gz`) | yes | yes, with DuckDB over the files | yes |
 | Parquet folder | yes | yes | yes, with DuckDB over the files | yes (pyarrow 26, DuckDB 2.0) |
@@ -390,6 +391,9 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
+| [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
+| [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |
+| [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/cli.md](docs/cli.md) | Every command and option |
 | [docs/api.md](docs/api.md) | Every public class and function |
 | [docs/connectors.md](docs/connectors.md) | Databases and files: URLs, drivers, schemas, write modes, types |

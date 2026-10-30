@@ -257,6 +257,25 @@ jobs:
         if: always()
         with: { name: bench, path: bench-out/ }
 
+  # Databricks SQL through its real connector and dialect, against Spark with
+  # Delta Lake behind a protocol proxy (tests/emulators/databricks)
+  databricks-stand-in:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RELSYNTH_TEST_DATABRICKS_URL: "databricks://token:rs-emulator-token@localhost?http_path=cliservice&catalog=spark_catalog"
+      RELSYNTH_TEST_DATABRICKS_CONNECT_ARGS: '{"_connection_uri": "http://localhost:10002/cliservice", "catalog": null, "schema": null, "enable_telemetry": false}'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]" "pyspark==3.5.3"
+      # Java 17 is on the runner image already (JAVA_HOME_17_X64)
+      - run: JAVA_HOME="$JAVA_HOME_17_X64" tests/emulators/databricks/start.sh
+      - run: pytest -m databricks tests/integration -q
+
   build:
     needs: [unit, e2e, types]
     runs-on: ubuntu-latest
@@ -276,7 +295,7 @@ jobs:
         run: |
           cyclonedx-py environment --pyproject pyproject.toml --mc-type library --output-reproducible \
             --of JSON -o dist/relsynth.cdx.json /tmp/v/bin/python
-          python -c "import json; d = json.load(open('dist/relsynth.cdx.json')); print(d['specVersion'], len(d['components']), 'components')"
+          python tools/sbom_serial.py dist/relsynth.cdx.json "$(ls dist/*.whl)"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: dist, path: dist/ }
 

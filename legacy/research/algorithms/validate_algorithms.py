@@ -319,9 +319,18 @@ def test_copula():
                 mu = -(Zt @ Om[:, j] - Zt[:, j] * Om[j, j]) / Om[j, j]
             reps.append(time.time() - t0)
         ts.append(min(reps))
-    slope = np.polyfit(np.log(ps_), np.log(ts), 1)[0]
-    check("T9 latent-step conditional means scale ~ p^2 at fixed n", 1.7 < slope < 2.3,
-          f"log-log slope in p = {slope:.2f} (times {['%.3fs' % t for t in ts]})")
+    # The sweep also has an O(n p) part (extracting each column Zt[:, j]), so at these sizes the
+    # log-log slope sits between 1 and 2 (1.5-1.8 depending on the machine) and a band around 2
+    # failed now and then on shared runners. Fit t = a p + b p^2 with relative errors instead: the
+    # claim holds when the p^2 term is positive and dominates at the largest p, and the cost grows
+    # no faster than p^2 (slope < 2.3).
+    pa, ta = np.array(ps_, float), np.array(ts)
+    slope = np.polyfit(np.log(pa), np.log(ta), 1)[0]
+    a, b = np.linalg.lstsq(np.c_[pa, pa ** 2] / ta[:, None], np.ones_like(ta), rcond=None)[0]
+    share = b * pa[-1] ** 2 / (a * pa[-1] + b * pa[-1] ** 2)
+    check("T9 latent-step conditional means scale ~ p^2 at fixed n", b > 0 and share > 0.5 and slope < 2.3,
+          f"p^2 share of the time at p = {ps_[-1]}: {share:.2f}, log-log slope {slope:.2f} "
+          f"(times {['%.3fs' % t for t in ts]})")
 
 # ---------------------------------------------------------------- Alg. 1 sketches
 def test_kll():

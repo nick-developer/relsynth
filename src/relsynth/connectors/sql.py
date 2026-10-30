@@ -140,12 +140,15 @@ class SqlConnector(Connector):
         if engine is None:
             full = resolve_url(url, url_env, password_env)
             opts = {"pool_pre_ping": True, **self._engine_options(full), **(engine_options or {})}
-            if connect_args:
-                opts["connect_args"] = {**opts.get("connect_args", {}), **connect_args}
+            extra = self._connect_args(full)
+            if connect_args or extra:
+                opts["connect_args"] = {**opts.get("connect_args", {}), **extra, **(connect_args or {})}
             engine = sa.create_engine(full, **opts)
+            self._cargs = dict(opts.get("connect_args") or {})     # driver arguments (never logged)
             self._owns_engine = True
         else:
             self._owns_engine = False
+            self._cargs = {}
         self.engine = engine
         self.dialect = engine.dialect.name
         self._setup_engine(engine)
@@ -156,6 +159,11 @@ class SqlConnector(Connector):
 
     # ------------------------------------------------------------ hooks
     def _engine_options(self, url: str) -> dict:
+        return {}
+
+    def _connect_args(self, url: str) -> dict:
+        """Driver connection arguments the connector adds (credentials from the
+        environment); the section's connect_args take precedence."""
         return {}
 
     def _setup_engine(self, engine) -> None:
@@ -190,13 +198,19 @@ class SqlConnector(Connector):
     def has_table(self, table):
         return sa.inspect(self.engine).has_table(table, schema=self.schema)
 
+    def stored_name(self, table: str) -> str:
+        """The table's name as the database stores it (engines that fold
+        unquoted names to lower case map a spec's 'Album' to 'album')."""
+        return table
+
     def table(self, name: str) -> sa.Table:
         """The reflected table (quoted by the dialect in every statement)."""
         if name not in self._tables:
-            self._tables[name] = sa.Table(name, self._md, autoload_with=self.engine)
+            self._tables[name] = sa.Table(self.stored_name(name), self._md, autoload_with=self.engine)
         return self._tables[name]
 
     def describe(self, table):
+        name, table = table, self.stored_name(table)
         insp = self.inspector
         cols = []
         for c in insp.get_columns(table, schema=self.schema):
@@ -222,7 +236,7 @@ class SqlConnector(Connector):
                         uniques.append(cn)
             except NotImplementedError:
                 pass
-        return TableInfo(name=table, columns=cols, primary_key=pk, foreign_keys=fks, unique=uniques)
+        return TableInfo(name=name, columns=cols, primary_key=pk, foreign_keys=fks, unique=uniques)
 
     def count(self, table):
         if table not in self._counts:
@@ -346,6 +360,11 @@ class SqlConnector(Connector):
                 n += len(recs)
         return n
 
+    def adapt_metadata(self, md: sa.MetaData) -> sa.MetaData:
+        """The tables to create, changed for what this engine can declare
+        (constraints it does not support); unchanged by default."""
+        return md
+
     def before_load(self, con, tbl: sa.Table) -> None:
         """Hook run in the load transaction before rows are inserted (identity columns)."""
 
@@ -379,6 +398,7 @@ class SqlConnector(Connector):
                 md = ddl.clone_metadata(source, names, self.dialect, self.schema)
             else:
                 md = ddl.metadata_from_spec(spec, tables, self.dialect, self.schema)
+            md = self.adapt_metadata(md)
             self.create_schema()
             ddl.create_tables(self.engine, md, names, replace=(mode == "replace"), schema=self.schema)
             self.refresh()
@@ -386,10 +406,11 @@ class SqlConnector(Connector):
             with self.engine.begin() as con:
                 for t in reversed(order):
                     if t in exists:
-                        con.execute(sa.delete(sa.Table(t, sa.MetaData(schema=self.schema), autoload_with=con)))
+                        con.execute(sa.delete(sa.Table(self.stored_name(t), sa.MetaData(schema=self.schema),
+                                                       autoload_with=con)))
         md = sa.MetaData(schema=self.schema)
         for t in order:
-            tbl = sa.Table(t, md, autoload_with=self.engine)
+            tbl = sa.Table(self.stored_name(t), md, autoload_with=self.engine)
             df = ddl.rows_parents_first(spec, t, tables[t])
             cols = [c for c in df.columns if c in tbl.c]
             missing = [c for c in df.columns if c not in tbl.c and not c.startswith("__")]

@@ -1,0 +1,22 @@
+{
+ "source": "Table 1 of Hudovernik et al., 'Relational Data Generation with Graph Neural Networks and Latent Diffusion Models' (RelDiff), arXiv:2506.00710, computed with the SyntheRela metrics; values x100. '-' = method not run on that database, 'DNC' = did not complete. Values read from the PDF; verify against the paper before citing.",
+ "methods": ["TabARGN", "ClavaDDPM", "RCTGAN", "REaLTabFormer", "SDV", "RelDiff"],
+ "databases": {
+  "Biodegradability": {
+   "c2st_agg_max": [88.86, null, 83.82, null, 98.02, 47.04],
+   "cardinality_mean": [79.53, null, 85.22, null, 61.17, 100],
+   "hop1": [61.36, null, 75.80, null, 49.09, 89.37],
+   "hop2": [60.54, null, 77.04, null, 47.80, 86.59]
+  },
+  "CORA": {
+   "c2st_agg_max": [68.80, null, 73.74, null, 99.59, 69.30],
+   "cardinality_mean": [96.27, null, 90.48, null, 68.82, 100],
+   "hop1": [80.42, null, 68.39, null, 4.95, 72.16]
+  },
+  "IMDB": {
+   "c2st_agg_max": [73.76, 65.0, 81.56, null, null, 53.29],
+   "cardinality_mean": [81.19, 98.95, 79.53, null, "DNC", 100],
+   "hop1": [88.64, 91.57, 81.76, null, null, 94.84]
+  }
+ }
+}

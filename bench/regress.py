@@ -7,7 +7,10 @@ pass rate (passed / judged checks), and per check the seeds on which it passed.
 
 A new record regresses on a dataset when
   R1  a *calibrated* check fails: one that passed on every baseline seed
-      (at least 3) and is judged in the new run, or
+      (at least 3) and is judged in the new run.  An exact check (an identity,
+      or a scorecard item whose limit is 0) regresses on any failing seed; a
+      statistical check (a distance under a positive limit) only when it fails
+      on more than half of the new seeds, or
   R2  the mean pass rate over the new seeds drops below the baseline mean by
       more than the run-to-run spread, spread = max(2 sd, 1 / judged checks):
       two standard deviations of the per-seed pass rates (a 95% band if the rates
@@ -17,8 +20,12 @@ A new record regresses on a dataset when
 Checks that failed on some baseline seed are "unstable": they count in R2 but
 cannot trigger R1, so a borderline statistical check flipping with the seed is
 not reported as a regression, while an identity or a check that always passed
-is.  The rule is a heuristic chosen for this harness, not a test with a stated
-level; docs/development/benchmarks.md explains the choice.
+is.  Five baseline seeds cannot show that a statistical check never fails: with
+about 1,300 of them, a few that passed five times by chance fail on one seed of
+another machine (BLAS and thread counts change the draws).  A broken table
+fails on most seeds, which the majority rule still reports.  The rule is a
+heuristic chosen for this harness, not a test with a stated level;
+docs/development/benchmarks.md explains the choice.
 """
 from __future__ import annotations
 
@@ -38,6 +45,11 @@ def _runs(records: list[dict]):
 
 def judged(r: dict) -> list[dict]:
     return [c for c in r.get("checks", []) if c.get("pass") is not None]
+
+
+def exact(c: dict) -> bool:
+    """An identity (judged against the real value) or a scorecard item with limit 0."""
+    return "limit" not in c or not c["limit"]
 
 
 def rate(r: dict) -> float:
@@ -107,14 +119,22 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
                        "judged": [len(judged(r)) for r in rs]}
         if rates and mean < b["mean"] - b["spread"] - 1e-12:
             regressions.append(f"R2 {ds}: mean pass rate {mean:.4f} < baseline {b['mean']:.4f} - spread {b['spread']:.4f}")
+        n_seeds = sum(1 for r in rs if r.get("checks"))
+        failed_on: dict = defaultdict(int)
+        for r in rs:
+            for c in judged(r):
+                failed_on[c["id"]] += not c["pass"]
         for r in rs:
             seen = set()
             for c in judged(r):
                 seen.add(c["id"])
                 bc = b["checks"].get(c["id"])
-                if bc and bc["calibrated"] and not c["pass"]:
+                if bc and bc["calibrated"] and not c["pass"] and (exact(c) or 2 * failed_on[c["id"]] > n_seeds):
                     v = f" (value {c.get('value')}, limit {c.get('limit')}, real {c.get('real')})"
                     regressions.append(f"R1 {ds} seed {r.get('seed')}: calibrated check failed: {c['id']}{v}")
+                elif bc and bc["calibrated"] and not c["pass"]:
+                    notes.append(f"{ds} seed {r.get('seed')}: statistical check {c['id']} failed on "
+                                 f"{failed_on[c['id']]} of {n_seeds} seeds (value {c.get('value')}, limit {c.get('limit')})")
             gone = [k for k, v in b["checks"].items() if v["calibrated"] and k not in seen]
             if gone and r.get("checks"):
                 notes.append(f"{ds} seed {r.get('seed')}: {len(gone)} calibrated check(s) not reported, e.g. {gone[0]}")
