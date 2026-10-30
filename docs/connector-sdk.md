@@ -95,7 +95,7 @@ Each function compiles per dialect with `@compiles(..., "<dialect>")`:
 
 ## Warehouses
 
-Notes for T18. Databricks, Fabric and Snowflake are done: see [warehouses.md](warehouses.md) for what was found. The rest still need a live check before they are relied on.
+Notes for T18. All four connectors exist (BigQuery without a live test yet): see [warehouses.md](warehouses.md) for what was found. The rest still need a live check before they are relied on.
 
 | Topic | What to expect | Consequence for the connector |
 |---|---|---|

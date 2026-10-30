@@ -75,6 +75,7 @@ Proposition 100 in [proofs/relsynth-proofs.pdf](proofs/relsynth-proofs.pdf) show
 | SQLite | exact (`scipy.special.ndtri`, registered function) | BLAKE2b (registered function) | |
 | Databricks SQL | Acklam | first 32 bits of `sha2('seed\|key', 256)`, as on MySQL | ranks are taken in `DOUBLE` (`FLOAT` is 4 bytes). Text compares byte by byte, so no collation is needed |
 | Snowflake | Acklam | first 32 bits of `SHA2('seed\|key', 256)`, read digit by digit with `CHARINDEX` | `FLOAT` is double precision and text compares byte by byte by default, so no cast or collation is needed |
+| Google BigQuery | Acklam | first 32 bits of `SHA256('seed\|key')` via `TO_HEX` and a hexadecimal `INT64` cast | `FLOAT64` and byte-wise text: no cast or collation needed. Not yet run against BigQuery |
 | Microsoft Fabric | Acklam | first 32 bits of `HASHBYTES('SHA2_256', VARCHAR)`, the UTF-8 bytes, as on MySQL | text is grouped and filtered in `Latin1_General_100_BIN2_UTF8` when the warehouse collation ignores case |
 | CSV, Parquet (`engine: duckdb`, the default) | exact (`scipy.special.ndtri` as a vectorised DuckDB function) | first 32 bits of SHA-256, as on MySQL | DuckDB runs the same SQL over views of the files and reads only the columns a query needs. CSV columns are typed by the pandas reader's rule. First rows follow the file order |
 | CSV, Parquet (`engine: pandas`) | exact, in pandas | a seeded Bernoulli draw while streaming | the 1.0 path: only the key and measure columns are read, one statistic at a time |

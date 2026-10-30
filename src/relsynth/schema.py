@@ -27,9 +27,9 @@ S = {
         "review": ("list of str", [], "What introspect inferred, and its questions (lines starting ASK)."),
     },
     "source": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
                  "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: "
-                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake (or sqlalchemy for any other "
+                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other "
                  "engine): `url`."),
         "path": ("str", None, "Folder (files) or file (sqlite); relative to the spec's folder."),
         "url": ("str", None, "Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC"
@@ -50,15 +50,15 @@ S = {
                          "as they are."),
         "engine_options": ("map", None, "SQLAlchemy engine options (pool_size, pool_recycle, ...)."),
         "auth": ("map", None, "Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: "
-                 "token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default; fabric: default, azure-sp, azure-cli, managed-identity, interactive, sql-login; snowflake: key-pair, pat, oauth, password, sso, workload-identity, default) and the environment variables that hold "
+                 "token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default; fabric: default, azure-sp, azure-cli, managed-identity, interactive, sql-login; snowflake: key-pair, pat, oauth, password, sso, workload-identity, default; bigquery: default, service-account, external-account, impersonate) and the environment variables that hold "
                  "the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env, password_env, private_key_passphrase_env) or key "
-                 "files as <name>_file. Without it: databricks uses DATABRICKS_TOKEN when set, else the platform's credential chain; fabric uses the Azure credential chain; snowflake uses the URL's password."),
+                 "files as <name>_file. Without it: databricks uses DATABRICKS_TOKEN when set, else the platform's credential chain; fabric uses the Azure credential chain; snowflake uses the URL's password; bigquery uses Application Default Credentials."),
         "guards": ("map", None, "Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in "
                    "the warehouse's history), max_rows (largest table read into memory), max_bytes (largest "
                    "estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs."),
         "bulk": ("map", None, "Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row "
                  "INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a "
-                 "Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. fabric: {method: insert} (ODBC parameter arrays, the default) or {method: copy, stage: https://<account>.dfs.core.windows.net/<container>/<dir>} (Parquet staged in ADLS Gen2 or OneLake, then COPY INTO). snowflake: {method: insert} (multi-row INSERT, the default) or {method: stage} (Parquet PUT in a temporary stage, then COPY INTO)."),
+                 "Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. fabric: {method: insert} (ODBC parameter arrays, the default) or {method: copy, stage: https://<account>.dfs.core.windows.net/<container>/<dir>} (Parquet staged in ADLS Gen2 or OneLake, then COPY INTO). snowflake: {method: insert} (multi-row INSERT, the default) or {method: stage} (Parquet PUT in a temporary stage, then COPY INTO). bigquery: {method: load} (load jobs from Parquet, the default) or {method: insert} (DML INSERT)."),
         "format": ("csv | parquet", "csv", "File format written (target of kind files)."),
         "engine": ("auto | duckdb | pandas", "auto", "Folders: what computes the statistics and samples of "
                    "pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the "
@@ -67,7 +67,7 @@ S = {
                    "(where larger-than-memory sorts and groupings spill)."),
     },
     "target": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
                  "As for source; csv and parquet write one file per table."),
         "path": ("str", "synthetic", "Output folder or SQLite file; dataset i > 1 goes to <path>_i."),
         "url": ("str", None, "URL of the target database."),

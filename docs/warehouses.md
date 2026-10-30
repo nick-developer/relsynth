@@ -244,3 +244,53 @@ The tests run the real Snowflake connector and dialect against [fakesnow](https:
 - [Constraints](https://docs.snowflake.com/en/sql-reference/constraints-overview) (not enforced, except NOT NULL), [identifier resolution](https://docs.snowflake.com/en/sql-reference/identifiers-syntax).
 - [`QUERY_TAG`](https://docs.snowflake.com/en/sql-reference/parameters#query-tag), [`SHA2`](https://docs.snowflake.com/en/sql-reference/functions/sha2), [`CHARINDEX`](https://docs.snowflake.com/en/sql-reference/functions/charindex), [`INFORMATION_SCHEMA.TABLES`](https://docs.snowflake.com/en/sql-reference/info-schema/tables).
 - [`write_pandas`](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api#write_pandas) and [snowflake-sqlalchemy](https://github.com/snowflakedb/snowflake-sqlalchemy).
+
+## Google BigQuery
+
+```
+bigquery://<project>/<dataset>[?location=EU]
+```
+
+Install with `pip install "relsynth[bigquery]"` (sqlalchemy-bigquery and the BigQuery client library). The dataset is the schema; `schema` in the section overrides the URL's. A target dataset that does not exist is created in `location`.
+
+> **Not yet tested against BigQuery.** No BigQuery emulator could be run while this connector was written, so it has unit tests of the SQL, jobs and settings it sends, but no live test and no equivalence run. Run `pytest -m bigquery tests/integration` and the Chinook equivalence in a sandbox project before relying on it.
+
+### Sign-in
+
+| `auth.method` | Needs | What it is |
+|---|---|---|
+| `default` | | Application Default Credentials: `GOOGLE_APPLICATION_CREDENTIALS`, `gcloud auth application-default login`, or the metadata server on Compute Engine, GKE (workload identity) and Cloud Run |
+| `service-account` | `key_file` | A service account's JSON key file. Prefer `default` or `external-account` where keys are not allowed |
+| `external-account` | `config_file` | A workload identity federation configuration (AWS, Azure, OIDC). The file holds no secret |
+| `impersonate` | `service_account` | The default credentials act as this service account (needs `roles/iam.serviceAccountTokenCreator`) |
+
+The identity needs `roles/bigquery.jobUser` on the project and `roles/bigquery.dataViewer` (source) or `roles/bigquery.dataEditor` (target) on the dataset.
+
+### Cost
+
+BigQuery bills on-demand queries by bytes processed, so the guards matter most here:
+
+| Guard | On BigQuery |
+|---|---|
+| `max_bytes` | Set as `maximum_bytes_billed` on every query job, so BigQuery itself refuses a larger query (and charges nothing for it). Before a read, a sample or the statistics of a table, a dry run (free) gives the bytes the whole-table read would process, and a larger value stops with a `CostGuardError` |
+| `query_tag` | The job label `relsynth=<tag>` (lower case, `_` for other characters), so the jobs can be found and charged back in `INFORMATION_SCHEMA.JOBS` and the billing export |
+| `max_rows` | As elsewhere, from the table's metadata |
+
+Clustering and partitioning do not reduce what relsynth scans: the statistics read every row of the columns they need.
+
+### What differs from the other databases
+
+| Topic | BigQuery | What relsynth does |
+|---|---|---|
+| Types | `FLOAT64`, `STRING`, `DATETIME` (microseconds, no time zone), `BYTES` | Created columns use them. `STRING(n)` is not used, so longer values are never refused |
+| Keys | Primary and foreign keys exist only `NOT ENFORCED`; no unique keys or indexes | Keys are added after each table with `ALTER TABLE ... ADD PRIMARY KEY (...) NOT ENFORCED`. Unique keys are not declared |
+| Sample hash | `SHA256` returns `BYTES` | The first 32 bits of `SHA256('seed\|key')`, via `TO_HEX` and a `'0x...'` cast to `INT64`, the same value as the other warehouses and Python |
+| Loading | DML is billed and has quotas; load jobs are free | `bulk.method: load` (default): a load job from the rows as Parquet, appended to the table. `bulk.method: insert` uses DML `INSERT` |
+| Transactions | None across tables in relsynth's writes | Tables are loaded parents first; a failed load leaves the tables written so far |
+
+### Sources
+
+- [Authenticate to BigQuery](https://cloud.google.com/bigquery/docs/authentication), [workload identity federation](https://cloud.google.com/iam/docs/workload-identity-federation), [service account impersonation](https://cloud.google.com/iam/docs/service-account-impersonation).
+- [Estimate and control costs](https://cloud.google.com/bigquery/docs/best-practices-costs) (dry runs, `maximum_bytes_billed`) and [labels](https://cloud.google.com/bigquery/docs/adding-labels).
+- [Primary and foreign keys](https://cloud.google.com/bigquery/docs/primary-foreign-keys) (`NOT ENFORCED`), [data types](https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types), [`SHA256`](https://cloud.google.com/bigquery/docs/reference/standard-sql/hash_functions#sha256) and [conversion rules](https://cloud.google.com/bigquery/docs/reference/standard-sql/conversion_functions) (hexadecimal strings to `INT64`).
+- [Loading Parquet data](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-parquet) and [sqlalchemy-bigquery](https://github.com/googleapis/python-bigquery-sqlalchemy).
