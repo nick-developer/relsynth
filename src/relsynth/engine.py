@@ -2548,6 +2548,7 @@ class Synthesizer:
     def _sample_end(self, ctx):
         """The last part of sample(): hidden columns dropped, aggregates, the
         external form of the tables."""
+        self.__dict__.pop("_parent_cols", None)
         out, t0 = ctx["out"], ctx["t0"]
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
@@ -3668,9 +3669,19 @@ class Synthesizer:
         amap = getattr(self, "aux_map", {}).get(f)
         if not amap or not len(df):
             return None
-        given = pd.DataFrame({name: ents[p].set_index(self.spec["tables"][p]["primary_key"])[c]
-                              .reindex(df[fk].to_numpy()).to_numpy() for name, fk, p, c in amap if fk in df})
+        given = pd.DataFrame({name: self._parent_column(p, c, ents[p]).reindex(df[fk].to_numpy()).to_numpy()
+                              for name, fk, p, c in amap if fk in df})
         return given if given.shape[1] == len(amap) else None
+
+    def _parent_column(self, p, c, frame):
+        """frame[c] indexed by p's primary key, built once per entity frame (the
+        partitioned runtime looks it up once per partition)."""
+        cache = self.__dict__.setdefault("_parent_cols", {})
+        hit = cache.get((p, c))
+        if hit is None or hit[0] is not frame:
+            hit = (frame, frame.set_index(self.spec["tables"][p]["primary_key"])[c])
+            cache[(p, c)] = hit
+        return hit[1]
 
     def _fact_rows(self, f, st, u, v, blk, ents):
         """Rows of fact f for anchor rows u (and partner rows v, blocks blk): extra
