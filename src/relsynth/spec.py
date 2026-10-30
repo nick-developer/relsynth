@@ -40,7 +40,8 @@ DEFAULT_SYNTHESIS = {
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
-              "group_fallback": "auto"},
+              "group_fallback": "auto", "link_degree": "auto",
+              "link_degree_min_rows": 50.0},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
@@ -541,7 +542,8 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
             for k, allowed in (("pairs", ("auto", "poisson", "occupancy")),
                                ("multiplicity", ("auto", "none", "partner", "anchor", "block")),
                                ("count_model", ("auto", "poisson", "dp")),
-                               ("group_fallback", ("auto", "anchor", "partner"))):
+                               ("group_fallback", ("auto", "anchor", "partner")),
+                               ("link_degree", ("auto", "segment", "dp"))):
                 if k in f and f[k] not in allowed:
                     errs.append(f"{tname}: fact.{k} must be one of {list(allowed)}")
     seen_fk = set()

@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import betaln, gammaln, ndtri
 
-from .counts import choose_count_model
+from .counts import choose_count_model, nb_size_pooled
 from .data import coerce
 from .expr import check_mask, derive_values, names_in, split_assignment
 from .generators.contract import GeneratorError
@@ -1705,6 +1705,7 @@ class Synthesizer:
                 info["min_one"] = not info["count_dp"] and not cp1 and _mandatory(tot1, e1.z, e1.K)
                 if info["count_dp"] or info["min_one"]:
                     info["frailty1"] = np.full(e1.K, np.inf)
+            self._fit_link_degree(f, info, rel)
             groups = np.full(len(df), -1)
             blk = z1 * e2.K + z2
             blk_rows = blk
@@ -1901,6 +1902,248 @@ class Synthesizer:
         if dp:
             self.log["decisions"].setdefault(f, {})[key] = "dp"
         return dp
+
+    def _fit_link_degree(self, f, info, rel):
+        """Degree law of each key of a pair (link) fact, e.g. bonds per atom as the
+        second atom or actors per movie.  The block model fixes how many rows join
+        anchor segment k to partner segment l; within a segment it spreads them
+        uniformly (occupancy) or by gamma frailties (Poisson pairs), so a key whose
+        rows have near-constant degrees (every atom in about one bond) or heavy-tailed
+        ones (actors per movie) is misfitted.  Each side's degrees, grouped by its
+        segments, are scored as in counts.py:
+          * the DP count law when it beats Poisson and NB by the count-model Bayes
+            factor (at sampling time: DP posterior predictive given the total);
+          * otherwise NB when it beats Poisson and the side has no frailty of its own
+            (occupancy facts, or frailty off): one size r pooled over the segments,
+            and i.i.d. NB(r) degrees given their total are Dirichlet-multinomial(r);
+          * otherwise the segment law (Poisson degrees are what the block model gives).
+        Under auto a side whose links are concentrated on fewer effective rows than
+        facts.link_degree_min_rows keeps the segment law (see below).
+        The rows are then matched to the block's links uniformly (_link_degrees).
+        Sides that already have a degree law (DP counts per anchor), copied or fixed
+        rows (their own observed shares), virtual dimensions and eligibility groups
+        keep the segment law."""
+        T = self.spec["tables"][f]
+        setting = T["fact"].get("link_degree", self.cfg["facts"].get("link_degree", "auto"))
+        info["link_degree"] = {}
+        if setting == "segment" or rel.kind not in ("fact", "occ") or info.get("eligibility") or info.get("vdim"):
+            return
+        e1, e2 = rel.e1, rel.e2
+        occ = rel.kind == "occ"
+        sides = []
+        if not (info.get("count_dp") or info.get("min_one")):
+            obs1 = np.bincount(rel.u, minlength=e1.n) if occ else info["obs1"]
+            sides.append(("anchor", e1, obs1, info["fks"][0]["child_key"], info.get("frailty1")))
+        r2 = info["fks"][0 if info["nested"] else 1]
+        obs2 = np.bincount(rel.v, minlength=e2.n) if occ else info["obs2"]
+        sides.append(("partner", e2, obs2, r2["child_key"], info.get("frailty2")))
+        dec = self.log["decisions"].setdefault(f, {})
+        for side, e, obs, key, frail in sides:
+            if getattr(e, "fixed", False) or getattr(e, "copied", False) or not len(obs):
+                continue
+            obs = np.asarray(obs).round().astype(np.int64)
+            groups = [obs[e.z == k] for k in range(e.K)]
+            # links concentrated on a few rows of a segment (a handful of products
+            # carry most sales): which synthetic rows get them is random under any
+            # exchangeable law, so attributes joined through the key would follow a
+            # few rows.  Kish's effective number of rows of each segment's links,
+            # averaged with the links as weights, must reach link_degree_min_rows.
+            L = np.array([t.sum() for t in groups], float)
+            ess = np.array([t.sum() ** 2 / max(float((t.astype(float) ** 2).sum()), 1.0) for t in groups])
+            ess_w = float((L * ess).sum() / max(L.sum(), 1.0))
+            dec[f"{key} degree_effective_rows"] = round(ess_w, 1)
+            if setting == "auto" and ess_w < self.cfg["facts"].get("link_degree_min_rows", 50.0):
+                continue
+            dp, det = choose_count_model(groups, "dp" if setting == "dp" else "auto", a=1.0,
+                                         bf=self.cfg["facts"].get("count_model_bf", 100.0))
+            if det:
+                dec[f"{key} degree_model_evidence"] = det
+            if dp:
+                info["link_degree"][side] = {"law": "dp", **dp}
+                dec[f"{key} degree_model"] = "dp"
+                continue
+            no_frailty = occ or frail is None or not np.isfinite(frail).any()
+            r = nb_size_pooled(groups) if det.get("parametric") == "nb" and no_frailty else np.inf
+            if np.isfinite(r):
+                info["link_degree"][side] = {"law": "nb", "r": r,
+                                             "min": [bool(len(t) and t.min() >= 1) for t in groups]}
+                dec[f"{key} degree_model"] = f"nb (size {r:.3g})"
+        info["no_loops"] = e1 is e2 and not bool(np.any(rel.u == rel.v))
+
+    def _link_degrees(self, f, info, rel, z1, z2, u, v, blk, elig1=None, elig2=None, unique=False, skip=None):
+        """Rows of a pair fact with the DP degree law on its keys (_fit_link_degree).
+        The block of every row is kept, so the block totals N_kl and with them the
+        scale rule and the attribute groups are those of the block model.  Per side
+        and segment k, the R_k rows whose block involves k get degrees d ~ F_k^R_k:
+        i.i.d. from the DP posterior predictive F_k of the segment's source degrees,
+        conditioned on summing to R_k (pairwise Gibbs, _conditional_counts), over
+        the segment's eligible rows.  The R_k stubs (row i repeated d_i times) are
+        dealt to the R_k rows in a uniformly random order, which splits each row's
+        degree over the blocks by the multivariate hypergeometric law and, with the
+        other side dealt independently, matches the stubs of a block uniformly (the
+        block configuration model).  Repeated pairs (occupancy facts, whose pairs are
+        unique) and self-links (a link table to one parent whose source has none) are
+        then removed by swapping partners within the block, which keeps both degree
+        sequences and the blocks (_repair_pairs).  skip = (anchor segments, partner
+        segments) whose rows keep their draw (segments touching complete blocks)."""
+        ld = info.get("link_degree")
+        if not ld or not len(u):
+            return u, v, blk
+        K2 = rel.e2.K
+        rng = self.rng
+        sides = (("anchor", z1, u, blk // K2, elig1), ("partner", z2, v, blk % K2, elig2))
+        out = {}
+        for si, ((side, z, idx, seg, mask), (_, other_z, _, other_seg, _)) in enumerate(zip(sides, sides[::-1])):
+            dp = ld.get(side)
+            out[side] = idx
+            if dp is None or (side == "anchor" and mask is not None):
+                continue
+            new = idx.copy()
+            order = np.argsort(seg, kind="stable")
+            ks, starts = np.unique(seg[order], return_index=True)
+            members = z if mask is None else np.where(mask, z, -1)
+            for k, E in zip(ks.tolist(), np.split(order, starts[1:])):
+                if skip is not None and k in skip[si]:
+                    continue
+                M = np.flatnonzero(members == k)
+                if not len(M):
+                    continue
+                R = len(E)
+                if dp["law"] == "nb":
+                    # i.i.d. NB(r) given the total: Dirichlet-multinomial(R; r, ..., r);
+                    # shifted by one when every source row has a link
+                    mn = 1 if k < len(dp["min"]) and dp["min"][k] and R >= len(M) else 0
+                    w = rng.gamma(dp["r"], size=len(M))
+                    d = mn + rng.multinomial(R - mn * len(M), w / w.sum())
+                else:
+                    obs = dp["counts"][k] if k < len(dp["counts"]) else np.zeros(0, np.int64)
+                    mn = 1 if len(obs) and obs.min() >= 1 and R >= len(M) else 0
+                    d = self._conditional_counts(R, len(M), obs, dp["a"], mn=mn, key=("link_degree", f, side, int(k)))
+                if unique:
+                    d = self._cap_degrees(d, len(np.flatnonzero(np.isin(other_z, np.unique(other_seg[E])))))
+                new[E] = np.repeat(M, d)[rng.permutation(R)]
+            out[side] = new
+        u, v = out["anchor"], out["partner"]
+        if unique or info.get("no_loops"):
+            pz = z2 if elig2 is None else np.where(elig2, z2, -1)
+            u, v, blk, moved, dropped = self._repair_pairs(u, v, blk, len(z2), K2, unique, info.get("no_loops", False),
+                                                           partners=lambda b: np.flatnonzero(pz == b % K2))
+            if moved or dropped:
+                self.sample_log.setdefault("link_degree_repair", {})[f] = {"moved": moved, "dropped": dropped}
+        return u, v, blk
+
+    def _cap_degrees(self, d, cap):
+        """Degrees of unique pairs cannot exceed the partner rows a row can reach:
+        the excess over cap is moved to the rows below it, one link at a time with
+        probability proportional to their degree plus one (the total is kept)."""
+        d = d.copy()
+        if cap <= 0 or d.max(initial=0) <= cap or d.sum() > cap * len(d):
+            return d
+        rng = self.rng
+        excess = int(np.maximum(d - cap, 0).sum())
+        d = np.minimum(d, cap)
+        while excess:
+            room = cap - d
+            w = (d + 1.0) * (room > 0)
+            add = np.minimum(rng.multinomial(excess, w / w.sum()), room)
+            d += add
+            excess -= int(add.sum())
+        return d
+
+    def _repair_pairs(self, u, v, blk, n2, K2, unique, no_loops, tries=200, partners=None):
+        """Remove repeated pairs (unique) and self-links (no_loops) by degree-
+        preserving swaps.  A bad row i = (a, b) and a good row j = (a', b') become
+        (a, b') and (a', b); with j in the same partner segment the partners are
+        exchanged, with j in the same anchor segment the anchors are, so each row
+        keeps a block that matches its two segments and every degree and block
+        total stays as drawn (rows of i's own block qualify both ways).  A swap is
+        taken only when both new pairs are new and not self-links, so each accepted
+        swap removes one bad row and adds none.  A row that finds no swap in `tries`
+        attempts takes a uniformly chosen row of its block's partner segment
+        (partners(b); default: the partners in the block) that it does not link to
+        yet, which keeps the row and its block but moves one partner link; rows with
+        no free partner at all are dropped.  Returns the rows and the numbers of
+        moved and dropped rows."""
+        rng = self.rng
+        u, v, blk = u.copy(), v.copy(), blk.copy()
+        key = u.astype(np.int64) * n2 + v
+        first = ~pd.Series(key).duplicated().to_numpy()
+        bad = np.zeros(len(u), bool)
+        if unique:
+            bad |= ~first
+        if no_loops:
+            bad |= u == v
+        moved = dropped = 0
+        if not bad.any():
+            return u, v, blk, moved, dropped
+
+        def pools(lab):
+            o = np.argsort(lab, kind="stable")
+            ks, st, ct = np.unique(lab[o], return_index=True, return_counts=True)
+            return o, st, ct, {k: i for i, k in enumerate(ks.tolist())}
+        by_partner, by_anchor = pools(blk % K2), pools(blk // K2)
+        present = set(key[first].tolist()) if unique else set()
+        ok_row = ~bad
+        stuck = []
+        for i in rng.permutation(np.flatnonzero(bad)).tolist():
+            cands = []
+            for o, st, ct, pos in (by_partner, by_anchor):
+                p = pos[int(blk[i] % K2 if o is by_partner[0] else blk[i] // K2)]
+                cands.append(o[st[p] + rng.integers(ct[p], size=tries // 2)])
+            swap_u = np.repeat([False, True], [len(cands[0]), len(cands[1])])
+            mix = rng.permutation(len(swap_u))
+            done = False
+            for j, su in zip(np.concatenate(cands)[mix].tolist(), swap_u[mix].tolist()):
+                if not ok_row[j] or j == i:
+                    continue
+                ui, vi, uj, vj = int(u[i]), int(v[i]), int(u[j]), int(v[j])
+                a, b = ui * n2 + vj, uj * n2 + vi
+                if no_loops and (ui == vj or uj == vi):
+                    continue
+                if unique and (a == b or a in present or b in present):
+                    continue
+                if unique:
+                    present.discard(uj * n2 + vj)
+                    if first[i]:                       # a self-link that owned its pair
+                        present.discard(ui * n2 + vi)
+                    present.add(a)
+                    present.add(b)
+                if su:
+                    u[i], u[j] = uj, ui
+                else:
+                    v[i], v[j] = vj, vi
+                ok_row[i] = True
+                done = True
+                break
+            if not done:
+                stuck.append(i)
+        if stuck:
+            members = {}
+            drop = np.zeros(len(u), bool)
+            for i in stuck:
+                bb = int(blk[i])
+                if bb not in members:
+                    if partners is not None:
+                        members[bb] = partners(bb)
+                    else:
+                        o, st, ct, pos = by_partner
+                        members[bb] = np.unique(v[blk == bb])
+                ui = int(u[i])
+                cand = members[bb]
+                free = next((int(x) for x in cand[rng.permutation(len(cand))].tolist()
+                             if not (no_loops and x == ui) and not (unique and ui * n2 + int(x) in present)), None)
+                if free is None:
+                    drop[i] = True
+                    dropped += 1
+                    continue
+                if unique and first[i]:
+                    present.discard(ui * n2 + int(v[i]))
+                v[i] = free
+                present.add(ui * n2 + free)
+                moved += 1
+            if drop.any():
+                u, v, blk = u[~drop], v[~drop], blk[~drop]
+        return u, v, blk, moved, dropped
 
     def _refine_nested_parent(self, p, f, pe, e2, u, v, cnt, bp, elig=None):
         """Latent segments for the rows of a parent fact, nested in its blocks and
@@ -3251,10 +3494,15 @@ class Synthesizer:
                         _keystr(pd.Series(np.asarray(k2, dtype=object))).to_numpy(dtype=object))
                     g = self._nest_groups(f, pd.DataFrame(fact_rows[info["anchor"]]["keycols"]),
                                           pdf.iloc[np.maximum(pos, 0)].reset_index(drop=True))
-                u, v, blk = self._sample_occ(rel, z1, z2, g, min_one=info.get("occ_min_one", False),
-                                             elig=elig, f=f, elig2=(m2 > 0) if m2.min() < 1 else None)
+                el2 = (m2 > 0) if m2.min() < 1 else None
+                u, v, blk = self._sample_occ(
+                    rel, z1, z2, g, min_one=info.get("occ_min_one", False), elig=elig, f=f, elig2=el2,
+                    rewire=lambda u_, v_, b_, sk: self._link_degrees(f, info, rel, z1, z2, u_, v_, b_, elig, el2,
+                                                                     unique=True, skip=sk))
             else:
                 u, v, blk = self._sample_poisson_pairs(rel, z1, z2, info, w1, w2, elig=elig, f=f)
+                u, v, blk = self._link_degrees(f, info, rel, z1, z2, u, v, blk, elig,
+                                               (m2 > 0) if m2.min() < 1 else None)
             for xj, (r, xp) in enumerate(zip(dimcols[1:], info.get("extra_p", []))):
                 zx, kx = self._dim_state(f, r, zs, keys)
                 Kx = xp["P"].shape[1]
@@ -3677,7 +3925,7 @@ class Synthesizer:
         perm = rng.permutation(len(u))
         return u[perm], v[perm], blk[perm]
 
-    def _sample_occ(self, rel, z1, z2, groups=None, min_one=False, elig=None, f=None, elig2=None):
+    def _sample_occ(self, rel, z1, z2, groups=None, min_one=False, elig=None, f=None, elig2=None, rewire=None):
         """Draw the occupancy model: active anchors, present pairs, multiplicities.
         Structural blocks (p in {0, 1}) are kept as they are; other blocks follow
         the scale rule p* = min(1, p m_l / m*_l), so rows per anchor are preserved
@@ -3811,6 +4059,17 @@ class Synthesizer:
         u = np.concatenate(us) if us else np.zeros(0, dtype=np.int64)
         v = np.concatenate(vs) if vs else np.zeros(0, dtype=np.int64)
         blk = np.concatenate(bl) if bl else np.zeros(0, dtype=np.int64)
+        if rewire is not None and len(u):
+            # pairs of complete blocks (p = 1, e.g. every product on every date) are
+            # structural: they and the segments they touch keep the occupancy draw
+            free = rel.p.reshape(-1)[blk] < 1
+            if free.all():
+                u, v, blk = rewire(u, v, blk, None)
+            elif free.any():
+                skip = (set((blk[~free] // e2.K).tolist()), set((blk[~free] % e2.K).tolist()))
+                uf, vf, bf = rewire(u[free], v[free], blk[free], skip)
+                u, v, blk = np.concatenate([u[~free], uf]), np.concatenate([v[~free], vf]), \
+                    np.concatenate([blk[~free], bf])
         mb = rel.mult_by
         if mb != "none" and len(u):
             if mb == "partner":

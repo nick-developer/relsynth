@@ -1,0 +1,45 @@
+{
+ "schema": 1,
+ "relsynth": "1.0.1",
+ "git": {
+  "sha": "038061a7acf9e7e01252323dca12b660e3c0afdf",
+  "branch": "claude/project-thread-ovb1y1",
+  "dirty": false
+ },
+ "machine": {
+  "node": "vm",
+  "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cpus": 4,
+  "python": "3.13.17",
+  "numpy": "2.5.3",
+  "pandas": "3.0.5",
+  "scipy": "1.18.1",
+  "ci": false
+ },
+ "started": "2026-10-28T13:59:13+00:00",
+ "label": "baseline",
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "runs": [
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 1,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 2,
+   "private": true
+  },
+  {
+   "dataset": "bi_corep_lr",
+   "seed": 3,
+   "private": true
+  }
+ ],
+ "finished": "2026-10-28T14:06:22+00:00"
+}

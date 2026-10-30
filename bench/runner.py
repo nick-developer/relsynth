@@ -62,15 +62,17 @@ def _source_overrides(location: str) -> list[str]:
     return ["--set", f"source.kind={kind}", "--set", f"source.path={path}"]
 
 
-def run_real(name: str, seed: int, pushdown: str = "auto") -> dict:
+def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str, ...] = ()) -> dict:
     ds = DATASETS[name]
     location = ds.location()
     rec = {"dataset": name, "seed": seed, "pushdown": pushdown}
+    if overrides:
+        rec["overrides"] = list(overrides)
     with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
         out = Path(tmp) / "synthetic"
         cmd = [sys.executable, "-m", "relsynth", "run", str(ds.spec()), *_source_overrides(location),
                "--target", f"csv:{out}", "--seed", str(seed), "--pushdown", pushdown, "--bundle", str(Path(tmp) / "bundle.json"),
-               "--json"]
+               "--json", *[x for o in overrides for x in ("--set", o)]]
         t0 = time.time()
         p = subprocess.run(cmd, capture_output=True, text=True, check=False,  # noqa: S603
                            env={**os.environ, "RELSYNTH_QUIET": "1"})
@@ -166,10 +168,12 @@ def load_record(path: Path) -> dict:
 
 
 def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: str = "auto",
-        out_dir: Path | None = None, label: str = "") -> Path:
+        out_dir: Path | None = None, label: str = "", overrides: tuple[str, ...] = ()) -> Path:
     record = {"schema": SCHEMA, "relsynth": relsynth_version(), "git": git(), "machine": machine(),
               "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "label": label,
               "seeds": seeds, "runs": []}
+    if overrides:
+        record["overrides"] = list(overrides)
     out_dir = Path(out_dir or ROOT / "bench" / "history")
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = record["started"].replace(":", "").replace("-", "")[:15]
@@ -208,7 +212,7 @@ def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: s
             continue
         for seed in seeds:
             say(f"{name} seed {seed} ...")
-            r = run_real(name, seed, pushdown)
+            r = run_real(name, seed, pushdown, overrides) if overrides else run_real(name, seed, pushdown)
             sc = r.get("scorecard") or {}
             say(f"{name} seed {seed}: scorecard {sc.get('passed')}/{sc.get('total')}, "
                 f"{sum(1 for c in r.get('checks', []) if c['id'].startswith('domain') and c['pass'] is False)} domain "
