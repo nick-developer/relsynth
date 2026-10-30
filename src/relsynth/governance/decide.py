@@ -108,7 +108,7 @@ def builtin(inp: dict) -> dict:
     pr = _get(inp, "quality", "pass_rate")
     if mn is not None and pr is not None and pr < mn:
         deny.add(f"quality pass rate {_v(pr)} is below the organisation's minimum {_v(mn)}")
-    if req.get("target") not in ((ctx or {}).get("allowed_targets") or []):
+    if ctx is not None and req.get("target") not in (ctx.get("allowed_targets") or []):
         deny.add(f"target {_q(req.get('target'))} is not allowed for context {_q(cname)}")
     if external:
         pkg = set(req.get("package") or [])

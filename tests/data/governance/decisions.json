@@ -665,7 +665,6 @@
    "approval_required": true,
    "reasons": [
     "context \"press\" is not defined in the organisation policy",
-    "target \"partner-sftp\" is not allowed for context \"press\"",
     "the privacy verdict for context \"press\" is \"missing\"; it cannot be released or approved"
    ]
   }
