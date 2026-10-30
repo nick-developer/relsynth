@@ -46,7 +46,9 @@ FREQ = {"day": "D", "week": "W", "month": "M", "quarter": "Q", "year": "Y"}
 
 def to_days(values) -> np.ndarray:
     """Days since 1970-01-01 as floats (NaN for nulls) from dates, datetimes or strings."""
-    t = pd.to_datetime(pd.Series(values), errors="coerce")
+    v = pd.Series(values)
+    t = pd.to_datetime(v, errors="coerce", format="mixed") if v.dtype == object else \
+        pd.to_datetime(v, errors="coerce")
     if getattr(t.dt, "tz", None) is not None:
         t = t.dt.tz_convert("UTC").dt.tz_localize(None)
     s = t.astype("datetime64[s]").astype("int64").to_numpy().astype(float)
@@ -84,11 +86,15 @@ class Intensity:
         self.c = float(prior_strength)
 
     # ------------------------------------------------------------ fitting
-    def fit(self, t, seg, K, t0, t1, datetime=False):
+    def fit(self, t, seg, K, t0, t1, datetime=False, exposure=None, interior=None):
+        """exposure: optional (K, days) array of entities at risk per day; the
+        bucket profile is then a rate per entity at risk, counted over the
+        events flagged `interior` (Prop. 1200)."""
         t = np.asarray(t, dtype=float)
+        interior = np.ones(len(t), bool) if interior is None else np.asarray(interior, bool)
         seg = np.asarray(seg, dtype=np.int64)
         ok = np.isfinite(t) & (t >= t0) & (t < t1)
-        t, seg = t[ok], seg[ok]
+        t, seg, interior = t[ok], seg[ok], interior[ok]
         self.K = int(K)
         self.datetime = bool(datetime)
         self.hourly = self.datetime if self.hourly is None else bool(self.hourly and self.datetime)
@@ -115,6 +121,16 @@ class Intensity:
         self.hour_counts = np.bincount(np.floor((t - np.floor(t)) * 24).astype(np.int64).clip(0, 23),
                                        minlength=24).astype(float)
         self.n_events = len(t)
+        self.bucket_days = np.bincount(self.bucket_of_day, minlength=self.B).astype(float)
+        self.expo = None
+        self.adj = np.ones((self.K, self.B))
+        if exposure is not None:
+            self.counts = np.zeros((self.K, self.B))
+            np.add.at(self.counts, (seg[interior], b[interior]), 1.0)
+            E = np.zeros((self.K, self.B))
+            for k in range(self.K):
+                E[k] = np.bincount(self.bucket_of_day, weights=np.asarray(exposure[k], float), minlength=self.B)
+            self.expo = E
         self.draw(None)
         return self
 
@@ -129,6 +145,14 @@ class Intensity:
             P = np.stack([rng.dirichlet(r) for r in a])
             w = rng.gamma(1 + self.dow_counts) / np.maximum(self.dow_days, 1)
             h = rng.dirichlet(1 + self.hour_counts)
+        if self.expo is not None:
+            # Gamma-Poisson rate per entity at risk, one pseudo-event at the segment's mean rate
+            n_k = self.counts.sum(1, keepdims=True)
+            rbar = np.maximum(n_k, 1) / np.maximum(self.expo.sum(1, keepdims=True), 1e-9)
+            shape, scale = self.counts + 1.0, 1.0 / (self.expo + 1.0 / rbar)
+            rate = shape * scale if rng is None else rng.gamma(shape, scale)
+            P = rate * self.bucket_days[None, :]
+            P = P / P.sum(1, keepdims=True)
         if not self.weekly:
             w = np.ones(7)
         self.P, self.w = P, w / w.mean()
@@ -140,7 +164,8 @@ class Intensity:
         # day masses: bucket share spread over the bucket's days by weekday rate
         wd = self.w[self.dow]
         den = np.bincount(self.bucket_of_day, weights=wd, minlength=self.B)
-        mass = self.P[:, self.bucket_of_day] * (wd / den[self.bucket_of_day])[None, :]
+        P = self.P * getattr(self, "adj", 1.0)
+        mass = P[:, self.bucket_of_day] * (wd / den[self.bucket_of_day])[None, :]
         mass = mass / mass.sum(1, keepdims=True) * self.ndays      # one unit = one average day
         self.day_mass = mass
         if self.hourly:

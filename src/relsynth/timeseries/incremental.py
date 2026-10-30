@@ -77,7 +77,7 @@ def forward_events(model, seg, n, U, u_last, u_start, u_end, keys_h, seed, B_u=N
     a, b = model.rate_ab[seg, 0], model.rate_ab[seg, 1]
     th = model.theta[seg]
     r = gammaincinv(a + n, hash_uniform(seed, keys_h, 0, 1)) / (b + U)
-    alpha = np.exp(np.clip(th[:, 4] + np.exp(th[:, 5]) * ndtri(hash_uniform(seed, keys_h, 0, 2)), -12, 8))
+    alpha = np.exp(np.clip(th[:, 0] + np.exp(th[:, 1]) * ndtri(hash_uniform(seed, keys_h, 0, 2)), -12, 8))
     beta = alpha * np.maximum(r, 1e-12)                  # gap ~ Gamma(alpha, rate beta): mean 1 / r
     has = np.isfinite(u_last)
     # first new event: a gap longer than the entity's age, or (no event yet) an

@@ -229,3 +229,147 @@ def sequence_report(spec, real: dict, syn: dict, splits=20, confidence=0.99, see
                   "passed": sum(1 for c in checks if c["pass"]), "total": sum(1 for c in checks if c["pass"] is not None),
                   "checks": checks}
     return rep
+
+
+# ---------------------------------------------------------------- regular series
+SERIES_METRICS = ("acf", "spectrum", "xcorr_w1", "value_w1", "tstr_gap")
+
+
+def series_matrix(df, entity, time, value):
+    """(series x steps) matrix of one value column on its regular grid."""
+    t = to_days(df[time])
+    from .series import infer_step
+    step = infer_step(t[np.isfinite(t)])
+    i = np.round((t - np.nanmin(t)) / step).astype(np.int64)
+    ids, e = np.unique(df[entity].astype(str).to_numpy(), return_inverse=True)
+    Y = np.full((len(ids), int(i.max()) + 1), np.nan)
+    Y[e, i] = pd.to_numeric(df[value], errors="coerce").to_numpy(float)
+    return Y, step
+
+
+def _transform(Y):
+    X = np.log1p(np.maximum(Y, 0)) if np.nanmin(Y) >= 0 else Y.copy()
+    mu = np.nanmean(X, 1, keepdims=True)
+    sd = np.nanstd(X, 1, keepdims=True)
+    return np.nan_to_num((X - mu) / np.where(sd > 0, sd, 1))
+
+
+def _mean_acf(Z, lags):
+    n, T = Z.shape
+    F = np.fft.rfft(Z, 2 * T, axis=1)
+    ac = np.fft.irfft(F * np.conj(F), axis=1)[:, : lags + 1]
+    ac = ac / np.maximum(ac[:, :1], 1e-12)
+    return ac[:, 1:].mean(0)
+
+
+def _log_spec(Z, seg=256):
+    from scipy.signal import welch
+    _, p = welch(Z, nperseg=min(seg, Z.shape[1]), axis=1)
+    return np.log(np.maximum(p.mean(0), 1e-12))
+
+
+def _xcorr(Z, rng, pairs=2000):
+    n = Z.shape[0]
+    if n < 3:
+        return np.zeros(0)
+    a = rng.integers(0, n, pairs)
+    b = (a + rng.integers(1, n, pairs)) % n
+    za, zb = Z[a], Z[b]
+    # correlation of the day-differenced residuals (seasonal profile removed)
+    return np.einsum("ij,ij->i", za, zb) / Z.shape[1]
+
+
+def _deseason(Z, period):
+    if period < 2 or Z.shape[1] < 2 * period:
+        return Z
+    T = Z.shape[1]
+    ph = np.arange(T) % period
+    prof = np.stack([Z[:, ph == j].mean(1) for j in range(period)], 1)
+    R = Z - prof[:, ph]
+    sd = R.std(1, keepdims=True)
+    return R / np.where(sd > 0, sd, 1)
+
+
+def series_distances(Ya, Yb, step, seed=0, lags=None):
+    rng = np.random.default_rng(seed)
+    per_day = max(int(round(1 / step)), 1)
+    lags = lags or min(Ya.shape[1] // 4, max(7 * per_day, 30))
+    Za, Zb = _transform(Ya), _transform(Yb)
+    Ra, Rb = _deseason(Za, per_day * 7 if per_day > 1 else 7), _deseason(Zb, per_day * 7 if per_day > 1 else 7)
+    va, vb = Za.reshape(-1), Zb.reshape(-1)
+    sa = rng.choice(len(va), min(len(va), 200000), replace=False)
+    sb = rng.choice(len(vb), min(len(vb), 200000), replace=False)
+    return {"acf": float(np.mean(np.abs(_mean_acf(Za, lags) - _mean_acf(Zb, lags)))),
+            "spectrum": float(np.mean(np.abs(_log_spec(Za) - _log_spec(Zb)))),
+            "xcorr_w1": _w1(_xcorr(Ra, rng), _xcorr(Rb, rng)),
+            "value_w1": _w1(va[sa], vb[sb])}
+
+
+def _design(Z, per_day, lag_set, t_idx):
+    """Rows (series, t) for t in t_idx: lagged values and calendar phases."""
+    n, T = Z.shape
+    X, y = [], []
+    week = 7 * per_day
+    for t in t_idx:
+        f = [Z[:, t - L] for L in lag_set]
+        ph = np.zeros((n, per_day))
+        ph[:, t % per_day] = 1
+        wd = np.zeros((n, 7))
+        wd[:, (t // per_day) % 7] = 1
+        X.append(np.column_stack(f + [ph, wd]))
+        y.append(Z[:, t])
+    del week
+    return np.vstack(X), np.concatenate(y)
+
+
+def tstr(Y_real, Y_syn, step, horizon_days=1, test_share=0.2, max_rows=400000, seed=0):
+    """Day-ahead forecasting: a ridge model on lags >= one day (1, 2, 7 days back
+    and the day-ahead window) trained on synthetic series and tested on the last
+    test_share of the real grid, against the same model trained on the real
+    training period.  Returns MAE of both, a seasonal-naive baseline and the gap
+    (TSTR / TRTR - 1)."""
+    rng = np.random.default_rng(seed)
+    per_day = max(int(round(1 / step)), 1)
+    h = horizon_days * per_day
+    lag_set = sorted({h, h + 1, h + 2, 2 * per_day, 7 * per_day, 7 * per_day + h} - {0})
+    Zr, Zs = _transform(Y_real), _transform(Y_syn)
+    T = Zr.shape[1]
+    cut = int(T * (1 - test_share))
+    start = max(lag_set)
+
+    def fit(Z, t_idx):
+        t_idx = rng.choice(t_idx, size=min(len(t_idx), max(1, max_rows // Z.shape[0])), replace=False)
+        X, y = _design(Z, per_day, lag_set, t_idx)
+        X = np.column_stack([X, np.ones(len(X))])
+        lam = 1.0
+        return np.linalg.solve(X.T @ X + lam * np.eye(X.shape[1]), X.T @ y)
+    test_t = np.arange(max(cut, start), T)
+    Xt, yt = _design(Zr, per_day, lag_set, test_t)
+    Xt = np.column_stack([Xt, np.ones(len(Xt))])
+    w_r = fit(Zr, np.arange(start, cut))
+    w_s = fit(Zs, np.arange(start, min(cut, Zs.shape[1])))
+    mae_r = float(np.mean(np.abs(Xt @ w_r - yt)))
+    mae_s = float(np.mean(np.abs(Xt @ w_s - yt)))
+    naive = float(np.mean(np.abs(Xt[:, lag_set.index(7 * per_day)] - yt)))
+    return {"mae_trtr": mae_r, "mae_tstr": mae_s, "mae_seasonal_naive": naive, "gap": mae_s / mae_r - 1}
+
+
+def series_checks(Y_real, Y_syn, step, splits=20, confidence=0.99, seed=0):
+    """Calibrated checks of one value column (series_distances) plus TSTR."""
+    rng = np.random.default_rng(seed)
+    d = series_distances(Y_real, Y_syn, step, seed)
+    N = Y_real.shape[0]
+    draws: dict[str, list] = {}
+    for i in range(splits):
+        m = np.zeros(N, bool)
+        m[rng.permutation(N)[: N // 2]] = True
+        for k, v in series_distances(Y_real[m], Y_real[~m], step, seed + i + 1).items():
+            draws.setdefault(k, []).append(v)
+    k = kappa((N, Y_syn.shape[0]), (N // 2, N - N // 2))
+    out = []
+    for name, v in d.items():
+        ns = null_summary(draws[name], 0.0, confidence, k, log=True)
+        out.append({"metric": name, "value": round(v, 6), "limit": ns["limit"] and round(ns["limit"], 6),
+                    "pass": None if ns["limit"] is None else bool(v <= ns["limit"]), "null": ns})
+    ts = tstr(Y_real, Y_syn, step, seed=seed)
+    return out, ts

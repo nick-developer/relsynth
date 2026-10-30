@@ -104,6 +104,36 @@ def _simulate_ar(phi, T, m, rng, burn=200):
     return x[:, burn:]
 
 
+def _lag_corr(x, L):
+    x = x[np.isfinite(x)] if x.ndim == 1 else x
+    if len(x) <= L + 2:
+        return 0.0
+    a, b = x[L:], x[:-L]
+    sa, sb = a.std(), b.std()
+    return float(((a - a.mean()) * (b - b.mean())).mean() / (sa * sb)) if sa > 0 and sb > 0 else 0.0
+
+
+def _deseasonal_ar(E, Phi, P):
+    """v_t = (E_t - Phi E_{t-P}) / sqrt(1 - Phi^2) (first P steps kept)."""
+    V = E.copy()
+    V[:, P:] = (E[:, P:] - Phi[:, None] * np.nan_to_num(E[:, :-P])) / np.sqrt(1 - Phi ** 2)[:, None]
+    return V
+
+
+def _seasonal_filter(V, Phi, P, rng):
+    """y_t = Phi y_{t-P} + sqrt(1 - Phi^2) v_t, started stationary (unit variance kept)."""
+    if P < 2 or not np.any(Phi):
+        return V
+    T = V.shape[1]
+    Y = np.empty_like(V)
+    c = np.sqrt(1 - Phi ** 2)[:, None]
+    Y[:, :P] = V[:, :P]
+    for s0 in range(P, T, P):
+        e = min(s0 + P, T)
+        Y[:, s0:e] = Phi[:, None] * Y[:, s0 - P: e - P] + c * V[:, s0:e]
+    return Y
+
+
 def _innov_var(phi):
     """Innovation variance of a unit-variance AR(phi): prod (1 - r_k^2) over its
     partial autocorrelations."""
@@ -264,7 +294,7 @@ class SeriesModel:
         self.month = np.asarray(pd.to_datetime(np.floor(tt).astype("int64"), unit="D").month) - 1
         span_days = T * self.step
         self.has_week = bool(self.use_week and span_days >= 21)
-        self.has_year = bool(span_days >= 400) if self.use_year == "auto" else bool(self.use_year)
+        self.has_year = bool(span_days >= 300) if self.use_year == "auto" else bool(self.use_year)
         self.cols = {}
         F_all = []
         for c in self.values:
@@ -323,11 +353,23 @@ class SeriesModel:
             lam = np.array([np.nanmean(Z[i] * f) / max(np.nanmean(Z[i] ** 2), 1e-12) ** 0.5 for i in range(n)])
         lam = np.clip(np.nan_to_num(lam), -0.98, 0.98)
         E = (Z - lam[:, None] * f[None, :]) / np.sqrt(1 - lam ** 2)[:, None]
+        # seasonal autoregression at one day: y_t = Phi y_{t-P} + sqrt(1 - Phi^2) v_t
+        # (the daily shape drifts with the season), v an AR(p)
+        P = self.P1
+        Phi = np.zeros(n)
+        if P > 1 and T > 3 * P:
+            with np.errstate(all="ignore"):
+                Phi = np.array([_lag_corr(E[i], P) for i in range(n)])
+            Phi = np.clip(np.nan_to_num(Phi), -0.95, 0.95)
+            E = _deseasonal_ar(E, Phi, P)
+        f_Phi = float(np.clip(np.nan_to_num(_lag_corr(f, P)), -0.95, 0.95)) if P > 1 and T > 3 * P else 0.0
+        fv = _deseasonal_ar(f[None, :], np.array([f_Phi]), P)[0] if f_Phi else f
         phi = np.stack([_yule_walker(E[i], self.p) for i in range(n)]) if self.p else np.zeros((n, 0))
         pacf = np.stack([_ar_to_pacf(ph) for ph in phi]) if self.p else np.zeros((n, 0))
-        phi_f = _yule_walker(f, self.pf) if self.pf else np.zeros(0)
+        phi_f = _yule_walker(fv, self.pf) if self.pf else np.zeros(0)
         return {"nonneg": nonneg, "decimals": dec, "start": start, "level": level, "sigma": sigma, "lam": lam,
-                "pacf": pacf, "prof": prof, "f": f, "phi_f": _pacf_to_ar(_ar_to_pacf(phi_f))}
+                "pacf": pacf, "prof": prof, "f": f, "phi_f": _pacf_to_ar(_ar_to_pacf(phi_f)),
+                "Phi": Phi, "f_Phi": f_Phi}
 
     def _theta(self):
         """Parameter matrix (series x features) and the layout to read it back."""
@@ -337,6 +379,7 @@ class SeriesModel:
             st = np.clip((m["start"] + 0.5) / T, 1e-4, 1 - 1e-4)
             parts = [("level", m["level"][:, None]), ("log_sigma", np.log(m["sigma"])[:, None]),
                      ("lam", np.arctanh(m["lam"])[:, None]), ("pacf", np.arctanh(m["pacf"])),
+                     ("Phi", np.arctanh(m["Phi"])[:, None]),
                      ("start", np.log(st / (1 - st))[:, None])]
             m["pca"] = {}
             for k, M in m["prof"].items():
@@ -392,11 +435,13 @@ class SeriesModel:
                     M = pca.back(parts[(c, k)]) if pca.k else np.repeat(pca.mean[None, :], n, 0)
                     X = X + M[:, key]
             f = _simulate_ar(m["phi_f"], T, 1, rng)[0] if len(m["phi_f"]) else rng.standard_normal(T)
+            f = _seasonal_filter(f[None, :], np.array([m["f_Phi"]]), self.P1, rng)[0]
             if self.p:
                 phi = np.stack([_pacf_to_ar(r) for r in pacf])
                 eps = _simulate_ar(phi, T, n, rng)
             else:
                 eps = rng.standard_normal((n, T))
+            eps = _seasonal_filter(eps, np.tanh(parts[(c, "Phi")][:, 0]), self.P1, rng)
             X = X + sigma[:, None] * (lam[:, None] * f[None, :] + np.sqrt(1 - lam ** 2)[:, None] * eps)
             Y = np.expm1(X).clip(0, None) if m["nonneg"] else X
             Y = np.where(np.arange(T)[None, :] >= start[:, None], Y, 0.0)
