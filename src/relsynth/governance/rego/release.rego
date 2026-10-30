@@ -86,9 +86,9 @@ deny contains msg if {
 }
 
 deny contains msg if {
-	min := input.policy.quality.min_pass_rate
-	input.quality.pass_rate < min
-	msg := sprintf("quality pass rate %v is below the organisation's minimum %v", [input.quality.pass_rate, min])
+	min_rate := input.policy.quality.min_pass_rate
+	input.quality.pass_rate < min_rate
+	msg := sprintf("quality pass rate %v is below the organisation's minimum %v", [input.quality.pass_rate, min_rate])
 }
 
 deny contains msg if {
@@ -99,7 +99,7 @@ deny contains msg if {
 deny contains msg if {
 	external
 	some r in m.reports
-	r.digest.sha256 in {d | some d in input.request.package}
+	r.digest.sha256 in input.request.package
 	not r.external_safe
 	msg := sprintf("the %s report was computed on real data without DP and cannot leave the organisation", [r.kind])
 }
