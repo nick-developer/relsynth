@@ -2404,7 +2404,26 @@ class Synthesizer:
         """One synthetic dataset: every parameter drawn once from its posterior
         (or set to its posterior mean) from the dataset's parameter stream, then
         the rows from its data stream.  index numbers the datasets (0, 1, ...);
-        without it each call gives the next dataset."""
+        without it each call gives the next dataset.  relsynth.runtime runs the
+        same steps with the facts split into partitions (sample_partitioned)."""
+        rt = self.cfg.get("runtime") or {}
+        if rt.get("executor", "none") != "none":
+            from .runtime import sample_partitioned
+            return sample_partitioned(self, scale, index, executor=rt, partition_rows=rt.get("partition_rows") or 1_000_000)[0]
+        ctx = self._sample_entities(scale, index)
+        out, zs, keys, sc = ctx["out"], ctx["zs"], ctx["keys"], ctx["scale"]
+        fact_rows = {}
+        for f in self.fact_order:
+            say(f"sample: fact {f}")
+            out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
+            out[f] = self._apply_affinity(f, out[f], out)
+            out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            say(f"sample: fact {f}: {len(out[f]):,} rows")
+        return self._sample_end(ctx)
+
+    def _sample_entities(self, scale=None, index=None):
+        """The first part of sample(): parameter draw, entities (finished), and the
+        state the facts are drawn from ({out, zs, keys, scale, t0, index})."""
         from .posterior import run_streams, RunCache
         t0 = time.time()
         cfg = self.cfg
@@ -2425,6 +2444,7 @@ class Synthesizer:
         out.update(self.plan.ref_frames)        # reference tables read by keyed lookups
         weights_cache = {}
         self._wcache, self._zs = weights_cache, zs        # for redrawing anchored links in _finish
+        self._keys = keys
         self.sample_log = {"rule_violations": {}, "text_rejections": {}, "rows_removed_by_rules": {},
                            "uniqueness": {}, "warnings": []}       # warnings of this dataset only
         self._edge_masks = {}
@@ -2523,13 +2543,12 @@ class Synthesizer:
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
                 self._renumber_by_order(t, out, keys)
-        fact_rows = {}
-        for f in self.fact_order:
-            say(f"sample: fact {f}")
-            out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
-            out[f] = self._apply_affinity(f, out[f], out)
-            out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
-            say(f"sample: fact {f}: {len(out[f]):,} rows")
+        return {"out": out, "zs": zs, "keys": keys, "scale": sc, "t0": t0, "index": index}
+
+    def _sample_end(self, ctx):
+        """The last part of sample(): hidden columns dropped, aggregates, the
+        external form of the tables."""
+        out, t0 = ctx["out"], ctx["t0"]
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
@@ -3452,6 +3471,15 @@ class Synthesizer:
         return zs[r["parent"]], keys[r["parent"]]
 
     def _sample_fact(self, f, zs, keys, sc, ents, fact_rows):
+        st = self._fact_state(f, zs, keys, ents, fact_rows)
+        return self._fact_block(f, st, ents, fact_rows)
+
+    def _fact_state(self, f, zs, keys, ents, fact_rows, extras=False):
+        """What fact f's rows are drawn from: anchor rows (segments, key columns,
+        degree weights, eligibility) and partner rows.  extras=True also draws the
+        weights of the extra dimensions here (the partitioned runtime: one draw per
+        dimension row for the whole dataset); otherwise _fact_block draws them after
+        the pairs, as 1.0 did."""
         info = self.fact_info[f]
         rel = info["rel"]
         z1, acols = self._anchor_state(f, zs, keys, fact_rows)
@@ -3465,7 +3493,61 @@ class Synthesizer:
                 elig = m1 > 0
                 w1 = self._renormalise(w1 * m1, z1, rel.e1.K)
         st = {"z1": z1, "acols": acols, "w1": w1, "extras": [], "elig": elig}
+        if rel.kind != "single":
+            dimcols = info["fks"] if info["nested"] else info["fks"][1:]
+            r2 = dimcols[0]
+            z2, k2 = self._dim_state(f, r2, zs, keys)
+            w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
+            m2 = self._inclusion_mask(f, r2, len(z2), ents)
+            w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
+            st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2, "m2": m2})
+            if extras:
+                st["extras"] = self._fact_extras(f, zs, keys, ents)
+                st["extras_drawn"] = True
+        return st
+
+    def _fact_extras(self, f, zs, keys, ents):
+        """Extra dimension keys of a pair fact: per dimension, the rows of each
+        segment with their degree weights."""
+        info = self.fact_info[f]
         dimcols = info["fks"] if info["nested"] else info["fks"][1:]
+        out = []
+        for xj, (r, xp) in enumerate(zip(dimcols[1:], info.get("extra_p", []))):
+            zx, kx = self._dim_state(f, r, zs, keys)
+            Kx = xp["P"].shape[1]
+            wx = self._weights(xp["frailty"], zx, {}, None, ent=info["extra"][xj].e2, obs=xp.get("obs"))
+            wx = wx * self._inclusion_mask(f, r, len(zx), ents)
+            memx = [np.flatnonzero(zx == s_) for s_ in range(Kx)]
+            availx = np.array([len(m) > 0 and wx[m].sum() > 0 for m in memx], dtype=float)
+            if xp.get("null"):
+                availx[-1] = 1.0                                     # the null level
+            out.append((r, xp, kx, wx, memx, availx))
+        return out
+
+    @staticmethod
+    def _restrict_state(st, rows):
+        """The state of fact rows anchored on anchor rows `rows` only (a partition)."""
+        st = dict(st)
+        st["z1"] = np.asarray(st["z1"])[rows]
+        st["w1"] = np.asarray(st["w1"])[rows]
+        st["acols"] = {c: np.asarray(v)[rows] for c, v in st["acols"].items()}
+        if st.get("elig") is not None:
+            st["elig"] = np.asarray(st["elig"])[rows]
+        return st
+
+    def _fact_block(self, f, st, ents, fact_rows):
+        """The rows of fact f drawn from state st (all anchor rows, or a partition
+        of them): rows per anchor or pairs, attributes, rule redraws, unique keys.
+        Returns (rows, the state of nested facts anchored on these rows)."""
+        u, v, blk = self._fact_structure(f, st, ents, fact_rows)
+        return self._fact_attributes(f, st, u, v, blk, ents, fact_rows)
+
+    def _fact_structure(self, f, st, ents, fact_rows):
+        """Which anchor (u) and partner (v) rows the fact's rows join, with their
+        blocks: rows per anchor, Poisson pairs (with degree laws) or occupancy."""
+        info = self.fact_info[f]
+        rel = info["rel"]
+        z1, w1, elig = st["z1"], st["w1"], st["elig"]
         if rel.kind == "single":
             if info.get("count_dp"):
                 if elig is None:
@@ -3479,15 +3561,11 @@ class Synthesizer:
             u = np.repeat(np.arange(len(z1)), n_rows)
             v, blk = None, z1[u]
         else:
-            r2 = dimcols[0]
-            z2, k2 = self._dim_state(f, r2, zs, keys)
-            w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
-            m2 = self._inclusion_mask(f, r2, len(z2), ents)
-            w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
-            st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2})
+            z2, r2, w2, m2 = st["z2"], st["r2"], st["w2"], st["m2"]
             if rel.kind == "occ":
                 g = None
                 if info.get("eligibility"):
+                    k2 = st["k2"]
                     pdf = ents[r2["parent"]]
                     ppk = self.spec["tables"][r2["parent"]]["primary_key"]
                     pos = pd.Index(_keystr(pdf[ppk]).to_numpy(dtype=object)).get_indexer(
@@ -3503,16 +3581,14 @@ class Synthesizer:
                 u, v, blk = self._sample_poisson_pairs(rel, z1, z2, info, w1, w2, elig=elig, f=f)
                 u, v, blk = self._link_degrees(f, info, rel, z1, z2, u, v, blk, elig,
                                                (m2 > 0) if m2.min() < 1 else None)
-            for xj, (r, xp) in enumerate(zip(dimcols[1:], info.get("extra_p", []))):
-                zx, kx = self._dim_state(f, r, zs, keys)
-                Kx = xp["P"].shape[1]
-                wx = self._weights(xp["frailty"], zx, {}, None, ent=info["extra"][xj].e2, obs=xp.get("obs"))
-                wx = wx * self._inclusion_mask(f, r, len(zx), ents)
-                memx = [np.flatnonzero(zx == s_) for s_ in range(Kx)]
-                availx = np.array([len(m) > 0 and wx[m].sum() > 0 for m in memx], dtype=float)
-                if xp.get("null"):
-                    availx[-1] = 1.0                                     # the null level
-                st["extras"].append((r, xp, kx, wx, memx, availx))
+            if not st.get("extras_drawn"):
+                st["extras"] = self._fact_extras(f, self._zs, self._keys, ents)
+        return u, v, blk
+
+    def _fact_attributes(self, f, st, u, v, blk, ents, fact_rows):
+        """The fact's rows for a given structure (u, v, blk): extra keys,
+        attributes, time, rule redraws, nested-key consistency, unique keys."""
+        info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
         df = self._refill(f, st, df, ents)
         if info["nested"]:

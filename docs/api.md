@@ -548,4 +548,5 @@ sample(self, scale=None, index=None)
 One synthetic dataset: every parameter drawn once from its posterior
 (or set to its posterior mean) from the dataset's parameter stream, then
 the rows from its data stream.  index numbers the datasets (0, 1, ...);
-without it each call gives the next dataset.
+without it each call gives the next dataset.  relsynth.runtime runs the
+same steps with the facts split into partitions (sample_partitioned).
