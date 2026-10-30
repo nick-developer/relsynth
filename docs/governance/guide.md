@@ -40,7 +40,7 @@ relsynth run spec.yaml --registry registry/ --context internal --release-target 
 ```
 
 - `--source-id` selects the privacy domain of the source in the policy.
-- `--context` and `--release-target` are checked against the policy before any data is read. A context outside the organisation is refused without `--dp` (differential privacy, roadmap T07).
+- `--context` and `--release-target` are checked against the policy before any data is read. A context outside the organisation is refused unless the run is differentially private (`--epsilon`, `--dp` or a `dp` section; see [dp.md](../dp.md)).
 - `--assess` runs the privacy attacks of `relsynth privacy` against the policy's contexts; `--privacy-report FILE` uses a report you already have. Without either, the verdict is missing and the run cannot be released.
 
 The run writes its synthetic data as usual and then records a signed manifest: hashes of the outputs and the spec, versions, seeds, the verdicts, the quality score and what the policy still needs before a release. The manifest holds no data, no row counts and no credentials. A run without DP on a domain is noted in the domain's ledger.
@@ -98,6 +98,10 @@ gov.approve(reg, gov.current_policy(reg), run.run_id, "internal", owner)
 gov.release(reg, run.run_id, "internal", "dev-sandbox", analyst, out="package/")
 assert gov.verify_registry(reg) == []
 ```
+
+## Differential privacy runs
+
+`relsynth run spec.yaml --epsilon 1 ...` with the same governance options reserves the budget in the source's domain before reading, settles it afterwards, and records the charges and the DP statement in the manifest. [dp.md](../dp.md#4-governed-runs-and-the-budget) has the details.
 
 ## Not yet built
 

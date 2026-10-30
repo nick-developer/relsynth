@@ -104,6 +104,15 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
     n_c = int(round(cfg["split"]["control"] * len(ids)))
     n_r = int(round(cfg["split"]["reference"] * len(ids)))
     ctl_ids, ref_ids, tr_ids = ids[:n_c], ids[n_c:n_c + n_r], ids[n_c + n_r:]
+    if generator is None:
+        from ..dp.config import section
+        if section(s) is not None:
+            from .. import dp
+            generator = dp.generator(s)
+            if not (cfg.get("release") or {}).get("dp"):
+                c = dp.parse(s)
+                cfg["release"] = {**(cfg.get("release") or {}),
+                                  "dp": {"epsilon": float(dp.epsilon_of_config(c)), "delta": c.delta, "unit": c.unit}}
     gen = generator or relsynth_generator(s)
 
     t = time.time()
