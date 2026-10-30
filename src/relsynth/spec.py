@@ -830,6 +830,46 @@ def _validate_io(spec):
         else:
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
+    errs += _validate_sequences(spec)
+    return errs
+
+
+def _validate_sequences(spec):
+    """tables.<t>.sequence: an entity foreign key and a time column of t."""
+    errs = []
+    rels = spec.get("relationships") or []
+    for tname, t in (spec.get("tables") or {}).items():
+        sq = t.get("sequence")
+        if sq is None:
+            continue
+        where = f"{tname}.sequence"
+        if not isinstance(sq, dict):
+            errs.append(f"{where} must be a mapping {{entity, time}}")
+            continue
+        cols = t.get("columns") or {}
+        ent, tc = sq.get("entity"), sq.get("time")
+        if t.get("role") not in ("entity", "fact"):
+            errs.append(f"{where}: only entity and fact tables have sequences")
+        if ent not in cols or not any(r.get("child") == tname and r.get("child_key") == ent for r in rels):
+            errs.append(f"{where}.entity {ent} must be a foreign key column of {tname}")
+        cs = cols.get(tc)
+        if not isinstance(cs, dict):
+            errs.append(f"{where}.time {tc} is not a column of {tname}")
+        elif cs.get("type") not in ("date", "datetime") and not (
+                cs.get("type") == "lookup" and isinstance(cs.get("lookup"), str) and cs["lookup"].count(".") == 1):
+            errs.append(f"{where}.time {tc} must be a date or datetime column, or a lookup fk.col")
+        w = sq.get("window", "auto")
+        if not (w in ("auto", "none") or isinstance(w, dict)):
+            errs.append(f"{where}.window must be auto, none or {{start, end}}")
+        if sq.get("bucket", "month") not in ("day", "week", "month", "quarter", "year"):
+            errs.append(f"{where}.bucket must be day/week/month/quarter/year")
+        if sq.get("hourly", "auto") not in ("auto", True, False):
+            errs.append(f"{where}.hourly must be auto, true or false")
+        for k in ("redraws", "min_entities"):
+            if k in sq and (not isinstance(sq[k], int) or isinstance(sq[k], bool) or sq[k] < 0):
+                errs.append(f"{where}.{k} must be a non-negative integer")
+        if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
+            errs.append(f"{where}.shrinkage must be a positive number")
     return errs
 
 

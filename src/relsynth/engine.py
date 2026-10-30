@@ -591,6 +591,9 @@ class Synthesizer:
         self._fit_affinity(tables)
         self._fit_participation(tables)
         self._fit_scd(tables)
+        if any(T_.get("sequence") for T_ in self.spec["tables"].values()):
+            from .timeseries.hooks import fit_sequences
+            fit_sequences(self, tables)
         self.dist_src = {(t, c): tables[t][c].dropna().to_numpy(dtype=object)
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
@@ -2522,6 +2525,9 @@ class Synthesizer:
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                if t in getattr(self, "seq", {}):
+                    from .timeseries.hooks import apply_sequence
+                    out[t] = apply_sequence(self, t, out[t], out, index)
                 self._renumber_by_order(t, out, keys)
         fact_rows = {}
         for f in self.fact_order:
@@ -2529,6 +2535,9 @@ class Synthesizer:
             out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
             out[f] = self._apply_affinity(f, out[f], out)
             out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            if f in getattr(self, "seq", {}):
+                from .timeseries.hooks import apply_sequence
+                out[f] = apply_sequence(self, f, out[f], out, index)
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
