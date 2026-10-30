@@ -12,7 +12,8 @@
 * `row_hash(cols, seed)`: a seeded pseudo-random integer in [0, 2^32) per row,
   computed from the row's key values, for reproducible Bernoulli samples
   (hashtextextended in PostgreSQL, HASHBYTES in SQL Server, ORA_HASH in Oracle,
-  SHA2 in MySQL, MariaDB and Databricks, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
+  SHA2 in MySQL, MariaDB, Databricks and Snowflake, HASHBYTES over UTF-8 in
+  Fabric, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
 """
 from __future__ import annotations
 
@@ -153,6 +154,18 @@ def row_hash(cols, seed: int, dialect_name: str):
         txt = sa.func.concat(sa.literal_column(f"'{seed}|'"), _joined(cols))
         digest = sa.func.hashbytes(sa.literal_column("'SHA2_256'"), sa.cast(txt, sa.VARCHAR(None)))
         return sa.cast(sa.cast(digest, sa.BINARY(4)), sa.BigInteger)
+    if dialect_name == "snowflake":
+        # the same 32 bits: SHA2 gives lower-case hex, read digit by digit with
+        # CHARINDEX (TO_NUMBER(h, 'XXXXXXXX') is not in the fakesnow stand-in)
+        txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
+        hexd = sa.func.sha2(txt, sa.literal_column("256"))
+        expr = None
+        for i in range(8):
+            digit = sa.func.charindex(sa.func.substr(hexd, sa.literal_column(str(i + 1)), sa.literal_column("1")),
+                                      sa.literal_column("'0123456789abcdef'")) - sa.literal_column("1")
+            term = digit * sa.literal_column(str(16 ** (7 - i)))
+            expr = term if expr is None else expr + term
+        return sa.cast(expr, sa.BigInteger)
     if dialect_name == "oracle":
         return sa.func.ora_hash(_joined(cols), sa.literal(HASH_RANGE - 1), sa.literal(seed))
     if dialect_name == "sqlite":
@@ -181,7 +194,7 @@ def py_row_hash(seed: int, text: str) -> int:
 
 
 def py_row_hash_sha256(seed: int, text: str) -> int:
-    """The MySQL, MariaDB, DuckDB, Databricks and Fabric hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
+    """The MySQL, MariaDB, DuckDB, Databricks, Fabric and Snowflake hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
     return int(hashlib.sha256(f"{seed}|{text}".encode()).hexdigest()[:8], 16)
 
 

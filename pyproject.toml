@@ -41,11 +41,12 @@ oracle = ["oracledb>=2.0"]
 mysql = ["pymysql>=1.1.1"]
 databricks = ["databricks-sqlalchemy>=2.0.5", "databricks-sql-connector>=4.0", "databricks-sdk>=0.30"]
 fabric = ["pyodbc>=5.0", "azure-identity>=1.15", "azure-storage-file-datalake>=12.14"]
+snowflake = ["snowflake-sqlalchemy>=1.7", "snowflake-connector-python[pandas]>=3.12"]
 parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
-all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,parquet]"]
+all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,parquet]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
 dev = [
@@ -94,6 +95,7 @@ markers = [
     "mariadb: needs a live MariaDB server (RELSYNTH_TEST_MARIADB_URL)",
     "databricks: needs a Databricks SQL warehouse or the local Spark stand-in (RELSYNTH_TEST_DATABRICKS_URL)",
     "fabric: needs a Fabric warehouse or the local SQL Server 2022 stand-in (RELSYNTH_TEST_FABRIC_URL)",
+    "snowflake: needs a Snowflake account or the local fakesnow stand-in (RELSYNTH_TEST_SNOWFLAKE_URL)",
     "slow: end-to-end runs that take more than a few seconds",
     "science: the statistical check suite C00-C78 (about an hour; run with -m science)",
 ]

@@ -184,3 +184,63 @@ No Fabric emulator exists. Fabric's Warehouse speaks T-SQL over TDS, so the test
 - [Collation in Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/collation).
 - [Connectivity to Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/connectivity) and [Microsoft Entra authentication](https://learn.microsoft.com/fabric/data-warehouse/entra-id-authentication).
 - [`COPY INTO` (Fabric)](https://learn.microsoft.com/sql/t-sql/statements/copy-into-transact-sql?view=fabric).
+
+## Snowflake
+
+```
+snowflake://<user>@<account identifier>/<database>/<schema>?warehouse=<warehouse>&role=<role>
+```
+
+Install with `pip install "relsynth[snowflake]"` (snowflake-sqlalchemy and the Snowflake Connector for Python). The account identifier is `<organization>-<account>`, as in the account URL. `schema` in the section overrides the URL's.
+
+### Sign-in
+
+| `auth.method` | Needs | What it is |
+|---|---|---|
+| `key-pair` | `private_key_file`, optional `private_key_passphrase_env` | A PKCS#8 key registered on the user (`ALTER USER ... SET RSA_PUBLIC_KEY`). The recommended method for service users |
+| `pat` | `token_env` | A programmatic access token |
+| `oauth` | `token_env` | An OAuth access token from your identity provider or Snowflake OAuth |
+| `password` | `password_env` | A password. Snowflake is phasing out single-factor passwords for people |
+| `sso` | | Browser sign-in through your identity provider (`externalbrowser`) |
+| `workload-identity` | optional `provider` (`aws`, `azure`, `gcp`) | The cloud identity of the machine or pod relsynth runs on, without a secret |
+| `default` | optional `connection_name` | A connection from `~/.snowflake/connections.toml` |
+
+Without `auth`, the URL's password (or `password_env`) is used.
+
+### What differs from the other databases
+
+| Topic | Snowflake | What relsynth does |
+|---|---|---|
+| Names | Unquoted names are stored in upper case | The dialect maps lower-case names to them and quotes mixed-case names, so `Album` stays `Album` and `customer` is `CUSTOMER` |
+| Types | `FLOAT` is double precision, `VARCHAR` holds 16 MB | Generic types keep the data. Date-times are `TIMESTAMP_NTZ`, stored as given whatever the session time zone |
+| Keys | Primary, unique and foreign keys are declared but never enforced (only `NOT NULL` is). Standard tables have no indexes | Keys are declared; identity columns and indexes are not created. Write targets do not rely on the database rejecting rows |
+| Sample hash | `SHA2` | The first 32 bits of `SHA2('seed\|key', 256)`, as on MySQL, DuckDB, Databricks and Fabric. The hex digits are read with `CHARINDEX`, which the stand-in also runs |
+| Query tag | `QUERY_TAG` session parameter | Every session carries the tag, so its queries can be found in `QUERY_HISTORY` and `ACCOUNT_USAGE.QUERY_HISTORY`. A `session_parameters` entry in `connect_args` replaces it |
+| Cost | Credits per second of a running virtual warehouse, by size | `max_bytes` uses `INFORMATION_SCHEMA.TABLES.BYTES`, the compressed storage, an upper bound of a scan |
+
+### Loading rows
+
+| `bulk.method` | How | When |
+|---|---|---|
+| `insert` (default) | `INSERT` with parameter arrays, which the connector sends as one multi-row statement per batch of 20,000 rows | Up to a few hundred thousand rows |
+| `stage` | `write_pandas`: the rows are written as Parquet, `PUT` in a temporary stage of the session and loaded with `COPY INTO`. `chunk_rows` sets the rows per file (default 1,000,000) | Large tables. Needs no stage or storage integration of your own |
+
+### Troubleshooting
+
+| Message | Cause and fix |
+|---|---|
+| `250001: Could not connect to Snowflake backend` | The account identifier is wrong (use `<org>-<account>`, not the URL) or the network blocks `*.snowflakecomputing.com` |
+| `JWT token is invalid` | The public key on the user does not match `private_key_file`, or the account identifier differs from the one the key was registered under |
+| `No active warehouse selected` | Add `warehouse=` to the URL, or give the user a default warehouse |
+| `CostGuardError: ... more than guards.max_bytes` | The table is larger than the guard. Push it down (`synthesis.pushdown`) or raise the guard |
+
+### How it was tested
+
+The tests run the real Snowflake connector and dialect against [fakesnow](https://github.com/tekumara/fakesnow) 0.12 in server mode, which speaks Snowflake's REST protocol over DuckDB (`tests/emulators/snowflake`; its README lists what it can and cannot check). `PUT` and `COPY INTO` (`bulk: stage`), key-pair and other sign-ins, the session `QUERY_TAG`, declared foreign keys and table sizes exist only on Snowflake; they have unit tests of what is sent and no live test yet. Run `pytest -m snowflake tests/integration` against a real account (`RELSYNTH_TEST_SNOWFLAKE_URL` and credentials in `RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS`) before relying on them.
+
+### Sources
+
+- [Key-pair authentication](https://docs.snowflake.com/en/user-guide/key-pair-auth), [programmatic access tokens](https://docs.snowflake.com/en/user-guide/programmatic-access-tokens), [workload identity federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation) and [connecting with the Python connector](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect).
+- [Constraints](https://docs.snowflake.com/en/sql-reference/constraints-overview) (not enforced, except NOT NULL), [identifier resolution](https://docs.snowflake.com/en/sql-reference/identifiers-syntax).
+- [`QUERY_TAG`](https://docs.snowflake.com/en/sql-reference/parameters#query-tag), [`SHA2`](https://docs.snowflake.com/en/sql-reference/functions/sha2), [`CHARINDEX`](https://docs.snowflake.com/en/sql-reference/functions/charindex), [`INFORMATION_SCHEMA.TABLES`](https://docs.snowflake.com/en/sql-reference/info-schema/tables).
+- [`write_pandas`](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api#write_pandas) and [snowflake-sqlalchemy](https://github.com/snowflakedb/snowflake-sqlalchemy).
