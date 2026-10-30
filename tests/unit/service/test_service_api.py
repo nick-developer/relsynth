@@ -232,3 +232,12 @@ def test_file_source_retry_then_fail(client, flow, worker, settings, store, tmp_
     worker.serve(once=True)
     r = store.run("acme", run["id"])
     assert r["state"] in ("queued", "failed") and r["error"]
+
+
+def test_openapi_document_is_current(app):
+    """docs/service/openapi.json matches the code (regenerate: relsynth-service openapi --out ...)."""
+    doc = json.loads((Path(__file__).parents[3] / "docs/service/openapi.json").read_text())
+    live = json.loads(json.dumps(app.openapi()))
+    doc["info"].pop("version")
+    live["info"].pop("version")
+    assert doc == live

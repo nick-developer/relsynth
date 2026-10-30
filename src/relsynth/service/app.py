@@ -149,7 +149,9 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
         return resp
 
     @app.exception_handler(AuthError)
-    async def _authn(_req, e: AuthError):
+    async def _authn(req, e: AuthError):
+        log.warning("authentication failed", extra={"request_id": getattr(req.state, "request_id", None),
+                                                    "outcome": str(e)[:200]})
         return JSONResponse({"detail": f"authentication failed: {e}"}, status_code=401,
                             headers={"WWW-Authenticate": 'Bearer realm="relsynth"'})
 

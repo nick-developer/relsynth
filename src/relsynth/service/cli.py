@@ -118,11 +118,11 @@ def main(argv: list[str] | None = None) -> int:
         def loop(i):
             counts[i] = workers[i].serve(poll_s=a.poll, once=a.once)
         threads = [threading.Thread(target=loop, args=(i,), daemon=True) for i in range(len(workers))]
-        for t in threads:
-            t.start()
-        for t in threads:
-            while t.is_alive():
-                t.join(1.0)
+        for th in threads:
+            th.start()
+        for th in threads:
+            while th.is_alive():
+                th.join(1.0)
         print(f"{sum(counts)} job(s) processed", file=sys.stderr)
         return 0
     return 2
