@@ -1,6 +1,6 @@
 name: bench
 
-# The full benchmark: every public golden database (Chinook, AdventureWorks DW,
+# The full benchmark: every public golden database (Chinook, AdventureWorks DW, Berka, ACS,
 # Contoso as SQLite and as Parquet) on five seeds and the statistical check
 # suite, compared with bench/baseline.json. bi/COREP is private and runs only
 # on the maintainer's machine (`python -m bench all` with RELSYNTH_BENCH_BI_DIR).
@@ -35,7 +35,9 @@ jobs:
       matrix:
         part:
           - { name: chinook, datasets: "chinook chinook_x2", fake: "--no-fake" }
-          - { name: adventureworks, datasets: "adventureworks", fake: "--no-fake" }
+          # AdventureWorks takes about 50 minutes per seed with the quality suite: two jobs
+          - { name: adventureworks-a, datasets: "adventureworks", fake: "--no-fake", seeds: "1,2,3" }
+          - { name: adventureworks-b, datasets: "adventureworks", fake: "--no-fake", seeds: "4,5" }
           - { name: contoso, datasets: "contoso_sqlite contoso_parquet", fake: "--no-fake" }
           - { name: berka, datasets: "berka", fake: "--no-fake" }
           - { name: acs, datasets: "acs", fake: "--no-fake" }
@@ -49,10 +51,10 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bench/.cache
-          key: bench-data-${{ matrix.part.name }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+          key: bench-data-${{ matrix.part.datasets || 'fake' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
       - name: ${{ matrix.part.name }}
         env:
-          SEEDS: ${{ inputs.seeds || '1,2,3,4,5' }}
+          SEEDS: ${{ matrix.part.seeds || inputs.seeds || '1,2,3,4,5' }}
           DATASETS: ${{ matrix.part.datasets }}
           FAKE: ${{ matrix.part.fake }}
         run: |

@@ -142,7 +142,9 @@ the seeds on which it failed. A new record regresses when
   (an identity, a scorecard item with limit 0, a statistical-suite check)
   regresses on any failing seed; a statistical scorecard item (a distance under
   a positive limit) only when it fails on more than half of the new seeds;
-- **R2** the mean pass rate over the new seeds falls below the baseline mean by
+- **R2** the mean pass rate over the new seeds, on the checks the baseline
+  has (a new kind of check counts once a baseline with it is built), falls below
+  the baseline mean by
   more than the spread, max(2 × standard deviation of the baseline's per-seed
   rates, 1 / number of judged checks);
 - **R3** a run errors, or (with `--full`) a dataset of the baseline did not run

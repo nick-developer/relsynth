@@ -11,7 +11,8 @@ A new record regresses on a dataset when
       or a scorecard item whose limit is 0) regresses on any failing seed; a
       statistical check (a distance under a positive limit) only when it fails
       on more than half of the new seeds, or
-  R2  the mean pass rate over the new seeds drops below the baseline mean by
+  R2  the mean pass rate over the new seeds (on the checks the baseline has)
+      drops below the baseline mean by
       more than the run-to-run spread, spread = max(2 sd, 1 / judged checks):
       two standard deviations of the per-seed pass rates (a 95% band if the rates
       were normal), and never less than one check, or
@@ -161,7 +162,10 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
         if b is None:
             notes.append(f"{ds}: not in the baseline; recorded only")
             continue
-        rates = [rate(r) for r in rs if r.get("checks")]
+        # the pass rate over the checks the baseline knows: a new kind of check (a new suite)
+        # enters R2 only once a baseline that has it is built
+        known = set(b["checks"])
+        rates = [rate({"checks": [c for c in r["checks"] if c["id"] in known]}) for r in rs if r.get("checks")]
         mean = statistics.fmean(rates) if rates else float("nan")
         summary[ds] = {"seeds": [r.get("seed") for r in rs], "mean": round(mean, 6), "baseline_mean": b["mean"],
                        "spread": b["spread"], "passed": [sum(c["pass"] for c in judged(r)) for r in rs],

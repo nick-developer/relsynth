@@ -193,3 +193,11 @@ def test_domain_check_modules_hold_on_toy_data():
     r = berka.checks(T, T)
     assert all(r[k] == 1.0 for k in r if k.split()[0] in {f"F{i}" for i in range(1, 12)})
     assert r["F15 loan status, total variation from the bank"] == 0.0
+
+
+def test_new_kinds_of_check_do_not_move_r2():
+    # a new suite adds checks that fail; R2 compares only the checks the baseline has
+    run = _run("db", 1)
+    run["checks"] += [{"id": f"quality:q{i}", "pass": False} for i in range(10)]
+    reg, notes, summ = regress.compare(_baseline(), {"runs": [run]})
+    assert reg == [] and summ["db"]["mean"] == 1.0
