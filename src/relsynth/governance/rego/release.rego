@@ -99,7 +99,7 @@ deny contains msg if {
 deny contains msg if {
 	external
 	some r in m.reports
-	r.digest.sha256 in input.request.package
+	r.digest.sha256 in input.request["package"]
 	not r.external_safe
 	msg := sprintf("the %s report was computed on real data without DP and cannot leave the organisation", [r.kind])
 }
