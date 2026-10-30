@@ -124,6 +124,7 @@ class Intensity:
         self.bucket_days = np.bincount(self.bucket_of_day, minlength=self.B).astype(float)
         self.expo = None
         self.adj = np.ones((self.K, self.B))
+        self.total = self.counts.copy()
         if exposure is not None:
             self.counts = np.zeros((self.K, self.B))
             np.add.at(self.counts, (seg[interior], b[interior]), 1.0)
@@ -150,9 +151,15 @@ class Intensity:
             n_k = self.counts.sum(1, keepdims=True)
             rbar = np.maximum(n_k, 1) / np.maximum(self.expo.sum(1, keepdims=True), 1e-9)
             shape, scale = self.counts + 1.0, 1.0 / (self.expo + 1.0 / rbar)
-            rate = shape * scale if rng is None else rng.gamma(shape, scale)
-            P = rate * self.bucket_days[None, :]
+            P = shape * scale * self.bucket_days[None, :]
             P = P / P.sum(1, keepdims=True)
+            if rng is not None:
+                # the profile's uncertainty is that of the bucket totals (all
+                # events), not of the fewer interior events the rate is read from
+                at = getattr(self, "total", self.counts) + self.c * self.pool + 1e-6
+                D = np.stack([rng.dirichlet(r) for r in at])
+                P = P * D / (at / at.sum(1, keepdims=True))
+                P = P / P.sum(1, keepdims=True)
         if not self.weekly:
             w = np.ones(7)
         self.P, self.w = P, w / w.mean()

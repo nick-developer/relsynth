@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp, spearmanr, wasserstein_distance
 
-from ..quality.calibrate import kappa, null_summary
+from ..quality.calibrate import null_summary
 from .calendar import to_days
 
 SEQ_METRICS = ("gap_w1", "gap_ks", "same_day", "burstiness", "gap_acf1", "span_w1", "first_w1",
@@ -169,7 +169,18 @@ def _spear(s):
     return 0.0 if not np.isfinite(r) else float(r)
 
 
-def calibrate(real: Events, n_other: int, datetime=False, splits=20, confidence=0.99, seed=0) -> dict:
+def predictive_kappa(sizes, split_sizes, predictive):
+    """kappa (Prop. 109) for an independent draw of the real law, or, with
+    predictive=True, for a posterior predictive draw: its parameters carry the
+    posterior uncertainty, about one more sampling variance at the real size,
+    so the variance 1/N + 1/M of the difference becomes 2/N + 1/M (Prop. 1204)."""
+    (a, b), (a2, b2) = sizes, split_sizes
+    v = (2.0 if predictive else 1.0) / max(a, 1) + 1 / max(b, 1)
+    return float(np.sqrt(v / (1 / max(a2, 1) + 1 / max(b2, 1))))
+
+
+def calibrate(real: Events, n_other: int, datetime=False, splits=20, confidence=0.99, seed=0,
+              predictive=False) -> dict:
     """Null limits of every metric for comparing `real` with a population of
     n_other entities: splits of the real entities into halves."""
     rng = np.random.default_rng(seed)
@@ -181,14 +192,16 @@ def calibrate(real: Events, n_other: int, datetime=False, splits=20, confidence=
         d = sequence_distances(real.subset(m), real.subset(~m), datetime)
         for k, v in d.items():
             draws.setdefault(k, []).append(v)
-    k = kappa((N, n_other), (N // 2, N - N // 2))
+    k = predictive_kappa((N, n_other), (N // 2, N - N // 2), predictive)
     return {name: null_summary(v, 0.0, confidence, k, log=True) for name, v in draws.items()}
 
 
-def sequence_checks(real: Events, syn: Events, datetime=False, splits=20, confidence=0.99, seed=0) -> list[dict]:
-    """[{metric, value, limit, pass, null}] for one event table."""
+def sequence_checks(real: Events, syn: Events, datetime=False, splits=20, confidence=0.99, seed=0,
+                    predictive=False) -> list[dict]:
+    """[{metric, value, limit, pass, null}] for one event table; predictive=True
+    when syn is a posterior predictive draw (relsynth's default datasets)."""
     d = sequence_distances(real, syn, datetime)
-    lim = calibrate(real, syn.n_entities, datetime, splits, confidence, seed)
+    lim = calibrate(real, syn.n_entities, datetime, splits, confidence, seed, predictive)
     out = []
     for name, v in d.items():
         L = lim[name]["limit"]
@@ -202,7 +215,7 @@ def table_events(df, entity, time) -> Events:
     return Events(to_days(df[time]), df[entity])
 
 
-def sequence_report(spec, real: dict, syn: dict, splits=20, confidence=0.99, seed=0) -> dict:
+def sequence_report(spec, real: dict, syn: dict, splits=20, confidence=0.99, seed=0, predictive=True) -> dict:
     """Checks of every table with a `sequence` block of a (1.0) spec, on the
     tables as written (header columns on the lines are deduplicated by the
     header key)."""
@@ -223,7 +236,7 @@ def sequence_report(spec, real: dict, syn: dict, splits=20, confidence=0.99, see
             is_dt = bool(((v - v.dt.normalize()).dt.total_seconds() > 0).any())
         er, es = table_events(r, ent, tc), table_events(s, ent, tc)
         es.t0, es.t1 = er.t0, er.t1
-        checks = sequence_checks(er, es, is_dt, splits, confidence, seed)
+        checks = sequence_checks(er, es, is_dt, splits, confidence, seed, predictive)
         rep[t] = {"entity": ent, "time": tc, "real_entities": er.n_entities, "synthetic_entities": es.n_entities,
                   "real_events": len(er.t), "synthetic_events": len(es.t),
                   "passed": sum(1 for c in checks if c["pass"]), "total": sum(1 for c in checks if c["pass"] is not None),
@@ -354,18 +367,42 @@ def tstr(Y_real, Y_syn, step, horizon_days=1, test_share=0.2, max_rows=400000, s
     return {"mae_trtr": mae_r, "mae_tstr": mae_s, "mae_seasonal_naive": naive, "gap": mae_s / mae_r - 1}
 
 
+def _block_resample(Y, block, rng):
+    """Y with its time axis cut into blocks of `block` steps (a week) and the
+    blocks drawn with replacement, the same blocks for every series: a moving
+    block bootstrap (Kunsch 1989) that keeps the cross-series dependence and
+    the weekly phase but draws a new path of every common shock."""
+    T = Y.shape[1]
+    nb = max(T // block, 1)
+    if nb < 2:
+        return Y
+    starts = rng.integers(0, nb, nb) * block
+    idx = (starts[:, None] + np.arange(block)[None, :]).reshape(-1) % T
+    return Y[:, idx[:T]] if len(idx) >= T else Y[:, np.resize(idx, T)]
+
+
 def series_checks(Y_real, Y_syn, step, splits=20, confidence=0.99, seed=0):
-    """Calibrated checks of one value column (series_distances) plus TSTR."""
+    """Calibrated checks of one value column (series_distances) plus TSTR.
+
+    Series of one estate share common shocks (weather, holidays), and the two
+    halves of a split of the real series share the same path of them, so a
+    plain split is blind to how much the path itself varies.  Each split
+    therefore compares half A with half B on block-resampled time, and the
+    limit is not shrunk to the full size (kappa = 1): the split null then
+    holds two shock paths, as a real-versus-synthetic comparison does, and
+    more entity noise than it (Prop. 1204)."""
     rng = np.random.default_rng(seed)
     d = series_distances(Y_real, Y_syn, step, seed)
     N = Y_real.shape[0]
+    per_day = max(int(round(1 / step)), 1)
     draws: dict[str, list] = {}
     for i in range(splits):
         m = np.zeros(N, bool)
         m[rng.permutation(N)[: N // 2]] = True
-        for k, v in series_distances(Y_real[m], Y_real[~m], step, seed + i + 1).items():
+        B = _block_resample(Y_real[~m], 7 * per_day, rng)
+        for k, v in series_distances(Y_real[m], B, step, seed + i + 1).items():
             draws.setdefault(k, []).append(v)
-    k = kappa((N, Y_syn.shape[0]), (N // 2, N - N // 2))
+    k = 1.0
     out = []
     for name, v in d.items():
         ns = null_summary(draws[name], 0.0, confidence, k, log=True)
