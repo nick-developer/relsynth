@@ -140,7 +140,7 @@ def run_sequences(datasets, seeds, splits):
                     hkey = ((spec["tables"][t].get("fact") or {}).get("header") or {}).get("key")
                     er, es = _events(real[t], e, c, hkey), _events(d[t], e, c, hkey)
                     es.t0, es.t1 = er.t0, er.t1
-                    ch = sequence_checks(er, es, splits=splits, seed=seed)
+                    ch = sequence_checks(er, es, splits=splits, seed=seed, predictive=True)
                     row["tables"][t] = {"passed": sum(1 for x in ch if x["pass"]),
                                         "total": sum(1 for x in ch if x["pass"] is not None),
                                         "checks": [{k: x[k] for k in ("metric", "value", "limit", "pass")} for x in ch]}
