@@ -142,6 +142,31 @@ When fractional seconds matter, create the target tables yourself with `DATETIME
 
 Use `relsynth clone-schema --source ... --target ...` to create the empty structure alone, for example for a DBA to review.
 
+## TimescaleDB
+
+TimescaleDB is PostgreSQL with the `timescaledb` extension, so it uses the `postgresql` kind and driver.
+
+- **Source**: tables and hypertables are read like PostgreSQL tables. `relsynth introspect` adds a note for each
+  hypertable with its time column and chunk interval; the time column is a natural `sequence` or `series` time.
+- **Target**: when the target database has the extension, `write` creates hypertables on load:
+
+  ```yaml
+  target:
+    kind: postgresql
+    url: postgresql+psycopg://user@host/db
+    timescale:
+      hypertables: auto          # auto, none, or {table: time column}
+      chunk_interval: 7 days     # optional
+  ```
+
+  `auto` takes the source's hypertables and every table whose `series`, `sequence` or fact time column is a date
+  or datetime. A table with a primary or unique key that leaves out the time column stays a plain table
+  (TimescaleDB enforces keys per chunk) and the run logs a warning.
+- Tested against TimescaleDB 2.17 (`docker-compose.test.yml`, service `timescaledb`; integration test
+  `tests/integration/test_timescale.py`, run when `RELSYNTH_TEST_TIMESCALE_URL` is set).
+
+See [time series](timeseries.md).
+
 ## Files
 
 ```yaml

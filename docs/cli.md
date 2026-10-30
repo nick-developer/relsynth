@@ -37,6 +37,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`validate`](#validate) | validate a spec (alias of check) |
 | [`plan`](#plan) | which tables are fitted from in-database statistics (no fitting) |
 | [`run`](#run) | fit, sample, write and score |
+| [`extend`](#extend) | continue the event histories of a synthetic dataset step by step (new rows per day as CSV deltas) |
 | [`verify`](#verify) | model checks on real data (R1-R7): scorecard, convergence, posterior predictive checks, scale rule, structure, stability |
 | [`privacy`](#privacy) | attack a release per person and write a privacy report per release context |
 | [`evaluate`](#evaluate) | score synthetic data already written |
@@ -162,6 +163,30 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
 | `--pushdown` auto\|on\|off |  |  | override synthesis.pushdown.mode |
 | `--seed` SEED |  |  | override synthesis.seed |
 | `--fail-under` SHARE |  |  | quality gate: exit 1 when the share of passed checks is below SHARE (0-1) |
+
+## extend
+
+Continue the event histories of a synthetic dataset step by step (new rows per day as CSV deltas).
+
+```
+usage: relsynth extend [-h] [--set KEY=VALUE] --until UNTIL [--start START]
+                       [--step {hour,day,week,month}] [--dataset DATASET] [--out OUT]
+                       [--with-base] [--seed SEED] [--json]
+                       [--log-level {debug,info,warning,error}]
+                       spec
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `spec` | yes |  | the YAML specification |
+| `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--until` UNTIL | yes |  | end of the extension (date or datetime, exclusive) |
+| `--start` START |  |  | start of the extension (default: the end of the source's time range) |
+| `--step` hour\|day\|week\|month |  | `day` | delta period |
+| `--dataset` DATASET |  |  | the base dataset (posterior draw number) |
+| `--out` OUT |  | `deltas` | folder for delta-<period>/<table>.csv |
+| `--with-base` |  |  | also write the base dataset to <out>/base |
+| `--seed` SEED |  |  | override synthesis.seed |
 
 ## verify
 
