@@ -7,6 +7,7 @@
     relsynth ir privacy estate.yaml [--unit Customer]
     relsynth ir odcs estate.yaml --out contract.yaml          (ODCS v3.2.0 export)
     relsynth ir from-odcs contract.yaml --out estate.yaml     (ODCS v3 import)
+    relsynth ir check-contract contract.yaml --data delta:./out  (check data against an ODCS contract)
     relsynth ir openlineage estate.yaml --namespace sqlite://shop [--inputs-namespace ...]
     relsynth ir schema --out relsynth-ir-2.0.schema.json
 """
@@ -127,6 +128,18 @@ def cmd_from_odcs(a, out):
     return EXIT_OK
 
 
+def cmd_check_contract(a, out):
+    from ..spec import read_yaml
+    from .contract_check import check_location
+    rep = check_location(read_yaml(a.contract), a.data, tables=a.tables, schema=a.schema)
+    out.put(contract_check=rep.to_dict())
+    if a.out:
+        _write(rep.to_markdown(), a.out, out, "contract check report")
+    else:
+        out.line(rep.to_markdown().rstrip("\n"))
+    return EXIT_OK if rep.ok else EXIT_GATE
+
+
 def cmd_openlineage(a, out):
     from . import load
     from .openlineage import datasets
@@ -178,6 +191,15 @@ def add_parser(sub, common):
     s.add_argument("contract")
     fmt(s)
     s.set_defaults(fn=cmd_from_odcs)
+    s = s2.add_parser("check-contract", help="check tables against an ODCS v3 contract (keys, links, types, nulls, "
+                                             "ranges, library quality metrics)")
+    s.add_argument("contract")
+    s.add_argument("--data", required=True, help="location of the tables (sqlite:out.db, delta:./lake, iceberg:./lake, "
+                                                 "a URL, ...)")
+    s.add_argument("--schema", help="schema or namespace of the tables")
+    s.add_argument("--tables", nargs="*", help="check only these schema objects")
+    s.add_argument("--out", help="write the report (Markdown) here")
+    s.set_defaults(fn=cmd_check_contract)
     s = s2.add_parser("openlineage", help="OpenLineage dataset facets of every entity (JSON)")
     s.add_argument("doc")
     s.add_argument("--namespace", required=True, help="OpenLineage namespace of the datasets (e.g. sqlite://shop)")
