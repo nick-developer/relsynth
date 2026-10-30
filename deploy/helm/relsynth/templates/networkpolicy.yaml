@@ -1,0 +1,23 @@
+{{- if .Values.networkPolicy.enabled }}
+# default deny for the release's pods, then: ingress to the API on 8080 only, DNS, and the
+# egress the values allow (identity provider, metadata database, source databases, KMS)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "relsynth.fullname" . }}
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "relsynth.selector" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{port: 8080}]
+      {{- with .Values.networkPolicy.ingressFrom }}
+      from: {{- toYaml . | nindent 8 }}
+      {{- end }}
+  egress:
+    - ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    {{- with .Values.networkPolicy.egress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
