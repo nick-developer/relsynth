@@ -1,0 +1,169 @@
+%=====================================================================
+\section{Generator plug-ins (v2.0)}\label{sec:v20gen}
+% numbered from 700 so that the parallel 2.x threads (106-108 for the IR, 600-605 for privacy) do not collide
+\newcounter{savedpropgen}\setcounter{savedpropgen}{\value{proposition}}
+\setcounter{proposition}{699}
+Version 2.0 separates the \emph{relational skeleton} of a synthetic database from the \emph{attribute columns} of
+each table (\texttt{relsynth/generators}, guide \texttt{docs/generators.md}, design record
+\texttt{docs/adr/0002-generator-plugins.md}). The skeleton $\mathcal S$---which rows exist, their keys, the links
+between them, the latent segment of every row, counts and scale---is drawn by the engine of
+Sections~\ref{sec:star}--\ref{sec:v10}. The attribute columns $x_t$ of table $t$ are drawn by a \emph{generator}
+$G_t$ chosen in the spec: a pair of maps $\mathrm{fit}$ and $\mathrm{sample}$, where $\mathrm{sample}$ returns, for
+rows with contexts $c_i$, values $x_i\sim q_{G_t}(\cdot\mid c_i;\theta_t)$. The context $c_i=(g_i,\bar g_i,a_i)$ is
+the row's latent group $g_i$ (its segment, or its segment block for a fact), the coarser group $\bar g_i$ the engine
+backs off to, and---for a generator that declares \emph{parent} conditioning---the attributes $a_i$ of the row's
+synthetic parents. Write $\mathcal R$ for the rules of the spec, split into \emph{computed} rules (derive,
+aggregate, cumulative, computed columns) and \emph{check} rules and unique attribute keys. The checks are in
+\texttt{tests/unit/test\_generators.py}, and the identity runs and scorecards of every generator on every suite are
+in the T03 report.
+
+\subsection{What the engine guarantees with any generator}
+\begin{proposition}[Skeleton and rules do not depend on the generator]\label{prop:genskeleton}
+Let every $G_t$ satisfy the contract: $\mathrm{sample}(n,c,\rho)$ returns $n$ rows with exactly the table's own
+attribute columns. Then, whatever the generators,
+\begin{enumerate}
+\item every synthetic dataset has unique, non-null primary keys; every foreign key is null or names an existing
+parent row; trees are acyclic; and the row counts, scaling and link structure follow the laws of
+Sections~\ref{sec:star}--\ref{sec:v10};
+\item every computed rule holds exactly on every row;
+\item a row that breaks a check rule or a unique attribute key after generation is redrawn from
+$q_{G_t}(\cdot\mid c_i;\theta_t)$ until it holds or the round limit is reached. If the acceptance probability
+$\pi_i=q_{G_t}(\mathcal R_i\mid c_i)$ is positive, each accepted row has law $q_{G_t}(\cdot\mid c_i,\mathcal R_i)$,
+and the probability that a row still breaks a rule after $r$ rounds is $(1-\pi_i)^{r+1}$; such rows are reported.
+\end{enumerate}
+Parts of the skeleton that read attributes (rule-constrained links, key order by an attribute, attribute strata,
+group effects, type 2 history) are functions of the generated values. Their law is then the 1.0 law given those
+values.
+\end{proposition}
+\begin{proof}
+(1) Keys and links are produced by the key and link samplers (Props.~\ref{prop:eta}--\ref{prop:cumulative} and the
+v0.4--v1.0 sections). They read the fitted relational model and the entity encodings used for segment discovery,
+which are built before and independently of any generator (\texttt{TableModel} encodes the columns; the generator is
+attached afterwards). The generator's output is written into attribute columns only. The engine checks that it
+returns exactly those columns (\texttt{TableModel.sample}), so no key or link column can be overwritten. (2) Computed
+columns are evaluated by the engine after generation in the topological order of their inputs (Prop. on computed
+columns, v0.7), from the final values, so they hold whatever the inputs. (3) The rejection loop
+(\texttt{Synthesizer.\_finish}) redraws the offending rows by calling the same generator with the same context. The
+rounds are independent draws from $q(\cdot\mid c_i)$. By the standard rejection-sampling argument (von Neumann
+1951), the first accepted draw has the restricted law, and the number of failed rounds is geometric with success
+probability $\pi_i$. The last sentence holds because these blocks are evaluated by the 1.0 code on the generated
+columns.
+\end{proof}
+
+\begin{proposition}[Seed determinism]\label{prop:genseed}
+If each generator draws every random number from the generator $\rho$ it is handed (or from generators seeded from
+$\rho$), and its fit and sample are deterministic functions of their inputs and the state of $\rho$, then the fitted
+model and every synthetic dataset are deterministic functions of the normalised spec, the data and the seed.
+\end{proposition}
+\begin{proof}
+The engine's fitting stream is seeded by the spec seed, and the stream of dataset $m$ by (seed, sample seed, $m$)
+(\texttt{posterior.run\_streams}). It hands $\rho$ to every generator call in a fixed order: tables in spec order,
+facts in fact order, rejection rounds in row order. A composition of deterministic maps of
+$(\text{inputs},\rho\text{-state})$ is deterministic, and so is the state of $\rho$ after each call, by induction on
+the calls. The hypothesis is the plug-in's responsibility. The built-in generators satisfy it (numpy only, no global
+state), and on a GPU it requires deterministic kernels.
+\end{proof}
+
+\begin{proposition}[The copula plug-in is relsynth 1.0]\label{prop:gencopula}
+With every table on the \texttt{copula} generator (the default), the fitted model and every synthetic dataset are
+identical, byte for byte, to relsynth 1.0's for the same spec, data and seed.
+\end{proposition}
+\begin{proof}
+The copula generator consists of 1.0's \texttt{TableModel} methods \texttt{fit}, \texttt{\_fit\_marginals},
+\texttt{redraw} and \texttt{sample}, moved without changing any operation. It reads the same encoded arrays (the
+encoding stays in \texttt{TableModel} and runs before the generator is attached). It calls the same random
+functions on the same $\rho$ in the same order. The order of the per-dataset redraw is unchanged: marginals, then
+copula matrices, then the weights of pooled tail levels. The decoding loop is the same code. The engine adds no
+random call when it attaches a generator, and the registry and compute resolution draw no random numbers. Hence
+every intermediate value, and the output, is the same. The identity was also checked by running unmodified
+\texttt{main} and this version on the eleven fake scenarios (two posterior datasets each), on Chinook (in memory, and
+pushed down with two datasets), on Contoso (SQLite and Parquet), on bi/COREP and on AdventureWorks DW, and comparing
+the SHA-256 of every output file.
+\end{proof}
+
+\begin{proposition}[Posterior predictive datasets]\label{prop:genpost}
+Suppose that each generator's \texttt{posterior\_draw} replaces $\theta_t$ by an independent draw from
+$p(\theta_t\mid x_t,\hat{\mathcal S})$, its posterior given the table's data and the fitted partition $\hat{\mathcal
+S}$. Then dataset $m$ is a draw from the posterior predictive distribution of the joint model (skeleton and
+attribute blocks) given the fitted partition, as in 1.0 (Prop.~\ref{prop:ppc}). If
+\texttt{posterior\_draw} draws from an approximation $\tilde p(\theta_t)$, the dataset is a draw from the
+corresponding approximate predictive. If it does nothing (\texttt{posterior=False}), datasets share $\theta_t$ and
+differ only by sampling noise and by the relational parameters.
+\end{proposition}
+\begin{proof}
+For each dataset, the engine draws the relational parameters from their posterior given $\hat{\mathcal S}$ and then
+calls \texttt{posterior\_draw} on every fitted table with the dataset's parameter stream
+(\texttt{Synthesizer.redraw}). The attribute blocks are conditionally independent of the relational parameters
+given the partition and the contexts: the joint posterior factorises over the blocks, because each block's
+likelihood involves only its own parameters and the contexts. A joint draw is therefore obtained by drawing each
+block independently. Rows are then sampled given the drawn parameters, which is the definition of a posterior
+predictive draw (Rubin 1993). The two weaker cases replace the block's exact posterior by $\tilde p$, or by a point
+mass at the fitted value.
+\end{proof}
+\noindent\emph{The built-in generators.}
+\begin{itemize}
+\item \texttt{copula} is exact in this sense (1.0).
+\item \texttt{independent} uses the copula's marginal posteriors and is exact for its own model.
+\item \texttt{cart} redraws Bayesian-bootstrap leaf weights given trees fitted once. That is the exact posterior of
+the leaf distributions under a Dirichlet process with vanishing concentration given the tree (Rubin 1981, Prop.~\ref{prop:cartbb}),
+and an approximation of the posterior over trees. synthpop's ``proper'' synthesis refits the trees on a bootstrap
+sample instead.
+\end{itemize}
+
+\subsection{Conditioning}
+\begin{proposition}[What group-only conditioning keeps and loses]\label{prop:gencond}
+Let a fact row $i$ with group $g_i$ have parent attributes $a_i$ and own attributes $x_i$. If the generator
+conditions on the group only, then in the synthetic data $x_i\perp a_i\mid g_i$, and
+\[\operatorname{Cov}(x_i,a_i)=\operatorname{Cov}_{g}\bigl(\mathbb E[x\mid g],\mathbb E[a\mid g]\bigr),\]
+the covariance between the group means. With parent conditioning, $q(x\mid g,a)$ can also carry the within-group
+dependence on $a$.
+\end{proposition}
+\begin{proof}
+The engine draws the skeleton (and with it $g_i$ and the parent rows, hence $a_i$) first, then $x_i$ from
+$q(\cdot\mid g_i)$, which does not read $a_i$; so $x_i$ is conditionally independent of $a_i$ given $g_i$. The law of
+total covariance gives $\operatorname{Cov}(x,a)=\mathbb E_g\operatorname{Cov}(x,a\mid g)+\operatorname{Cov}_g(\mathbb
+E[x\mid g],\mathbb E[a\mid g])$, and the first term is zero by conditional independence.
+\end{proof}
+
+\begin{proposition}[Independent marginals are a latent class model]\label{prop:genind}
+The \texttt{independent} generator has the copula generator's marginal posteriors per group and the identity
+correlation. Within a group its columns are independent, and between columns $j,k$ of a table
+$\operatorname{Cov}(x_j,x_k)=\operatorname{Cov}_g(\mathbb E[x_j\mid g],\mathbb E[x_k\mid g])$. It is therefore the
+latent class model of Goodman (1974), with the latent segments as classes and the hierarchical Dirichlet marginals of
+Section~\ref{sec:star} (Bayesian form: Dunson and Xing 2009).
+\end{proposition}
+\begin{proof}
+It fits the marginals with the copula generator's code (\texttt{SegmentMarginals}). It draws each column as
+$F^{-1}_{g,j}(U_j)$ with independent uniforms $U_j$. That is the copula sampler with $C=I$, because $\Phi(Z_j)$ with
+$Z\sim N(0,I)$ are independent uniforms. Independence within a group follows, and the covariance identity is
+Prop.~\ref{prop:gencond} applied to two columns of the same row.
+\end{proof}
+
+\subsection{Sequential CART}
+\begin{proposition}[Leaf donors with Bayesian-bootstrap weights]\label{prop:cartbb}
+Let leaf $\ell$ of the tree of column $j$ hold the observed values $y_1,\dots,y_{n_\ell}$, with
+$n_\ell\ge$\,\texttt{min\_leaf}. Draw $w\sim\mathrm{Dirichlet}(1,\dots,1)$ once per dataset and draw a synthetic
+value $Y=y_I$ with $P(I=i\mid w)=w_i$. Then:
+\begin{enumerate}
+\item marginally over $w$, $Y$ has the empirical law of the leaf, $P(Y=v)=\#\{i:y_i=v\}/n_\ell$;
+\item given $w$, the probability of a value $v$ with count $c$ in the leaf has mean $c/n_\ell$ and variance
+$c(n_\ell-c)/\bigl(n_\ell^2(n_\ell+1)\bigr)$;
+\item $w$ is the posterior of the leaf's distribution under a Dirichlet process prior whose concentration tends to 0,
+given the $n_\ell$ observations (Rubin 1981).
+\end{enumerate}
+In mean mode, $w_i=1/n_\ell$ and the dataset uses the empirical leaf law.
+\end{proposition}
+\begin{proof}
+(1) $P(Y=v)=\mathbb E[\sum_{i:y_i=v}w_i]=c\,\mathbb E[w_1]=c/n_\ell$, because the Dirichlet$(1,\dots,1)$ is
+exchangeable with mean $1/n_\ell$. (2) $W_v=\sum_{i:y_i=v}w_i\sim\mathrm{Beta}(c,n_\ell-c)$ by the aggregation
+property, which has the stated mean and variance. (3) The posterior of $\mathrm{DP}(\alpha,H)$ given the
+observations is $\mathrm{DP}(\alpha H+\sum_i\delta_{y_i})$. As $\alpha\to0$ its weights on the atoms $y_i$ tend to
+$\mathrm{Dirichlet}(1,\dots,1)$ (Ferguson 1973; Rubin 1981).
+\end{proof}
+\noindent The tree is fitted once: synthetic rows walk it with their own synthetic predictors (group, coarse group,
+parent attributes and the columns before $j$), which is the sequential synthesis of Reiter (2005) and Nowok, Raab and
+Dibben (2016). A row whose group the fit never saw (a sparse fact block passed as its coarse group) goes down the
+larger branch at a split on the group, and the coarse-group splits then apply to it as they do to the fitted rows.
+Without \texttt{smoothing}, every synthetic value of a column is an observed value of that column, as in synthpop's
+default; \texttt{smoothing: density} adds Gaussian kernel noise with Silverman's bandwidth to numbers.
+\setcounter{proposition}{\value{savedpropgen}}

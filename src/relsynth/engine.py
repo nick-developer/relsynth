@@ -27,6 +27,7 @@ from scipy.special import betaln, gammaln, ndtri
 from .counts import choose_count_model
 from .data import coerce
 from .expr import check_mask, derive_values, names_in, split_assignment
+from .generators.contract import GeneratorError
 from .pii import PiiGenerator
 from .prepare import (_index, _keystr, _tuple_frame, compute_aggregate, lookup_column, lookup_deps, make_resolver,
                       prepare_source)
@@ -475,6 +476,7 @@ class Synthesizer:
             excl = self._excluded(t)
             aux = self._aux_columns(t, tables) if T[t]["role"] == "fact" else None
             self.tm[t] = TableModel(t, T[t], tables[t], cfg, exclude=excl, aux=aux)
+            self._attach_generator(t)
         # ---- latent entity objects (strata = rows of small copied parents)
         E = {}
         sc = cfg["segments"]
@@ -598,6 +600,28 @@ class Synthesizer:
         say(f"fit: done in {time.time() - t0:.0f} s")
         return self
 
+    def _attach_generator(self, t):
+        """The generator plug-in of table t's attribute columns (relsynth.generators):
+        the spec's choice, checked against the table, with its compute plan."""
+        from .compute import resolve
+        from .generators.registry import check, default_registry, table_choice
+        ch = table_choice(self.spec, t)
+        entry = default_registry().entry(ch["name"], ch["version"])
+        tm = self.tm[t]
+        errs, warns = check(entry.cls, self.spec, t, aux=bool(tm.aux), pushed=t in self.fstats,
+                            ir_version=str(self.spec.get("_ir_version", "1.0")))
+        if errs:
+            raise GeneratorError("; ".join(errs))
+        self.log["warnings"] += warns
+        tm.compute = resolve(self.cfg.get("compute"), entry.cls.capabilities.gpu, who=f"{t}: generator {ch['name']}",
+                             base_dir=self.spec.get("_base_dir"))
+        self.log["warnings"] += tm.compute.notes
+        tm.generator = entry.cls(ch["options"])
+        if ch["name"] != "copula" or ch["version"] or ch["options"]:
+            self.log["decisions"].setdefault("generators", {})[t] = {
+                "generator": ch["name"], "version": entry.cls.version, "options": ch["options"],
+                "package": entry.dist, "package_version": entry.dist_version, "device": tm.compute.device}
+
     def _opening_rows(self, r, tables):
         """The rows a running balance's openings are read from: every row, or for a
         pushed-down fact the first row of each group (in the rule's order) computed
@@ -701,7 +725,7 @@ class Synthesizer:
             for fn in self._post_fns:
                 fn(prng)
             for _t, tm in self.tm.items():
-                if hasattr(tm, "redraw") and hasattr(tm, "_groups"):
+                if tm.fitted:
                     tm.redraw(base, mode)
             for _t, rk in getattr(self, "rake", {}).items():
                 cnt = rk["counts"]
@@ -1715,7 +1739,7 @@ class Synthesizer:
         sub = groups.copy()
         sub[~ok] = -1
         tm.fit(groups=sub, parent=parent, rng=rng, per_group_copula=False)
-        info["fitted_groups"] = set(tm.group_m)
+        info["fitted_groups"] = tm.fitted_groups()
         # this fact is a parent of a nested fact: its rows become a fixed entity
         if f in self.fact_key_index:
             self._make_fact_entity(f, df, blk_rows, ok)
@@ -4828,8 +4852,8 @@ class Synthesizer:
                            if self.tm[t].cols and t not in getattr(self, "copied", set())},
                "dependency_groups": {t: self.tm[t].fd_groups for t in self.tm
                                      if self.tm[t].fd_groups and t not in getattr(self, "copied", set())},
-               "independent_columns": {t: list(getattr(self.tm[t], "independent", []))
-                                       for t in self.tm if getattr(self.tm[t], "independent", None)},
+               "independent_columns": {t: list(getattr(self.tm[t].generator, "independent", []))
+                                       for t in self.tm if getattr(self.tm[t].generator, "independent", None)},
                "relations": {}, "warnings": self.log["warnings"], "timings": self.log["timings"],
                "decisions": self.log["decisions"]}
         for name, info in self.edge_info.items():
@@ -4862,6 +4886,10 @@ class Synthesizer:
                                           "other": int(((rel.p > 0) & (rel.p < 1)).sum())}
                 d["inactive_anchor_segments"] = int((rel.pi == 0).sum())
             out["relations"][f] = d
+        gens = {t: tm.generator.summary() | {"uncertainty": tm.copula_info()} for t, tm in self.tm.items()
+                if tm.fitted and tm.generator.name != "copula"}
+        if gens:
+            out["generators"] = gens
         return out
 
 

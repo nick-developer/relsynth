@@ -483,6 +483,50 @@ def cmd_ping(a, out):
     return 3
 
 
+def cmd_generators(a, out):
+    from .generators import default_registry
+    reg = default_registry()
+    items = reg.list()
+    if a.action == "show":
+        e = reg.entries.get(a.name)
+        if e is None:
+            reg.entry(a.name)                      # raises with the installed names
+        items = [e.info()]
+    out.put(generators=items, warnings=reg.warnings)
+    for g in items:
+        if g.get("error"):
+            out.line(f"{g['name']:<14} BROKEN  {g['error']}")
+            continue
+        src = "built-in" if g["source"] == "built-in" else f"{g['package']} {g['package_version']}"
+        out.line(f"{g['name']:<14} {g['version']:<6} {src:<28} {g['description']}")
+        if a.action == "show":
+            for k, v in g["capabilities"].items():
+                out.line(f"  {k}: {', '.join(v) if isinstance(v, list) else v}")
+    for w in reg.warnings:
+        out.line(f"warning: {w}")
+    return EXIT_OK if all(not g.get("error") for g in items) else EXIT_SPEC
+
+
+def cmd_compute(a, out):
+    from .compute import detect_gpus, presets, resolve
+    settings = {"preset": a.preset, "file": a.file}
+    found = detect_gpus()
+    out.put(presets=presets(a.file), gpus=found)
+    plans = {}
+    for need in ("never", "optional", "required"):
+        try:
+            plans[need] = resolve(settings, need, who=f"a generator with gpu: {need}", gpus=found).to_dict()
+        except ValueError as e:
+            plans[need] = {"error": str(e)}
+    out.put(plans=plans)
+    out.line(f"GPUs found: {found or 'none'}")
+    for need, pl in plans.items():
+        out.line(f"gpu {need:<9} -> " + (f"error: {pl['error']}" if "error" in pl else
+                                          f"{pl['device']} {pl['device_ids'] or ''} "
+                                          f"precision {pl['precision']} {'; '.join(pl['notes'])}"))
+    return EXIT_OK
+
+
 # ---------------------------------------------------------------------- parser
 def _common(p):
     p.add_argument("--json", action="store_true", help="print one JSON document on stdout (for CI)")
@@ -650,6 +694,16 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("ping", help="test a connection")
     _loc_args(s, "source")
     s.set_defaults(fn=cmd_ping)
+
+    s = sub.add_parser("generators", help="installed generator plug-ins and their capabilities")
+    s.add_argument("action", choices=["list", "show"], nargs="?", default="list")
+    s.add_argument("name", nargs="?", help="generator name (for show)")
+    s.set_defaults(fn=cmd_generators)
+
+    s = sub.add_parser("compute", help="GPUs found and the device each kind of generator would get")
+    s.add_argument("--preset", default="cpu", help="cpu | gpu-auto | gpu-single | gpu-multi | a preset of --file")
+    s.add_argument("--file", default=None, help="a compute.yaml with more presets")
+    s.set_defaults(fn=cmd_compute)
 
     s = sub.add_parser("version", help="versions of relsynth and its main dependencies")
     s.set_defaults(fn=cmd_version)

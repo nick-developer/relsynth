@@ -21,6 +21,14 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **Privacy unit tracing**: reference paths from every entity to the unit, owned/context/unrelated status, cross-unit links, and per-record owners on data (Propositions 107–108).
 - **Standards**: ODCS v3.2.0 export and v3.0–3.2 import (exact round trip through `customProperties`); OpenLineage Schema, DatasetType, Documentation, Tags and ColumnLineage facets.
 - Extra `relsynth[ir]` (jsonschema) for the JSON Schema check.
+- **Generator plug-ins** (`relsynth.generators`). A table's attribute columns now come from a generator chosen in the spec. You can set it per table (`tables.<t>.generator`: a name or `{name, version, options}`) or as a default (`synthesis.generator`). The engine keeps keys, links, latent segments, counts and rules, whatever the generator (Props. 700–706).
+  - Built-in generators: `copula` (the default; byte-identical to 1.0), `independent` (a latent class model) and `cart` (sequential CART, synthpop style).
+  - Third-party generators install as packages through the `relsynth.generators` entry-point group. `relsynth generators list|show` lists them with their capabilities.
+  - See `docs/generators.md` and ADR 0002.
+- **Compute presets** (`compute.yaml`: `cpu`, `gpu-auto`, `gpu-single`, `gpu-multi`). Set them in `synthesis.compute` with expert overrides (devices, backend, precision, batch size, memory limit, threads, fallback).
+  - GPU use is opt-in, the default engine is CPU-only, and every fallback to the CPU is explicit and logged.
+  - `relsynth compute` shows the GPUs found and the device each kind of generator would get.
+  - See `docs/compute.md`.
 - **Quality report 2.0** (`relsynth.assess_quality`, `relsynth evaluate --quality FILE`): a versioned, machine-readable report (JSON Schema `quality-report-2.0`) with every check's metric, scope, value, limit, tolerance, null calibration, level and confidence, grouped in a quality vector (fidelity, utility, integrity) with a calibrated pass rule per area and no opaque overall score. The 1.0 scorecard is carried over unchanged.
 - **Opt-in 2.0 quality gate**: `relsynth evaluate --quality FILE --quality-gate` exits 1 when an area of the quality vector fails. The default gate stays `--fail-under` until 3.0. Utility targets of the golden databases are declared in `benchmarks/targets.yaml`.
 - **New metrics**: Wasserstein-1 on the raw and rank-normal scales, Jensen–Shannon distance, 2- and 3-way marginal TVD, alpha-precision and beta-recall, TSTR/TRTS/TRTR, fan-out laws (W1, childless share, dispersion) and two-hop fan-out, k-hop column-pair trends, aggregation detection C2ST-Agg (logistic, or XGBoost with `relsynth[benchmark]`), and a multi-table utility task. Definitions in `docs/metrics.md`, generated from `quality/registry.py`.

@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Attribute model of one table: group-specific Bayesian marginals plus a
-Gaussian copula per group (entities, one group per latent segment) or a pooled
-copula (facts, one group per segment block)."""
+"""Attribute model of one table: the engine's encoding of its modelled columns
+(codecs, joined dependent categoricals, features for segment discovery) and the
+generator plug-in that fits and samples them (relsynth.generators; the default
+is the Bayesian Gaussian copula of generators/copula.py)."""
 from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from scipy.special import gammaln, ndtr, ndtri
 
-from .copula import GaussianCopula
-from .marginals import MODELLED, Codec, Marginal
+from .marginals import MODELLED, Codec
 
 
 def modelled_columns(tspec, exclude=()):
@@ -130,6 +132,8 @@ class TableModel:
         self._join_dependent_categoricals(cfg["marginals"].get("joint_max_levels", 64),
                                           cfg["marginals"].get("joint_min_cramers_v", 0.3))
         self._order_nominal_levels()
+        self.generator: Any = None   # set by the engine (relsynth.generators); copula if left unset
+        self.compute: Any = None
 
     def _join_functional_dependencies(self, bf):
         """Categoricals linked by functional dependencies (city -> state -> country,
@@ -256,101 +260,44 @@ class TableModel:
         r = pd.Series(v).rank(method="average").to_numpy()
         return ndtri(r / (len(r) + 1))
 
+    # fitted parameters of the copula generator that 1.0 code read from the table model
+    # (the science checks, the exported model); read through to the generator
+    _GENERATOR_ATTRS = frozenset({"copulas", "pooled", "group_m", "global_m", "coarse_m", "group_n", "independent"})
+
+    def __getattr__(self, name):
+        gen = self.__dict__.get("generator")
+        if name in TableModel._GENERATOR_ATTRS and gen is not None and hasattr(gen, name):
+            return getattr(gen, name)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+
+    # ---- the attribute generator (relsynth.generators): the encoding above is the
+    # engine's; fitting and sampling the attribute values is the generator's
+    @property
+    def fitted(self):
+        return self.generator is not None and self.generator.fitted
+
     def fit(self, groups=None, parent=None, rng=None, per_group_copula=True):
         """groups: int label per row (None = one group). parent: dict group -> coarser
-        group label (in `coarse`), used as the marginal prior for small groups."""
+        group label, used as the back-off of small groups."""
+        from .generators.contract import FitContext
         rng = rng or np.random.default_rng()
-        cfg, mcfg, ccfg = self.cfg, self.cfg["marginals"], self.cfg["copula"]
-        self._pi_s = cfg.get("structure", {}).get("structural_prior", 0.0)
-        n = self.n_rows
-        groups = np.zeros(n, dtype=np.int64) if groups is None else np.asarray(groups)
-        self._groups, self.parent = groups, parent or {}
-        self._fit_marginals(rng, mcfg["bayesian_bootstrap"])
-        min_rows = ccfg["min_rows"]
-        # latent bounds of every row under its own group's marginals
-        p = len(self.cols)
-        lo = np.zeros((n, p))
-        hi = np.zeros((n, p))
-        for g, ms in self.group_m.items():
-            idx = groups == g
-            for j, (m, x) in enumerate(zip(ms, self.X)):
-                lo[idx, j], hi[idx, j] = m.latent_bounds(x[idx])
-        # columns whose non-modal values occur in fewer than k rows carry no estimable
-        # dependence (and copying their co-occurrences would single out those rows):
-        # they are kept out of the copula, i.e. sampled independently given the group
-        k = mcfg.get("min_dependence_rows", 0)
-        self.independent = []
-        if k and n:
-            for j in range(p):
-                cnt = pd.Series(self.X[j]).value_counts(dropna=False).to_numpy()
-                if 0 < n - cnt.max() < k:
-                    self.independent.append(self.cols[j])
-                    lo[:, j], hi[:, j] = -np.inf, np.inf
-        self.copulas = {}
-        kw = dict(eta=ccfg["lkj_eta"], iters=ccfg["iterations"], burn_in=ccfg["burn_in"], mode=ccfg["mode"],
-                  max_iters=ccfg.get("max_iterations"), rhat_target=ccfg.get("rhat_target", 1.1),
-                  min_dep_rows=k)
-        cap = ccfg["sample_rows"]
-        # the pooled copula is the one fact tables use; its posterior sd is about
-        # 1/sqrt(rows fitted), and a dataset drawn from it shows that spread in every
-        # correlation, so it is fitted on as many rows as a budget of rows x p^2
-        # latent updates per sweep allows (the sampler's cost), at least 2 sample_rows
-        n_pool = max(2 * cap, int(ccfg.get("pooled_cells", 1e6) // max(p * p, 1)))
-        pooled_idx = rng.permutation(n)[: n_pool]
-        self.pooled = GaussianCopula(p).fit(lo[pooled_idx], hi[pooled_idx], rng, **kw)
-        if per_group_copula:
-            for g in self.group_m:
-                idx = np.flatnonzero(groups == g)
-                if p >= 2 and len(idx) >= max(min_rows, 3 * p):
-                    idx = rng.permutation(idx)[:cap]
-                    self.copulas[g] = GaussianCopula(p).fit(lo[idx], hi[idx], rng, **kw)
+        if self.generator is None:
+            from .generators.registry import default_registry
+            self.generator = default_registry().create("copula")
+        ctx = FitContext(groups=None if groups is None else np.asarray(groups), parent=parent or {},
+                         per_group=per_group_copula, rng=rng, config=self.cfg,
+                         options=self.generator.options, compute=self.compute, table=self.tname)
+        self.generator.fit(self, ctx)
+        self.generator.fitted = True
         return self
 
-    def _fit_marginals(self, rng, bootstrap):
-        """Marginal posteriors top-down: the table's marginal, then each coarse
-        group's (a Dirichlet / DP prior centred on the table's), then each group's
-        (centred on its coarse group's).  bootstrap=False gives posterior means."""
-        mcfg, ccfg = self.cfg["marginals"], self.cfg["copula"]
-        groups, parent, n = self._groups, self.parent, self.n_rows
-        kw = dict(dirichlet_a=mcfg["dirichlet_prior"], grid=ccfg["grid"], bootstrap=bootstrap,
-                  tail_trim=mcfg["tail_trim"], structural=self._pi_s)
-        self.global_m = [Marginal.fit(cd, x, rng, **kw) for cd, x in zip(self.codecs, self.X)]
-        self.group_m, self.group_n = {}, {}
-        self.coarse_m = {}
-        min_rows = ccfg["min_rows"]
-        if parent:
-            cg = np.array([parent.get(g, -1) for g in groups]) if n else np.array([])
-            for c in np.unique(cg):
-                if c < 0:
-                    continue
-                idx = cg == c
-                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw)
-                                    for cd, x, gm in zip(self.codecs, self.X, self.global_m)]
-        for g in np.unique(groups):
-            idx = groups == g
-            prior = self.coarse_m.get(parent.get(g, -1), self.global_m)
-            self.group_n[g] = int(idx.sum())
-            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw)
-                               for cd, x, pm in zip(self.codecs, self.X, prior)]
-
     def redraw(self, rng, mode="draw"):
-        """Parameters of one synthetic dataset: marginals drawn again from their
-        posteriors (posterior means in mean mode), one correlation matrix per
-        group, and the weights of pooled tail levels.  The rank-likelihood copula
-        posterior does not depend on the marginals (Hoff 2007), so its stored
-        draws stay valid when the marginals are redrawn."""
-        if not hasattr(self, "_groups"):
+        """Parameters of one synthetic dataset: one posterior draw of the
+        generator's parameters (posterior means in mean mode) and the weights of
+        pooled tail levels."""
+        if not self.fitted:
             return self
-        if self.cfg["marginals"]["bayesian_bootstrap"]:
-            # mean mode runs the posterior draws with their means (and median
-            # indicators), so a level or a null rate that is structurally absent
-            # with posterior probability above 1/2 stays absent, as in the other blocks
-            from .posterior import param_rng
-            self._fit_marginals(param_rng(rng, mode), True)
-        else:
-            self._fit_marginals(rng, False)
-        for cop in [self.pooled] + list(self.copulas.values()):
-            cop.set_current(rng, mode)
+        self.generator.posterior_draw(rng, mode)
         for cd in self.codecs:
             for part in getattr(cd, "parts", [cd]):
                 if hasattr(part, "redraw_tail"):
@@ -358,40 +305,26 @@ class TableModel:
         return self
 
     def copula_info(self):
-        out = {"pooled": self.pooled.info}
-        for g, c in self.copulas.items():
-            out[f"group_{g}"] = c.info
-        return out
+        return self.generator.uncertainty() if self.fitted else {}
+
+    def fitted_groups(self):
+        return self.generator.fitted_groups()
 
     def sample(self, groups, rng, given: pd.DataFrame | None = None) -> pd.DataFrame:
+        from .generators.contract import Conditioning
         groups = np.asarray(groups)
-        M = len(groups)
-        p = len(self.cols)
-        out = np.zeros((M, p))
-        ai = [self.cols.index(a) for a in self.aux] if (self.aux and given is not None) else []
-        ri = [j for j in range(p) if j not in ai]
-        if ai:
-            # one array per column: discrete codes stay integers next to continuous values
-            G = [self.codecs[j].encode(given[self.cols[j]].reset_index(drop=True)) for j in ai]
-        for g in np.unique(groups):
-            idx = np.flatnonzero(groups == g)
-            cop = self.copulas.get(g, self.pooled)
-            ms = self.group_m.get(g, self.global_m)
-            if ai:
-                # the latent value of a given column is drawn uniformly on its bin
-                # (a truncated standard normal), not fixed at the bin's centre
-                za = np.column_stack([_latent_draw(*ms[j].latent_bounds(G[q][idx]), rng)
-                                      for q, j in enumerate(ai)])
-                za = np.clip(np.nan_to_num(za, nan=0.0, posinf=6, neginf=-6), -6, 6)
-                Z = np.zeros((len(idx), p))
-                Z[:, ri] = cop.sample_conditional(za, ai, ri, rng)
-            else:
-                Z = cop.sample(len(idx), rng) if p else np.zeros((len(idx), 0))
-            U = ndtr(Z)
-            for j, m in enumerate(ms):
-                if j in ai:
-                    continue
-                out[idx, j] = m.from_uniform(U[:, j])
+        if given is not None and "parent" not in self.generator.capabilities.conditioning:
+            given = None
+        df = self.generator.sample(len(groups), Conditioning(groups, given), rng)
+        if list(df.columns) != self.out_cols or (self.out_cols and len(df) != len(groups)):
+            from .generators.contract import GeneratorError
+            raise GeneratorError(f"{self.tname}: generator {self.generator.name} returned columns "
+                                 f"{list(df.columns)} x {len(df)} rows, expected {self.out_cols} x {len(groups)}")
+        return df
+
+    def decode(self, out, rng) -> pd.DataFrame:
+        """Encoded values (rows x cols, aux columns ignored) -> the table's own
+        columns, decoded by their codecs (a joint codec gives each part)."""
         cols = {}
         for j, cd in enumerate(self.codecs):
             if cd.name in self.aux:

@@ -52,6 +52,10 @@ DEFAULT_SYNTHESIS = {
     # fit large fact tables from statistics computed in the database and a bounded
     # uniform sample (relsynth.pushdown); auto: facts with at least min_rows rows
     "pushdown": {"mode": "auto", "min_rows": 1_000_000, "sample_rows": 500_000},
+    # generator plug-in of the attribute columns (relsynth.generators) and the
+    # devices plug-ins may use (relsynth.compute); the default engine is CPU-only
+    "generator": "copula",
+    "compute": {"preset": "cpu", "file": None, "overrides": {}},
 }
 
 
@@ -806,6 +810,46 @@ def _validate_io(spec):
         v = pd_.get(k, DEFAULT_SYNTHESIS["pushdown"][k])
         if not (_is_int(v) and v >= lo):
             errs.append(f"synthesis.pushdown.{k} must be an integer >= {lo}, not {v!r}")
+    if syn.get("compute") is not None:
+        if isinstance(syn["compute"], dict) and isinstance(syn["compute"].get("overrides") or {}, dict):
+            from .compute import validate as validate_compute
+            errs += validate_compute(syn["compute"], spec.get("_base_dir"))
+        else:
+            errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
+    errs += _validate_generators(spec)
+    return errs
+
+
+def _validate_generators(spec):
+    """Generator choices: known names, pins they satisfy, tables they can model."""
+    from .generators.contract import GeneratorError
+    from .generators.registry import check, default_registry, table_choice
+    errs = []
+    syn = spec.get("synthesis") or {}
+    if not isinstance(syn.get("generator", "copula"), str):
+        errs.append("synthesis.generator must be a generator name")
+        return errs
+    reg = default_registry()
+    for tname, t in (spec.get("tables") or {}).items():
+        g = t.get("generator")
+        if g is not None and not isinstance(g, (str, dict)):
+            errs.append(f"{tname}: generator must be a name or a mapping {{name, version, options}}")
+            continue
+        if isinstance(g, dict) and not isinstance(g.get("options") or {}, dict):
+            errs.append(f"{tname}: generator.options must be a mapping")
+            continue
+        if t.get("role") == "view" or t.get("mode") == "copy":
+            if g is not None:
+                errs.append(f"{tname}: a {'view' if t.get('role') == 'view' else 'copied table'} is not generated; "
+                            "remove its generator")
+            continue
+        ch = table_choice(spec, tname)
+        try:
+            e = reg.entry(ch["name"], ch["version"])
+        except GeneratorError as ex:
+            errs.append(f"{tname}: {ex}")
+            continue
+        errs += check(e.cls, spec, tname, ir_version=str(spec.get("_ir_version", "1.0")))[0]
     return errs
 
 

@@ -210,10 +210,13 @@ def structure(syn):
         S["trees"][ent.name] = {"name": name, "child_key": info["spec"]["child_key"], "level_counts": _arr(cnt)}
     # ---- attribute models
     for t, tm in syn.tm.items():
-        if t in syn.copied or not hasattr(tm, "group_m"):
+        if t in syn.copied or not _is_copula(tm):
+            if t not in syn.copied and tm.fitted:
+                scope.append(f"{t}: attribute columns from generator plug-in {tm.generator.name} (engine only; "
+                             "the plug-in's own serialize() saves it)")
             continue
         S["attributes"][t] = {"codecs": [codec_dict(c) for c in tm.codecs], "out_cols": list(tm.out_cols),
-                              "aux": list(tm.aux), "independent": list(getattr(tm, "independent", []))}
+                              "aux": list(tm.aux), "independent": list(getattr(tm.generator, "independent", []))}
     # ---- links between entities
     for e in syn.order:
         fixed = set((syn.strata_info.get(e) or {}).get("by", []))
@@ -330,8 +333,9 @@ def theta(syn):
             pi = np.asarray(ent.pi, float)
             th["entities"][e] = {"pi": _arr(pi / pi.sum())}
     for t, tm in syn.tm.items():
-        if t in syn.copied or not hasattr(tm, "group_m"):
+        if t in syn.copied or not _is_copula(tm):
             continue
+        g = tm.generator
         tail = {}
         for cd in tm.codecs:
             for part in getattr(cd, "parts", None) or [cd]:
@@ -339,10 +343,10 @@ def theta(syn):
                 if w is not None:
                     tail[part.name] = _arr(w)
         th["attributes"][t] = {
-            "groups": {str(int(g)): [marginal_dict(m) for m in ms] for g, ms in tm.group_m.items()},
-            "global": [marginal_dict(m) for m in tm.global_m],
-            "copulas": {str(int(g)): _arr(c.current) for g, c in tm.copulas.items()},
-            "pooled": _arr(tm.pooled.current), "tail_w": tail}
+            "groups": {str(int(k)): [marginal_dict(m) for m in ms] for k, ms in g.group_m.items()},
+            "global": [marginal_dict(m) for m in g.global_m],
+            "copulas": {str(int(k)): _arr(c.current) for k, c in g.copulas.items()},
+            "pooled": _arr(g.pooled.current), "tail_w": tail}
     for name, info in syn.edge_info.items():
         rel = info["rel"]
         if rel.kind == "tree":
@@ -528,9 +532,9 @@ def verify(S, mean, draws, syn=None):
                level="warn")
         rh, bad, mz, where = [], 0, [], []
         for t, tm in syn.tm.items():
-            if t in syn.copied or not hasattr(tm, "pooled"):
+            if t in syn.copied or not _is_copula(tm):
                 continue
-            for g, c in [("pooled", tm.pooled)] + list(tm.copulas.items()):
+            for g, c in [("pooled", tm.generator.pooled)] + list(tm.generator.copulas.items()):
                 inf = c.info or {}
                 v = [inf.get(k) for k in ("rhat_max_entry", "rhat_logdet")]
                 v = [x for x in v if x is not None and np.isfinite(x)]
@@ -560,6 +564,11 @@ def verify(S, mean, draws, syn=None):
                "Prop. 'Rank likelihood with parameter expansion'; split R-hat (Gelman et al. 2013); fixed-width "
                "stopping (Jones et al. 2006; Flegal, Haran & Jones 2008)", level="warn")
     return out
+
+
+def _is_copula(tm):
+    from .generators.copula import CopulaGenerator
+    return tm.fitted and isinstance(tm.generator, CopulaGenerator)
 
 
 def _copula_columns(tm, c):
