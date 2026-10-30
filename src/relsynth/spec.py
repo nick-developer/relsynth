@@ -57,6 +57,10 @@ DEFAULT_SYNTHESIS = {
     # devices plug-ins may use (relsynth.compute); the default engine is CPU-only
     "generator": "copula",
     "compute": {"preset": "cpu", "file": None, "overrides": {}},
+    # where the facts of a dataset are generated (relsynth.runtime): none keeps the
+    # single-process sampler of 1.0; local, process and spark generate them in
+    # partitions of about partition_rows rows, with the same output for any workers
+    "runtime": {"executor": "none", "workers": None, "partition_rows": 1_000_000, "start": None, "master": None},
 }
 
 
@@ -810,6 +814,14 @@ def _validate_io(spec):
                 else:
                     blocks(d[k], dv, f"{pre}{k}.")
     blocks(syn, DEFAULT_SYNTHESIS, "")
+    rt = syn.get("runtime") if isinstance(syn.get("runtime"), dict) else {}
+    if rt.get("executor", "none") not in ("none", "local", "process", "spark"):
+        errs.append(f"synthesis.runtime.executor must be none, local, process or spark, not {rt.get('executor')!r}")
+    for k in ("workers", "partition_rows"):
+        if rt.get(k) is not None and not (_is_int(rt[k]) and rt[k] >= 1):
+            errs.append(f"synthesis.runtime.{k} must be an integer >= 1")
+    if rt.get("start") is not None and rt["start"] not in ("fork", "spawn", "forkserver"):
+        errs.append("synthesis.runtime.start must be fork, spawn or forkserver")
     if not _is_int(syn.get("seed")):
         errs.append(f"synthesis.seed must be an integer, not {syn.get('seed')!r}")
     pc = syn.get("posterior") if isinstance(syn.get("posterior"), dict) else {}

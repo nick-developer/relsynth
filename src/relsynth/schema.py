@@ -392,6 +392,16 @@ SYNTH_DOC = {
     "compute.file": "A compute.yaml with more presets (relative to the spec).",
     "compute.overrides": "Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, "
                          "batch_size, memory_limit, threads, fallback.",
+    "runtime.executor": "none | local | process | spark: none (default) samples in one process as relsynth 1.0; "
+                        "the others generate the facts in partitions (docs/runtime.md): local in this process, "
+                        "process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives "
+                        "the same data with any executor and number of workers.",
+    "runtime.workers": "Worker processes (process) or tasks at once (spark); default: the CPUs (process) or the "
+                       "Spark context's default parallelism.",
+    "runtime.partition_rows": "Fact rows per partition (about); part of the output's identity: change it and the "
+                              "draws change.",
+    "runtime.start": "process executor: fork (default on Linux), spawn or forkserver.",
+    "runtime.master": "spark executor: the master URL when no Spark session is active (default local[workers]).",
     "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
     "pushdown.mode": "auto | on | off: fit eligible fact tables from exact statistics computed where the data lives "
                      "(row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample "
