@@ -349,6 +349,8 @@ class Synthesizer:
     def __init__(self, spec):
         from .spec import validate
         self.user_spec = spec
+        from .timeseries.hooks import split_series
+        spec, self.series_spec = split_series(spec)          # regular series: outside the relational model
         self.plan = Plan(spec)
         self.spec = self.plan.spec
         errs = validate(self.spec, keys=False)
@@ -372,6 +374,8 @@ class Synthesizer:
         n_src = sum(self.fstats[t].n_rows if t in self.fstats else len(d) for t, d in tables.items())
         say(f"fit: preparing {len(tables)} tables ({n_src:,} rows"
             + (f"; {len(self.fstats)} fact table(s) from statistics and samples)" if self.fstats else ")"))
+        series_src = {t: tables[t] for t in self.series_spec if t in tables}
+        tables = {t: d for t, d in tables.items() if t not in self.series_spec}
         tables = self.plan.to_internal({t: df.copy() for t, df in tables.items()},
                                        headers=self._pushed_headers(tables))
         for f, hl in self.plan.log.items():
@@ -594,6 +598,9 @@ class Synthesizer:
         if any(T_.get("sequence") for T_ in self.spec["tables"].values()):
             from .timeseries.hooks import fit_sequences
             fit_sequences(self, tables)
+        if self.series_spec:
+            from .timeseries.hooks import fit_series
+            fit_series(self, series_src)
         self.dist_src = {(t, c): tables[t][c].dropna().to_numpy(dtype=object)
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
@@ -2547,7 +2554,11 @@ class Synthesizer:
         self.sample_log["seconds"] = round(time.time() - t0, 2)
         say(f"sample: done in {time.time() - t0:.0f} s")
         self.internal_out = out
-        return self.plan.to_external(out, self.rng, getattr(self, "_mode", "draw"))
+        ext = self.plan.to_external(out, self.rng, getattr(self, "_mode", "draw"))
+        if self.series_spec:
+            from .timeseries.hooks import sample_series
+            ext = sample_series(self, ext, prng, index, mode)
+        return ext
 
     def _stratum_keys(self, e, z, out):
         """Strata are rows of small copied parents and segments are nested in them,

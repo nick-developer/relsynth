@@ -870,6 +870,31 @@ def _validate_sequences(spec):
                 errs.append(f"{where}.{k} must be a non-negative integer")
         if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
             errs.append(f"{where}.shrinkage must be a positive number")
+    for tname, t in (spec.get("tables") or {}).items():
+        se = t.get("series")
+        if se is None:
+            continue
+        where = f"{tname}.series"
+        if not isinstance(se, dict):
+            errs.append(f"{where} must be a mapping {{entity, time, values}}")
+            continue
+        cols = t.get("columns") or {}
+        if t.get("sequence"):
+            errs.append(f"{where}: a table has a sequence or a series, not both")
+        if t.get("role") != "fact":
+            errs.append(f"{where}: series tables have role fact")
+        ent, tc = se.get("entity"), se.get("time")
+        if ent not in cols or not any(r.get("child") == tname and r.get("child_key") == ent for r in rels):
+            errs.append(f"{where}.entity {ent} must be a foreign key column of {tname}")
+        if (cols.get(tc) or {}).get("type") not in ("date", "datetime"):
+            errs.append(f"{where}.time {tc} must be a date or datetime column")
+        for c in se.get("values") or []:
+            if (cols.get(c) or {}).get("type") not in ("float", "integer"):
+                errs.append(f"{where}.values: {c} must be a number column")
+        if any(r.get("parent") == tname for r in rels):
+            errs.append(f"{where}: a series table cannot be referenced by other tables")
+        if any(r.get("table") == tname for r in spec.get("rules") or []):
+            errs.append(f"{where}: rules on series tables are not supported")
     return errs
 
 
