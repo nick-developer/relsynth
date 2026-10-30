@@ -175,8 +175,9 @@ single-failure rule.
 
 ## In CI
 
-- `ci.yml`, job `bench`, on every pull request: Chinook on five seeds and
-  Contoso (Parquet) on seed 1, compared with the baseline (about 15 minutes).
+- `ci.yml`, job `bench`, on every pull request: Chinook on five seeds,
+  Contoso (Parquet) and Berka on seed 1, compared with the baseline (about 40
+  minutes with the quality and privacy suites).
 - `bench.yml`, on every push to main, weekly and on demand: every public
   database on five seeds and the statistical suite, one job per database in
   parallel, then one `compare --full` over all the records. The records are
