@@ -1,0 +1,94 @@
+# Organisation policy (relsynth.org-policy/1): an example, not a recommendation.
+#
+# The organisation that operates relsynth writes this file; its privacy owner
+# (usually the DPO) signs it.  relsynth ships no epsilon for external
+# releases: every number under `domains.*.budget` is the organisation's
+# choice.  The values below only show the format.  See
+# docs/governance/design.md, sections 4 and 5, and NIST SP 800-226, sec. 2.2.
+schema: relsynth.org-policy/1
+organisation: Example Retail Ltd
+version: "2026-11-01.1"
+effective_from: "2026-11-01"
+privacy_owner:
+  name: Data Protection Officer
+  role: dpo
+  contact: dpo@example.org
+
+# A privacy domain is a population of people and every source that holds
+# their data.  Releases from all sources of a domain draw on one budget
+# (Prop. 800), because neighbouring databases differ in one person's data
+# everywhere at once.
+domains:
+  customers:
+    description: Retail customers and everything they bought.
+    unit:
+      entity: Customer            # must equal the IR privacy unit of every source below
+    adjacency: add_remove
+    sources:
+      - id: dwh-prod              # matched against the run's source fingerprint id
+      - id: crm-extract
+    budget:
+      accounting: zcdp            # charges are converted to zCDP and added (Prop. 800)
+      delta: 1.0e-9               # delta at which epsilon is stated; NIST: delta > 1e-5 is suspicious
+      lifetime:
+        epsilon: 6.0              # hard cap for the life of the domain; never resets (Prop. 801)
+      period:                     # optional throttle; resets, so it is not a guarantee by itself
+        length: P1Y
+        epsilon: 3.0
+      per_release:
+        epsilon_max: 2.0          # largest single release
+    reassess_after: P1Y           # EDPB 02/2026: periodic reassessment of released data
+
+# Release contexts (CJEU C-413/23 P; EDPB 02/2026).  These replace
+# privacy.yaml `contexts` (RFC-T06-03).  `dp_required` must be true when
+# `external` is true; relsynth also enforces this in code.
+contexts:
+  internal:
+    description: Staff of the organisation, for development and testing.
+    external: false
+    attacker_knows: quasi_identifiers
+    dp_required: false
+    limits: {risk: 0.10, attribute_leakage: 0.05, mia_auc: 0.65, mia_tpr_at_fpr_0.01: 0.10, record_auc: 0.85}
+    approval:
+      on_verdicts: [review]       # a named approver must sign a 'review'
+      approver_roles: [dpo, privacy_officer]
+      quorum: 1
+    allowed_targets: [dev-sandbox, test-postgres]
+  partner:
+    description: A named organisation under contract.
+    external: true
+    attacker_knows: all
+    dp_required: true
+    limits: {risk: 0.05, attribute_leakage: 0.03, mia_auc: 0.60, mia_tpr_at_fpr_0.01: 0.05, record_auc: 0.75}
+    approval:
+      on_verdicts: [pass, review] # every external release needs approval
+      approver_roles: [dpo]
+      quorum: 1
+    allowed_targets: [partner-sftp]
+  public:
+    description: Anyone (open data, publication).
+    external: true
+    attacker_knows: all
+    dp_required: true
+    limits: {risk: 0.02, attribute_leakage: 0.02, mia_auc: 0.55, mia_tpr_at_fpr_0.01: 0.02, record_auc: 0.65}
+    approval:
+      on_verdicts: [pass, review]
+      approver_roles: [dpo]
+      quorum: 2
+    allowed_targets: [open-data-portal]
+
+quality:
+  min_pass_rate: 0.95             # share of quality checks that must pass (T05 report)
+
+approvals:
+  separation_of_duties: true      # the operator of a run may not approve it
+  expires_after: P30D             # an approval not used for a release within 30 days lapses
+
+reidentification:
+  # Who may map the salted person labels of a privacy report back to keys
+  # (RFC-T06-03 item 4).  The label salt is kept in the registry's secret
+  # store, never in a manifest.
+  allowed_roles: [dpo]
+
+# Extra organisation rules in Rego (package relsynth.org); optional.
+rego: []
