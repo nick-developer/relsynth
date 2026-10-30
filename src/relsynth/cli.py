@@ -16,6 +16,8 @@
     relsynth version
     relsynth ir migrate spec.yaml --out spec.ir.yaml   # 1.0 spec -> IR 2.0 (and ir validate, convert,
                                                    # privacy, odcs, from-odcs, openlineage, schema)
+    relsynth gov init registry/ --owner-key dpo.key    # governance: keys, policy, budget, approve, release,
+                                                   # revoke, verify (docs/governance/design.md)
 
 Exit codes: 0 success, 1 quality gate failed, 2 invalid spec or arguments,
 3 connection / read / write failure, 4 fitting, sampling or internal error.
@@ -232,9 +234,65 @@ def cmd_plan(a, out):
     return EXIT_OK
 
 
+def _governed(a):
+    """The registry, policy and operator key of a governed run (--registry), checked
+    before any data is read."""
+    if not getattr(a, "registry", None):
+        if any(getattr(a, k, None) for k in ("context", "release_target", "source_id")):
+            raise SpecError("--context, --release-target and --source-id need --registry")
+        return None
+    from . import governance as G
+    from .errors import PrivacyError
+    missing = [f"--{k.replace('_', '-')}" for k in ("context", "release_target", "source_id", "key") if not getattr(a, k, None)]
+    if missing:
+        raise SpecError(f"a governed run (--registry) also needs {', '.join(missing)}")
+    reg = G.open_registry(a.registry)
+    pol = G.current_policy(reg)
+    ctx = pol.context(a.context)
+    if ctx["external"] and not getattr(a, "dp", False):
+        raise PrivacyError(f"context {a.context!r} is outside the organisation: differential privacy is required "
+                           "(run with --dp); nothing was read")
+    if a.release_target not in (ctx.get("allowed_targets") or []):
+        raise SpecError(f"target {a.release_target!r} is not allowed for context {a.context!r} "
+                        f"(allowed: {ctx.get('allowed_targets') or 'none'})")
+    return {"G": G, "reg": reg, "policy": pol, "key": G.Signer.load(a.key), "started": G.now()}
+
+
+def _record_governed(a, out, gv, res, s):
+    G = gv["G"]
+    rep = None
+    if a.privacy_report:
+        rep = json.loads(Path(a.privacy_report).read_text(encoding="utf-8"))
+    elif a.assess:
+        from . import privacy as P
+        cfg = P.load_config(a.privacy_config) if a.privacy_config else P.load_config()
+        cfg["contexts"] = G.contexts_from_policy(gv["policy"])
+        rep = P.assess(s, cfg, progress=lambda m: out.line(m))
+    sc = None
+    if res.report is not None:
+        sc = {"schema": "relsynth.scorecard/1", "passed": res.report.passed, "total": res.report.total,
+              "score": res.report.score}
+    spec = res.data.spec
+    rr = G.record_run(gv["reg"], spec, dict(res.data), context=a.context, target=a.release_target,
+                      operator=gv["key"], source_id=a.source_id, locator=_source_locator(spec),
+                      command="relsynth " + " ".join(sys.argv[1:]), started=gv["started"], privacy_report=rep,
+                      scorecard=sc, seeds={"generator": int(spec["synthesis"].get("seed", 0))}, pol=gv["policy"])
+    d = rr.decisions[a.context]
+    out.put(governance={"run": rr.run_id, "manifest": rr.manifest, "decision": d})
+    out.line(f"manifest {rr.manifest[:12]}… recorded as run {rr.run_id} (log entry {rr.seq})")
+    if not d["allow"]:
+        out.line(f"before release to {a.context}/{a.release_target}:" + "".join(f"\n  - {r}" for r in d["reasons"]))
+
+
+def _source_locator(spec):
+    src = spec.get("source") or {}
+    return src.get("url") or src.get("url_env") or src.get("path") or ""
+
+
 def cmd_run(a, out):
     from .api import run
     s = _spec(a)
+    gv = _governed(a)
     target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
@@ -255,6 +313,8 @@ def cmd_run(a, out):
         out.line(f"{len(res.errors)} step(s) failed: " + "; ".join(f"{e['step']}: {e['error']}" for e in res.errors))
         out.line("run `relsynth doctor` on the bundle for causes and fixes")
         return _run_exit_code(res)
+    if gv is not None:
+        _record_governed(a, out, gv, res, s)
     if a.fail_under is not None and res.report is not None and res.report.score + 1e-12 < a.fail_under:
         out.line(f"quality gate failed: {res.report.score:.3f} < {a.fail_under:.3f}")
         out.put(gate={"fail_under": a.fail_under, "passed": False})
@@ -618,6 +678,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--seed", type=int, help="override synthesis.seed")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    g = s.add_argument_group("governance (docs/governance/design.md)")
+    g.add_argument("--registry", help="record a signed manifest of this run in this registry")
+    g.add_argument("--context", help="intended release context from the organisation policy")
+    g.add_argument("--release-target", help="intended target id from the context's allowed_targets")
+    g.add_argument("--source-id", help="the source's id in the organisation policy (selects its privacy domain)")
+    g.add_argument("--key", help="the operator's private signing key")
+    g.add_argument("--privacy-report", help="privacy_report.json of `relsynth privacy` for this spec")
+    g.add_argument("--assess", action="store_true", help="run the privacy assessment against the policy's contexts")
+    g.add_argument("--privacy-config", help="privacy.yaml for --assess (its contexts are replaced by the policy's)")
     s.set_defaults(fn=cmd_run)
 
     s = sub.add_parser("verify", help="model checks on real data (R1-R7): scorecard, convergence, "
@@ -728,6 +797,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .ir.cli import add_parser as _add_ir_parser
     _add_ir_parser(sub, _common)
+    from .governance.cli import add_parser as _add_gov_parser
+    _add_gov_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)

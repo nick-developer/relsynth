@@ -1,4 +1,4 @@
-# Built-in release rules of relsynth (design draft, Rego v1 for OPA 1.x).
+# Built-in release rules of relsynth (Rego v1, OPA 1.x).
 #
 # Query: data.relsynth.release.decision
 # Input: see docs/governance/design.md, section 8.  The Python side converts
@@ -7,8 +7,9 @@
 #
 # These rules restate invariants that relsynth also enforces in code; an
 # organisation's own modules (package relsynth.org) can add deny reasons
-# but cannot remove these.  Not yet run under `opa test`: the build phase
-# adds release_test.rego and an `opa test` CI job.
+# but cannot remove these.  relsynth.governance.decide.builtin is a Python
+# port of this file; CI runs `opa test` on release_test.rego and checks that
+# both give the same decision on the fixtures in tests/data/governance/.
 package relsynth.release
 
 import rego.v1
@@ -79,12 +80,9 @@ deny contains msg if {
 }
 
 deny contains msg if {
-	some name, limit in ctx.limits
 	some check in input.privacy_checks
-	check.limit_name == name
-	check.upper > limit
 	check.status == "fail"
-	msg := sprintf("%s: upper bound %v is above the limit %v", [check.attack, check.upper, limit])
+	msg := sprintf("%s: %v is above the limit %v", [check.attack, check.value, check.limit])
 }
 
 deny contains msg if {
