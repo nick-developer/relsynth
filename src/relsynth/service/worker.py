@@ -70,12 +70,13 @@ class Worker:
         self.name = name or f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
         self.stopping = threading.Event()
         self.tenants = settings.csv("worker_tenants") or None
+        self.exclude = settings.csv("worker_exclude_tenants") or None
 
     # main loop ---------------------------------------------------------------
     def serve(self, poll_s: float = 2.0, once: bool = False) -> int:
         done = 0
         while not self.stopping.is_set():
-            job = self.store.claim(self.name, self.s.lease_s, self.tenants)
+            job = self.store.claim(self.name, self.s.lease_s, self.tenants, self.exclude)
             if job is None:
                 if once:
                     return done
@@ -199,6 +200,7 @@ class Worker:
             spec = self.store.add_spec(tid, job["project_id"], p.get("name") or "draft", body,
                                        list(raw.get("review") or []), job["connection_id"], job["created_by"])
             result["spec_id"] = spec["id"]
+            self._audit(job, "spec.drafted", "ok", {"spec": spec["id"], "version": spec["version"]})
             return
         for name, kind in (("report.json", "report"), ("quality.json", "quality")):
             if (out / name).exists():

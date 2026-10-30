@@ -85,6 +85,7 @@ def test_worker_tenant_pools_and_retry_time(store):
     j = store.claim("beta-pool", 30, ["beta"])
     assert j["tenant_id"] == "beta"
     assert store.claim("beta-pool", 30, ["beta"]) is None
+    assert store.claim("shared", 30, None, ["acme", "beta"]) is None      # the shared pool skips both
     store.finish("beta", b["id"], "beta-pool", state="queued", next_attempt_at=time.time() + 60)
     assert store.claim("any", 30, ["beta"]) is None   # not before its retry time
 

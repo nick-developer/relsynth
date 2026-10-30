@@ -288,7 +288,8 @@ class Store:
         return self.run(tid, rid)
 
     # the queue (any tenant: workers are service principals) ---------------
-    def claim(self, owner: str, lease_s: int, tenant_ids: list[str] | None = None) -> dict | None:
+    def claim(self, owner: str, lease_s: int, tenant_ids: list[str] | None = None,
+              exclude_ids: list[str] | None = None) -> dict | None:
         """Atomically lease one runnable job: a queued job whose retry time has
         come, or a running job whose lease expired (its worker died).  The
         compare-and-set UPDATE makes the claim exclusive on SQLite and
@@ -299,6 +300,8 @@ class Store:
         q = sa.select(runs.c.id, runs.c.tenant_id, runs.c.state, runs.c.lease_expires).where(cond)
         if tenant_ids:
             q = q.where(runs.c.tenant_id.in_(tenant_ids))
+        if exclude_ids:
+            q = q.where(runs.c.tenant_id.not_in(exclude_ids))
         with self.engine.connect() as c:
             cands = list(c.execute(q.order_by(runs.c.created_at).limit(20)))
         for cand in cands:

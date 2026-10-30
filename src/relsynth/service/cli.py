@@ -102,11 +102,28 @@ def main(argv: list[str] | None = None) -> int:
         from .worker import Worker, drain_handler
         setup_logging(s.log_json)
         setup_tracing(s.otel, "relsynth-worker")
-        w = Worker(s, st, Artifacts(s.data_dir, st, KeyWrapper(s.kms, s.master_key_ref, s.kms_key_id)))
-        signal.signal(signal.SIGTERM, drain_handler(w))
-        signal.signal(signal.SIGINT, drain_handler(w))
-        n = w.serve(poll_s=a.poll, once=a.once)
-        print(f"{n} job(s) processed", file=sys.stderr)
+        import threading
+        arts = Artifacts(s.data_dir, st, KeyWrapper(s.kms, s.master_key_ref, s.kms_key_id))
+        workers = [Worker(s, st, arts) for _ in range(max(1, s.worker_concurrency))]
+        stop = threading.Event()
+
+        def drain(sig, frm):
+            stop.set()
+            for w in workers:
+                drain_handler(w)(sig, frm)
+        signal.signal(signal.SIGTERM, drain)
+        signal.signal(signal.SIGINT, drain)
+        counts = [0] * len(workers)
+
+        def loop(i):
+            counts[i] = workers[i].serve(poll_s=a.poll, once=a.once)
+        threads = [threading.Thread(target=loop, args=(i,), daemon=True) for i in range(len(workers))]
+        for t in threads:
+            t.start()
+        for t in threads:
+            while t.is_alive():
+                t.join(1.0)
+        print(f"{sum(counts)} job(s) processed", file=sys.stderr)
         return 0
     return 2
 

@@ -46,6 +46,7 @@ class Settings:
     # jobs
     worker_concurrency: int = 1
     worker_tenants: str = ""                # comma list: this worker only serves these tenants (per-tenant pools)
+    worker_exclude_tenants: str = ""        # comma list: tenants with their own pool (the shared pool skips them)
     lease_s: int = 60
     heartbeat_s: int = 10
     max_attempts: int = 3
