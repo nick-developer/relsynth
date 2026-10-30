@@ -524,6 +524,10 @@ class EntitySynthesis(Node):
     unknown_members: list | None = _f("Key values of records that stand for 'no member' (-1 'Unknown').")
     generator: GeneratorChoice | None = _f("Generator of the attributes; absent means the estate's "
                                            "synthesis.generator (copula by default).")
+    sequence: dict | None = _f("Event-sequence model of the record times per parent (relsynth.timeseries): "
+                               "entity, time, window and options, as the 1.0 table key `sequence`.")
+    series: dict | None = _f("Regular time-series model of the entity (relsynth.timeseries): entity, time, "
+                             "values and options, as the 1.0 table key `series`.")
 
 
 @dataclass

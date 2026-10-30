@@ -334,3 +334,20 @@ def test_extension_is_step_invariant(tmp_path):
     assert a["OrderKey"].astype(int).min() > base["Orders"]["OrderKey"].astype(int).max()
     cend = base["Customer"].set_index("CustomerKey")["EndDT"].reindex(b["CustomerKey"]).to_numpy()
     assert (pd.to_datetime(b["OrderDate"]).to_numpy() < pd.to_datetime(cend)).all()
+
+
+def test_ir_round_trip_keeps_sequence_and_series():
+    from relsynth import ir
+    raw = {"version": 1, "tables": {
+        "C": {"primary_key": "k", "columns": {"k": "id"}},
+        "O": {"primary_key": "o", "columns": {"o": "id", "k": "id", "d": "date"},
+              "sequence": {"entity": "k", "time": "d", "bucket": "week"}},
+        "M": {"primary_key": "m", "columns": {"m": "id"}},
+        "L": {"role": "fact", "columns": {"m": "id", "h": "datetime", "kw": "float"},
+              "series": {"entity": "m", "time": "h", "values": ["kw"], "ar": 3}}},
+        "relationships": [{"child": "O", "child_key": "k", "parent": "C"},
+                          {"child": "L", "child_key": "m", "parent": "M"}]}
+    back, lost = ir.lower(ir.loads(ir.dumps(ir.lift(raw))))
+    assert lost == []
+    assert back["tables"]["O"]["sequence"] == raw["tables"]["O"]["sequence"]
+    assert back["tables"]["L"]["series"] == raw["tables"]["L"]["series"]
