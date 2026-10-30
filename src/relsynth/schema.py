@@ -27,9 +27,11 @@ S = {
         "review": ("list of str", [], "What introspect inferred, and its questions (lines starting ASK)."),
     },
     "source": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
                  "csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: "
-                 "`path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other "
+                 "`path` to a file; iceberg: `catalog` (PyIceberg catalog properties) or a local `path` (a SQL "
+                 "catalog in <path>/catalog.db), tables in namespace `schema`; delta: `path`, a folder or object-store "
+                 "URI (s3://, abfss://) with one folder per table; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other "
                  "engine): `url`."),
         "path": ("str", None, "Folder (files) or file (sqlite); relative to the spec's folder."),
         "url": ("str", None, "Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC"
@@ -59,15 +61,28 @@ S = {
         "bulk": ("map", None, "Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row "
                  "INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a "
                  "Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. fabric: {method: insert} (ODBC parameter arrays, the default) or {method: copy, stage: https://<account>.dfs.core.windows.net/<container>/<dir>} (Parquet staged in ADLS Gen2 or OneLake, then COPY INTO). snowflake: {method: insert} (multi-row INSERT, the default) or {method: stage} (Parquet PUT in a temporary stage, then COPY INTO). bigquery: {method: load} (load jobs from Parquet, the default) or {method: insert} (DML INSERT)."),
+        "catalog": ("map", None, "Iceberg: the properties of a PyIceberg catalog (type: rest | glue | hive | sql | "
+                    "..., uri, warehouse, name). Secrets come from the environment (storage_env, or the platform's "
+                    "credential chain)."),
+        "storage": ("map", None, "Iceberg and Delta on object storage: storage options without secrets, e.g. "
+                    "{s3.endpoint: ..., s3.region: ...} (Iceberg) or {AWS_REGION: ..., AZURE_STORAGE_ACCOUNT_NAME: ...} "
+                    "(Delta)."),
+        "storage_env": ("map", None, "Iceberg and Delta: storage option -> environment variable holding its value "
+                        "(keys and tokens stay out of the file)."),
+        "snapshot": ("int or map", None, "Iceberg and Delta sources: the version to read (Iceberg snapshot id, Delta "
+                     "version), one value or table -> value. Default: the current version; the bundle records "
+                     "what was read."),
+        "as_of": ("str", None, "Iceberg and Delta sources: read every table as it was at this ISO time (one "
+                  "consistent instant for all tables)."),
         "format": ("csv | parquet", "csv", "File format written (target of kind files)."),
-        "engine": ("auto | duckdb | pandas", "auto", "Folders: what computes the statistics and samples of "
+        "engine": ("auto | duckdb | pandas", "auto", "Folders and lakehouse tables: what computes the statistics and samples of "
                    "pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the "
                    "needed columns into memory (the 1.0 path); auto is duckdb when it is installed."),
         "duckdb": ("map", None, "Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory "
                    "(where larger-than-memory sorts and groupings spill)."),
     },
     "target": {
-        "kind": ("csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
+        "kind": ("csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy", "csv",
                  "As for source; csv and parquet write one file per table."),
         "path": ("str", "synthetic", "Output folder or SQLite file; dataset i > 1 goes to <path>_i."),
         "url": ("str", None, "URL of the target database."),
@@ -89,6 +104,11 @@ S = {
         "auth": ("map", None, "As for source."),
         "guards": ("map", None, "As for source."),
         "bulk": ("map", None, "As for source."),
+        "catalog": ("map", None, "As for source."),
+        "storage": ("map", None, "As for source."),
+        "storage_env": ("map", None, "As for source."),
+        "partition_by": ("map", None, "Iceberg and Delta targets: table -> list of partition expressions. Iceberg: "
+                         "column, year(c), month(c), day(c), hour(c), bucket(n, c), truncate(n, c); Delta: columns."),
         "format": ("csv | parquet", "csv", "File format of a files target."),
     },
     "table": {

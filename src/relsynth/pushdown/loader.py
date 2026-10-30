@@ -97,7 +97,11 @@ def load_for_fit(spec: dict, conn=None, mode: str | None = None) -> FitData:
             raw[t] = canonical_order(df, spec["tables"][t].get("primary_key"), spec["tables"][t].get("unique"))
         load_tables.notes = []
         tables = load_tables(spec, tables=raw, partial=set(stats))
-        return FitData(tables=tables, stats=stats, plan=p, notes=list(load_tables.notes),
+        notes = list(load_tables.notes)
+        if callable(getattr(conn, "versions", None)) and conn.versions():
+            # lakehouse sources: the version of every table read (pin with source.snapshot)
+            notes.append("versions read: " + ", ".join(f"{t}={v}" for t, v in sorted(conn.versions().items())))
+        return FitData(tables=tables, stats=stats, plan=p, notes=notes,
                        seconds=round(time.time() - t0, 1))
     finally:
         if own:

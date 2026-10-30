@@ -53,6 +53,21 @@ class Source:
         self.random_order = True
         self._col_cache = {}
         self.unseeded = []
+        if self.kind in ("iceberg", "delta"):
+            # lakehouse tables: read like files (whole, in memory), keys as recorded
+            from .connectors import from_spec
+            self.lake = from_spec(source, source.get("_base_dir"))
+            self.kind = "csv"
+            self._files = {t: None for t in self.lake.tables(include, exclude)}
+            self._frames = {}
+            for t in self._files:
+                info = self.lake.describe(t)
+                fks = [{"cols": list(f.columns), "parent": f.ref_table, "pcols": list(f.ref_columns)}
+                       for f in info.foreign_keys]
+                self.meta[t] = {"pk": list(info.primary_key), "fks": fks, "uniques": [list(u) for u in info.unique],
+                                "types": {c.name: c.sql_type for c in info.columns}, "binary": []}
+            self.names = list(self._files)
+            return
         if self.kind in FILE_KINDS:
             self.kind = "csv"                     # one code path for every file format
             self._files = {t: p for t, p in table_files(source["path"]).items() if _match(t, include, exclude)}
@@ -112,7 +127,7 @@ class Source:
     # ---------------------------------------------------------------- csv
     def _frame(self, t):
         if t not in self._frames:
-            self._frames[t] = read_table_file(self._files[t])
+            self._frames[t] = self.lake.read_table(t) if self._files[t] is None else read_table_file(self._files[t])
         return self._frames[t]
 
     # ---------------------------------------------------------------- api

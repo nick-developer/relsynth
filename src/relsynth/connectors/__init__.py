@@ -17,6 +17,8 @@
     src = connect("sqlite:shop.db")          # or sqlite:///shop.db
     src = connect("csv:./data")              # a folder of CSV files
     src = connect("parquet:./lake/sales")    # a folder of Parquet files
+    src = connect("iceberg:./lake")          # Iceberg tables (a local SQL catalog), or a section with `catalog`
+    src = connect("delta:s3://bucket/sales") # Delta Lake tables, one folder per table
 
 A specification's `source` and `target` sections are connected with
 `from_spec(section, base_dir)`.
@@ -34,6 +36,8 @@ A specification's `source` and `target` sections are connected with
 | sqlite     | SQLite 3.25+ files           | standard library                   |
 | csv        | folder of .csv / .csv.gz     | pandas                             |
 | parquet    | folder of .parquet           | pyarrow (relsynth[parquet])        |
+| iceberg    | Apache Iceberg tables (any PyIceberg catalog; local, S3, ADLS) | pyiceberg (relsynth[iceberg]) |
+| delta      | Delta Lake tables (local, S3, ADLS)          | deltalake (relsynth[delta])        |
 
 Folders compute the statistics of pushed-down facts with DuckDB (SQL over the
 files, see connectors/duckfiles.py); `engine: pandas` in the source section
@@ -49,8 +53,8 @@ from .files import FileConnector
 __all__ = ["connect", "from_spec", "Connector", "TableInfo", "ColumnInfo", "ForeignKey", "FileConnector",
            "KINDS"]
 
-KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "fabric",
-         "snowflake", "bigquery", "sqlalchemy")
+KINDS = ("csv", "files", "parquet", "iceberg", "delta", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb",
+         "databricks", "fabric", "snowflake", "bigquery", "sqlalchemy")
 _FILE_PREFIXES = {"csv:": "csv", "files:": "csv", "parquet:": "parquet"}
 
 
@@ -110,6 +114,10 @@ def connect(source, *, schema: str | None = None, url_env: str | None = None, pa
     def _p(x):
         p = Path(x)
         return p if p.is_absolute() or base is None else base / p
+    for pre in ("iceberg:", "delta:"):
+        if s.startswith(pre):
+            from .lakehouse import from_section
+            return from_section({"kind": pre[:-1], "path": s[len(pre):], "schema": schema}, base_dir, create=create)
     for pre, kind in _FILE_PREFIXES.items():
         if s.startswith(pre):
             return FileConnector(_p(s[len(pre):]), fmt=fmt or kind, null_values=null_values, create=create)
@@ -157,6 +165,9 @@ def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = 
         return FileConnector(_p(sec.get("path", ".")), fmt=sec.get("format") or ("parquet" if kind == "parquet" else "csv"),
                              null_values=sec.get("null_values"), create=create, engine=sec.get("engine", "auto"),
                              duckdb=sec.get("duckdb"))
+    if kind in ("iceberg", "delta"):
+        from .lakehouse import from_section
+        return from_section(sec, base, create=create)
     if kind == "sqlite" and (sec.get("path") and not sec.get("url_env")):
         from .sqlite import SQLiteConnector
         return SQLiteConnector(str(_p(sec["path"])), **common)
