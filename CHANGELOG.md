@@ -25,6 +25,9 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
   - Built-in generators: `copula` (the default; byte-identical to 1.0), `independent` (a latent class model) and `cart` (sequential CART, synthpop style).
   - Third-party generators install as packages through the `relsynth.generators` entry-point group. `relsynth generators list|show` lists them with their capabilities.
   - See `docs/generators.md` and ADR 0002.
+- **Generator choice in the IR.** `entities.<name>.synthesis.generator` holds a table's generator (`{name, version, options}`), so 1.0 specs that choose generators still convert without loss. A spec read from an IR document checks generators against its IR version.
+- `relsynth doctor --apply` and `relsynth tune` write an IR document when they are given one, merging their changes into it so its annotations are kept.
+- `relsynth introspect --format` takes `auto`, the new default: it writes an IR document from release 2.0 and a 1.0 spec before.
 - **Compute presets** (`compute.yaml`: `cpu`, `gpu-auto`, `gpu-single`, `gpu-multi`). Set them in `synthesis.compute` with expert overrides (devices, backend, precision, batch size, memory limit, threads, fallback).
   - GPU use is opt-in, the default engine is CPU-only, and every fallback to the CPU is explicit and logged.
   - `relsynth compute` shows the GPUs found and the device each kind of generator would get.

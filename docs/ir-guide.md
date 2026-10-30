@@ -29,6 +29,11 @@ relsynth ir validate shop.ir.yaml              # model rules + JSON Schema (pip 
 relsynth run shop.ir.yaml --target sqlite:synthetic.db
 ```
 
+`relsynth doctor --apply` and `relsynth tune` write an IR document when they are given one. They apply their
+changes to the 1.0 spec the document lowers to and merge those changes back into the document
+(`relsynth.ir.v1.update`), so annotations that a 1.0 spec cannot carry, such as privacy roles and extensions, are
+kept. Given a 1.0 spec, they write a 1.0 spec.
+
 `ir migrate` converts the spec, then proves the conversion: the 1.0 spec the IR lowers to must normalise to the
 same spec as the original, or the command fails (exit code 2) and lists the differences. YAML comments are not
 carried over; keep the original file next to the new one.
@@ -172,8 +177,9 @@ fails with a message naming them; the engine will read these shapes directly in 
 
 ## Versions and deprecation
 
-- **2.x** reads 1.0 specs and IR 2.x documents and runs both the same way. `introspect` writes 1.0 by default;
-  `--format ir` writes the IR.
+- **2.x** reads 1.0 specs and IR 2.x documents and runs both the same way. From release 2.0, `introspect` writes
+  an IR document by default (`--format auto`); 1.x releases write a 1.0 spec. `--format v1` and `--format ir`
+  choose explicitly in every release.
 - Reading a 1.0 spec **warns from release 3.0 at the earliest**.
 - Reading 1.0 specs **stops no earlier than release 4.0, and no earlier than 24 months after 2.0**.
   `relsynth ir migrate` stays in every release, so an old spec can always be converted.

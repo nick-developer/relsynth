@@ -504,6 +504,15 @@ class LinkAffinity(Node):
 
 
 @dataclass
+class GeneratorChoice(Node):
+    """The generator plug-in that models an entity's attributes (relsynth.generators)."""
+    name: str | None = _f("Registered generator name (`relsynth generators list`): copula, independent, cart or "
+                          "a plug-in's.", required=True)
+    version: str | None = _f("Version specifier the plug-in's model version must satisfy, e.g. '>=1.0,<2'.")
+    options: dict | None = _f("Options passed unchanged to the generator.")
+
+
+@dataclass
 class EntitySynthesis(Node):
     """relsynth engine options of an entity (1.0 table options)."""
     mode: str | None = _f("synthesize or copy.", enum=("synthesize", "copy"))
@@ -513,6 +522,8 @@ class EntitySynthesis(Node):
     link_affinity: list[LinkAffinity] = _f("Links that point at matching parents more often than chance.",
                                            factory=list)
     unknown_members: list | None = _f("Key values of records that stand for 'no member' (-1 'Unknown').")
+    generator: GeneratorChoice | None = _f("Generator of the attributes; absent means the estate's "
+                                           "synthesis.generator (copula by default).")
 
 
 @dataclass
@@ -688,5 +699,5 @@ class Estate(Node):
 NODE_TYPES: list[type[Node]] = [Estate, Container, ContainerIndex, Entity, Attribute, KeyedLookup, Sequence, Variants,
               AttributePrivacy, AttributeSynthesis, Key, Dependency, View, Time, ValidTime, Versioning,
               PartitionField, SortField, Discriminator, Physical, Edge, Stream, Allocation, EntityPrivacy,
-              EntitySynthesis, FactModel, Header, GroupEffect, LinkAffinity, Relationship, End, Offset, Via, Rule,
-              EstatePrivacy, PrivacyUnit]
+              EntitySynthesis, GeneratorChoice, FactModel, Header, GroupEffect, LinkAffinity, Relationship, End,
+              Offset, Via, Rule, EstatePrivacy, PrivacyUnit]

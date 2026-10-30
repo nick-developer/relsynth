@@ -378,7 +378,7 @@ FREE = {"scale.tables", "segments.tables", "segments.stratify", "segments.attrib
 # keys normalise() adds (a normalised spec written back, e.g. by `doctor --apply`, still
 # validates); the keys of the engine's internal plan (anchor_link, virtual, unit, _refs,
 # ...) are not accepted from a spec
-INTERNAL = {"relationship": {"composite"}, "fact": {"anchor_key", "partner_key"}, "spec": {"_base_dir"}}
+INTERNAL = {"relationship": {"composite"}, "fact": {"anchor_key", "partner_key"}, "spec": {"_base_dir", "_ir_version"}}
 
 NESTED = {("spec", "source"): "source", ("spec", "target"): "target", ("table", "fact"): "fact",
           ("fact", "header"): "header", ("column", "text"): "text", ("column", "pii"): "pii",

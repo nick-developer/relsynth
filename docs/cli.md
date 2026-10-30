@@ -62,7 +62,7 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
                            [--source-url-env SOURCE_URL_ENV] [--out OUT] [--name NAME]
                            [--sample-rows SAMPLE_ROWS] [--include [INCLUDE ...]]
                            [--exclude [EXCLUDE ...]] [--evidence {names+data,data}]
-                           [--ignore-declared] [--format {v1,ir}] [--json]
+                           [--ignore-declared] [--format {auto,v1,ir}] [--json]
                            [--log-level {debug,info,warning,error}]
 ```
 
@@ -79,7 +79,7 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
 | `--exclude` EXCLUDE ... |  |  | table-name patterns to leave out, e.g. sys.* DatabaseLog |
 | `--evidence` names+data\|data |  | `names+data` | identify keys and links from values and names (default) or from values only |
 | `--ignore-declared` |  |  | hide the catalog's keys and links and identify them from the data (for testing) |
-| `--format` v1\|ir |  | `v1` | write a relsynth 1.0 spec (default) or an IR 2.0 document |
+| `--format` auto\|v1\|ir |  | `auto` | write a relsynth 1.0 spec or an IR 2.0 document; auto (default) writes IR from release 2.0 and 1.0 before |
 
 ## check
 

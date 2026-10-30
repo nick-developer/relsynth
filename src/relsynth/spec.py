@@ -113,7 +113,10 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 
 def load_spec(path_or_dict) -> dict:
+    from .ir import is_ir
     if isinstance(path_or_dict, dict):
+        # an in-memory normalised spec passed back keeps the IR version it was read from
+        ir_version = path_or_dict.get("ir_version") if is_ir(path_or_dict) else path_or_dict.get("_ir_version")
         path_or_dict = from_ir(path_or_dict)
         # private keys of an in-memory spec (a normalised spec passed back) are dropped
         raw = copy.deepcopy({k: v for k, v in path_or_dict.items() if not str(k).startswith("_")})
@@ -121,7 +124,9 @@ def load_spec(path_or_dict) -> dict:
         errs = []
     else:
         p = Path(path_or_dict)
-        raw = read_spec(p)
+        doc = read_yaml(p)
+        ir_version = doc.get("ir_version") if is_ir(doc) else None
+        raw = from_ir(doc)
         base = p.parent
         if not isinstance(raw, dict):
             raise SpecError(f"Spec has errors:\n  - {p}: the spec must be a mapping")
@@ -132,6 +137,9 @@ def load_spec(path_or_dict) -> dict:
     except SpecError as e:
         raise SpecError("Spec has errors:\n  - " + "\n  - ".join(errs + [str(e)])) from None
     spec["_base_dir"] = str(base.resolve())
+    if ir_version is not None:
+        # generators check the IR version they support (registry.check)
+        spec["_ir_version"] = str(ir_version)
     errs += validate(spec)
     if errs:
         raise SpecError("Spec has errors:\n  - " + "\n  - ".join(errs))
@@ -167,6 +175,9 @@ def normalise(raw: dict) -> dict:
             raise SpecError(f"tables.{tname} must be a mapping (role, columns, ...), not {type(t).__name__}")
         t.setdefault("role", "entity")
         t.setdefault("columns", {})
+        g = t.get("generator")
+        if isinstance(g, dict) and set(g) == {"name"}:
+            t["generator"] = g["name"]          # {name: cart} and cart are the same choice
         if not isinstance(t["columns"], dict):
             raise SpecError(f"tables.{tname}.columns must be a mapping {{column: type}}")
         for cname, c in list(t["columns"].items()):
