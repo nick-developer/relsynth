@@ -86,6 +86,8 @@ def _driver(name: str) -> str:
             except Exception as e:  # noqa: BLE001 - no ODBC driver manager
                 log.debug("pyodbc unavailable (%s); trying pymssql", e)
         return "mssql+pymssql" if _has("pymssql") else "mssql+pyodbc"
+    if name == "fabric":
+        return "mssql+pyodbc"           # Fabric needs the Microsoft ODBC driver (Entra ID tokens)
     if name == "oracle":
         return "oracle+oracledb"
     if name in ("mysql", "mariadb"):
@@ -138,7 +140,7 @@ class SqlConnector(Connector):
                  connect_args: dict | None = None, engine_options: dict | None = None):
         self.schema = schema or None
         if engine is None:
-            full = resolve_url(url, url_env, password_env)
+            full = self._engine_url(resolve_url(url, url_env, password_env))
             opts = {"pool_pre_ping": True, **self._engine_options(full), **(engine_options or {})}
             extra = self._connect_args(full)
             if connect_args or extra:
@@ -160,6 +162,10 @@ class SqlConnector(Connector):
     # ------------------------------------------------------------ hooks
     def _engine_options(self, url: str) -> dict:
         return {}
+
+    def _engine_url(self, url: str) -> str:
+        """The URL the engine is created with (connectors that add driver options)."""
+        return url
 
     def _connect_args(self, url: str) -> dict:
         """Driver connection arguments the connector adds (credentials from the
@@ -295,7 +301,7 @@ class SqlConnector(Connector):
             return self.read_table(table), True
         tbl = self.table(table)
         cols = [tbl.c[c] for c in self._sample_key(table, key)]
-        h = row_hash(cols, seed, self.dialect)
+        h = self._row_hash(cols, seed)
         q = self._select(table)
         if h is None:
             log.warning("%s: no seeded hash function for dialect %s; sampling in random order (not reproducible)",
@@ -315,6 +321,11 @@ class SqlConnector(Connector):
                 raise RuntimeError(f"{table}: sampling by hash returned {len(df):,} rows where about {n:,} "
                                    f"were expected; the seeded hash is not uniform on {self.dialect}")
         return normalise_frame(df), False
+
+    def _row_hash(self, cols, seed):
+        """The seeded hash of the sample (sqlfuncs.row_hash); a hook for engines
+        that share a dialect but not its hash functions."""
+        return row_hash(cols, seed, self.dialect)
 
     # ------------------------------------------------------------ statistics
     def stats(self, table):

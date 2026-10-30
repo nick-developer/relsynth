@@ -11,6 +11,10 @@ Live database servers are used when their URL is in the environment:
     RELSYNTH_TEST_MARIADB_URL mariadb://root:pw@host:3307/relsynth
     RELSYNTH_TEST_DATABRICKS_URL databricks://host?http_path=/sql/1.0/warehouses/id&catalog=main
                               (credentials as in production: DATABRICKS_TOKEN or the SDK's chain)
+    RELSYNTH_TEST_FABRIC_URL  fabric://<id>.datawarehouse.fabric.microsoft.com/<warehouse> (Azure
+                              credential chain), or the SQL Server stand-in
+                              fabric://sa:pw@host:1433/rs_fabric?TrustServerCertificate=yes
+                              (a database in the UTF-8 collation: fabric.stand_in_database)
 
 Extra driver arguments for a server come from RELSYNTH_TEST_<KIND>_CONNECT_ARGS
 (JSON); the local Databricks stand-in (tests/emulators/databricks) needs them.
@@ -38,7 +42,8 @@ from relsynth.spec import load_spec  # noqa: E402
 
 SERVER_ENVS = {"postgresql": "RELSYNTH_TEST_PG_URL", "mssql": "RELSYNTH_TEST_MSSQL_URL",
                "oracle": "RELSYNTH_TEST_ORACLE_URL", "mysql": "RELSYNTH_TEST_MYSQL_URL",
-               "mariadb": "RELSYNTH_TEST_MARIADB_URL", "databricks": "RELSYNTH_TEST_DATABRICKS_URL"}
+               "mariadb": "RELSYNTH_TEST_MARIADB_URL", "databricks": "RELSYNTH_TEST_DATABRICKS_URL",
+               "fabric": "RELSYNTH_TEST_FABRIC_URL"}
 
 
 @pytest.fixture(autouse=True)
@@ -138,7 +143,7 @@ def drop_schema(kind: str, schema: str, tables=()):
         with conn.engine.begin() as con:
             if kind == "postgresql":
                 con.execute(sa.text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
-            elif kind == "mssql":
+            elif kind in ("mssql", "fabric"):
                 insp = sa.inspect(con)
                 if schema in insp.get_schema_names():
                     md = sa.MetaData(schema=schema)

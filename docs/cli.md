@@ -66,7 +66,7 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
 
 | Option | Required | Default | Meaning |
 |---|---|---|---|
-| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://); or give --source-url-env |
+| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://); or give --source-url-env |
 | `--source-schema` SOURCE_SCHEMA |  |  | database schema |
 | `--source-password-env` SOURCE_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--source-url-env` SOURCE_URL_ENV |  |  | environment variable holding the whole URL |
@@ -326,11 +326,11 @@ usage: relsynth clone-schema [-h] [--source SOURCE] [--source-schema SOURCE_SCHE
 
 | Option | Required | Default | Meaning |
 |---|---|---|---|
-| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://); or give --source-url-env |
+| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://); or give --source-url-env |
 | `--source-schema` SOURCE_SCHEMA |  |  | database schema |
 | `--source-password-env` SOURCE_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--source-url-env` SOURCE_URL_ENV |  |  | environment variable holding the whole URL |
-| `--target` TARGET |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://); or give --target-url-env |
+| `--target` TARGET |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://); or give --target-url-env |
 | `--target-schema` TARGET_SCHEMA |  |  | database schema |
 | `--target-password-env` TARGET_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--target-url-env` TARGET_URL_ENV |  |  | environment variable holding the whole URL |
@@ -350,7 +350,7 @@ usage: relsynth profile [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA]
 
 | Option | Required | Default | Meaning |
 |---|---|---|---|
-| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://); or give --source-url-env |
+| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://); or give --source-url-env |
 | `--source-schema` SOURCE_SCHEMA |  |  | database schema |
 | `--source-password-env` SOURCE_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--source-url-env` SOURCE_URL_ENV |  |  | environment variable holding the whole URL |
@@ -370,7 +370,7 @@ usage: relsynth ping [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA]
 
 | Option | Required | Default | Meaning |
 |---|---|---|---|
-| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://); or give --source-url-env |
+| `--source` SOURCE |  |  | csv:DIR \| parquet:DIR \| sqlite:FILE \| database URL (postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://, fabric://); or give --source-url-env |
 | `--source-schema` SOURCE_SCHEMA |  |  | database schema |
 | `--source-password-env` SOURCE_PASSWORD_ENV |  |  | environment variable holding the password |
 | `--source-url-env` SOURCE_URL_ENV |  |  | environment variable holding the whole URL |
