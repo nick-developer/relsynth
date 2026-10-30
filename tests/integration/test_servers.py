@@ -21,7 +21,9 @@ from relsynth.pushdown.stats import FrameStats, Require
 
 KINDS = [pytest.param("postgresql", marks=pytest.mark.postgres), pytest.param("mssql", marks=pytest.mark.mssql),
          pytest.param("oracle", marks=pytest.mark.oracle), pytest.param("mysql", marks=pytest.mark.mysql),
-         pytest.param("mariadb", marks=pytest.mark.mariadb), pytest.param("databricks", marks=pytest.mark.databricks)]
+         pytest.param("mariadb", marks=pytest.mark.mariadb), pytest.param("databricks", marks=pytest.mark.databricks),
+         pytest.param("fabric", marks=pytest.mark.fabric),
+         pytest.param("snowflake", marks=pytest.mark.snowflake)]
 STAR = ("customer", "product", "sales")
 
 

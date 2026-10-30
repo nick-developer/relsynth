@@ -168,6 +168,8 @@ jobs:
       RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
       RELSYNTH_TEST_MYSQL_URL: mysql://root:RelSynthTest1@127.0.0.1:3306/relsynth
       RELSYNTH_TEST_MARIADB_URL: mariadb://root:RelSynthTest1@127.0.0.1:3307/relsynth
+      # Microsoft Fabric's T-SQL on the same SQL Server, in a UTF-8 database (tests/emulators/fabric)
+      RELSYNTH_TEST_FABRIC_URL: "fabric://sa:RelSynth_Test1!@localhost:1433/rs_fabric?TrustServerCertificate=yes"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -188,7 +190,7 @@ jobs:
           fi
           sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
           odbcinst -q -d -n "ODBC Driver 18 for SQL Server"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,fabric]"
       - name: Wait for SQL Server
         run: |
           python - <<'EOF'
@@ -202,6 +204,8 @@ jobs:
                   err = e; time.sleep(5)
           else:
               raise SystemExit(f"SQL Server did not accept connections: {err}")
+          from relsynth.connectors.fabric import stand_in_database
+          stand_in_database(url, "rs_fabric")
           EOF
       - run: pytest tests/integration -q
 
@@ -275,6 +279,41 @@ jobs:
       # Java 17 is on the runner image already (JAVA_HOME_17_X64)
       - run: JAVA_HOME="$JAVA_HOME_17_X64" tests/emulators/databricks/start.sh
       - run: pytest -m databricks tests/integration -q
+
+  # Snowflake through its real connector and dialect, against fakesnow (its REST
+  # protocol over DuckDB; tests/emulators/snowflake). fakesnow 0.12 speaks the
+  # protocol of connector 4, which snowflake-sqlalchemy 1.x accepts; 1.x does
+  # not run on SQLAlchemy 2.1, so this job stays on 2.0.
+  snowflake-stand-in:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RELSYNTH_TEST_SNOWFLAKE_URL: "snowflake://rs:rs-stand-in@fake/RSDB/PUBLIC?warehouse=WH"
+      RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS: '{"host": "localhost", "port": 8085, "protocol": "http"}'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]" "snowflake-connector-python[pandas]<5" "snowflake-sqlalchemy<2" "fakesnow[server]==0.12.1" "sqlalchemy<2.1"
+      - name: Start the stand-in
+        run: |
+          nohup python tests/emulators/snowflake/serve.py 8085 > fakesnow.log 2>&1 &
+          python - <<'EOF'
+          import json, os, time, sqlalchemy as sa
+          args = json.loads(os.environ["RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS"])
+          for _ in range(30):
+              try:
+                  with sa.create_engine("snowflake://rs:x@fake/RSDB", connect_args=args).begin() as con:
+                      con.exec_driver_sql("CREATE DATABASE IF NOT EXISTS RSDB")
+                  break
+              except Exception as e:
+                  err = e; time.sleep(2)
+          else:
+              raise SystemExit(f"fakesnow did not start: {err}")
+          EOF
+      - run: pytest -m snowflake tests/integration -q
 
   build:
     needs: [unit, e2e, types]

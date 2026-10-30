@@ -119,3 +119,178 @@ No Databricks emulator exists. The tests run the real Databricks SQL connector a
 - [Constraints on Databricks](https://docs.databricks.com/en/tables/constraints.html) (informational primary and foreign keys, Unity Catalog only) and [identity columns](https://docs.databricks.com/en/delta/generated-columns.html).
 - [Delta column mapping](https://docs.databricks.com/en/delta/column-mapping.html).
 - [Databricks SQL Connector for Python](https://docs.databricks.com/en/dev-tools/python-sql-connector.html) (authentication and `PUT`/`REMOVE` on volumes) and [databricks-sqlalchemy](https://github.com/databricks/databricks-sqlalchemy).
+
+## Microsoft Fabric
+
+```
+fabric://<id>.datawarehouse.fabric.microsoft.com/<warehouse>
+```
+
+Install with `pip install "relsynth[fabric]"` (pyodbc, azure-identity and the ADLS client), and the [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server). The host and warehouse are on the warehouse's settings page in Fabric ("SQL connection string"). The URL becomes `mssql+pyodbc` with the ODBC Driver 18 and `Encrypt=yes`; options already in the URL are kept. `schema` defaults to `dbo`.
+
+A Fabric Warehouse is read and written. A Lakehouse's SQL analytics endpoint is read only, so it can be a source but not a target.
+
+### Sign-in
+
+Fabric accepts Microsoft Entra ID only.
+
+| `auth.method` | Needs | What it is |
+|---|---|---|
+| `default` | | azure-identity's `DefaultAzureCredential`: `AZURE_*` variables, workload identity, managed identity, the Azure CLI |
+| `azure-sp` | `client_id_env`, `client_secret_env`, `tenant_id_env` | A service principal with a client secret. The workspace must allow service principals |
+| `azure-cli` | | The account of `az login` on this machine |
+| `managed-identity` | optional `client_id_env` | The managed identity of the Azure resource relsynth runs on |
+| `interactive` | | Browser sign-in through the ODBC driver |
+| `sql-login` | user in the URL, `password_env` | SQL Server stand-ins only. Fabric has no SQL logins |
+
+Without `auth`, the credential chain (`default`) is used, or `sql-login` when the URL has a password. A token is requested for each new connection and handed to the driver directly (`SQL_COPT_SS_ACCESS_TOKEN`), so it is renewed when it expires and is never part of a connection string.
+
+### What differs from SQL Server
+
+| Topic | Fabric | What relsynth does |
+|---|---|---|
+| Text | No `NVARCHAR`, `NCHAR` or `TEXT`. `VARCHAR(n)` counts bytes, in a UTF-8 collation | Text columns are `VARCHAR(4 × characters)`, or `VARCHAR(MAX)` beyond 8,000 bytes, so every UTF-8 value fits |
+| Date-times | No `DATETIME` or `SMALLDATETIME` | `DATETIME2(6)` and `TIME(6)`: microseconds, as pandas has them |
+| Other types | No `TINYINT` or `MONEY` | `SMALLINT` and `DECIMAL(19, 4)`. Floats are `FLOAT(53)` |
+| Collation | `Latin1_General_100_BIN2_UTF8` by default; a warehouse can be created case-insensitive (`Latin1_General_100_CI_AS_KS_WS_SC_UTF8`) | In a case-insensitive warehouse, text is grouped and filtered with `COLLATE Latin1_General_100_BIN2_UTF8`, so `'a'` and `'A'` stay different values |
+| Keys | Primary, unique and foreign keys exist only as `NOT ENFORCED` (and `NONCLUSTERED`). No indexes. No identity columns by default | Keys are added after each table as `NOT ENFORCED` constraints; no indexes, identity columns or defaults are created. Fabric never rejects a row, so write targets do not rely on it |
+| Sample hash | `HASHBYTES` | The first 32 bits of `HASHBYTES('SHA2_256', 'seed\|key')` over `VARCHAR`, whose bytes are UTF-8: the same value as Python's `hashlib.sha256`, MySQL, DuckDB and Databricks |
+| Cost | Capacity units of the Fabric capacity; no stored table size in the catalog | `query_tag` and `max_rows` work; `max_bytes` cannot be checked before a query, and `relsynth plan` says so |
+
+### Loading rows
+
+| `bulk.method` | How | When |
+|---|---|---|
+| `insert` (default) | ODBC parameter arrays (`fast_executemany`), 20,000 rows per batch | Up to a few hundred thousand rows. Fabric recommends `COPY INTO` for more |
+| `copy` | Each table is written as one Parquet file to `bulk.stage` (an `https://<account>.dfs.core.windows.net/<container>/<folder>` or OneLake `https://onelake.dfs.fabric.microsoft.com/<workspace>/<item>/Files/<folder>` URL), uploaded with the same Entra ID credential, loaded with `COPY INTO ... WITH (FILE_TYPE = 'PARQUET')`, and removed (`keep_files: true` keeps it) | Large tables. The identity needs write access to the folder, and the warehouse reads it with the caller's identity |
+
+### Troubleshooting
+
+| Message | Cause and fix |
+|---|---|
+| `Data source name not found and no default driver specified` | The ODBC Driver 18 is not installed |
+| `Login failed for user '<token-identified principal>'` | The identity has no access to the workspace, or the workspace does not allow service principals (tenant setting "Service principals can use Fabric APIs") |
+| `the database collation ... is not UTF-8` | Only on a SQL Server stand-in: create its database with `fabric.stand_in_database` |
+| `The data type 'nvarchar' is not supported` on a table you created yourself | Fabric has no `NVARCHAR`. Let relsynth create the table (`if_exists: replace`) or use `VARCHAR` |
+
+### How it was tested
+
+No Fabric emulator exists. Fabric's Warehouse speaks T-SQL over TDS, so the tests run the connector against SQL Server 2022 in a database with Fabric's default collation (`tests/emulators/fabric`, also in the integration CI job). The connector's types, loads, statistics and hash are the same T-SQL on both. `NOT ENFORCED` keys, Entra ID sign-in and `COPY INTO` exist only on Fabric; the first two have unit tests of what is sent, and none has a live test yet. Run `pytest -m fabric tests/integration` against a real warehouse (`RELSYNTH_TEST_FABRIC_URL` and `az login`) before relying on them.
+
+### Sources
+
+- [Data types in Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/data-types) and [T-SQL surface area](https://learn.microsoft.com/fabric/data-warehouse/tsql-surface-area).
+- [Primary, foreign and unique keys in Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/table-constraints) (`NOT ENFORCED` only).
+- [Collation in Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/collation).
+- [Connectivity to Fabric Data Warehouse](https://learn.microsoft.com/fabric/data-warehouse/connectivity) and [Microsoft Entra authentication](https://learn.microsoft.com/fabric/data-warehouse/entra-id-authentication).
+- [`COPY INTO` (Fabric)](https://learn.microsoft.com/sql/t-sql/statements/copy-into-transact-sql?view=fabric).
+
+## Snowflake
+
+```
+snowflake://<user>@<account identifier>/<database>/<schema>?warehouse=<warehouse>&role=<role>
+```
+
+Install with `pip install "relsynth[snowflake]"` (snowflake-sqlalchemy and the Snowflake Connector for Python). The account identifier is `<organization>-<account>`, as in the account URL. `schema` in the section overrides the URL's.
+
+### Sign-in
+
+| `auth.method` | Needs | What it is |
+|---|---|---|
+| `key-pair` | `private_key_file`, optional `private_key_passphrase_env` | A PKCS#8 key registered on the user (`ALTER USER ... SET RSA_PUBLIC_KEY`). The recommended method for service users |
+| `pat` | `token_env` | A programmatic access token |
+| `oauth` | `token_env` | An OAuth access token from your identity provider or Snowflake OAuth |
+| `password` | `password_env` | A password. Snowflake is phasing out single-factor passwords for people |
+| `sso` | | Browser sign-in through your identity provider (`externalbrowser`) |
+| `workload-identity` | optional `provider` (`aws`, `azure`, `gcp`) | The cloud identity of the machine or pod relsynth runs on, without a secret |
+| `default` | optional `connection_name` | A connection from `~/.snowflake/connections.toml` |
+
+Without `auth`, the URL's password (or `password_env`) is used.
+
+### What differs from the other databases
+
+| Topic | Snowflake | What relsynth does |
+|---|---|---|
+| Names | Unquoted names are stored in upper case | The dialect maps lower-case names to them and quotes mixed-case names, so `Album` stays `Album` and `customer` is `CUSTOMER` |
+| Types | `FLOAT` is double precision, `VARCHAR` holds 16 MB | Generic types keep the data. Date-times are `TIMESTAMP_NTZ`, stored as given whatever the session time zone |
+| Keys | Primary, unique and foreign keys are declared but never enforced (only `NOT NULL` is). Standard tables have no indexes | Keys are declared; identity columns and indexes are not created. Write targets do not rely on the database rejecting rows |
+| Sample hash | `SHA2` | The first 32 bits of `SHA2('seed\|key', 256)`, as on MySQL, DuckDB, Databricks and Fabric. The hex digits are read with `CHARINDEX`, which the stand-in also runs |
+| Query tag | `QUERY_TAG` session parameter | Every session carries the tag, so its queries can be found in `QUERY_HISTORY` and `ACCOUNT_USAGE.QUERY_HISTORY`. A `session_parameters` entry in `connect_args` replaces it |
+| Cost | Credits per second of a running virtual warehouse, by size | `max_bytes` uses `INFORMATION_SCHEMA.TABLES.BYTES`, the compressed storage, an upper bound of a scan |
+
+### Loading rows
+
+| `bulk.method` | How | When |
+|---|---|---|
+| `insert` (default) | `INSERT` with parameter arrays, which the connector sends as one multi-row statement per batch of 20,000 rows | Up to a few hundred thousand rows |
+| `stage` | `write_pandas`: the rows are written as Parquet, `PUT` in a temporary stage of the session and loaded with `COPY INTO`. `chunk_rows` sets the rows per file (default 1,000,000) | Large tables. Needs no stage or storage integration of your own |
+
+### Troubleshooting
+
+| Message | Cause and fix |
+|---|---|
+| `250001: Could not connect to Snowflake backend` | The account identifier is wrong (use `<org>-<account>`, not the URL) or the network blocks `*.snowflakecomputing.com` |
+| `JWT token is invalid` | The public key on the user does not match `private_key_file`, or the account identifier differs from the one the key was registered under |
+| `No active warehouse selected` | Add `warehouse=` to the URL, or give the user a default warehouse |
+| `CostGuardError: ... more than guards.max_bytes` | The table is larger than the guard. Push it down (`synthesis.pushdown`) or raise the guard |
+
+### How it was tested
+
+The tests run the real Snowflake connector and dialect against [fakesnow](https://github.com/tekumara/fakesnow) 0.12 in server mode, which speaks Snowflake's REST protocol over DuckDB (`tests/emulators/snowflake`; its README lists what it can and cannot check). `PUT` and `COPY INTO` (`bulk: stage`), key-pair and other sign-ins, the session `QUERY_TAG`, declared foreign keys and table sizes exist only on Snowflake; they have unit tests of what is sent and no live test yet. Run `pytest -m snowflake tests/integration` against a real account (`RELSYNTH_TEST_SNOWFLAKE_URL` and credentials in `RELSYNTH_TEST_SNOWFLAKE_CONNECT_ARGS`) before relying on them.
+
+### Sources
+
+- [Key-pair authentication](https://docs.snowflake.com/en/user-guide/key-pair-auth), [programmatic access tokens](https://docs.snowflake.com/en/user-guide/programmatic-access-tokens), [workload identity federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation) and [connecting with the Python connector](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect).
+- [Constraints](https://docs.snowflake.com/en/sql-reference/constraints-overview) (not enforced, except NOT NULL), [identifier resolution](https://docs.snowflake.com/en/sql-reference/identifiers-syntax).
+- [`QUERY_TAG`](https://docs.snowflake.com/en/sql-reference/parameters#query-tag), [`SHA2`](https://docs.snowflake.com/en/sql-reference/functions/sha2), [`CHARINDEX`](https://docs.snowflake.com/en/sql-reference/functions/charindex), [`INFORMATION_SCHEMA.TABLES`](https://docs.snowflake.com/en/sql-reference/info-schema/tables).
+- [`write_pandas`](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api#write_pandas) and [snowflake-sqlalchemy](https://github.com/snowflakedb/snowflake-sqlalchemy).
+
+## Google BigQuery
+
+```
+bigquery://<project>/<dataset>[?location=EU]
+```
+
+Install with `pip install "relsynth[bigquery]"` (sqlalchemy-bigquery and the BigQuery client library). The dataset is the schema; `schema` in the section overrides the URL's. A target dataset that does not exist is created in `location`.
+
+> **Not yet tested against BigQuery.** No BigQuery emulator could be run while this connector was written, so it has unit tests of the SQL, jobs and settings it sends, but no live test and no equivalence run. Run `pytest -m bigquery tests/integration` and the Chinook equivalence in a sandbox project before relying on it.
+
+### Sign-in
+
+| `auth.method` | Needs | What it is |
+|---|---|---|
+| `default` | | Application Default Credentials: `GOOGLE_APPLICATION_CREDENTIALS`, `gcloud auth application-default login`, or the metadata server on Compute Engine, GKE (workload identity) and Cloud Run |
+| `service-account` | `key_file` | A service account's JSON key file. Prefer `default` or `external-account` where keys are not allowed |
+| `external-account` | `config_file` | A workload identity federation configuration (AWS, Azure, OIDC). The file holds no secret |
+| `impersonate` | `service_account` | The default credentials act as this service account (needs `roles/iam.serviceAccountTokenCreator`) |
+
+The identity needs `roles/bigquery.jobUser` on the project and `roles/bigquery.dataViewer` (source) or `roles/bigquery.dataEditor` (target) on the dataset.
+
+### Cost
+
+BigQuery bills on-demand queries by bytes processed, so the guards matter most here:
+
+| Guard | On BigQuery |
+|---|---|
+| `max_bytes` | Set as `maximum_bytes_billed` on every query job, so BigQuery itself refuses a larger query (and charges nothing for it). Before a read, a sample or the statistics of a table, a dry run (free) gives the bytes the whole-table read would process, and a larger value stops with a `CostGuardError` |
+| `query_tag` | The job label `relsynth=<tag>` (lower case, `_` for other characters), so the jobs can be found and charged back in `INFORMATION_SCHEMA.JOBS` and the billing export |
+| `max_rows` | As elsewhere, from the table's metadata |
+
+Clustering and partitioning do not reduce what relsynth scans: the statistics read every row of the columns they need.
+
+### What differs from the other databases
+
+| Topic | BigQuery | What relsynth does |
+|---|---|---|
+| Types | `FLOAT64`, `STRING`, `DATETIME` (microseconds, no time zone), `BYTES` | Created columns use them. `STRING(n)` is not used, so longer values are never refused |
+| Keys | Primary and foreign keys exist only `NOT ENFORCED`; no unique keys or indexes | Keys are added after each table with `ALTER TABLE ... ADD PRIMARY KEY (...) NOT ENFORCED`. Unique keys are not declared |
+| Sample hash | `SHA256` returns `BYTES` | The first 32 bits of `SHA256('seed\|key')`, via `TO_HEX` and a `'0x...'` cast to `INT64`, the same value as the other warehouses and Python |
+| Loading | DML is billed and has quotas; load jobs are free | `bulk.method: load` (default): a load job from the rows as Parquet, appended to the table. `bulk.method: insert` uses DML `INSERT` |
+| Transactions | None across tables in relsynth's writes | Tables are loaded parents first; a failed load leaves the tables written so far |
+
+### Sources
+
+- [Authenticate to BigQuery](https://cloud.google.com/bigquery/docs/authentication), [workload identity federation](https://cloud.google.com/iam/docs/workload-identity-federation), [service account impersonation](https://cloud.google.com/iam/docs/service-account-impersonation).
+- [Estimate and control costs](https://cloud.google.com/bigquery/docs/best-practices-costs) (dry runs, `maximum_bytes_billed`) and [labels](https://cloud.google.com/bigquery/docs/adding-labels).
+- [Primary and foreign keys](https://cloud.google.com/bigquery/docs/primary-foreign-keys) (`NOT ENFORCED`), [data types](https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types), [`SHA256`](https://cloud.google.com/bigquery/docs/reference/standard-sql/hash_functions#sha256) and [conversion rules](https://cloud.google.com/bigquery/docs/reference/standard-sql/conversion_functions) (hexadecimal strings to `INT64`).
+- [Loading Parquet data](https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-parquet) and [sqlalchemy-bigquery](https://github.com/googleapis/python-bigquery-sqlalchemy).

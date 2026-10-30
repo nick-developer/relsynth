@@ -9,6 +9,11 @@
     src = connect("databricks://adb-1.azuredatabricks.net?http_path=/sql/1.0/warehouses/ab&catalog=main",
                   schema="sales", auth={"method": "oauth-m2m", "client_id_env": "DATABRICKS_CLIENT_ID",
                                         "client_secret_env": "DATABRICKS_CLIENT_SECRET"})
+    src = connect("fabric://abc.datawarehouse.fabric.microsoft.com/sales_wh", schema="dbo",
+                  auth={"method": "azure-cli"})
+    src = connect("snowflake://svc_relsynth@myorg-acct1/SALES_DB/PUBLIC?warehouse=WH_XS",
+                  auth={"method": "key-pair", "private_key_file": "~/.ssh/rs_key.p8"})
+    src = connect("bigquery://my-project/sales", auth={"method": "default"}, guards={"max_bytes": "50GB"})
     src = connect("sqlite:shop.db")          # or sqlite:///shop.db
     src = connect("csv:./data")              # a folder of CSV files
     src = connect("parquet:./lake/sales")    # a folder of Parquet files
@@ -23,6 +28,9 @@ A specification's `source` and `target` sections are connected with
 | oracle     | Oracle Database 19c+         | python-oracledb thin (relsynth[oracle]) |
 | mysql      | MySQL 8.0+, MariaDB 10.6+    | PyMySQL (relsynth[mysql]); mysqlclient when installed |
 | databricks | Databricks SQL warehouses, clusters | databricks-sqlalchemy (relsynth[databricks]) |
+| fabric     | Microsoft Fabric Warehouse, Lakehouse SQL endpoint | pyodbc + ODBC Driver 18, azure-identity (relsynth[fabric]) |
+| snowflake  | Snowflake                    | snowflake-sqlalchemy (relsynth[snowflake]) |
+| bigquery   | Google BigQuery              | sqlalchemy-bigquery (relsynth[bigquery]) |
 | sqlite     | SQLite 3.25+ files           | standard library                   |
 | csv        | folder of .csv / .csv.gz     | pandas                             |
 | parquet    | folder of .parquet           | pyarrow (relsynth[parquet])        |
@@ -41,7 +49,8 @@ from .files import FileConnector
 __all__ = ["connect", "from_spec", "Connector", "TableInfo", "ColumnInfo", "ForeignKey", "FileConnector",
            "KINDS"]
 
-KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "sqlalchemy")
+KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "fabric",
+         "snowflake", "bigquery", "sqlalchemy")
 _FILE_PREFIXES = {"csv:": "csv", "files:": "csv", "parquet:": "parquet"}
 
 
@@ -64,6 +73,15 @@ def _sql_class(dialect: str):
     if dialect == "databricks":
         from .databricks import DatabricksConnector
         return DatabricksConnector
+    if dialect == "fabric":
+        from .fabric import FabricConnector
+        return FabricConnector
+    if dialect == "snowflake":
+        from .snowflake import SnowflakeConnector
+        return SnowflakeConnector
+    if dialect == "bigquery":
+        from .bigquery import BigQueryConnector
+        return BigQueryConnector
     from .sql import SqlConnector
     return SqlConnector
 
@@ -79,7 +97,7 @@ def connect(source, *, schema: str | None = None, url_env: str | None = None, pa
     spec section ({kind, path or url, schema, ...}) or a Connector (returned as is).
     Credentials: url_env names a variable holding the whole URL, password_env one
     holding only the password; neither is written to logs or bundles.
-    Warehouses (databricks) also take auth (credentials from environment
+    Warehouses (databricks, fabric, snowflake, bigquery) also take auth (credentials from environment
     variables or the platform's credential chain), guards (cost guards) and bulk
     (the load path); see connectors/warehouse.py."""
     if isinstance(source, Connector):
@@ -121,7 +139,7 @@ def _warehouse_options(cls, **opts) -> dict:
     from .warehouse import WarehouseConnector
     given = {k: v for k, v in opts.items() if v is not None}
     if given and not issubclass(cls, WarehouseConnector):
-        raise ValueError(f"{', '.join(given)}: only for cloud warehouses (databricks)")
+        raise ValueError(f"{', '.join(given)}: only for cloud warehouses (databricks, fabric, snowflake, bigquery)")
     return given
 
 

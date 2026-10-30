@@ -101,7 +101,7 @@ def resolve_auth(auth: dict | None, methods: dict[str, tuple[str, ...]], default
             if not os.path.isfile(p):
                 raise ValueError(f"auth: {k} names {v}, which is not a file")
             out[k] = p
-        elif is_secret_key(k):
+        elif is_secret_key(k) or "private_key" in k.lower() or "-----BEGIN" in str(v):
             raise ValueError(f"auth.{k}: secrets are never written in the specification; "
                              f"use {k}_env with the name of an environment variable")
         else:
