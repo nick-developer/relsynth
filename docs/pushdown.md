@@ -73,6 +73,7 @@ Proposition 100 in [proofs/relsynth-proofs.pdf](proofs/relsynth-proofs.pdf) show
 | Oracle | Acklam | `ORA_HASH(..., 4294967295, seed)` | |
 | MySQL, MariaDB | Acklam | first 32 bits of `SHA2('seed\|key', 256)` | ranks are taken in `DOUBLE` (`x + 0E0`): MySQL divides integers as `DECIMAL` with 4 digits. Text keys are grouped and filtered in the binary collation of their character set, because the default collations ignore case, accents and (MariaDB) trailing spaces |
 | SQLite | exact (`scipy.special.ndtri`, registered function) | BLAKE2b (registered function) | |
+| Databricks SQL | Acklam | first 32 bits of `sha2('seed\|key', 256)`, as on MySQL | ranks are taken in `DOUBLE` (`FLOAT` is 4 bytes). Text compares byte by byte, so no collation is needed |
 | CSV, Parquet (`engine: duckdb`, the default) | exact (`scipy.special.ndtri` as a vectorised DuckDB function) | first 32 bits of SHA-256, as on MySQL | DuckDB runs the same SQL over views of the files and reads only the columns a query needs. CSV columns are typed by the pandas reader's rule. First rows follow the file order |
 | CSV, Parquet (`engine: pandas`) | exact, in pandas | a seeded Bernoulli draw while streaming | the 1.0 path: only the key and measure columns are read, one statistic at a time |
 
@@ -84,7 +85,7 @@ Long key lists are handled in two ways. A filter on more than 2,000 values (`MAX
 |---|---|---|
 | The SQL statistics equal the in-memory ones (counts exact; score sums within 1e-8) | 100, 102 | `test_counts_and_scores_match`, `test_statistics_match_the_in_memory_reference[postgresql, mssql, oracle]` |
 | A sample of every row gives exactly the in-memory synthetic database (plain, nested, header-split, view base, running balance) | 101 | `test_full_sample_pushdown_equals_in_memory[...]` |
-| The same source on SQLite, PostgreSQL, SQL Server, Oracle, MySQL and MariaDB gives the same synthetic database | 101 | `test_full_sample_pushdown_matches_sqlite_in_memory[...]` |
+| The same source on SQLite, PostgreSQL, SQL Server, Oracle, MySQL, MariaDB and Databricks gives the same synthetic database | 101 | `test_full_sample_pushdown_matches_sqlite_in_memory[...]` |
 | Text statistics are exact under case-insensitive collations (MySQL, MariaDB) | 100 | `test_text_is_compared_exactly_under_a_case_insensitive_collation[...]` |
 | Samples are uniform, seeded and of the requested size | 103 | `test_sample_is_uniform_reproducible_and_sized`, `test_python_hash_is_uniform_and_seeded`, `test_sample_hash_is_sha256_of_the_key[mysql, mariadb]` |
 | A sampled fit keeps the scorecard and uses exact counts on the real side | 104 | `test_sampled_pushdown_keeps_quality_and_memory_bound` |

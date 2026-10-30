@@ -8,9 +8,12 @@ relsynth reads from and writes to one *location* at a time: a schema of a SQL da
 | SQL Server, Azure SQL | `mssql://user@host:1433/db?driver=ODBC+Driver+18+for+SQL+Server` | `{kind: mssql, url: ..., schema: dbo}` | pyodbc and Microsoft ODBC Driver 17/18 (`relsynth[mssql]`), or pymssql (`relsynth[mssql-pymssql]`) | SQL Server 2022 (16.0) |
 | Oracle | `oracle://user@host:1521/?service_name=ORCLPDB1` | `{kind: oracle, url: ..., schema: SALES}` | python-oracledb, thin mode (`relsynth[oracle]`) | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | `mysql://user@host:3306/sales`, `mariadb://user@host:3306/sales` | `{kind: mysql, url: ..., schema: sales}` | PyMySQL (`relsynth[mysql]`); mysqlclient is used when installed | MySQL 8.4.13, MariaDB 11.4.13 |
+| Databricks SQL | `databricks://<host>?http_path=/sql/1.0/warehouses/<id>&catalog=main` | `{kind: databricks, url: ..., schema: sales, auth: {...}}` | databricks-sqlalchemy (`relsynth[databricks]`) | Spark 3.5.3 + Delta 3.2.1 stand-in; see [warehouses.md](warehouses.md) |
 | SQLite | `sqlite:shop.db`, `sqlite:///shop.db`, or a path ending in `.db` | `{kind: sqlite, path: shop.db}` | standard library | SQLite 3.45 |
 | CSV folder | `csv:data/` (also `files:data/`) | `{kind: csv, path: data, null_values: ["", "n/a"]}` | pandas | yes |
 | Parquet folder | `parquet:lake/sales/` | `{kind: parquet, path: lake/sales}` | pyarrow (`relsynth[parquet]`) | yes |
+
+The cloud warehouses take three more settings, `auth`, `guards` and `bulk`, described in [warehouses.md](warehouses.md).
 
 Relative paths in a spec are relative to the spec file's folder. Any other SQLAlchemy dialect can be tried with its full URL (`dialect+driver://...`), but only the kinds above are tested and supported.
 

@@ -209,7 +209,8 @@ def cmd_plan(a, out):
     with source_connector(s) as conn:
         p = planner.plan(s, conn)
         rows = {t: conn.count(t) for t in s["tables"] if conn.has_table(t)}
-    out.put(pushdown=p.to_dict(), rows=rows)
+        cost = conn.cost_report(list(rows), p.pushed) if hasattr(conn, "cost_report") else None
+    out.put(pushdown=p.to_dict(), rows=rows, **({"cost": cost} if cost else {}))
     out.line(f"pushdown mode {p.mode}; samples of {p.sample_rows:,} rows")
     w = max([len(t) for t in s["tables"]] + [10])
     for t in s["tables"]:
@@ -217,6 +218,13 @@ def cmd_plan(a, out):
         how = "statistics in the source + sample" if t in p.pushed else "loaded"
         why = f" ({p.reasons[t]})" if t in p.reasons else ""
         out.line(f"  {t:<{w}} {('-' if n is None else f'{n:,}'):>14} rows  {how}{why}")
+    if cost:
+        from .connectors.warehouse import human_bytes
+        out.line(f"cost: about {human_bytes(cost['scanned'])} scanned in all (query tag {cost['query_tag']})")
+        for t, c in cost["tables"].items():
+            out.line(f"  {t:<{w}} {human_bytes(c['bytes']):>14} stored  x{c['scans']} scans")
+        if cost.get("billing"):
+            out.line(f"billing: {cost['billing']}")
     return EXIT_OK
 
 
@@ -535,7 +543,7 @@ def _spec_args(p):
 def _loc_args(p, name, required=True, help_=""):
     # not required by argparse: --NAME-url-env can name the location instead (checked in _location)
     p.add_argument(f"--{name}", help=(help_ or "csv:DIR | parquet:DIR | sqlite:FILE | database URL "
-                                      "(postgresql://, mssql://, oracle://, mysql://, mariadb://)")
+                                      "(postgresql://, mssql://, oracle://, mysql://, mariadb://, databricks://)")
                    + ("" if not required else f"; or give --{name}-url-env"))
     p.add_argument(f"--{name}-schema", help="database schema")
     p.add_argument(f"--{name}-password-env", help="environment variable holding the password")

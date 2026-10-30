@@ -297,7 +297,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb (or sqlalchemy for any other engine): `url`. |
+| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks (or sqlalchemy for any other engine): `url`. |
 | `path` | str |  | Folder (files) or file (sqlite); relative to the spec's folder. |
 | `url` | str |  | Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen when omitted). |
 | `url_env` | str |  | Environment variable that holds the URL (with its password), used instead of `url`: keeps the password out of the file. Specs written for sharing (introspect drafts, exported spec.yaml, bundles) show the URL with *** for the password and set url_env (RELSYNTH_SOURCE_URL). |
@@ -308,6 +308,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `null_values` | list of str | `['']` | CSV fields read as null. Only an empty field by default, so 'NA' (Namibia), 'None' and 'null' stay values; e.g. ['', 'NULL', 'n/a']. |
 | `connect_args` | map |  | Driver connection arguments (TLS settings, timeouts), passed to the driver as they are. |
 | `engine_options` | map |  | SQLAlchemy engine options (pool_size, pool_recycle, ...). |
+| `auth` | map |  | Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default) and the environment variables that hold the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env) or key files as <name>_file. Without it: DATABRICKS_TOKEN when set, else the platform's credential chain. |
+| `guards` | map |  | Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in the warehouse's history), max_rows (largest table read into memory), max_bytes (largest estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs. |
+| `bulk` | map |  | Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. |
 | `format` | csv | parquet | `csv` | File format written (target of kind files). |
 | `engine` | auto | duckdb | pandas | `auto` | Folders: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
 | `duckdb` | map |  | Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory (where larger-than-memory sorts and groupings spill). |
@@ -316,7 +319,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
+| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
 | `path` | str | `synthetic` | Output folder or SQLite file; dataset i > 1 goes to <path>_i. |
 | `url` | str |  | URL of the target database. |
 | `url_env` | str |  | As for source (RELSYNTH_TARGET_URL in shared specs). |
@@ -326,6 +329,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure` | auto | clone | infer | existing | `auto` | How target tables are created. clone: the source's DDL (column types, nullability, primary, unique and foreign keys, indexes, identity columns) when source and target are databases; infer: from the specification (keys and links as constraints) and the data's types; existing: tables created beforehand. auto: clone when possible, else infer. |
 | `connect_args` | map |  | As for source. |
 | `engine_options` | map |  | As for source. |
+| `auth` | map |  | As for source. |
+| `guards` | map |  | As for source. |
+| `bulk` | map |  | As for source. |
 | `format` | csv | parquet | `csv` | File format of a files target. |
 
 ### `tables.<name>`
