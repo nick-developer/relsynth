@@ -41,6 +41,15 @@ DOWNLOADS = {
                               "dc344238e0dd5ec18a05f95b134b2102db6f1ac47a5ee63f16f67a2472032e52"),
     "CreateTablesOrders.sql": (CONTOSO_GEN + "CreateTablesOrders.sql",
                                "d82ef30a2b8faba85ee4510fc1cffb08b1b50c6f7d9f6e1cde5080bca4e425d8"),
+    # checked 2026-10-30: the SDV public demo copy of the CTU "Financial" (Berka, PKDD'99) database that SyntheRela
+    # starts from, and the SDNist 2.3.0 release of the NIST CRC ACS excerpts
+    "berka-data.zip": ("https://sdv-datasets-public.s3.amazonaws.com/multi_table/financial/data.zip",
+                       "377621d7d204e0e5d4737c97fce70a669bcde14f274b013fd8a0a3508ca78e97"),
+    "berka-metadata.json": ("https://sdv-datasets-public.s3.amazonaws.com/multi_table/financial/metadata.json",
+                            "ddbc2aa7cf49e01d298522964d1c15bcd97a15536d8255d1c3d0826879e99e87"),
+    "diverse_communities_data_excerpts.zip": (
+        "https://github.com/usnistgov/SDNist/releases/download/v2.3.0/diverse_communities_data_excerpts.zip",
+        "2c244e4f7e61b1e15dffc3e6f6bea5ec755f34106253cf5c42bf422f6964d3c9"),
 }
 
 
@@ -136,6 +145,30 @@ def build_contoso_sqlite() -> Path:
     return out
 
 
+def build_berka() -> Path:
+    out = CACHE / "berka" / "berka.db"
+    if out.exists():
+        return out
+    say("building Berka (financial) as SQLite")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".part")
+    _builder("berka_sqlite.py", download("berka-data.zip"), download("berka-metadata.json"), tmp)
+    tmp.replace(out)
+    return out
+
+
+def build_acs() -> Path:
+    out = CACHE / "acs" / "acs.db"
+    if out.exists():
+        return out
+    say("building the ACS excerpt as SQLite")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".part")
+    _builder("acs_sqlite.py", download("diverse_communities_data_excerpts.zip"), tmp)
+    tmp.replace(out)
+    return out
+
+
 def sqlite_tables(path: Path) -> dict:
     import pandas as pd
     con = sqlite3.connect(path)
@@ -155,6 +188,10 @@ class Dataset:
     public: bool = True
     note: str = ""
     tags: list = field(default_factory=list)
+    quality: dict = field(default_factory=dict)     # 2.0 quality report settings (cost budget); None: not run
+    privacy: dict | None = None                     # privacy attacks: {"shadow": {...}}; None: not run
+    repro: bool = False                             # synthesise each seed twice and compare the files
+    overrides: tuple = ()                           # spec overrides of this variant (e.g. a scale)
 
 
 def _spec(name):
@@ -204,6 +241,19 @@ def _contoso_checks(location: str, syn_dir: Path) -> dict:
     return out
 
 
+def _sqlite_checks(module: str):
+    """Domain checks of a SQLite database whose check module computes each value on
+    any copy of the tables, given the real ones (checks(tables, ref))."""
+    def run(location: str, syn_dir: Path) -> dict:
+        import importlib
+        m = importlib.import_module(f".checks.{module}", __package__)
+        real = sqlite_tables(Path(location.split(":", 1)[1]))
+        syn = m.load(syn_dir)
+        rr, ss = m.checks(real, real), m.checks(syn, real)
+        return {k: (rr.get(k), ss.get(k)) for k in rr}
+    return run
+
+
 def _bi_dir() -> Path | None:
     d = os.environ.get("RELSYNTH_BENCH_BI_DIR")
     return Path(d) if d and (Path(d) / "spec.yaml").exists() else None
@@ -221,15 +271,35 @@ def _bi_checks(location: str, syn_dir: Path) -> dict:
     return out
 
 
+# Cost budget of the 2.0 quality report on AdventureWorks: its default 20/10 null splits take about an hour
+# per seed (T05); 5/3 splits keep every check calibrated with wider limits.
+AW_QUALITY = {"null_splits": 5, "multi_splits": 3}
+# The shadow-model membership attack where one release fit is cheap (one person table): a quarter of
+# relsynth's default shadows; DOMIAS and the Anonymeter attacks run everywhere privacy runs.
+SHADOW_SMALL = {"enabled": True, "n_train": 16, "n_test": 16, "shadow_size": 500, "targets_vulnerable": 5,
+                "targets_random": 5, "n_jobs": os.cpu_count() or 1}
+
 DATASETS = {
     "chinook": Dataset("chinook", lambda: f"sqlite:{build_chinook()}", _spec("chinook"),
-                       note="Chinook 1.4.5 (11 tables); spec = examples/chinook_model/spec.yaml"),
+                       note="Chinook 1.4.5 (11 tables); spec = examples/chinook_model/spec.yaml", repro=True),
     "adventureworks": Dataset("adventureworks", lambda: f"sqlite:{build_adventureworks()}", _spec("adventureworks"),
-                              _aw_checks, note="AdventureWorks DW 2022 as SQLite (27 tables, 1.05M rows); checks G1-G14"),
+                              _aw_checks, note="AdventureWorks DW 2022 as SQLite (27 tables, 1.05M rows); checks G1-G14",
+                              quality=AW_QUALITY),
     "contoso_sqlite": Dataset("contoso_sqlite", lambda: f"sqlite:{build_contoso_sqlite()}", _spec("contoso_sqlite"),
-                              _contoso_checks, note="Contoso V2 100k as SQLite with the generator's keys; checks T1-T17"),
+                              _contoso_checks, note="Contoso V2 100k as SQLite with the generator's keys; checks T1-T17",
+                              privacy={"shadow": {"enabled": False}}),
     "contoso_parquet": Dataset("contoso_parquet", lambda: f"parquet:{contoso_parquet()}", _spec("contoso_parquet"),
                                _contoso_checks, note="Contoso V2 100k, raw Parquet files; checks T1-T17"),
+    "berka": Dataset("berka", lambda: f"sqlite:{build_berka()}", _spec("berka"), _sqlite_checks("berka"),
+                     note="Berka / PKDD'99 Czech bank (SyntheRela 'financial', 8 tables, 1.08M rows); checks F1-F16",
+                     privacy={"shadow": {"enabled": False}}),
+    "acs": Dataset("acs", lambda: f"sqlite:{build_acs()}", _spec("acs"), _sqlite_checks("acs"),
+                   note="ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns); checks A1-A14",
+                   privacy={"shadow": SHADOW_SMALL}, repro=True),
+    # the scale rule: Chinook drawn at twice its size; the quality report normalises fan-out by the scale
+    "chinook_x2": Dataset("chinook_x2", lambda: f"sqlite:{build_chinook()}", _spec("chinook"),
+                          note="Chinook at synthesis.scale 2 (scale rule, integrity at another size)",
+                          overrides=("synthesis.scale=2",)),
     "bi_corep_lr": Dataset("bi_corep_lr", lambda: f"csv:{_bi_dir() / 'data'}", lambda: _bi_dir() / "spec.yaml",
                            _bi_checks, public=False,
                            note="private; RELSYNTH_BENCH_BI_DIR with data/, spec.yaml and checks.py (B1-B8)"),

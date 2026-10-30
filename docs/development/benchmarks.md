@@ -21,8 +21,8 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 |---|---|
 | `python -m bench list` | the datasets and whether each is available here |
 | `python -m bench fetch` | download (checked against pinned SHA-256 sums) and build the public databases |
-| `python -m bench run [--datasets ...] [--seeds 1,2,3,4,5] [--no-fake]` | synthesise and score; writes one history record |
-| `python -m bench compare [RECORD] [--full]` | a record (default: the newest in `bench/history/`) against the baseline |
+| `python -m bench run [--datasets ...] [--seeds 1,2,3,4,5] [--suites ...] [--no-fake \| --fake-only]` | synthesise and score; writes one history record |
+| `python -m bench compare [RECORD ...] [--full]` | a record (default: the newest in `bench/history/`), or the records of one run split over several jobs, against the baseline |
 | `python -m bench baseline RECORD...` | rebuild `bench/baseline.json` from history records |
 | `python -m bench all` | everything above in order, then `compare --full` |
 
@@ -30,12 +30,26 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 
 | Dataset | Source | Checks |
 |---|---|---|
-| `chinook` | Chinook 1.4.5, SQLite (MIT) | scorecard |
-| `adventureworks` | AdventureWorks DW install script, built into SQLite (MIT) | scorecard, G1–G14 |
-| `contoso_sqlite` | Contoso V2 100k Parquet release plus the generator's DDL, built into SQLite (MIT) | scorecard, T1–T17 |
-| `contoso_parquet` | the same release read as raw Parquet files | scorecard, T1–T17 |
-| `bi_corep_lr` | the maintainer's private EBA COREP extract | scorecard, B1–B8 |
-| `fake` | the statistical check suite (pytest -m science) | C00–C78 |
+| `chinook` | Chinook 1.4.5, SQLite (MIT) | scorecard, quality, determinism |
+| `chinook_x2` | Chinook drawn at `synthesis.scale` 2 | scorecard, quality (fan-out normalised by the scale) |
+| `adventureworks` | AdventureWorks DW install script, built into SQLite (MIT) | scorecard, G1–G14, quality (5/3 null splits) |
+| `contoso_sqlite` | Contoso V2 100k Parquet release plus the generator's DDL, built into SQLite (MIT) | scorecard, T1–T17, quality, privacy (customers) |
+| `contoso_parquet` | the same release read as raw Parquet files | scorecard, T1–T17, quality |
+| `berka` | Berka / PKDD'99 Czech bank (SyntheRela "financial": 8 tables, 1.08M rows), built into SQLite with SDV's keys | scorecard, F1–F16, quality, privacy (accounts) |
+| `acs` | ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns), built into SQLite | scorecard, A1–A14, quality, privacy with shadow models (people), determinism |
+| `bi_corep_lr` | the maintainer's private EBA COREP extract | scorecard, B1–B8, quality |
+| `fake` | the statistical check suite (pytest -m science) | C00–C78, C600–C606 and the other science checks |
+
+Berka and ACS were added on 2026-10-30 as the most complex databases of the
+[dataset register](../datasets.md) that the harness can fetch: Berka is the
+richest allowed SyntheRela database (a bridge table between clients and
+accounts, two parents of the district table, a 1M-row transaction fact with a
+time column, an `order` table whose name is an SQL keyword, derived and
+aggregate rules) and ACS the register's reference privacy dataset (structural
+missing values, a geography code, survey weights, sensitive income and
+disability items). TPC-DS (`dsdgen`, 24 tables) and MIMIC-IV demo (clinical,
+ODbL) are the next candidates; they need the DuckDB extension repository and
+physionet.org, which the environment that built this baseline could not reach.
 
 The download URLs and checksums are in `bench/datasets.py`; licences and terms
 are in the [dataset register](../datasets.md). Nothing downloaded is committed:
@@ -62,13 +76,57 @@ tests.
 
 Every real database is synthesised once per seed with `relsynth run` in a fresh
 process and scored by relsynth's scorecard (one pass or fail per item) and by
-its domain checks. A domain check is judged only when it is an identity: the
+its domain checks; then, each in a fresh process (`bench/assess.py`), the
+suites that apply to the dataset (`--suites`, default all of them):
+
+| Suite | What runs | Items in the record |
+|---|---|---|
+| `scorecard` | relsynth's 1.0 scorecard and the domain checks | `scorecard:<area>\|<metric>`, `domain:<check>` |
+| `quality` | the calibrated 2.0 quality report (`relsynth.assess_quality`, targets from `benchmarks/targets.yaml`) | `quality:<check id>` (pass under the calibrated limit), `area:<fidelity\|utility\|integrity>` (the area rule of Prop. 111, exact), `goal:<metric>`, `metric:<value>` |
+| `privacy` | `relsynth.privacy.assess` on a release fitted to 40% of the people, the split drawn with the run's seed (settings in `benchmarks/privacy.yaml`) | `privacy:<criterion>\|<attack>` (passes when the upper 95% bound is under the internal context's limit; per-person results are information only), `goal:privacy_internal`, `goal:privacy_<external context>_needs_dp`, `metric:privacy_<attack>` |
+| `repro` | the same seed synthesised twice | `goal:deterministic` (identical files, exact) |
+
+Every run also records its generation cost from the operating system
+(`metric:cpu_seconds_per_million_rows`, `metric:peak_memory_mib`).
+
+### Which goal each item covers
+
+The goals are the roadmap's acceptance metrics ([acceptance metrics](../acceptance-metrics.md))
+and the privacy criteria of the EDPB guidelines that T06 implements. Each is
+covered by the cheapest item that decides it, on the datasets where it means
+something:
+
+| Goal | Item | Datasets |
+|---|---|---|
+| Referential integrity 100% | `goal:referential_integrity` (minimum `fk_integrity`), scorecard integrity items | all |
+| Business rules preserved (>99%) | `goal:business_rule_preservation` (every hard rule within the real data's own violation rate), domain identities | all; Berka F1–F11 and ACS A1–A12 test rules the draft spec may miss |
+| Distributions (95%+, calibrated) | `goal:distribution_match`, `area:fidelity`, `quality:` column, pair, 3-way, precision/recall checks | all |
+| Cross-table structure | `quality:` fan-out, 2-hop fan-out, hop-trend and detection checks; `metric:cardinality_similarity_*`, `metric:k_hop_trend_*`, `metric:c2st_agg_accuracy_max` | multi-table databases |
+| Utility gap (<5%) | `goal:utility_gap`, `area:utility`, `metric:utility_gap_max` | all with targets |
+| Scale control | `chinook_x2`: integrity and rate-normalised fan-out at twice the size | Chinook |
+| Generation failures (<0.1%) | R3 (a run that errors) | all |
+| Reproducibility | `goal:deterministic` | Chinook, ACS |
+| Singling out, linkage, inference (EDPB) | `privacy:record_isolation\|*`, `privacy:linkage\|*`, `privacy:inference\|*` | ACS, Berka, Contoso |
+| Attribute leakage of sensitive items | `privacy:inference\|attribute_*` (members minus non-members) | ACS (income decile, disabilities), Berka (loan status, balance), Contoso (spend) |
+| Membership inference | `privacy:membership\|domias_*` everywhere privacy runs; shadow-model LiRA and classifier where a fit is cheap | ACS (shadows), Berka, Contoso |
+| External releases need DP | `goal:privacy_partner_needs_dp`, `goal:privacy_public_needs_dp` (blocked without DP) | ACS, Berka, Contoso |
+| Detecting a leak at all | positive controls C600–C606 in the statistical suite | `fake` |
+| Generation cost | `metric:cpu_seconds_per_million_rows`, `metric:peak_memory_mib` (notes only) | all |
+
+AdventureWorks runs the quality report with 5/3 null splits (the default 20/10
+take about an hour per seed) and no privacy suite (67 minutes per seed with
+shadows in T06); Chinook has no privacy suite because its 59 customers are
+below the small-population limit, where T06 showed that the attacks succeed
+and only DP helps.
+
+A domain check is judged only when it is an identity: the
 real value is 0 or 1 (no duplicate, every row obeys the rule), and it passes
 when the synthetic value is exactly the same. Other domain measures (a mean, a
 KS distance) are recorded without a verdict. Each statistical check C00–C78 is
 one pass or fail.
 
 A history record (`bench/history/<time>-<commit>-<machine>.json`) stores the
+suites that ran, and the
 relsynth version, the commit and whether the tree was dirty, the machine (CPU,
 Python, numpy, pandas, scipy), the seeds, and every check of every run with its
 value.
@@ -88,7 +146,14 @@ the seeds on which it failed. A new record regresses when
   more than the spread, max(2 × standard deviation of the baseline's per-seed
   rates, 1 / number of judged checks);
 - **R3** a run errors, or (with `--full`) a dataset of the baseline did not run
-  and was not skipped as unavailable.
+  and was not skipped as unavailable;
+- **R4** a tracked value (`metric:` items: SyntheRela summaries, area pass
+  rates, the utility gap, attack values) moves the wrong way: its mean over the
+  new seeds is worse than the baseline mean by more than
+  max(0.02 × max(1, |baseline mean|), 2 × the baseline's standard deviation).
+  This is the "benchmark regression flag" of the acceptance metrics; it catches
+  a slow drift that no single pass or fail shows. Cost values depend on the
+  machine and are only noted when they grow by more than 25%.
 
 A check that failed on some baseline seed is unstable: a borderline statistical
 item that flips with the seed. It counts towards R2 but cannot trigger R1. The
@@ -113,8 +178,9 @@ single-failure rule.
 - `ci.yml`, job `bench`, on every pull request: Chinook on five seeds and
   Contoso (Parquet) on seed 1, compared with the baseline (about 15 minutes).
 - `bench.yml`, on every push to main, weekly and on demand: every public
-  database on five seeds and the statistical suite, `compare --full`. The
-  record is uploaded as an artefact.
+  database on five seeds and the statistical suite, one job per database in
+  parallel, then one `compare --full` over all the records. The records are
+  uploaded as artefacts.
 
 ## Changing the baseline
 

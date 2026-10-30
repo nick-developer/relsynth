@@ -27,24 +27,51 @@ concurrency:
 
 jobs:
   bench:
+    # one job per database (in parallel); the fake suite runs in its own job
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - { name: chinook, datasets: "chinook chinook_x2", fake: "--no-fake" }
+          - { name: adventureworks, datasets: "adventureworks", fake: "--no-fake" }
+          - { name: contoso, datasets: "contoso_sqlite contoso_parquet", fake: "--no-fake" }
+          - { name: berka, datasets: "berka", fake: "--no-fake" }
+          - { name: acs, datasets: "acs", fake: "--no-fake" }
+          - { name: fake, datasets: "", fake: "--fake-only" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[dev,bench]" datasketches
+      - run: pip install -e ".[dev,bench,benchmark]" datasketches
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bench/.cache
-          key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
-      - name: Golden databases and the statistical check suite
+          key: bench-data-${{ matrix.part.name }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: ${{ matrix.part.name }}
         env:
           SEEDS: ${{ inputs.seeds || '1,2,3,4,5' }}
-        run: python -m bench run --seeds "$SEEDS" --out-dir bench-out --label weekly
-      - name: Compare with the baseline (every dataset of the baseline must run)
-        run: python -m bench compare "$(ls bench-out/*.json)" --full
+          DATASETS: ${{ matrix.part.datasets }}
+          FAKE: ${{ matrix.part.fake }}
+        run: |
+          # shellcheck disable=SC2086
+          python -m bench run --datasets $DATASETS --seeds "$SEEDS" $FAKE --out-dir bench-out --label weekly
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
-        with: { name: bench-history, path: bench-out/ }
+        with: { name: "bench-history-${{ matrix.part.name }}", path: bench-out/ }
+
+  compare:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { pattern: bench-history-*, path: bench-out, merge-multiple: true }
+      - name: Compare with the baseline (every dataset of the baseline must run)
+        run: python -m bench compare bench-out/*.json --full

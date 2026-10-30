@@ -99,7 +99,7 @@ def test_private_results_stay_out_of_the_public_record(tmp_path, monkeypatch):
     bi.mkdir()
     (bi / "spec.yaml").write_text("name: x\n")
     monkeypatch.setenv("RELSYNTH_BENCH_BI_DIR", str(bi))
-    monkeypatch.setattr(runner, "run_real", lambda name, seed, pushdown: _run(name, seed))
+    monkeypatch.setattr(runner, "run_real", lambda name, seed, *_a: _run(name, seed))
     path = runner.run(["bi_corep_lr", "chinook"], [1], fake=False, out_dir=tmp_path / "history")
     public = path.read_text()
     assert '"c0"' in public and public.count('"c0"') == 1          # chinook's checks only
@@ -109,3 +109,87 @@ def test_private_results_stay_out_of_the_public_record(tmp_path, monkeypatch):
     rec = runner.load_record(path)
     assert sorted(r["dataset"] for r in rec["runs"]) == ["bi_corep_lr", "chinook"]
     assert all("checks" in r for r in rec["runs"])
+
+
+def _tracked(seed, value, kind=None, direction="higher"):
+    c = {"id": "metric:m", "pass": None, "value": value, "direction": direction, **({"kind": kind} if kind else {})}
+    return {"dataset": "db", "seed": seed, "checks": [{"id": "c0", "pass": True}, c]}
+
+
+def test_r4_drift_of_a_tracked_value():
+    base = regress.build([{"runs": [_tracked(s, 0.90 + 0.001 * s) for s in range(1, 6)]}])
+    t = base["datasets"]["db"]["tracked"]["metric:m"]
+    assert t["n"] == 5 and t["direction"] == "higher"
+    # within the floor of 0.02: no regression
+    reg, _, _ = regress.compare(base, {"runs": [_tracked(s, 0.89) for s in range(1, 4)]})
+    assert reg == []
+    # worse by 0.05 on average: R4
+    reg, _, _ = regress.compare(base, {"runs": [_tracked(s, 0.85) for s in range(1, 4)]})
+    assert any(r.startswith("R4 db metric:m") for r in reg)
+    # better is never a regression
+    reg, _, _ = regress.compare(base, {"runs": [_tracked(s, 0.99) for s in range(1, 4)]})
+    assert reg == []
+
+
+def test_r4_cost_values_are_notes_only():
+    base = regress.build([{"runs": [_tracked(s, 100.0, "cost", "lower") for s in range(1, 6)]}])
+    reg, notes, _ = regress.compare(base, {"runs": [_tracked(1, 200.0, "cost", "lower")]})
+    assert reg == [] and any("cost metric:m" in n for n in notes)
+
+
+def test_quality_and_privacy_items():
+    from bench.assess import privacy_checks, quality_checks
+    rep = {"checks": [
+        {"id": "w1:t:a", "metric": "w1_rank_normal", "area": "fidelity", "value": 0.01, "limit": 0.05, "pass": True,
+         "alpha": 0.01, "source": "quality-2.0"},
+        {"id": "fk_integrity:t", "metric": "fk_integrity", "area": "integrity", "value": 1.0, "limit": 1.0,
+         "pass": True, "source": "scorecard-1.0"},
+        {"id": "tstr:t", "metric": "tstr_gap", "area": "utility", "value": 0.08, "limit": 0.05, "pass": False,
+         "source": "quality-2.0"}],
+        "vector": {"fidelity": {"checks": 1, "pass": True, "pass_rate": 1.0},
+                   "utility": {"checks": 1, "pass": False, "pass_rate": 0.0}, "integrity": {"checks": 1, "pass": True,
+                                                                                        "pass_rate": 1.0}},
+        "benchmark": {"syntherela": {"c2st_agg_accuracy_max": 0.7, "cardinality_similarity": {"a": 0.9, "b": 0.8},
+                                     "k_hop_trend": {"1": 0.95}}}}
+    q = {c["id"]: c for c in quality_checks(rep)}
+    assert "quality:fk_integrity:t" not in q                      # 1.0 items stay scorecard items
+    assert q["quality:w1:t:a"]["pass"] and not q["quality:tstr:t"]["pass"]
+    assert not q["area:utility"]["pass"] and q["area:utility"]["limit"] == 0
+    assert q["goal:referential_integrity"]["pass"] and q["goal:distribution_match"]["pass"]
+    assert not q["goal:utility_gap"]["pass"]
+    assert q["metric:cardinality_similarity_min"]["value"] == 0.8
+    prep = {"release": {"dp": None}, "guards": {"dcr": {"ratio": 0.9}}, "contexts": {
+        "internal": {"external": False, "verdict": "review", "checks": [
+            {"criterion": "linkage", "attack": "nn", "value": 0.0, "ci": [0, 0.01], "limit": 0.1, "status": "pass"},
+            {"criterion": "membership", "attack": "rec", "value": 0.7, "ci": [0.4, 0.9], "limit": 0.85,
+             "status": "info"}]},
+        "public": {"external": True, "verdict": "blocked", "checks": []}}}
+    p = {c["id"]: c for c in privacy_checks(prep)}
+    assert p["privacy:linkage|nn"]["pass"] and p["privacy:membership|rec"]["pass"] is None
+    assert p["goal:privacy_internal"]["pass"] and p["goal:privacy_public_needs_dp"]["pass"]
+    assert p["metric:privacy_guard_dcr_ratio"]["direction"] == "higher"
+
+
+def test_domain_check_modules_hold_on_toy_data():
+    import pandas as pd
+
+    from bench.checks import acs, berka
+    a = pd.DataFrame({"AGEP": [10, 30, 70], "INDP": [None, 770, 8680], "INDP_CAT": [None, 1, 2],
+                      "PINCP": [None, 100.0, 9000.0], "PINCP_DECILE": [None, 1, 9], "EDU": [1, 5, 9],
+                      "DREM": [2, 2, 1], "HOUSING_TYPE": [1, 1, 2], "OWN_RENT": [1, 2, 0], "WGTP": [5, 7, 0],
+                      "PUMA": ["a", "a", "b"], "DENSITY": [1.0, 1.0, 2.0], "POVPIP": [100, 501, None]})
+    r = acs.checks({"acs": a}, {"acs": a})
+    assert all(r[k] == 1.0 for k in r if k[:3] in {f"A{i} " for i in range(1, 10)} | {"A10", "A11", "A12"})
+    T = {"account": pd.DataFrame({"account_id": [1, 2], "district_id": [1, 1], "date": ["2020-01-01", "2020-02-01"]}),
+         "client": pd.DataFrame({"client_id": [1, 2], "district_id": [1, 1]}),
+         "disp": pd.DataFrame({"disp_id": [1, 2], "client_id": [1, 2], "account_id": [1, 2], "type": ["OWNER"] * 2}),
+         "card": pd.DataFrame({"card_id": [1], "disp_id": [1], "issued": ["2020-03-01"]}),
+         "loan": pd.DataFrame({"loan_id": [1], "account_id": [1], "amount": [120], "duration": [12], "payments": [10],
+                               "status": ["A"]}),
+         "trans": pd.DataFrame({"trans_id": [1, 2, 3], "account_id": [1, 1, 2],
+                                "date": ["2020-01-01", "2020-01-05", "2020-02-01"], "type": ["PRIJEM", "PRIJEM", "PRIJEM"],
+                                "operation": ["VKLAD", None, "VKLAD"], "k_symbol": [None, "UROK", None],
+                                "amount": [10.0, 1.0, 5.0]})}
+    r = berka.checks(T, T)
+    assert all(r[k] == 1.0 for k in r if k.split()[0] in {f"F{i}" for i in range(1, 12)})
+    assert r["F15 loan status, total variation from the bank"] == 0.0

@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Privacy assessment settings of the benchmark databases (bench/assess.py, suite
+# "privacy"). `defaults` applies to every database; a database block overrides it
+# key by key and is a valid privacy.yaml fragment (docs/privacy.md):
+#
+#   relsynth privacy bench/specs/acs.yaml --config <the merged block> --out DIR
+#
+# The attack budget is smaller than relsynth's defaults so that every seed of the
+# harness can run it (the release fit dominates otherwise); the shadow-model attack
+# is set per database in bench/datasets.py. Judgement uses relsynth's default
+# context limits; the harness gates on the internal context and checks that the
+# external contexts stay blocked without DP.
+
+defaults:
+  split: {max_people: 10000}
+  attacks:
+    record_isolation: {n_attacks: 300}
+    linkage: {n_attacks: 300}
+    inference: {n_attacks: 1000}
+    attribute_inference: {max_rows: 10000}
+
+acs:
+  unit: acs
+  sensitive: [PINCP_DECILE, DPHY, DREM]          # income decile and two disabilities (as in T06)
+  quasi_identifiers: [AGEP, SEX, RAC1P, HISP, PUMA, EDU, MSP]
+
+berka:
+  unit: account                                   # the bank account and everything it owns
+  sensitive: [loan.status.mode, trans.balance.mean]
+  quasi_identifiers: [district_id, frequency, date]
+
+contoso_sqlite:
+  unit: Customer
+  sensitive: [Sales.NetPrice.mean]
+  quasi_identifiers: [Gender, Age, Country, GeoAreaKey]

@@ -15,7 +15,14 @@ A new record regresses on a dataset when
       more than the run-to-run spread, spread = max(2 sd, 1 / judged checks):
       two standard deviations of the per-seed pass rates (a 95% band if the rates
       were normal), and never less than one check, or
-  R3  a run errors, or a dataset the baseline has is missing from a full run.
+  R3  a run errors, or a dataset the baseline has is missing from a full run, or
+  R4  a tracked value (a `metric:` item: SyntheRela summaries, area pass rates,
+      utility gap, attack values) moves the wrong way: its mean over the new
+      seeds is worse than the baseline mean by more than
+      max(0.02 x max(1, |baseline mean|), 2 sd of the baseline seeds) -- the
+      "benchmark regression flag" of docs/acceptance-metrics.md.  Cost values
+      (CPU seconds, memory) depend on the machine and are only noted when they
+      grow by more than 25%.
 
 Checks that failed on some baseline seed are "unstable": they count in R2 but
 cannot trigger R1, so a borderline statistical check flipping with the seed is
@@ -50,6 +57,13 @@ def judged(r: dict) -> list[dict]:
 def exact(c: dict) -> bool:
     """An identity (judged against the real value) or a scorecard item with limit 0."""
     return "limit" not in c or not c["limit"]
+
+
+def tracked(r: dict) -> list[dict]:
+    return [c for c in r.get("checks", []) if c.get("pass") is None and c.get("direction") and c.get("value") is not None]
+
+
+R4_FLOOR, COST_NOTE = 0.02, 0.25
 
 
 def rate(r: dict) -> float:
@@ -89,7 +103,42 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
                            **({"failed_seeds": v["failed_seeds"]} if v["failed_seeds"] else {})}
                        for k, v in sorted(per_check.items())},
             "errors": sum(1 for r in runs if r.get("error"))}
+        vals: dict = defaultdict(list)
+        meta: dict = {}
+        for r in runs:
+            for c in tracked(r):
+                vals[c["id"]].append(float(c["value"]))
+                meta[c["id"]] = (c["direction"], c.get("kind"))
+        if vals:
+            out["datasets"][ds]["tracked"] = {
+                k: {"mean": round(statistics.fmean(v), 6), "sd": round(statistics.stdev(v), 6) if len(v) > 1 else 0.0,
+                    "n": len(v), "direction": meta[k][0], **({"kind": meta[k][1]} if meta[k][1] else {})}
+                for k, v in sorted(vals.items())}
     return out
+
+
+def drift(b: dict, rs: list[dict]) -> tuple[list[str], list[str]]:
+    """R4: tracked values whose new mean is worse than the baseline's beyond the spread."""
+    regs, notes = [], []
+    vals: dict = defaultdict(list)
+    for r in rs:
+        for c in tracked(r):
+            vals[c["id"]].append(float(c["value"]))
+    for k, v in sorted(vals.items()):
+        bt = (b.get("tracked") or {}).get(k)
+        if not bt:
+            continue
+        sign = 1 if bt["direction"] == "lower" else -1
+        worse = sign * (statistics.fmean(v) - bt["mean"])
+        if bt.get("kind") == "cost":
+            if worse > COST_NOTE * abs(bt["mean"]):
+                notes.append(f"cost {k}: {statistics.fmean(v):.1f} against {bt['mean']:.1f} in the baseline")
+            continue
+        allowed = max(R4_FLOOR * max(1.0, abs(bt["mean"])), 2 * bt["sd"])
+        if worse > allowed + 1e-12:
+            regs.append(f"R4 {k}: mean {statistics.fmean(v):.4f} against baseline {bt['mean']:.4f} "
+                        f"({'lower' if sign > 0 else 'higher'} is better; allowed drift {allowed:.4f})")
+    return regs, notes
 
 
 def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str], list[str], dict]:
@@ -119,6 +168,9 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
                        "judged": [len(judged(r)) for r in rs]}
         if rates and mean < b["mean"] - b["spread"] - 1e-12:
             regressions.append(f"R2 {ds}: mean pass rate {mean:.4f} < baseline {b['mean']:.4f} - spread {b['spread']:.4f}")
+        reg4, note4 = drift(b, rs)
+        regressions += [x.replace("R4 ", f"R4 {ds} ", 1) for x in reg4]
+        notes += [f"{ds} {x}" for x in note4]
         n_seeds = sum(1 for r in rs if r.get("checks"))
         failed_on: dict = defaultdict(int)
         for r in rs:
