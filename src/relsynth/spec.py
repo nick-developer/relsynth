@@ -714,9 +714,11 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
     return errs
 
 
-SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
-TARGET_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
-SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "sqlalchemy")
+SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks",
+                "sqlalchemy")
+TARGET_KINDS = SOURCE_KINDS
+WAREHOUSE_KINDS = ("databricks",)
+SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "sqlalchemy")
 TARGET_STRUCTURES = ("auto", "clone", "infer", "existing")
 IF_EXISTS = ("replace", "append", "truncate", "fail")
 
@@ -761,9 +763,11 @@ def _validate_io(spec):
         if x.get("duckdb") is not None and (not isinstance(x["duckdb"], dict) or
                                             set(x["duckdb"]) - {"memory_limit", "threads", "temp_directory"}):
             errs.append(f"{key}.duckdb must be a mapping of memory_limit, threads and temp_directory")
-        for k in ("connect_args", "engine_options"):
+        for k in ("connect_args", "engine_options", "auth", "guards", "bulk"):
             if x.get(k) is not None and not isinstance(x[k], dict):
                 errs.append(f"{key}.{k} must be a mapping")
+        if any(x.get(k) is not None for k in ("auth", "guards", "bulk")) and x.get("kind") not in WAREHOUSE_KINDS:
+            errs.append(f"{key}: auth, guards and bulk are for the cloud warehouses ({', '.join(WAREHOUSE_KINDS)})")
         if x.get("kind", "csv") in SERVER_KINDS and not (x.get("url") or x.get("url_env")):
             errs.append(f"{key}: kind {x.get('kind')} needs `url` or `url_env`")
         if x.get("format") is not None and x["format"] not in ("csv", "parquet"):

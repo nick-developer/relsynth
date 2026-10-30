@@ -7,6 +7,7 @@ Every data location relsynth reads or writes goes through one *connector*, which
 | The store | Base class | Example |
 |---|---|---|
 | Has a SQLAlchemy dialect with window functions (`RANK() OVER`, `ROW_NUMBER() OVER`) | `SqlConnector` (`connectors/sql.py`) | PostgreSQL, SQL Server, Oracle, MySQL, SQLite |
+| Is a cloud warehouse with such a dialect (billed per query, signed in with tokens or a credential chain) | `WarehouseConnector` (`connectors/warehouse.py`), a `SqlConnector` with `auth`, cost guards and `bulk` | Databricks SQL |
 | Is a folder or object store of files | `FileConnector`, with DuckDB for statistics | CSV, Parquet |
 | Has neither (an API, a document store) | `Connector` (`connectors/base.py`) | none yet; T13 (documents) |
 
@@ -37,6 +38,8 @@ The decisive check is that **the same data gives the same synthetic database**. 
 
 | Hook | Use it for | Example |
 |---|---|---|
+| `_connect_args(url)` | Driver arguments the connector adds, such as credentials from the environment (`WarehouseConnector` calls `auth_connect_args`) | Databricks access token or OAuth credentials provider |
+| `adapt_metadata(md)` | Constraints and table options the engine cannot declare, applied to the tables `write_tables` and `clone-schema` create | Databricks: keys only in Unity Catalog, no `UNIQUE` or indexes, Delta column mapping |
 | `_engine_options(url)` | Engine and pool options | `pool_recycle` (MySQL), `fast_executemany` (SQL Server), `arraysize` (Oracle) |
 | `_setup_engine(engine)` | Per-connection session settings and SQL functions | MySQL `time_zone = '+00:00'`; SQLite registers `rs_ndtri` and `rs_hash`; DuckDB registers `rs_ndtri` |
 | `table(name)` | Fix reflected types | MySQL `DOUBLE` reflects as `asdecimal=True` (rounds to 10 decimals) |
@@ -74,7 +77,7 @@ Each function compiles per dialect with `@compiles(..., "<dialect>")`:
 |---|---|
 | `connectors/__init__.py` | `_sql_class(dialect)` returns the class; `KINDS`; the module docstring table |
 | `connectors/sql.py` `_driver()` | The default driver for a bare `kind://` URL, plus any URL options it needs (MySQL adds `charset=utf8mb4`) |
-| `spec.py` | `SOURCE_KINDS`, `TARGET_KINDS`, `SERVER_KINDS` |
+| `spec.py` | `SOURCE_KINDS`, `TARGET_KINDS`, `SERVER_KINDS`, and `WAREHOUSE_KINDS` for a warehouse (it allows `auth`, `guards`, `bulk`) |
 | `schema.py` | The `kind` choices and help text; regenerate `docs/spec-reference.md` (`python docs/make_spec_reference.py`) |
 | `pipeline.py` | The URL scheme → kind map |
 | `cli.py` | The `--source` help; regenerate `docs/cli.md` (`python docs/make_cli_reference.py`) |
@@ -90,7 +93,7 @@ Each function compiles per dialect with `@compiles(..., "<dialect>")`:
 
 ## Warehouses
 
-Notes for T18. Each still needs a live check before it is relied on.
+Notes for T18. Databricks is done: see [warehouses.md](warehouses.md) for what was found. The rest still need a live check before they are relied on.
 
 | Topic | What to expect | Consequence for the connector |
 |---|---|---|

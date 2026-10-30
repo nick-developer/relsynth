@@ -39,11 +39,12 @@ mssql = ["pyodbc>=5.0"]
 mssql-pymssql = ["pymssql>=2.2.8"]
 oracle = ["oracledb>=2.0"]
 mysql = ["pymysql>=1.1.1"]
+databricks = ["databricks-sqlalchemy>=2.0.5", "databricks-sql-connector>=4.0", "databricks-sdk>=0.30"]
 parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
-all = ["relsynth[postgres,mssql,oracle,mysql,parquet]"]
+all = ["relsynth[postgres,mssql,oracle,mysql,databricks,parquet]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
 dev = [
@@ -90,6 +91,7 @@ markers = [
     "oracle: needs a live Oracle Database (RELSYNTH_TEST_ORACLE_URL)",
     "mysql: needs a live MySQL 8 server (RELSYNTH_TEST_MYSQL_URL)",
     "mariadb: needs a live MariaDB server (RELSYNTH_TEST_MARIADB_URL)",
+    "databricks: needs a Databricks SQL warehouse or the local Spark stand-in (RELSYNTH_TEST_DATABRICKS_URL)",
     "slow: end-to-end runs that take more than a few seconds",
     "science: the statistical check suite C00-C78 (about an hour; run with -m science)",
 ]

@@ -12,7 +12,7 @@
 * `row_hash(cols, seed)`: a seeded pseudo-random integer in [0, 2^32) per row,
   computed from the row's key values, for reproducible Bernoulli samples
   (hashtextextended in PostgreSQL, HASHBYTES in SQL Server, ORA_HASH in Oracle,
-  SHA2 in MySQL and MariaDB, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
+  SHA2 in MySQL, MariaDB and Databricks, sha256 in DuckDB, a registered BLAKE2 function in SQLite).
 """
 from __future__ import annotations
 
@@ -64,8 +64,9 @@ def _to_float_default(element, compiler, **kw):
 
 
 @compiles(to_float, "duckdb")
+@compiles(to_float, "databricks")
 def _to_float_duckdb(element, compiler, **kw):
-    return f"CAST({compiler.process(element.clauses, **kw)} AS DOUBLE)"     # FLOAT is 4 bytes in DuckDB
+    return f"CAST({compiler.process(element.clauses, **kw)} AS DOUBLE)"     # FLOAT is 4 bytes in DuckDB and Databricks
 
 
 @compiles(to_float, "mysql")
@@ -155,6 +156,11 @@ def row_hash(cols, seed: int, dialect_name: str):
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
         hex32 = sa.func.concat(sa.literal_column("'0x'"), sa.func.left(sa.func.sha256(txt), sa.literal_column("8")))
         return sa.cast(hex32, sa.BigInteger)
+    if dialect_name == "databricks":
+        # the same 32 bits again: sha2 gives lower-case hex, conv reads base 16
+        txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
+        hex8 = sa.func.left(sa.func.sha2(txt, sa.literal_column("256")), sa.literal_column("8"))
+        return sa.cast(sa.func.conv(hex8, sa.literal_column("16"), sa.literal_column("10")), sa.BigInteger)
     if dialect_name in ("mysql", "mariadb"):
         # the first 32 bits of SHA-256('seed|text'), as py_row_hash_sha256 computes them
         txt = sa.func.concat(sa.literal(f"{seed}|"), _joined(cols))
@@ -169,7 +175,7 @@ def py_row_hash(seed: int, text: str) -> int:
 
 
 def py_row_hash_sha256(seed: int, text: str) -> int:
-    """The MySQL, MariaDB and DuckDB hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
+    """The MySQL, MariaDB, DuckDB and Databricks hash: SHA-256 of 'seed|text' (UTF-8), first 4 bytes."""
     return int(hashlib.sha256(f"{seed}|{text}".encode()).hexdigest()[:8], 16)
 
 

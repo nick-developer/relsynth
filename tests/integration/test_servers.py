@@ -21,7 +21,7 @@ from relsynth.pushdown.stats import FrameStats, Require
 
 KINDS = [pytest.param("postgresql", marks=pytest.mark.postgres), pytest.param("mssql", marks=pytest.mark.mssql),
          pytest.param("oracle", marks=pytest.mark.oracle), pytest.param("mysql", marks=pytest.mark.mysql),
-         pytest.param("mariadb", marks=pytest.mark.mariadb)]
+         pytest.param("mariadb", marks=pytest.mark.mariadb), pytest.param("databricks", marks=pytest.mark.databricks)]
 STAR = ("customer", "product", "sales")
 
 
@@ -50,7 +50,9 @@ def test_write_read_and_catalog(star_on_server):
         for name, df in t.items():
             assert conn.count(name) == len(df)
         info = conn.describe("sales")
-        assert {f.ref_table.lower() for f in info.foreign_keys} == {"customer", "product"}
+        # warehouses without declarable keys (Databricks outside Unity Catalog) report none
+        want = {"customer", "product"} if getattr(conn, "constraints", True) else set()
+        assert {f.ref_table.lower() for f in info.foreign_keys} == want
         back = conn.read_table("customer")
         assert len(back) == len(t["customer"])
         assert conn.ping()["ok"]
@@ -115,7 +117,8 @@ def test_clone_schema_from_sqlite_and_back(server, tmp_path, star_sqlite):
     conn = from_spec(tgt)
     try:
         assert all(conn.count(t) == 0 for t in STAR)
-        assert {f.ref_table.lower() for f in conn.describe("sales").foreign_keys} == {"customer", "product"}
+        want = {"customer", "product"} if getattr(conn, "constraints", True) else set()
+        assert {f.ref_table.lower() for f in conn.describe("sales").foreign_keys} == want
     finally:
         conn.close()
     back = rs.clone_schema(tgt, f"sqlite:{tmp_path / 'back.db'}", tables=list(STAR))
@@ -169,7 +172,8 @@ def test_hostile_identifiers_on_server(server):
             conn.create_schema(schema if kind != "oracle" else None)
         conn.write_table("evil", pd.DataFrame({"id": [1, 2], evil_col: [3, 4]}))
         back = conn.read_table("evil")
-        assert back.columns.tolist()[1].lower() == evil_col.lower() and back.iloc[:, 1].tolist() == [3, 4]
+        assert back.columns.tolist()[1].lower() == evil_col.lower() \
+            and sorted(back.iloc[:, 1].tolist()) == [3, 4]          # SQL gives no row order
         st = conn.stats("evil")
         assert st.n_rows == 2
     finally:
