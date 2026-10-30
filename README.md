@@ -65,6 +65,8 @@ pip install "relsynth[mssql]"              # + SQL Server (pyodbc; needs Microso
 pip install "relsynth[mssql-pymssql]"      # + SQL Server without ODBC (pymssql)
 pip install "relsynth[oracle]"             # + Oracle (python-oracledb, thin mode: no Oracle client needed)
 pip install "relsynth[parquet]"            # + Parquet files (pyarrow)
+pip install "relsynth[iceberg]"            # + Apache Iceberg tables (PyIceberg)
+pip install "relsynth[delta]"              # + Delta Lake tables (delta-rs)
 pip install "relsynth[all]"                # all of the above
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
 ```
@@ -180,6 +182,8 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | SQLite | yes | yes | yes | SQLite 3.45 |
 | CSV folder | yes (also `.csv.gz`) | yes | yes, with DuckDB over the files | yes |
 | Parquet folder | yes | yes | yes, with DuckDB over the files | yes (pyarrow 26, DuckDB 2.0) |
+| Apache Iceberg (local, S3, ADLS; any PyIceberg catalog) | yes, one snapshot per table (`snapshot`, `as_of`) | yes, one commit per table, partitioned by Iceberg transforms | yes, with DuckDB over the snapshot | local disk; S3 (moto) and Azurite stand-ins ([lakehouse](docs/lakehouse.md)) |
+| Delta Lake (local, S3, ADLS) | yes, one version per table | yes, one commit per table | yes, with DuckDB over the version | local disk; S3 (moto) and Azurite stand-ins ([lakehouse](docs/lakehouse.md)) |
 
 Writes come in four modes:
 - `replace`: drop and create.
