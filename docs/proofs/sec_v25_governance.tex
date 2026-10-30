@@ -1,0 +1,52 @@
+%=====================================================================
+\section{Governance: privacy budget ledger and tamper evidence (v2.5)}\label{sec:v25gov}
+% numbered to match checks C800--C803; the shared counter is restored at the end
+\newcounter{savedpropgov}\setcounter{savedpropgov}{\value{proposition}}
+Release 2.5 records every run in a signed, append-only registry and charges every differentially private release to the privacy budget of the people it is about (design: \texttt{docs/governance/design.md}). The propositions of this section are numbered from 800 so that they do not collide with those of other work streams. Each is tested by a check in \texttt{tests/science/test\_governance\_checks.py} (C800--C803). In the design phase the checks test small reference implementations; the build phase keeps the checks and points them at \texttt{relsynth.governance}.
+
+\paragraph{Setting.} A \emph{privacy domain} $\mathcal{D}$ is a population of privacy units (people) together with every database that holds their data, under one adjacency relation: two collections of databases are neighbours when they differ in all the data of one unit (add or remove), across all databases of the domain at once (Ponomareva et al.\ \cite{ponomareva2023}; NIST SP 800-226 \cite{nist800226}, sec.~2.4). A \emph{charge} is the privacy guarantee of one mechanism run on data of $\mathcal{D}$, as reported by the DP engine (T07) with respect to that adjacency. Charges are of three kinds: pure $\varepsilon$-DP, $\rho$-zCDP, and approximate $(\varepsilon,\delta)$-DP. The \emph{ledger} of $\mathcal{D}$ is the sequence of charges in the order the mechanisms ran; each mechanism may be chosen adaptively from the outputs of earlier ones.
+
+\setcounter{proposition}{799}
+\begin{proposition}[The ledger bounds the privacy loss of the domain]\label{prop:ledger}
+Map each charge to a pair $(\rho_i,\delta_i)$: pure $\varepsilon$ to $(\varepsilon^2/2,0)$, $\rho$-zCDP to $(\rho,0)$, and $(\varepsilon,\delta)$ to $(\varepsilon^2/2,\delta)$. Let $\rho=\sum_i\rho_i$ and $\delta_0=\sum_i\delta_i$.
+(a) The adaptive composition of all mechanisms in the ledger is $\delta_0$-approximately $\rho$-zCDP.
+(b) For every $\delta>\delta_0$ it is $(\varepsilon_\rho(\delta-\delta_0),\delta)$-DP, where $\varepsilon_\rho(\delta')$ is the smallest $\varepsilon\ge0$ with
+\[\inf_{\alpha>1}\frac{\exp\big((\alpha-1)(\alpha\rho-\varepsilon)\big)}{\alpha-1}\Big(1-\frac1\alpha\Big)^{\alpha}\le\delta',\]
+and $\varepsilon_\rho(\delta')\le\rho+2\sqrt{\rho\log(1/\delta')}$.
+(c) If every charge is pure or approximate, it is also $(\sum_i\varepsilon_i,\delta_0)$-DP; the ledger states the smaller of the two $\varepsilon$ at the requested $\delta$.
+\end{proposition}
+\begin{proof}
+A pure $\varepsilon$-DP mechanism is $\varepsilon^2/2$-zCDP (Bun and Steinke \cite{bun2016}, Prop.~1.4). An $(\varepsilon,\delta)$-DP mechanism is $\delta$-approximately $\varepsilon^2/2$-zCDP: its output law on neighbours can be written as a mixture with weight $1-\delta$ on a pair of laws that satisfy $\varepsilon$-DP, hence $\varepsilon^2/2$-zCDP, and weight $\delta$ on an arbitrary event (\cite{bun2016}, approximate zCDP). Approximate zCDP composes adaptively with $\rho$ and $\delta$ adding (\cite{bun2016}, composition of approximate zCDP), which is (a). For (b), conditioning on the complement of the $\delta_0$-event leaves a $\rho$-zCDP mechanism, whose $(\varepsilon,\delta')$ profile is bounded by the stated infimum (Canonne, Kamath and Steinke \cite{cks2020}, Prop.~12); adding the $\delta_0$ mass gives total $\delta=\delta'+\delta_0$. Taking $\alpha=1+\sqrt{\log(1/\delta')/\rho}$ in the R\'enyi conversion (Mironov \cite{mironov2017}, Prop.~3) gives the classic bound $\rho+2\sqrt{\rho\log(1/\delta')}$ (\cite{bun2016}, Prop.~1.3), and the stated infimum is never larger (\cite{cks2020}). (c) is basic adaptive composition of approximate DP (Dwork and Roth \cite{dworkroth2014}, Thm.~3.16 and its adaptive form). Both statements hold, so the minimum $\varepsilon$ at the same $\delta$ holds too.
+\end{proof}
+\noindent Check C800 composes up to 20 Gaussian mechanisms and up to 50 randomised responses, whose exact privacy profiles are known (Balle and Wang \cite{ballewang2018}; Kairouz, Oh and Viswanath \cite{kairouz2015}). The ledger's $\varepsilon$ is never below the exact one and never above the classic conversion; it is at most 1.6 times the exact $\varepsilon$ for Gaussians and never above basic composition for pure charges. For a sense of scale at $\delta=10^{-8}$: $\varepsilon=1$ corresponds to $\rho=0.017$, $\varepsilon=4$ to $\rho=0.23$ and $\varepsilon=8$ to $\rho=0.82$.
+
+The privacy domain, not the source table, is the key of the ledger. Two sources that hold data of the same people (a warehouse and its operational source, or two extracts) are one domain: releases from both compose. The design therefore asks the organisation to name its domains in the policy and maps each source to one.
+
+\setcounter{proposition}{800}
+\begin{proposition}[A per-period budget is a per-period guarantee]\label{prop:period}
+Suppose a unit's data is used in releases of $P$ periods, each charged $\rho_p$. Then the guarantee for that unit across the periods is $\sum_p\rho_p$-zCDP and no better in general: for Gaussian mechanisms the exact privacy profile is that of a Gaussian with $\mu=\sqrt{2\sum_p\rho_p}$. A cap of $\rho^\ast$ that is reset each period therefore bounds the loss of a unit only if its data enter one period alone (disjoint data, parallel composition).
+\end{proposition}
+\begin{proof}
+The releases of all periods are mechanisms run on data of the same domain, so Prop.~\ref{prop:ledger} applies to their concatenation. For Gaussian mechanisms with sensitivities $\Delta_p$ and scales $\sigma_p$ the composition of the privacy loss random variables is Gaussian with $\mu^2=\sum_p\Delta_p^2/\sigma_p^2=2\sum_p\rho_p$ (Dong, Roth and Su \cite{dong2022}, Cor.~3.3), which is attained by the worst-case neighbours. If a unit's data enter only period $p$, the other periods' mechanisms do not depend on it and the bound is $\rho_p$ (parallel composition, \cite{dworkroth2014}).
+\end{proof}
+\noindent This is NIST's warning about user-day privacy (\cite{nist800226}, sec.~2.4.2: $\varepsilon=1$ per day can give $\varepsilon=365$ over a year). Check C801: with $\rho=0.05$ per month for 12 months at $\delta=10^{-8}$, the per-period statement is $\varepsilon=1.76$ while the exact loss over the year is $\varepsilon=6.39$; the lifetime ledger states $6.74$. The design therefore makes the lifetime cap mandatory and the period cap an optional throttle.
+
+\setcounter{proposition}{801}
+\begin{proposition}[Reserve before reading]\label{prop:reserve}
+Let every run (i) append a reservation $r$ to the ledger under a lock, refused when the charged total plus $r$ would exceed the cap; (ii) append a \emph{touch} record before its first read of real data; (iii) on success, append a settlement $s\le r$, the accountant's figure for the mechanisms it ran; and (iv) receive a refund only if no touch record exists. Count a run as charged $r$ from its reservation until a settlement or refund replaces it. Then at every time, for any interleaving of runs and any crashes, the charged total is at least the true privacy loss of the domain and at most the cap.
+\end{proposition}
+\begin{proof}
+Consider any run. If it never touched data, its true loss is $0$ and its charge is $\ge0$. If it touched data and crashed, its charge stays $r$ and the mechanisms it ran are a prefix of a plan whose total is at most $r$, because T07 plans the run's budget before reading and refuses mechanisms that exceed it; so its true loss is $\le r$. If it settled, its loss is the accountant's $s$. Summing over runs, and using that adding a charge in zCDP terms is monotone (Prop.~\ref{prop:ledger}), the charged total bounds the true loss. The cap holds because each reservation is checked against the charged total under the same lock that appends it, and settlements and refunds never increase the total.
+\end{proof}
+\noindent Check C802 runs 40 concurrent runs in 20 trials with random give-ups before reading, crashes mid-run and settlements; the charged total was never below the true loss nor above the cap, and refunding a run that touched data is refused.
+
+\setcounter{proposition}{802}
+\begin{proposition}[Tamper evidence]\label{prop:govchain}
+Let the registry log be entries $e_0,\dots,e_n$ with $h_{-1}=0^{256}$, $h_i=\mathrm{SHA256}(h_{i-1}\,\|\,\mathrm{JCS}(e_i))$, and let a checkpoint $(n,h_n)$ be signed with Ed25519 by a key the verifier trusts. If an adversary without the key produces a log $e'_0,\dots,e'_{m}$ that verifies against the checkpoint, then $m=n$ and $e'_i=e_i$ for all $i$, unless it has found a SHA-256 collision or forged an Ed25519 signature.
+\end{proposition}
+\begin{proof}
+Verification recomputes the chain and requires $m=n$ and $h'_n=h_n$. We show by downward induction on $j$ that $h'_j=h_j$ implies $e'_j=e_j$ and $h'_{j-1}=h_{j-1}$, unless a collision is found. The inputs of the two hashes are $h'_{j-1}\|\mathrm{JCS}(e'_j)$ and $h_{j-1}\|\mathrm{JCS}(e_j)$. If they differ, they are a SHA-256 collision. If they are equal, the 32-byte prefixes are equal, so $h'_{j-1}=h_{j-1}$, and the rest is equal, so $e'_j=e_j$ because JCS is injective on JSON values (RFC 8785 \cite{rfc8785}). Starting from $j=n$ this gives $e'_j=e_j$ for every $j$. A checkpoint with another $(n,h)$ needs an Ed25519 signature under the trusted key, which the adversary cannot produce (EUF-CMA security of Ed25519, RFC 8032 \cite{rfc8032}).
+\end{proof}
+\noindent Without a signed checkpoint, an operator who controls the store can rewrite the whole chain; the checkpoint, kept outside the store (in the release package, with the approver, or in a transparency log), is what makes the log tamper-evident to a third party. Check C803 applies 400 random edits, deletions, insertions, swaps and truncations to a log of 200 entries; all 400 are detected, and a forged or re-signed checkpoint is rejected. The check uses Python's JSON with sorted keys and no floats in hashed fields, which equals JCS on that subset; the build uses an RFC 8785 implementation.
+
+\setcounter{proposition}{\value{savedpropgov}}
