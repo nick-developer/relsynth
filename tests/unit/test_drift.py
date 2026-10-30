@@ -54,8 +54,10 @@ def test_holm_and_tests_against_reference_implementations():
     groups = [rng.normal(m, s, n) for m, s, n in ((0, 1, 40), (0.3, 2, 60), (0, 0.5, 30))]
     f, p, _ = welch_anova([len(g) for g in groups], [g.mean() for g in groups], [g.var(ddof=1) for g in groups])
     # Welch's F computed directly (Welch 1951)
-    n = np.array([len(g) for g in groups]); m = np.array([g.mean() for g in groups])
-    w = n / np.array([g.var(ddof=1) for g in groups]); mw = (w * m).sum() / w.sum()
+    n = np.array([len(g) for g in groups])
+    m = np.array([g.mean() for g in groups])
+    w = n / np.array([g.var(ddof=1) for g in groups])
+    mw = (w * m).sum() / w.sum()
     tmp = ((1 - w / w.sum()) ** 2 / (n - 1)).sum()
     f_ref = ((w * (m - mw) ** 2).sum() / 2) / (1 + 2 * 1 / 8 * tmp)
     assert f == pytest.approx(f_ref)
