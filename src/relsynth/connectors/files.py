@@ -27,6 +27,32 @@ CSV_CHUNK = 200_000
 ENGINES = ("auto", "duckdb", "pandas")
 
 
+def binary_columns(df: pd.DataFrame, tspec: dict | None = None) -> list:
+    """Columns typed binary in the table's spec, or whose values are all bytes."""
+    bincols = [c for c, cs in (tspec or {}).get("columns", {}).items()
+               if cs.get("type") == "binary" and c in df.columns]
+    for c in df.columns:     # bytes values mark a binary column even without a spec
+        if c not in bincols and pd.api.types.is_object_dtype(df[c]):
+            v = df[c].dropna()
+            if len(v) and v.map(lambda x: isinstance(x, (bytes, bytearray, memoryview))).all():
+                bincols.append(c)
+    return bincols
+
+
+def parquet_frame(df: pd.DataFrame, tspec: dict | None = None) -> pd.DataFrame:
+    """The frame as Parquet stores it: an object column that is neither text nor
+    binary (mixed values) is written as text.  Shared by the folder and the
+    lakehouse targets, so the same synthetic table reads back the same."""
+    bincols = binary_columns(df, tspec)
+    out = df.copy()
+    for c in out.columns:
+        if pd.api.types.is_object_dtype(out[c]) and c not in bincols:
+            v = out[c].dropna()
+            if len(v) and not v.map(lambda x: isinstance(x, str)).all():
+                out[c] = out[c].map(lambda x: None if x is None or (isinstance(x, float) and x != x) else str(x))
+    return out
+
+
 class FileConnector(Connector):
     """A folder of table files.  fmt (csv or parquet) is the format written; any
     of the supported formats is read."""
@@ -176,20 +202,9 @@ class FileConnector(Connector):
         if path.exists() and mode == "fail":
             raise FileExistsError(f"{path} exists (if_exists: fail)")
         df = df[[c for c in df.columns if not str(c).startswith("__")]]
-        bincols = [c for c, cs in (tspec or {}).get("columns", {}).items()
-                   if cs.get("type") == "binary" and c in df.columns]
-        for c in df.columns:     # bytes values mark a binary column even without a spec
-            if c not in bincols and pd.api.types.is_object_dtype(df[c]):
-                v = df[c].dropna()
-                if len(v) and v.map(lambda x: isinstance(x, (bytes, bytearray, memoryview))).all():
-                    bincols.append(c)
+        bincols = binary_columns(df, tspec)
         if self.fmt == "parquet":
-            out = df.copy()
-            for c in out.columns:
-                if pd.api.types.is_object_dtype(out[c]) and c not in bincols:
-                    v = out[c].dropna()
-                    if len(v) and not v.map(lambda x: isinstance(x, str)).all():
-                        out[c] = out[c].map(lambda x: None if x is None or (isinstance(x, float) and x != x) else str(x))
+            out = parquet_frame(df, tspec)
             if mode == "append" and path.exists():
                 out = pd.concat([pd.read_parquet(path), out], ignore_index=True)
             out.to_parquet(path, index=False)
