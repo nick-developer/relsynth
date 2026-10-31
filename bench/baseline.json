@@ -1,19 +1,19 @@
 {
  "schema": 1,
  "sources": [
-  "20261030T232646-7ec1206-runnervm48cm3.json",
-  "20261030T232632-7ec1206-runnervm48cm3.json",
-  "20261030T232645-7ec1206-runnervm48cm3.json",
-  "20261030T232640-7ec1206-runnervm48cm3.json",
-  "20261030T232634-7ec1206-runnervm48cm3.json",
-  "20261030T232629-7ec1206-runnervm48cm3.json",
-  "20261030T232640-7ec1206-runnervm48cm3.json"
+  "20261031T043049-ccdabff-runnervm48cm3.json",
+  "20261031T042923-ccdabff-runnervm48cm3.json",
+  "20261031T042938-ccdabff-runnervm48cm3.json",
+  "20261031T042923-ccdabff-runnervm48cm3.json",
+  "20261031T042940-ccdabff-runnervm48cm3.json",
+  "20261031T042933-ccdabff-runnervm48cm3.json",
+  "20261031T043036-ccdabff-runnervm48cm3.json"
  ],
  "relsynth": [
   "1.0.1"
  ],
  "git": [
-  "7ec12069623a"
+  "ccdabff9c395"
  ],
  "machines": [
   "runnervm48cm3"
@@ -28,17 +28,17 @@
     5
    ],
    "pass_rates": [
-    0.841727,
-    0.863309,
+    0.848921,
+    0.856115,
     0.827338,
-    0.841727,
+    0.827338,
     0.827338
    ],
    "passed": [
-    117,
-    120,
+    118,
+    119,
     115,
-    117,
+    115,
     115
    ],
    "judged": [
@@ -48,15 +48,15 @@
     139,
     139
    ],
-   "mean": 0.840288,
-   "sd": 0.014744,
-   "spread": 0.029488,
+   "mean": 0.83741,
+   "sd": 0.014024,
+   "spread": 0.028048,
    "seconds": [
-    182.6,
-    190.6,
-    177.7,
-    167.6,
-    189.3
+    153.2,
+    160.5,
+    148.3,
+    140.9,
+    157.7
    ],
    "checks": {
     "area:fidelity": {
@@ -277,18 +277,17 @@
      "calibrated": false,
      "failed_seeds": [
       1,
-      2,
       3,
+      4,
       5
      ]
     },
     "privacy:inference|nearest_neighbour_inference:PINCP_DECILE": {
-     "passed": 3,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4,
-      5
+      4
      ]
     },
     "privacy:linkage|nearest_neighbour_linkage": {
@@ -307,20 +306,21 @@
      "calibrated": true
     },
     "privacy:membership|shadow_classifier_auc": {
-     "passed": 3,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3,
-      4
-     ]
-    },
-    "privacy:membership|shadow_classifier_vulnerable_auc": {
      "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy:membership|shadow_classifier_vulnerable_auc": {
+     "passed": 2,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
       3,
       4,
       5
@@ -335,22 +335,24 @@
      ]
     },
     "privacy:membership|shadow_lira_vulnerable_auc": {
-     "passed": 1,
+     "passed": 0,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
       2,
       3,
+      4,
       5
      ]
     },
     "privacy:record_isolation|singling_out_multivariate": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1
+      1,
+      2
      ]
     },
     "privacy:record_isolation|singling_out_univariate": {
@@ -925,8 +927,8 @@
    "errors": 0,
    "tracked": {
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 7983.7,
-     "sd": 350.899936,
+     "mean": 6929.88,
+     "sd": 345.831898,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -944,27 +946,27 @@
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 895.92,
-     "sd": 0.396232,
+     "mean": 896.18,
+     "sd": 0.597495,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:privacy_guard_dcr_dcr_p5_real": {
-     "mean": 1.649297,
-     "sd": 0.086667,
+     "mean": 1.648928,
+     "sd": 0.087238,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_p5_syn": {
-     "mean": 2.261523,
-     "sd": 0.03884,
+     "mean": 2.256475,
+     "sd": 0.045606,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_ratio": {
-     "mean": 1.375061,
-     "sd": 0.091932,
+     "mean": 1.371851,
+     "sd": 0.084269,
      "n": 5,
      "direction": "higher"
     },
@@ -999,104 +1001,104 @@
      "direction": "higher"
     },
     "metric:privacy_inference_attribute_inference_vs_population:DPHY": {
-     "mean": 0.00345,
-     "sd": 0.002944,
+     "mean": 0.0023,
+     "sd": 0.003506,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_attribute_inference_vs_population:DREM": {
-     "mean": 0.00165,
-     "sd": 0.003258,
+     "mean": 0.00195,
+     "sd": 0.003805,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE": {
-     "mean": 0.00635,
-     "sd": 0.008669,
+     "mean": 0.00245,
+     "sd": 0.009234,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_nearest_neighbour_inference:DPHY": {
-     "mean": 0.032275,
-     "sd": 0.072168,
+     "mean": 0.057048,
+     "sd": 0.054583,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_nearest_neighbour_inference:DREM": {
-     "mean": 0.077889,
-     "sd": 0.077246,
+     "mean": 0.084015,
+     "sd": 0.08212,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE": {
-     "mean": 0.031373,
-     "sd": 0.037285,
+     "mean": 0.023269,
+     "sd": 0.027985,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_linkage_nearest_neighbour_linkage": {
-     "mean": 0.0,
-     "sd": 0.0,
+     "mean": 0.000662,
+     "sd": 0.001481,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_auc": {
-     "mean": 0.510629,
-     "sd": 0.006455,
+     "mean": 0.510649,
+     "sd": 0.006609,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_tpr_at_fpr_0.01": {
-     "mean": 0.0108,
-     "sd": 0.001956,
+     "mean": 0.0114,
+     "sd": 0.003698,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_most_vulnerable_record_auc": {
-     "mean": 0.876023,
-     "sd": 0.076938,
+     "mean": 0.889432,
+     "sd": 0.066368,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_classifier_auc": {
-     "mean": 0.554116,
-     "sd": 0.057276,
+     "mean": 0.564733,
+     "sd": 0.061333,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_classifier_vulnerable_auc": {
-     "mean": 0.57107,
-     "sd": 0.082407,
+     "mean": 0.580424,
+     "sd": 0.081835,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_lira_auc": {
-     "mean": 0.528921,
-     "sd": 0.042532,
+     "mean": 0.548859,
+     "sd": 0.019112,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_lira_vulnerable_auc": {
-     "mean": 0.554732,
-     "sd": 0.041979,
+     "mean": 0.609767,
+     "sd": 0.046638,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_multivariate": {
-     "mean": 0.018502,
-     "sd": 0.022818,
+     "mean": 0.020804,
+     "sd": 0.030727,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_univariate": {
-     "mean": 0.01017,
-     "sd": 0.009609,
+     "mean": 0.004787,
+     "sd": 0.005721,
      "n": 5,
      "direction": "lower"
     },
     "metric:utility_gap_max": {
-     "mean": 0.083041,
-     "sd": 0.00671,
+     "mean": 0.083496,
+     "sd": 0.007002,
      "n": 5,
      "direction": "lower"
     },
@@ -1141,11 +1143,11 @@
    "sd": 0.004588,
    "spread": 0.009175,
    "seconds": [
-    381.8,
-    372.9,
-    369.9,
-    805.7,
-    862.1
+    525.6,
+    532.9,
+    512.5,
+    809.3,
+    864.0
    ],
    "checks": {
     "area:fidelity": {
@@ -11567,8 +11569,8 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 1437.36,
-     "sd": 706.271204,
+     "mean": 1693.34,
+     "sd": 471.815306,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -11598,8 +11600,8 @@
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 2812.8,
-     "sd": 53.133182,
+     "mean": 2785.24,
+     "sd": 7.917891,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -11628,14 +11630,14 @@
    ],
    "pass_rates": [
     0.840116,
-    0.828488,
+    0.822674,
     0.837209,
     0.834302,
     0.843023
    ],
    "passed": [
     289,
-    285,
+    283,
     288,
     287,
     290
@@ -11647,15 +11649,15 @@
     344,
     344
    ],
-   "mean": 0.836628,
-   "sd": 0.005592,
-   "spread": 0.011183,
+   "mean": 0.835465,
+   "sd": 0.007854,
+   "spread": 0.015708,
    "seconds": [
-    88.1,
-    90.8,
-    90.4,
-    87.9,
-    88.6
+    50.5,
+    52.1,
+    50.3,
+    49.7,
+    50.0
    ],
    "checks": {
     "area:fidelity": {
@@ -12662,10 +12664,11 @@
      ]
     },
     "quality:kway3_tvd_mean:loan": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      2,
       3
      ]
     },
@@ -12884,9 +12887,12 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:order:amount": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      2
+     ]
     },
     "quality:w1_rank_normal:trans:account": {
      "passed": 5,
@@ -13790,7 +13796,7 @@
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
      "mean": 0.999511,
-     "sd": 0.000202,
+     "sd": 0.000169,
      "n": 5,
      "direction": "lower"
     },
@@ -13807,15 +13813,15 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 108.02,
-     "sd": 4.595324,
+     "mean": 59.34,
+     "sd": 2.451122,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.86308,
-     "sd": 0.005915,
+     "mean": 0.86166,
+     "sd": 0.008992,
      "n": 5,
      "direction": "higher"
     },
@@ -13826,20 +13832,20 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.859008,
-     "sd": 0.002116,
+     "mean": 0.859026,
+     "sd": 0.001995,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
      "mean": 0.917444,
-     "sd": 0.002443,
+     "sd": 0.002425,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1662.8,
-     "sd": 14.566056,
+     "mean": 1665.12,
+     "sd": 14.996566,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -13905,38 +13911,38 @@
      "direction": "lower"
     },
     "metric:privacy_linkage_nearest_neighbour_linkage": {
-     "mean": 0.004102,
-     "sd": 0.004459,
+     "mean": 0.001375,
+     "sd": 0.003075,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_auc": {
-     "mean": 0.50116,
-     "sd": 0.011938,
+     "mean": 0.501266,
+     "sd": 0.011606,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_tpr_at_fpr_0.01": {
      "mean": 0.011111,
-     "sd": 0.005386,
+     "sd": 0.004375,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_multivariate": {
-     "mean": 0.022301,
-     "sd": 0.023548,
+     "mean": 0.027087,
+     "sd": 0.020862,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_univariate": {
-     "mean": 0.003345,
-     "sd": 0.007481,
+     "mean": 0.006094,
+     "sd": 0.008433,
      "n": 5,
      "direction": "lower"
     },
     "metric:utility_gap_max": {
-     "mean": 0.23975,
-     "sd": 0.104489,
+     "mean": 0.229999,
+     "sd": 0.106182,
      "n": 5,
      "direction": "lower"
     },
@@ -13981,11 +13987,11 @@
    "sd": 0.005054,
    "spread": 0.010107,
    "seconds": [
-    5.6,
-    5.0,
-    5.1,
-    5.0,
-    5.2
+    10.8,
+    9.7,
+    10.0,
+    9.7,
+    9.6
    ],
    "checks": {
     "area:fidelity": {
@@ -15363,8 +15369,8 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 678.02,
-     "sd": 43.690811,
+     "mean": 1329.22,
+     "sd": 121.619045,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -15382,27 +15388,27 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.817325,
-     "sd": 0.013845,
+     "mean": 0.817264,
+     "sd": 0.013804,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.886673,
-     "sd": 0.009397,
+     "mean": 0.886632,
+     "sd": 0.009368,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 372.46,
-     "sd": 1.078425,
+     "mean": 372.42,
+     "sd": 1.434225,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:utility_gap_max": {
-     "mean": 0.013479,
-     "sd": 0.030746,
+     "mean": 0.01348,
+     "sd": 0.03075,
      "n": 5,
      "direction": "lower"
     },
@@ -15423,38 +15429,1477 @@
     5
    ],
    "pass_rates": [
-    null,
-    null,
-    null,
-    null,
-    null
+    0.944223,
+    0.948207,
+    0.932271,
+    0.932271,
+    0.944223
    ],
    "passed": [
-    0,
-    0,
-    0,
-    0,
-    0
+    237,
+    238,
+    234,
+    234,
+    237
    ],
    "judged": [
-    0,
-    0,
-    0,
-    0,
-    0
+    251,
+    251,
+    251,
+    251,
+    251
    ],
-   "mean": NaN,
-   "sd": 0.0,
-   "spread": 1.0,
+   "mean": 0.940239,
+   "sd": 0.007454,
+   "spread": 0.014907,
    "seconds": [
-    1.0,
-    1.0,
-    0.9,
-    0.9,
-    1.0
+    11.5,
+    10.9,
+    11.1,
+    11.0,
+    10.8
    ],
-   "checks": {},
-   "errors": 5
+   "checks": {
+    "area:fidelity": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "area:integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "area:utility": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      3,
+      4
+     ]
+    },
+    "goal:business_rule_preservation": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:distribution_match": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "goal:referential_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:utility_gap": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      3,
+      4
+     ]
+    },
+    "quality:alpha_precision_gap:Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:alpha_precision_gap:Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:alpha_precision_gap:InvoiceLine": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:alpha_precision_gap:Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:beta_recall_gap:Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:beta_recall_gap:Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:beta_recall_gap:InvoiceLine": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:beta_recall_gap:Track": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:dda_accuracy:Album:logistic": {
+     "passed": 4,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2
+     ]
+    },
+    "quality:dda_accuracy:Artist:logistic": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:dda_accuracy:Customer:logistic": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:dda_accuracy:Genre:logistic": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:dda_accuracy:Invoice:logistic": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:dda_accuracy:Track:logistic": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:fanout2_w1_rel:Album.ArtistId->Artist | Track.AlbumId->Album": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Customer.SupportRepId->Employee | Invoice.CustomerId->Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Invoice.CustomerId->Customer | InvoiceLine.InvoiceId->Invoice": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:fanout2_w1_rel:Track.AlbumId->Album | InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Track.AlbumId->Album | PlaylistTrack.TrackId->Track": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:fanout2_w1_rel:Track.GenreId->Genre | InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Track.GenreId->Genre | PlaylistTrack.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Track.MediaTypeId->MediaType | InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout2_w1_rel:Track.MediaTypeId->MediaType | PlaylistTrack.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:Album.ArtistId->Artist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:Customer.SupportRepId->Employee": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:Invoice.CustomerId->Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:InvoiceLine.InvoiceId->Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:PlaylistTrack.PlaylistId->Playlist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_dispersion_log_ratio:Track.AlbumId->Album": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:Album.ArtistId->Artist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:Customer.SupportRepId->Employee": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:Invoice.CustomerId->Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:InvoiceLine.InvoiceId->Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:PlaylistTrack.PlaylistId->Playlist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:PlaylistTrack.TrackId->Track": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:fanout_w1_rel:Track.AlbumId->Album": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:Track.GenreId->Genre": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_w1_rel:Track.MediaTypeId->MediaType": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:Album.ArtistId->Artist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:Customer.SupportRepId->Employee": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:Invoice.CustomerId->Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:InvoiceLine.InvoiceId->Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:InvoiceLine.TrackId->Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:PlaylistTrack.PlaylistId->Playlist": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:fanout_zero_share_diff:Track.AlbumId->Album": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Customer.SupportRepId->Employee | Invoice.CustomerId->Customer:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Customer.SupportRepId->Employee:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Invoice.CustomerId->Customer | InvoiceLine.InvoiceId->Invoice:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Invoice.CustomerId->Customer:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:InvoiceLine.InvoiceId->Invoice:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:InvoiceLine.TrackId->Track:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Track.GenreId->Genre | InvoiceLine.TrackId->Track:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Track.GenreId->Genre:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Track.MediaTypeId->MediaType | InvoiceLine.TrackId->Track:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:Track.MediaTypeId->MediaType:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Customer.SupportRepId->Employee | Invoice.CustomerId->Customer:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Customer.SupportRepId->Employee:1": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:hop_trend_worst_gap:Invoice.CustomerId->Customer | InvoiceLine.InvoiceId->Invoice:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Invoice.CustomerId->Customer:1": {
+     "passed": 4,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1
+     ]
+    },
+    "quality:hop_trend_worst_gap:InvoiceLine.InvoiceId->Invoice:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:InvoiceLine.TrackId->Track:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Track.GenreId->Genre | InvoiceLine.TrackId->Track:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Track.GenreId->Genre:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Track.MediaTypeId->MediaType | InvoiceLine.TrackId->Track:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:Track.MediaTypeId->MediaType:1": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Customer:City": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Customer:Country": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Customer:State": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Invoice:Total": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:InvoiceLine:Quantity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Track:Bytes": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Track:Milliseconds": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:js_distance:Track:UnitPrice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_max:Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_max:Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_max:Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_mean:Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_mean:Invoice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_mean:Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway3_tvd_mean:Customer": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway3_tvd_mean:Track": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:mt_trts_gap:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:mt_trts_gap:Track:Bytes": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:mt_tstr_gap:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:mt_tstr_gap:Track:Bytes": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      3,
+      4
+     ]
+    },
+    "quality:trts_gap:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:trts_gap:Track:Bytes": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:tstr_gap:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:tstr_gap:Track:Bytes": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_rank_normal:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_rank_normal:Invoice:Total": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:w1_rank_normal:Track:Bytes": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_rank_normal:Track:Milliseconds": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_rank_normal:Track:UnitPrice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_raw_sd:Invoice:InvoiceDate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_raw_sd:Invoice:Total": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:w1_raw_sd:Track:Bytes": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_raw_sd:Track:Milliseconds": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:w1_raw_sd:Track:UnitPrice": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.ArtistId->Artist|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.ArtistId->Artist|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.ArtistId->Artist|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.ArtistId->Artist|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.Title|text_rare_exact_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.Title|text_rare_ngram_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album.Title|text_rare_token_leaks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Album|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Artist.Name|text_rare_exact_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Artist.Name|text_rare_ngram_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Artist.Name|text_rare_token_leaks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Artist|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.City|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.City|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.Country|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.Country|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.State|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.State|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.SupportRepId->Employee|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.SupportRepId->Employee|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.SupportRepId->Employee|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer.SupportRepId->Employee|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Customer|discriminator_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.BirthDate|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.BirthDate|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.City|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.City|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.HireDate|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.HireDate|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.ReportsTo->Employee:City|attr_by_depth_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.ReportsTo->Employee:Title|attr_by_depth_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.ReportsTo->Employee|tree_cycles": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.ReportsTo->Employee|tree_depth_ppc_pvalue": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.ReportsTo->Employee|tree_fanout_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.Title|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee.Title|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Employee|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Genre.Name|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Genre.Name|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Genre|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.CustomerId->Customer|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.CustomerId->Customer|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.CustomerId->Customer|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.CustomerId->Customer|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.InvoiceDate|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.InvoiceDate|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.Total|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice.Total|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: BillingAddress = CustomerId.Address|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: BillingCity = CustomerId.City|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: BillingCountry = CustomerId.Country|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: BillingPostalCode = CustomerId.PostalCode|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: BillingState = CustomerId.State|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice: Total = sum(InvoiceLine)|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.InvoiceId->Invoice|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.InvoiceId->Invoice|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.InvoiceId->Invoice|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.Quantity|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.Quantity|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.TrackId->Track|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.TrackId->Track|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.TrackId->Track|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.TrackId->Track|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.City|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.Country|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.State|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.BirthDate|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.City|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.HireDate|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.CustomerId.SupportRepId.Title|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.InvoiceDate|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:InvoiceId.Total|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:TrackId.Bytes|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:TrackId.GenreId.Name|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:TrackId.MediaTypeId.Name|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:TrackId.Milliseconds|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined:TrackId.UnitPrice|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine.joined|join_assoc_max_z": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine: UnitPrice = TrackId.UnitPrice|rule_violation_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine: pairs (InvoiceId, TrackId)|pair_repeat_share_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:InvoiceLine|discriminator_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Invoice|discriminator_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:MediaType.Name|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:MediaType.Name|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:MediaType|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Playlist.Name|marginal_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Playlist.Name|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.PlaylistId->Playlist|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.PlaylistId->Playlist|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.PlaylistId->Playlist|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.TrackId->Track|cardinality_ks": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "scorecard:PlaylistTrack.TrackId->Track|cardinality_mean_rel_err": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "scorecard:PlaylistTrack.TrackId->Track|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.TrackId->Track|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:PlaylistId.Name|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:TrackId.Bytes|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:TrackId.GenreId.Name|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:TrackId.MediaTypeId.Name|join_tvd": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:TrackId.Milliseconds|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined:TrackId.UnitPrice|join_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack.joined|join_assoc_max_z": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack: pairs (PlaylistId, TrackId)|pair_repeat_share_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack: support (PlaylistId, TrackId.GenreId)|novel_combination_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack: support (PlaylistId, TrackId.MediaTypeId)|novel_combination_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack: support (TrackId.GenreId, TrackId.MediaTypeId)|novel_combination_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack: unique ['PlaylistId', 'TrackId']|unique_duplicate_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:PlaylistTrack|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Playlist|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.AlbumId->Album|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.AlbumId->Album|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.AlbumId->Album|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.AlbumId->Album|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Bytes|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Bytes|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Composer|text_rare_exact_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Composer|text_rare_ngram_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Composer|text_rare_token_leaks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.GenreId->Genre|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.GenreId->Genre|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.GenreId->Genre|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.GenreId->Genre|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.MediaTypeId->MediaType|cardinality_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.MediaTypeId->MediaType|cardinality_mean_rel_err": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.MediaTypeId->MediaType|fk_integrity": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.MediaTypeId->MediaType|null_fk_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Milliseconds|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Milliseconds|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Name|text_rare_exact_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Name|text_rare_ngram_copies": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.Name|text_rare_token_leaks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.UnitPrice|marginal_ks": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track.UnitPrice|null_rate_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track|association_max_diff": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track|dcr_ratio": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track|discriminator_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "scorecard:Track|exact_match_rate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    }
+   },
+   "errors": 0,
+   "tracked": {
+    "metric:c2st_agg_accuracy_max": {
+     "mean": 0.981359,
+     "sd": 0.004929,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:cardinality_similarity_mean": {
+     "mean": 0.825009,
+     "sd": 0.010816,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:cardinality_similarity_min": {
+     "mean": 0.036911,
+     "sd": 0.011442,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:cpu_seconds_per_million_rows": {
+     "mean": 733.72,
+     "sd": 51.32628,
+     "n": 5,
+     "direction": "lower",
+     "kind": "cost"
+    },
+    "metric:fidelity_pass_rate": {
+     "mean": 0.94188,
+     "sd": 0.002191,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:integrity_pass_rate": {
+     "mean": 1.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:k_hop_trend_1-hop": {
+     "mean": 0.83042,
+     "sd": 0.007945,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:k_hop_trend_2-hop": {
+     "mean": 0.89757,
+     "sd": 0.004948,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:peak_memory_mib": {
+     "mean": 409.52,
+     "sd": 1.762668,
+     "n": 5,
+     "direction": "lower",
+     "kind": "cost"
+    },
+    "metric:utility_gap_max": {
+     "mean": 0.574795,
+     "sd": 0.977874,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:utility_pass_rate": {
+     "mean": 0.825,
+     "sd": 0.068465,
+     "n": 5,
+     "direction": "higher"
+    }
+   }
   },
   "contoso_parquet": {
    "seeds": [
@@ -15489,11 +16934,11 @@
    "sd": 0.006997,
    "spread": 0.013994,
    "seconds": [
-    131.9,
-    136.5,
-    132.9,
-    139.8,
-    130.2
+    186.2,
+    185.2,
+    186.2,
+    194.4,
+    187.3
    ],
    "checks": {
     "area:fidelity": {
@@ -18073,8 +19518,8 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 281.38,
-     "sd": 12.647015,
+     "mean": 368.34,
+     "sd": 12.29565,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -18104,8 +19549,8 @@
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1608.4,
-     "sd": 62.112318,
+     "mean": 1590.56,
+     "sd": 60.171613,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -18157,11 +19602,11 @@
    "sd": 0.005688,
    "spread": 0.011376,
    "seconds": [
-    123.2,
-    149.3,
-    153.9,
-    141.8,
-    145.1
+    173.7,
+    210.7,
+    200.1,
+    197.6,
+    198.0
    ],
    "checks": {
     "area:fidelity": {
@@ -20756,8 +22201,8 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 285.9,
-     "sd": 24.178399,
+     "mean": 370.38,
+     "sd": 28.529494,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -20787,8 +22232,8 @@
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1619.5,
-     "sd": 74.923261,
+     "mean": 1620.42,
+     "sd": 74.761768,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -20914,7 +22359,7 @@
    "sd": 0.0,
    "spread": 0.012821,
    "seconds": [
-    988.4
+    728.8
    ],
    "checks": {
     "science:C00": {
