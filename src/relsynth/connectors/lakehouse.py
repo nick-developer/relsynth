@@ -320,7 +320,7 @@ class LakeConnector(Connector):
             cols = u.get("columns") if isinstance(u, dict) else u
             if isinstance(u, dict) and u.get("where"):
                 continue                                  # filtered keys are not table keys
-            uniq.append([cols] if isinstance(cols, str) else list(cols))
+            uniq.append([cols] if isinstance(cols, str) else list(cols or []))
         fks = []
         for r in spec.get("relationships") or []:
             if r.get("child") != table or r.get("kind", "many_to_one") not in ("many_to_one", "self_reference"):

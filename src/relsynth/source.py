@@ -20,6 +20,7 @@ Binary columns are never read: they are reported as binary and left empty.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -58,7 +59,7 @@ class Source:
             from .connectors import from_spec
             self.lake = from_spec(source, source.get("_base_dir"))
             self.kind = "csv"
-            self._files = {t: None for t in self.lake.tables(include, exclude)}
+            self._files: dict[str, Path | None] = {t: None for t in self.lake.tables(include, exclude)}
             self._frames = {}
             for t in self._files:
                 info = self.lake.describe(t)
