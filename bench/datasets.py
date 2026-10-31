@@ -299,7 +299,7 @@ DATASETS = {
     # the scale rule: Chinook drawn at twice its size; the quality report normalises fan-out by the scale
     "chinook_x2": Dataset("chinook_x2", lambda: f"sqlite:{build_chinook()}", _spec("chinook"),
                           note="Chinook at synthesis.scale 2 (scale rule, integrity at another size)",
-                          overrides=("synthesis.scale=2",)),
+                          overrides=("synthesis.scale.default=2",)),
     "bi_corep_lr": Dataset("bi_corep_lr", lambda: f"csv:{_bi_dir() / 'data'}", lambda: _bi_dir() / "spec.yaml",
                            _bi_checks, public=False,
                            note="private; RELSYNTH_BENCH_BI_DIR with data/, spec.yaml and checks.py (B1-B8)"),

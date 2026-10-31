@@ -211,3 +211,15 @@ def test_baseline_skips_runs_without_verdicts():
     b = regress.build([{"runs": [ok, bad, ok2]}])["datasets"]["d"]
     assert b["mean"] == 1.0 and b["sd"] == 0.0 and b["errors"] == 1
     assert b["pass_rates"] == [1.0, None, 1.0]
+
+
+def test_dataset_that_only_errored_has_no_mean_and_compares():
+    import json
+    from bench import regress
+    bad = {"dataset": "d", "seed": 1, "error": "boom", "checks": []}
+    b = regress.build([{"runs": [bad]}])
+    assert b["datasets"]["d"]["mean"] is None
+    json.dumps(b, allow_nan=False)
+    ok = {"dataset": "d", "seed": 1, "checks": [{"id": "a", "pass": True}]}
+    regs, _notes, _summary = regress.compare(b, {"runs": [ok]})
+    assert not any(x.startswith("R2") for x in regs)

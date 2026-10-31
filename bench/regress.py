@@ -81,7 +81,7 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
            "machines": sorted({(rec.get("machine") or {}).get("node", "") for rec in records}), "datasets": {}}
     for ds, runs in sorted(by_ds.items()):
         rates = [rate(r) for r in runs]
-        ok = [x for x in rates if x == x] or [float("nan")]    # a run without verdicts (an error) counts under R3
+        ok = [x for x in rates if x == x]       # a run without verdicts (an error) counts under R3
         n_judged = statistics.median(len(judged(r)) for r in runs) or 1
         sd = statistics.stdev(ok) if len(ok) > 1 else 0.0
         per_check: dict = defaultdict(lambda: {"passed": 0, "judged": 0, "failed_seeds": []})
@@ -96,7 +96,7 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
         out["datasets"][ds] = {
             "seeds": [r.get("seed") for r in runs], "pass_rates": [round(x, 6) if x == x else None for x in rates],
             "passed": [sum(c["pass"] for c in judged(r)) for r in runs], "judged": [len(judged(r)) for r in runs],
-            "mean": round(statistics.fmean(ok), 6), "sd": round(sd, 6),
+            "mean": round(statistics.fmean(ok), 6) if ok else None, "sd": round(sd, 6),
             "spread": round(max(2 * sd, 1 / n_judged), 6),
             "seconds": [r.get("seconds") for r in runs],
             "checks": {k: {"passed": v["passed"], "judged": v["judged"],
@@ -171,7 +171,7 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
         summary[ds] = {"seeds": [r.get("seed") for r in rs], "mean": round(mean, 6), "baseline_mean": b["mean"],
                        "spread": b["spread"], "passed": [sum(c["pass"] for c in judged(r)) for r in rs],
                        "judged": [len(judged(r)) for r in rs]}
-        if rates and mean < b["mean"] - b["spread"] - 1e-12:
+        if rates and b["mean"] is not None and mean < b["mean"] - b["spread"] - 1e-12:
             regressions.append(f"R2 {ds}: mean pass rate {mean:.4f} < baseline {b['mean']:.4f} - spread {b['spread']:.4f}")
         reg4, note4 = drift(b, rs)
         regressions += [x.replace("R4 ", f"R4 {ds} ", 1) for x in reg4]

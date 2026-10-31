@@ -31,7 +31,7 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 | Dataset | Source | Checks |
 |---|---|---|
 | `chinook` | Chinook 1.4.5, SQLite (MIT) | scorecard, quality, determinism |
-| `chinook_x2` | Chinook drawn at `synthesis.scale` 2 | scorecard, quality (fan-out normalised by the scale) |
+| `chinook_x2` | Chinook drawn at `synthesis.scale.default` 2 | scorecard, quality (fan-out normalised by the scale) |
 | `adventureworks` | AdventureWorks DW install script, built into SQLite (MIT) | scorecard, G1–G14, quality (5/3 null splits) |
 | `contoso_sqlite` | Contoso V2 100k Parquet release plus the generator's DDL, built into SQLite (MIT) | scorecard, T1–T17, quality, privacy (customers) |
 | `contoso_parquet` | the same release read as raw Parquet files | scorecard, T1–T17, quality |
