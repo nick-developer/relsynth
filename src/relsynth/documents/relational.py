@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: Apache-2.0
+"""The shredded collections as a relational database the engine reads.
+
+`write_sqlite` stores the tables of a `Layout` in a SQLite file with every key
+declared (primary key per table, ``_parent`` and every reference as a foreign
+key), so that `relsynth.introspect` drafts the 1.0 spec from declared keys
+rather than guessing them.  `spec_for` then adds what only the layout knows:
+
+* the tag columns (``<path>__t``) and map keys are categorical;
+* an element table is a fact anchored on the table that holds the array, so
+  the number of elements per document follows the source's length law, and a
+  root table that is referenced is an entity;
+* nothing of the document is copied as reference data unless the user says so
+  (``mode: copy`` is reserved for small code lists, and a document's own
+  arrays are never code lists).
+"""
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+import pandas as pd
+
+from .shred import KEY, PARENT, POS, ROW_ID, Layout, _col
+
+_SQL_TYPE = {"int": "INTEGER", "long": "INTEGER", "double": "REAL", "decimal": "REAL", "bool": "INTEGER",
+             "date": "DATETIME", "string": "TEXT", "objectId": "TEXT", "binary": "TEXT", None: "TEXT"}
+
+
+def target_column(lay: Layout, table: str, path: str) -> str:
+    tl = lay.tables[table]
+    if path == "_id" and tl.id_column == "_id":
+        return "_id"
+    return _col(path.split("."))
+
+
+def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
+    path = Path(path)
+    if path.exists():
+        path.unlink()
+    con = sqlite3.connect(path)
+    try:
+        for name in _parents_first(lay):
+            tl = lay.tables[name]
+            df = frames[name]
+            cols, fks = [], []
+            for c in df.columns:
+                col = tl.column(c)
+                if c == tl.id_column:
+                    ty = _SQL_TYPE.get(tl.id_type, "TEXT")
+                elif c == PARENT:
+                    p = lay.tables[tl.parent]
+                    ty = _SQL_TYPE.get(p.id_type, "TEXT") if p.id_column == "_id" else "INTEGER"
+                    fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{tl.parent}" ("{p.id_column}")')
+                elif col is not None and col.role == "ref":
+                    ty = _SQL_TYPE.get(col.type, "TEXT")
+                    tcol = target_column(lay, col.ref["table"], col.ref["path"])
+                    fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{col.ref["table"]}" ("{tcol}")')
+                elif col is not None:
+                    ty = _SQL_TYPE.get(col.type, "TEXT") if col.role not in ("tag", "key") else "TEXT"
+                else:
+                    ty = "INTEGER"
+                cols.append(f'"{c}" {ty}' + (" PRIMARY KEY" if c == tl.id_column else ""))
+            uniq = [f'UNIQUE ("{target_column(lay, name, r["to_path"])}")' for r in lay.references
+                    if r["to"] == name and target_column(lay, name, r["to_path"]) != tl.id_column]
+            con.execute(f'CREATE TABLE "{name}" ({", ".join(cols + sorted(set(uniq)) + fks)})')
+            out = df.copy()
+            for c in out.columns:
+                if pd.api.types.is_bool_dtype(out[c]) or out[c].map(lambda v: isinstance(v, bool)).any():
+                    out[c] = out[c].map(lambda v: None if v is None else int(v))
+                elif pd.api.types.is_datetime64_any_dtype(out[c]):
+                    out[c] = out[c].dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+            out.to_sql(name, con, if_exists="append", index=False)
+        con.commit()
+    finally:
+        con.close()
+    return path
+
+
+def _parents_first(lay: Layout) -> list[str]:
+    order, seen = [], set()
+
+    def visit(n):
+        if n in seen:
+            return
+        seen.add(n)
+        tl = lay.tables[n]
+        if tl.parent:
+            visit(tl.parent)
+        for c in tl.columns:
+            if c.role == "ref" and c.ref["table"] != n:
+                visit(c.ref["table"])
+        order.append(n)
+
+    for n in lay.tables:
+        visit(n)
+    return order
+
+
+def _structural(item) -> bool:
+    """A drafted group effect or affinity that involves the row bookkeeping columns."""
+    txt = repr(item)
+    return any(c in txt for c in (ROW_ID, KEY + "'"))
+
+
+def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sample_rows: int = 20000) -> dict:
+    """The 1.0 spec of the shredded database (introspected, then completed from
+    the layout)."""
+    from ..api import introspect
+    raw = introspect({"kind": "sqlite", "path": str(db_path)}, name=name, sample_rows=sample_rows).raw
+    tables = raw["tables"]
+    for tname, tl in lay.tables.items():
+        t = tables[tname]
+        cols = t.setdefault("columns", {})
+        if t.get("mode") == "copy" and tl.kind != "root":
+            t.pop("mode", None)
+        if tl.kind != "root" and t.get("mode") == "copy":
+            t.pop("mode")
+        if POS in cols:
+            cols[POS] = {"type": "integer", "min": 0}
+        for c in tl.columns:
+            if c.role == "tag" and c.name in cols:
+                cols[c.name] = {"type": "categorical"}
+            elif c.role == "key" and c.name in cols:
+                cols[c.name] = {"type": "categorical"}
+        if tl.kind != "root":
+            t.pop("mode", None)
+            if lay.children(tname):
+                # an element that holds arrays itself: the engine generates facts
+                # only under entities, so it is an entity linked to its holder
+                t["role"] = "entity"
+                t.pop("fact", None)
+            else:
+                t["role"] = "fact"
+                fact = t.setdefault("fact", {})
+                fact["anchor"] = tl.parent
+                # elements per document: the Dirichlet-process count law keeps the
+                # source's length support (Prop. 1401 of counts.py's DP choice)
+                fact.setdefault("count_model", "dp")
+                if fact.get("partner") == tl.parent:
+                    fact.pop("partner")
+        if tl.kind != "root" and "unique" in t:
+            # a drafted grain (_parent, value) would turn the element counts into
+            # pair occupancies; set semantics are kept by conform instead
+            t["unique"] = [u for u in t["unique"] if PARENT not in u]
+            if not t["unique"]:
+                t.pop("unique")
+        for k in ("group_effects", "link_affinity"):
+            if k in t:
+                t[k] = [g for g in t[k] if not _structural(g)]
+                if not t[k]:
+                    t.pop(k)
+        t["primary_key"] = tl.id_column
+    raw.setdefault("synthesis", {})["seed"] = seed
+    raw["source"] = {"kind": "sqlite", "path": str(db_path)}
+    return raw
+
+
+__all__ = ["write_sqlite", "spec_for", "target_column", "ROW_ID", "PARENT", "POS", "KEY"]
