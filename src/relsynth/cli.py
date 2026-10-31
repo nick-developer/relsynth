@@ -77,6 +77,9 @@ def _spec(a):
     """The Spec of a command, with --set overrides applied."""
     from .api import Spec
     s = Spec.load(a.spec)
+    if getattr(a, "settings", None):
+        ref = a.settings if a.settings.startswith("preset:") else str(Path(a.settings).resolve())
+        s = s.set("synthesis.settings_file", ref)
     for kv in a.set or []:
         if "=" not in kv:
             raise SpecError(f"--set expects KEY=VALUE, got {kv!r}")
@@ -737,6 +740,8 @@ def _spec_args(p):
     p.add_argument("spec", help="the YAML specification")
     p.add_argument("--set", action="append", metavar="KEY=VALUE",
                    help="override a spec value, e.g. --set synthesis.scale.default=2 (repeatable)")
+    p.add_argument("--settings", metavar="FILE", help="an engine settings file (or preset:fast | preset:thorough) "
+                   "merged under the spec's synthesis block; see docs/settings.md")
 
 
 def _loc_args(p, name, required=True, help_=""):
@@ -934,6 +939,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("version", help="versions of relsynth and its main dependencies")
     s.set_defaults(fn=cmd_version)
 
+    from .settings_cli import add_parser as _add_settings_parser
+    _add_settings_parser(sub, _common)
+    from .autotune.cli import add_parser as _add_autotune_parser
+    _add_autotune_parser(sub, _common)
     from .ir.cli import add_parser as _add_ir_parser
     _add_ir_parser(sub, _common)
     from .governance.cli import add_parser as _add_gov_parser

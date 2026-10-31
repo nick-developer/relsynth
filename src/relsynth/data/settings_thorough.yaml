@@ -1,0 +1,9 @@
+# relsynth settings preset "thorough" (synthesis.settings_file: preset:thorough).
+# Longer chains, tighter convergence targets and larger samples, for final releases.
+synthesis:
+  gibbs: {iterations: 300, final_iterations: 60, max_final_iterations: 400, rhat_target: 1.05}
+  copula: {sample_rows: 4000, iterations: 200, burn_in: 100, max_iterations: 6000, rhat_target: 1.05,
+           pooled_cells: 4000000}
+  marginals: {max_obs: 50000}
+  uniqueness: {mh_sweeps: 40}
+  rules: {max_rejection_rounds: 50}

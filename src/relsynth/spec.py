@@ -34,21 +34,36 @@ DEFAULT_SYNTHESIS = {
     "gibbs": {"iterations": 120, "final_iterations": 30, "max_final_iterations": 120, "rhat_target": 1.1,
               "chains": 1, "merge": True},
     "copula": {"mode": "rank", "sample_rows": 1500, "iterations": 120, "max_iterations": 3000, "rhat_target": 1.1,
-               "burn_in": 60, "lkj_eta": 2.0, "grid": 64, "min_rows": 80, "pooled_cells": 1e6},
+               "burn_in": 60, "lkj_eta": 2.0, "grid": 64, "min_rows": 80, "pooled_cells": 1e6,
+               "mh_steps": 15, "mcse_z": 0.01},
     "marginals": {"bayesian_bootstrap": True, "dirichlet_prior": 0.25,
                   "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
-                  "joint_max_levels": 64, "joint_min_cramers_v": 0.3},
+                  "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
+                  "fd_sample_rows": 50000},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
-              "link_degree_min_rows": 50.0},
+              "link_degree_min_rows": 50.0, "frailty_min_rows": 30, "occupancy_z": -4.0, "occupancy_min_expected": 10.0,
+              "dp_count_sweeps": 30},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
-    "rules": {"max_rejection_rounds": 25},
+    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000},
+    # effort spent repairing a draw before it is kept as it is (relsynth 1.0 constants)
+    "repair": {"pair_tries": 200, "constraint_rounds": 200, "thin_rounds": 200, "tree_redraws": 40,
+               "unique_code_rounds": 50, "participation_rounds": 4, "occupancy_rounds": 20},
+    # thresholds that detect a structure in the source
+    "detection": {"group_effect_share": 0.95, "scd_stable_share": 0.99, "scd_max_versions": 50},
+    # the scorecard: fixed tolerances (relsynth.evaluate.THRESHOLDS, overridable per key) and the
+    # rows the association and discriminator metrics use
+    "evaluation": {"thresholds": {}, "assoc_max_rows": 20000, "discriminator_rows": 5000},
+    # per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}} (relsynth.settings)
+    "per_table": {},
+    # a settings file merged under this block (relsynth.settings; relative to the spec)
+    "settings_file": None,
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
     "privacy": {"suppress_small_counts": 5, "dp": None},
     # fit large fact tables from statistics computed in the database and a bounded
@@ -122,7 +137,8 @@ def load_spec(path_or_dict) -> dict:
         path_or_dict = from_ir(path_or_dict)
         # private keys of an in-memory spec (a normalised spec passed back) are dropped
         raw = copy.deepcopy({k: v for k, v in path_or_dict.items() if not str(k).startswith("_")})
-        base = Path(".")
+        # a normalised spec passed back keeps the folder its relative paths are read from
+        base = Path(path_or_dict["_base_dir"]) if path_or_dict.get("_base_dir") else Path(".")
         errs = []
     else:
         p = Path(path_or_dict)
@@ -134,6 +150,12 @@ def load_spec(path_or_dict) -> dict:
             raise SpecError(f"Spec has errors:\n  - {p}: the spec must be a mapping")
         errs = [f"spec: key '{k}' is internal and cannot be set in a spec file" for k in raw if str(k).startswith("_")]
         raw = {k: v for k, v in raw.items() if not str(k).startswith("_")}
+    from .settings import SettingsError, apply_file
+    try:
+        # the settings file (synthesis.settings_file or RELSYNTH_SETTINGS) under the spec's own block
+        raw = apply_file(raw, base)
+    except SettingsError as e:
+        raise SpecError(str(e)) from None
     try:
         spec = normalise(raw)
     except SpecError as e:
@@ -293,6 +315,9 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
     # unknown keys (typos) are errors, with the closest valid key as a hint; the
     # engine re-validates its internal plan (which adds private keys) with keys=False
     errs = check_keys(spec) if keys else []
+    if keys:
+        from .settings import validate as validate_settings
+        errs += validate_settings(spec.get("synthesis") or {})
     user = keys
     tables = spec.get("tables") or {}
     if not tables:

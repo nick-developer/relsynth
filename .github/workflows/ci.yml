@@ -156,6 +156,41 @@ jobs:
       - name: End-to-end CLI tests
         run: pytest tests/e2e -q
 
+  settings-autotune:
+    # Engine settings and autotune (docs/settings.md, docs/autotune.md):
+    # 1. byte identity of the synthetic output with main under default settings
+    #    (every fake scenario and the quickstart, two seeds);
+    # 2. autotune on Chinook as given (no crash, a report), and from a planted bad
+    #    setting, which the search must find and undo.
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, ref: main, path: base-main }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev,bench]" datasketches
+      - name: Byte identity with main under default settings
+        run: python tools/identity_check.py --base base-main/src --head src --json identity.json
+      - name: Cache the downloaded databases (pinned by SHA-256 in bench/datasets.py)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: Autotune on Chinook, as given and from a planted setting
+        env: { RELSYNTH_QUIET: "1" }
+        run: python tools/autotune_ci.py --out tune-out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: settings-autotune
+          path: |
+            identity.json
+            tune-out/
+
   integration:
     needs: lint
     runs-on: ubuntu-latest

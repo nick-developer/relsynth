@@ -142,7 +142,7 @@ class GaussianCopula:
         self.info = {}
 
     def fit(self, lo, hi, rng, eta=2.0, iters=120, burn_in=60, mh_steps=15, mode="bayes",
-            max_iters=None, rhat_target=1.1, min_dep_rows=0):
+            max_iters=None, rhat_target=1.1, min_dep_rows=0, mcse_z=MCSE_Z):
         """max_iters: if the split R-hat of the kept draws exceeds rhat_target after
         `iters` iterations, the chain is continued in blocks of (iters - burn_in)
         up to max_iters; the first half of all post-burn-in draws is then discarded
@@ -176,7 +176,7 @@ class GaussianCopula:
                     live[j] = False
         if p >= 2 and live.sum() < p:
             sub = GaussianCopula(int(live.sum())).fit(lo[:, live], hi[:, live], rng, eta, iters, burn_in, mh_steps, mode,
-                                                      max_iters, rhat_target, min_dep_rows) \
+                                                      max_iters, rhat_target, min_dep_rows, mcse_z) \
                 if live.sum() >= 2 else None
             self.draws = []
             for D in (sub.draws if sub else [np.eye(1)]):
@@ -199,7 +199,7 @@ class GaussianCopula:
             self.info = {"mode": "fast", "n": n, "p": p}
             return self
         if mode == "rank":
-            return self._fit_rank(lo, hi, Z, rng, iters, burn_in, max_iters, rhat_target)
+            return self._fit_rank(lo, hi, Z, rng, iters, burn_in, max_iters, rhat_target, mcse_z)
         d = p * (p - 1) // 2
         levels = np.concatenate([[j] * (p - 1 - j) for j in range(p - 1)])
         bshape = eta + (p - 1 - (levels + 1)) / 2.0
@@ -224,7 +224,7 @@ class GaussianCopula:
         iu = np.triu_indices(p, 1)
 
         def converged():
-            return chain_converged(draws, trace_ld, rhat_target)[0]
+            return chain_converged(draws, trace_ld, rhat_target, mcse_z)[0]
         all_d, all_ld = [], []
         while True:
             if t >= iters and (t - iters) % block == 0:
@@ -277,11 +277,11 @@ class GaussianCopula:
                      "drift_max": (float(np.abs(R[: len(R) // 2].mean(0) - R[len(R) // 2:].mean(0)).max())
                                    if R is not None else None),
                      "posterior_sd_max": float(np.std(np.stack(self.draws), axis=0).max())}
-        ok, diag = chain_converged(draws, trace_ld, rhat_target)
+        ok, diag = chain_converged(draws, trace_ld, rhat_target, mcse_z)
         self.info.update(diag, converged=bool(ok))
         return self
 
-    def _fit_rank(self, lo, hi, Z, rng, iters, burn_in, max_iters, rhat_target):
+    def _fit_rank(self, lo, hi, Z, rng, iters, burn_in, max_iters, rhat_target, mcse_z=MCSE_Z):
         """Extended rank likelihood with parameter expansion (Hoff 2007, sbgcop).
 
         Only the order of the latent bins is used: rows in a lower bin of column j
@@ -324,7 +324,7 @@ class GaussianCopula:
         iu = np.triu_indices(p, 1)
 
         def converged():
-            return chain_converged(draws, trace_ld, rhat_target)[0]
+            return chain_converged(draws, trace_ld, rhat_target, mcse_z)[0]
 
         t = 0
         all_d, all_ld = [], []
@@ -378,7 +378,7 @@ class GaussianCopula:
                      "drift_max": (float(np.abs(R[: len(R) // 2].mean(0) - R[len(R) // 2:].mean(0)).max())
                                    if R is not None else None),
                      "posterior_sd_max": float(np.std(np.stack(self.draws), axis=0).max())}
-        ok, diag = chain_converged(draws, trace_ld, rhat_target)
+        ok, diag = chain_converged(draws, trace_ld, rhat_target, mcse_z)
         self.info.update(diag, converged=bool(ok))
         return self
 

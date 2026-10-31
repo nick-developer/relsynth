@@ -1,0 +1,7 @@
+# relsynth settings preset "fast" (synthesis.settings_file: preset:fast).
+# Shorter chains and smaller samples: about 2-3x faster fits for drafts and smoke tests.
+# Convergence rules still apply (the chains are extended when they have not converged).
+synthesis:
+  gibbs: {iterations: 40, final_iterations: 15, max_final_iterations: 40}
+  copula: {sample_rows: 800, iterations: 60, burn_in: 30, max_iterations: 600, pooled_cells: 300000}
+  uniqueness: {mh_sweeps: 10}

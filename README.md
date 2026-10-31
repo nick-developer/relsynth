@@ -395,6 +395,8 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
+| [docs/settings.md](docs/settings.md) | Engine settings: settings files, presets, per-table overrides, editable attributes ([reference](docs/settings-reference.md)) |
+| [docs/autotune.md](docs/autotune.md) | `relsynth autotune`: objectives, the search, the history and the constraints report |
 | [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
 | [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |
 | [docs/adr/](docs/adr/) | Architecture decision records |

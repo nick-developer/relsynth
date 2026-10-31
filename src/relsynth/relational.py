@@ -1458,7 +1458,7 @@ class RelationalModel:
         return self
 
 
-def dispersion_alpha(totals, z, K, mu_k, threshold):
+def dispersion_alpha(totals, z, K, mu_k, threshold, min_rows=30):
     """Gamma frailty shape per segment from the dispersion of per-row totals:
     Var = mu + mu^2/alpha, with mu the segment's sample mean (the moment estimator;
     mu_k is accepted for the callers' convenience and not used).  Returns
@@ -1467,7 +1467,7 @@ def dispersion_alpha(totals, z, K, mu_k, threshold):
     D = np.ones(K)
     for k in range(K):
         t = totals[z == k]
-        if len(t) < 30:        # a dispersion estimate from fewer rows is too noisy to act on
+        if len(t) < min_rows:  # a dispersion estimate from fewer rows is too noisy to act on
             continue
         m, v = t.mean(), t.var(ddof=1)
         D[k] = v / max(m, 1e-9)

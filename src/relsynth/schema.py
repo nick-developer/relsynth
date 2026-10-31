@@ -419,13 +419,43 @@ SYNTH_DOC = {
                      "for their attribute models, instead of loading them. auto: facts with at least min_rows rows; "
                      "on: every eligible fact; off: load every table.",
     "pushdown.min_rows": "Rows from which auto mode pushes a fact table down.",
+    "copula.mh_steps": "Metropolis steps per sweep of the correlation sampler (copula.mode bayes).",
+    "copula.mcse_z": "Fixed-width rule of the copula chain: a correlation whose Monte Carlo standard error on the "
+                     "Fisher-z scale is at most this passes the convergence test (Jones et al. 2006).",
+    "marginals.discrete_int_max": "Integer columns with at most this many distinct values are modelled as discrete.",
+    "marginals.max_obs": "Observations kept per continuous marginal (a seeded subsample above it).",
+    "marginals.fd_sample_rows": "Rows of the seeded subsample on which functional dependencies are tested.",
+    "facts.frailty_min_rows": "Rows of a segment needed to estimate its dispersion (frailty).",
+    "facts.occupancy_z": "facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the "
+                         "z score of its pair repeats is below this ...",
+    "facts.occupancy_min_expected": "... and at least this many repeats are expected under Poisson.",
+    "facts.dp_count_sweeps": "Gibbs sweeps of the Dirichlet-process count law's conditional draw.",
+    "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
+    "rules.rake_max_cells": "Rule cells: largest joint table raked.",
+    "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",
+    "repair.constraint_rounds": "Redraw rounds of entity rows that break a check rule or a unique key.",
+    "repair.thin_rounds": "Rounds of anchor thinning (participation of facts).",
+    "repair.tree_redraws": "Redraws of a hierarchy that breaks a depth or cycle rule.",
+    "repair.unique_code_rounds": "Redraw rounds of identifier codes until they are distinct.",
+    "repair.participation_rounds": "Rounds that move rows away from parents the participation hurdle leaves empty.",
+    "repair.occupancy_rounds": "Redraws that give every parent its mandatory first row in occupancy facts.",
+    "detection.group_effect_share": "A group effect holding on fewer source groups than this share is reported.",
+    "detection.scd_stable_share": "SCD2 stable auto: columns equal across versions on at least this share of keys.",
+    "detection.scd_max_versions": "Largest number of versions per key modelled exactly (more are pooled).",
+    "evaluation.thresholds": "Fixed tolerances of the scorecard by name (ks, tvd, auc, ...; see the table below). "
+                             "Each limit is the larger of its tolerance and its sampling limit.",
+    "evaluation.assoc_max_rows": "Rows sampled for the association metrics.",
+    "evaluation.discriminator_rows": "Rows sampled per side for the discriminator AUC.",
+    "per_table": "Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}.",
+    "settings_file": "A settings file merged under this block (a path relative to the spec, or preset:fast / "
+                     "preset:thorough). The spec's own keys win. See docs/settings.md.",
     "pushdown.sample_rows": "Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the "
                             "relational model always uses every row through the statistics.",
 }
 
 # synthesis keys whose value is a free map (table names) or may be a map
 FREE = {"privacy.dp", "scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
-        "compute.overrides"}
+        "compute.overrides", "per_table", "evaluation.thresholds"}
 # keys normalise() adds (a normalised spec written back, e.g. by `doctor --apply`, still
 # validates); the keys of the engine's internal plan (anchor_link, virtual, unit, _refs,
 # ...) are not accepted from a spec

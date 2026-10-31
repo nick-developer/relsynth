@@ -51,6 +51,8 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`generators`](#generators) | installed generator plug-ins and their capabilities |
 | [`compute`](#compute) | GPUs found and the device each kind of generator would get |
 | [`version`](#version) | versions of relsynth and its main dependencies |
+| [`settings`](#settings) | engine settings: show, explain, validate, template, reference |
+| [`autotune`](#autotune) | tune engine settings toward your objectives over several seeds; write the tuned spec and a constraints report |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 | [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
 
@@ -88,7 +90,7 @@ usage: relsynth introspect [-h] [--source SOURCE] [--source-schema SOURCE_SCHEMA
 Validate a spec.
 
 ```
-usage: relsynth check [-h] [--set KEY=VALUE] [--connect] [--json]
+usage: relsynth check [-h] [--set KEY=VALUE] [--settings FILE] [--connect] [--json]
                       [--log-level {debug,info,warning,error}]
                       spec
 ```
@@ -97,6 +99,7 @@ usage: relsynth check [-h] [--set KEY=VALUE] [--connect] [--json]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--connect` |  |  | also connect to the source and find every table |
 
 ## validate
@@ -104,7 +107,7 @@ usage: relsynth check [-h] [--set KEY=VALUE] [--connect] [--json]
 Validate a spec (alias of check).
 
 ```
-usage: relsynth validate [-h] [--set KEY=VALUE] [--connect] [--json]
+usage: relsynth validate [-h] [--set KEY=VALUE] [--settings FILE] [--connect] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -113,6 +116,7 @@ usage: relsynth validate [-h] [--set KEY=VALUE] [--connect] [--json]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--connect` |  |  | also connect to the source and find every table |
 
 ## plan
@@ -120,7 +124,7 @@ usage: relsynth validate [-h] [--set KEY=VALUE] [--connect] [--json]
 Which tables are fitted from in-database statistics (no fitting).
 
 ```
-usage: relsynth plan [-h] [--set KEY=VALUE] [--pushdown {auto,on,off}] [--json]
+usage: relsynth plan [-h] [--set KEY=VALUE] [--settings FILE] [--pushdown {auto,on,off}] [--json]
                      [--log-level {debug,info,warning,error}]
                      spec
 ```
@@ -129,6 +133,7 @@ usage: relsynth plan [-h] [--set KEY=VALUE] [--pushdown {auto,on,off}] [--json]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--pushdown` auto\|on\|off |  |  | override synthesis.pushdown.mode |
 
 ## run
@@ -136,16 +141,16 @@ usage: relsynth plan [-h] [--set KEY=VALUE] [--pushdown {auto,on,off}] [--json]
 Fit, sample, write and score.
 
 ```
-usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target TARGET]
-                    [--target-schema TARGET_SCHEMA] [--target-password-env TARGET_PASSWORD_ENV]
-                    [--target-url-env TARGET_URL_ENV] [--bundle BUNDLE] [--report REPORT]
-                    [--no-privacy] [--no-write] [--datasets DATASETS] [--mode {draw,mean}]
-                    [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE]
-                    [--registry REGISTRY] [--context CONTEXT] [--release-target RELEASE_TARGET]
-                    [--source-id SOURCE_ID] [--key KEY] [--privacy-report PRIVACY_REPORT]
-                    [--assess] [--privacy-config PRIVACY_CONFIG] [--dp] [--epsilon EPSILON]
-                    [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT] [--json]
-                    [--log-level {debug,info,warning,error}]
+usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--out OUT]
+                    [--target TARGET] [--target-schema TARGET_SCHEMA]
+                    [--target-password-env TARGET_PASSWORD_ENV] [--target-url-env TARGET_URL_ENV]
+                    [--bundle BUNDLE] [--report REPORT] [--no-privacy] [--no-write]
+                    [--datasets DATASETS] [--mode {draw,mean}] [--pushdown {auto,on,off}]
+                    [--seed SEED] [--fail-under SHARE] [--registry REGISTRY] [--context CONTEXT]
+                    [--release-target RELEASE_TARGET] [--source-id SOURCE_ID] [--key KEY]
+                    [--privacy-report PRIVACY_REPORT] [--assess] [--privacy-config PRIVACY_CONFIG]
+                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT]
+                    [--json] [--log-level {debug,info,warning,error}]
                     spec
 ```
 
@@ -153,6 +158,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--scale` SCALE |  |  | size multiplier of the synthetic entities |
 | `--out` OUT |  |  | output folder for CSV files (default: the spec's target) |
 | `--target` TARGET |  |  | write to this location instead of the spec's target |
@@ -186,7 +192,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
 Continue the event histories of a synthetic dataset step by step (new rows per day as CSV deltas).
 
 ```
-usage: relsynth extend [-h] [--set KEY=VALUE] --until UNTIL [--start START]
+usage: relsynth extend [-h] [--set KEY=VALUE] [--settings FILE] --until UNTIL [--start START]
                        [--step {hour,day,week,month}] [--dataset DATASET] [--out OUT]
                        [--with-base] [--seed SEED] [--json]
                        [--log-level {debug,info,warning,error}]
@@ -197,6 +203,7 @@ usage: relsynth extend [-h] [--set KEY=VALUE] --until UNTIL [--start START]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--until` UNTIL | yes |  | end of the extension (date or datetime, exclusive) |
 | `--start` START |  |  | start of the extension (default: the end of the source's time range) |
 | `--step` hour\|day\|week\|month |  | `day` | delta period |
@@ -210,7 +217,7 @@ usage: relsynth extend [-h] [--set KEY=VALUE] --until UNTIL [--start START]
 Model checks on real data (R1-R7): scorecard, convergence, posterior predictive checks, scale rule, structure, stability.
 
 ```
-usage: relsynth verify [-h] [--set KEY=VALUE] [--draws DRAWS] [--no-stability]
+usage: relsynth verify [-h] [--set KEY=VALUE] [--settings FILE] [--draws DRAWS] [--no-stability]
                        [--pushdown {auto,on,off}] [--seed SEED] [--no-privacy] [--target TARGET]
                        [--target-schema TARGET_SCHEMA] [--target-password-env TARGET_PASSWORD_ENV]
                        [--target-url-env TARGET_URL_ENV] [--report REPORT] [--bundle BUNDLE]
@@ -222,6 +229,7 @@ usage: relsynth verify [-h] [--set KEY=VALUE] [--draws DRAWS] [--no-stability]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--draws` DRAWS |  | `5` | synthetic copies for the posterior predictive checks |
 | `--no-stability` |  |  | skip the two extra fits (R6, R7) |
 | `--pushdown` auto\|on\|off |  |  | default off: every table is loaded whole |
@@ -239,9 +247,10 @@ usage: relsynth verify [-h] [--set KEY=VALUE] [--draws DRAWS] [--no-stability]
 Attack a release per person and write a privacy report per release context.
 
 ```
-usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--cache CACHE]
-                        [--jobs JOBS] [--no-shadow] [--salt-file SALT_FILE] [--context CONTEXT]
-                        [--fail-on {review,fail}] [--signed-off-by SIGNED_OFF_BY] [--json]
+usage: relsynth privacy [-h] [--set KEY=VALUE] [--settings FILE] [--config CONFIG] [--out OUT]
+                        [--cache CACHE] [--jobs JOBS] [--no-shadow] [--salt-file SALT_FILE]
+                        [--context CONTEXT] [--fail-on {review,fail}]
+                        [--signed-off-by SIGNED_OFF_BY] [--json]
                         [--log-level {debug,info,warning,error}]
                         spec
 ```
@@ -250,6 +259,7 @@ usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--config` CONFIG |  |  | privacy.yaml: privacy unit, sensitive attributes, quasi-identifiers, contexts and limits (docs/privacy.md) |
 | `--out` OUT |  | `privacy_report` | folder for privacy_report.json, .md and .html |
 | `--cache` CACHE |  |  | folder that keeps shadow fits between runs |
@@ -265,8 +275,8 @@ usage: relsynth privacy [-h] [--set KEY=VALUE] [--config CONFIG] [--out OUT] [--
 Score synthetic data already written.
 
 ```
-usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output OUTPUT]
-                         [--no-privacy] [--fail-under SHARE] [--quality FILE]
+usage: relsynth evaluate [-h] [--set KEY=VALUE] [--settings FILE] --synthetic SYNTHETIC
+                         [--output OUTPUT] [--no-privacy] [--fail-under SHARE] [--quality FILE]
                          [--quality-config YAML] [--holdout LOC] [--quality-gate] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
@@ -276,6 +286,7 @@ usage: relsynth evaluate [-h] [--set KEY=VALUE] --synthetic SYNTHETIC [--output 
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--synthetic` SYNTHETIC | yes |  | where the synthetic tables are (csv:DIR, sqlite:FILE, URL) |
 | `--output` OUTPUT |  |  | write every metric as JSON |
 | `--no-privacy` |  |  | skip distance-to-closest-record checks |
@@ -338,7 +349,7 @@ usage: relsynth model [-h] [--out OUT] [--json] [--log-level {debug,info,warning
 The fitted Bayesian model as JSON, Markdown, PDF and Python.
 
 ```
-usage: relsynth export-model [-h] [--set KEY=VALUE] [--out OUT] [--draws DRAWS]
+usage: relsynth export-model [-h] [--set KEY=VALUE] [--settings FILE] [--out OUT] [--draws DRAWS]
                              [--formats FORMATS] [--no-replica-check] [--stan] [--json]
                              [--log-level {debug,info,warning,error}]
                              spec
@@ -348,6 +359,7 @@ usage: relsynth export-model [-h] [--set KEY=VALUE] [--out OUT] [--draws DRAWS]
 |---|---|---|---|
 | `spec` | yes |  | the YAML specification |
 | `--set` KEY=VALUE |  |  | override a spec value, e.g. --set synthesis.scale.default=2 (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) merged under the spec's synthesis block; see docs/settings.md |
 | `--out` OUT |  |  | output folder (default: <spec>.model) |
 | `--draws` DRAWS |  | `5` | posterior draws to export (draw m = dataset m of `run`) |
 | `--formats` FORMATS |  | `json,md,pdf,py` | any of json, md, pdf, py |
@@ -455,6 +467,49 @@ Versions of relsynth and its main dependencies.
 usage: relsynth version [-h] [--json] [--log-level {debug,info,warning,error}]
 ```
 
+
+## settings
+
+Engine settings: show, explain, validate, template, reference.
+
+```
+usage: relsynth settings [-h] [--all] [--out OUT] [--json]
+                         [--log-level {debug,info,warning,error}]
+                         {show,explain,validate,template,reference} [target]
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `action` | yes |  |  |
+| `target` | yes |  | spec (show), key (explain) or settings file (validate) |
+| `--all` |  |  | show: every key, not only the ones set |
+| `--out` OUT |  |  | template / reference: write to this file |
+
+## autotune
+
+Tune engine settings toward your objectives over several seeds; write the tuned spec and a constraints report.
+
+```
+usage: relsynth autotune [-h] [--set KEY=VALUE] [--settings FILE] [--objectives OBJECTIVES]
+                         [--runs RUNS] [--seeds SEEDS] [--holdout HOLDOUT] [--history HISTORY]
+                         [--fresh] [--out OUT] [--report REPORT] [--json]
+                         [--log-level {debug,info,warning,error}]
+                         spec
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `spec` | yes |  | the YAML specification |
+| `--set` KEY=VALUE |  |  | override a spec value before tuning, e.g. --set source.path=db.sqlite (repeatable) |
+| `--settings` FILE |  |  | an engine settings file (or preset:fast \| preset:thorough) as the starting point |
+| `--objectives` OBJECTIVES |  |  | objectives.yaml (default: every hard constraint and every statistical family) |
+| `--runs` RUNS |  |  | budget: fits (one candidate on one seed is one run) |
+| `--seeds` SEEDS |  |  | search seeds, e.g. 1,2,3 (overrides the objectives) |
+| `--holdout` HOLDOUT |  |  | held-out seeds, e.g. 11,12 ('' for none) |
+| `--history` HISTORY |  |  | history folder (default: <spec>.tune) |
+| `--fresh` |  |  | forget this spec's earlier runs |
+| `--out` OUT |  |  | tuned spec (default: <spec>.tuned.yaml) |
+| `--report` REPORT |  |  | report file (default: <history>/report.md, plus report.json) |
 
 ## ir
 

@@ -891,6 +891,8 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
     from the sample with the sample's size as their sampling noise."""
     real_stats = real_stats or {}
     T = spec["tables"]
+    # the scorecard's tolerances and metric sizes (synthesis.evaluation, relsynth.settings)
+    ecfg = (spec.get("synthesis") or {}).get("evaluation") or {}
 
     def n_real(t):
         return int(real_stats[t].n_rows) if t in real_stats else len(real[t])
@@ -928,12 +930,15 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
              "columns": column_metrics(real[t], syn[t], ts, cols)}
         if t in real_stats:
             d["rows_real_sample"] = len(real[t])
-        d["association"] = assoc_metrics(real[t], syn[t], ts, cols, min_level_rows=kmin)
+        d["association"] = assoc_metrics(real[t], syn[t], ts, cols, min_level_rows=kmin,
+                                          max_rows=int(ecfg.get("assoc_max_rows", 20000)),
+                                          floor=(ecfg.get("thresholds") or {}).get("assoc_max"))
         if ts.get("mode") == "copy":
             # copied tables equal the source row for row: nothing to discriminate
             d["discriminator_auc"], d["discriminator_skipped"] = float("nan"), "copy"
         else:
-            d["discriminator_auc"] = discriminator_auc(real[t], syn[t], ts, cols)
+            d["discriminator_auc"] = discriminator_auc(real[t], syn[t], ts, cols,
+                                                       max_rows=int(ecfg.get("discriminator_rows", 5000)))
             d["discriminator_n"] = int(min(len(real[t]), len(syn[t]), 5000))
             d["discriminator_real_ok"] = bool(cols) and len(real[t]) >= 20
         rep["tables"][t] = d
@@ -993,7 +998,7 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
     rep["rules"] = rule_metrics(spec, real, syn, sampled=set(real_stats))
     rep["grain"] = grain_metrics(spec, real, syn, real_stats)
     rep["removed"] = removed_rows(spec, syn, sample_log)
-    rep["scorecard"] = scorecard(rep)
+    rep["scorecard"] = scorecard(rep, th=ecfg.get("thresholds") or None)
     return rep
 
 

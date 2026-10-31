@@ -31,7 +31,7 @@ class SegmentMarginals(TableGenerator):
         mcfg, ccfg = d.cfg["marginals"], d.cfg["copula"]
         groups, parent, n = self._groups, self.parent, d.n_rows
         kw = dict(dirichlet_a=mcfg["dirichlet_prior"], grid=ccfg["grid"], bootstrap=bootstrap,
-                  tail_trim=mcfg["tail_trim"], structural=self._pi_s)
+                  tail_trim=mcfg["tail_trim"], structural=self._pi_s, max_obs=int(mcfg.get("max_obs", 20000)))
         self.global_m = [Marginal.fit(cd, x, rng, **kw) for cd, x in zip(d.codecs, d.X)]
         self.group_m, self.group_n = {}, {}
         self.coarse_m = {}
@@ -105,7 +105,8 @@ class CopulaGenerator(SegmentMarginals):
         self.copulas = {}
         kw = dict(eta=ccfg["lkj_eta"], iters=ccfg["iterations"], burn_in=ccfg["burn_in"], mode=ccfg["mode"],
                   max_iters=ccfg.get("max_iterations"), rhat_target=ccfg.get("rhat_target", 1.1),
-                  min_dep_rows=k)
+                  min_dep_rows=k, mh_steps=int(ccfg.get("mh_steps", 15)),
+                  mcse_z=float(ccfg.get("mcse_z", 0.01)))
         cap = ccfg["sample_rows"]
         # the pooled copula is the one fact tables use; its posterior sd is about
         # 1/sqrt(rows fitted), and a dataset drawn from it shows that spread in every
