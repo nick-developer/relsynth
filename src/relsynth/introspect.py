@@ -225,6 +225,12 @@ class _Profiler(Discovery):
             self.df[t], self.whole[t] = src.sample(t, self.n_sample)
             self.say(f"introspect: read {t} ({self.counts[t]:,} rows"
                      + ("" if self.whole[t] else f", random sample of {len(self.df[t]):,}") + ")")
+        hyper = getattr(getattr(src, "conn", None), "hypertables", None)
+        for t, h in (hyper() if callable(hyper) else {}).items():
+            if t in self.names:
+                self.ask(f"NOTE: {t} is a TimescaleDB hypertable on {h['time_column']} (chunks "
+                         f"{h['chunk_interval']}): a regular series per entity can be declared with "
+                         f"tables.{t}.series, an event history with tables.{t}.sequence (docs/timeseries.md)")
         if src.unseeded and not src.random_order:
             self.ask("NOTE: this database has no random function known to relsynth; samples of "
                      + ", ".join(src.unseeded) + " (no primary key) are the first rows")

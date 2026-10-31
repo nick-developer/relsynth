@@ -177,4 +177,8 @@ def from_spec(section: dict, base_dir: str | Path | None = None, create: bool = 
         from .sql import resolve_url
         return cls(url=resolve_url(url, env), **common)
     extra = _warehouse_options(cls, auth=sec.get("auth"), guards=sec.get("guards"), bulk=sec.get("bulk"))
+    if sec.get("timescale") is not None:
+        if dialect != "postgresql":
+            raise ValueError("timescale: only for PostgreSQL (TimescaleDB) targets")
+        extra["timescale"] = dict(sec["timescale"])
     return cls(url, schema=sec.get("schema"), url_env=env, password_env=sec.get("password_env"), **common, **extra)

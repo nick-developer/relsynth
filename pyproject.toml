@@ -102,6 +102,7 @@ markers = [
     "oracle: needs a live Oracle Database (RELSYNTH_TEST_ORACLE_URL)",
     "mysql: needs a live MySQL 8 server (RELSYNTH_TEST_MYSQL_URL)",
     "mariadb: needs a live MariaDB server (RELSYNTH_TEST_MARIADB_URL)",
+    "timescale: needs a live PostgreSQL with TimescaleDB (RELSYNTH_TEST_TIMESCALE_URL)",
     "databricks: needs a Databricks SQL warehouse or the local Spark stand-in (RELSYNTH_TEST_DATABRICKS_URL)",
     "fabric: needs a Fabric warehouse or the local SQL Server 2022 stand-in (RELSYNTH_TEST_FABRIC_URL)",
     "snowflake: needs a Snowflake account or the local fakesnow stand-in (RELSYNTH_TEST_SNOWFLAKE_URL)",

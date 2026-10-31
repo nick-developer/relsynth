@@ -166,6 +166,12 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U relsynth" --health-interval 5s --health-retries 30
+      timescaledb:
+        image: timescale/timescaledb:2.17.2-pg16
+        env: { POSTGRES_USER: relsynth, POSTGRES_PASSWORD: RelSynthTest1, POSTGRES_DB: relsynth }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U relsynth" --health-interval 5s --health-retries 30
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
         env: { ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "RelSynth_Test1!", MSSQL_PID: Developer }
@@ -190,6 +196,7 @@ jobs:
           --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 30
     env:
       RELSYNTH_TEST_PG_URL: postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
+      RELSYNTH_TEST_TIMESCALE_URL: postgresql://relsynth:RelSynthTest1@localhost:5433/relsynth
       RELSYNTH_TEST_MSSQL_URL: "mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
       RELSYNTH_TEST_ORACLE_URL: oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1
       RELSYNTH_TEST_MYSQL_URL: mysql://root:RelSynthTest1@127.0.0.1:3306/relsynth

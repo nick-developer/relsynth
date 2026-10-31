@@ -124,6 +124,9 @@
         },
         "format": {
           "description": "File format of a files target."
+        },
+        "timescale": {
+          "description": "PostgreSQL targets with TimescaleDB: hypertables (auto: the source's hypertables and tables whose series, sequence or fact time column is a date or datetime; none; or {table: time column}) and chunk_interval (e.g. '7 days')."
         }
       },
       "description": "Where the synthetic data is written (the 1.0 `target` section)."
@@ -1246,6 +1249,14 @@
         "generator": {
           "$ref": "#/$defs/GeneratorChoice",
           "description": "Generator of the attributes; absent means the estate's synthesis.generator (copula by default)."
+        },
+        "sequence": {
+          "type": "object",
+          "description": "Event-sequence model of the record times per parent (relsynth.timeseries): entity, time, window and options, as the 1.0 table key `sequence`."
+        },
+        "series": {
+          "type": "object",
+          "description": "Regular time-series model of the entity (relsynth.timeseries): entity, time, values and options, as the 1.0 table key `series`."
         }
       },
       "patternProperties": {

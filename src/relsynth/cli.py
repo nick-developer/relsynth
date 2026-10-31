@@ -406,6 +406,31 @@ def cmd_run(a, out):
     return EXIT_OK
 
 
+def cmd_extend(a, out):
+    """Fit, draw the base dataset and write the new rows of every step after it."""
+    from .api import fit, extend
+    s = _spec(a)
+    t0 = time.time()
+    model = fit(s, seed=a.seed)
+    base = model.sample(dataset=a.dataset)
+    steps = extend(model, a.until, base=base, dataset=a.dataset, start=a.start, step=a.step)
+    root = Path(a.out)
+    if a.with_base:
+        base.to_csv(root / "base")
+    written = []
+    for lo, _hi, part in steps:
+        if not any(len(d) for d in part.values()):
+            continue
+        d = root / f"delta-{lo.strftime('%Y-%m-%dT%H%M' if a.step == 'hour' else '%Y-%m-%d')}"
+        d.mkdir(parents=True, exist_ok=True)
+        for t, df in part.items():
+            df.to_csv(d / f"{t}.csv", index=False)
+        written.append({"step": str(lo), "rows": {t: len(df) for t, df in part.items()}})
+    out.put(seconds=round(time.time() - t0, 1), steps=len(steps), written=written, out=str(root))
+    out.line(f"{len(written)} non-empty step(s) of {len(steps)} -> {root}")
+    return EXIT_OK
+
+
 def _run_exit_code(res) -> int:
     """Exit code of a run with failed steps: from its first exception; reading the
     source or writing the target count as I/O unless the error is a spec error."""
@@ -790,6 +815,18 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's)")
     d.add_argument("--dp-statement", help="also write the DP statement (JSON) here")
     s.set_defaults(fn=cmd_run)
+
+    s = sub.add_parser("extend", help="continue the event histories of a synthetic dataset step by step "
+                                      "(new rows per day as CSV deltas)")
+    _spec_args(s)
+    s.add_argument("--until", required=True, help="end of the extension (date or datetime, exclusive)")
+    s.add_argument("--start", help="start of the extension (default: the end of the source's time range)")
+    s.add_argument("--step", default="day", choices=["hour", "day", "week", "month"], help="delta period")
+    s.add_argument("--dataset", type=int, default=0, help="the base dataset (posterior draw number)")
+    s.add_argument("--out", default="deltas", help="folder for delta-<period>/<table>.csv")
+    s.add_argument("--with-base", action="store_true", help="also write the base dataset to <out>/base")
+    s.add_argument("--seed", type=int, help="override synthesis.seed")
+    s.set_defaults(fn=cmd_extend)
 
     s = sub.add_parser("verify", help="model checks on real data (R1-R7): scorecard, convergence, "
                                       "posterior predictive checks, scale rule, structure, stability")
