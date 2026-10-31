@@ -13,6 +13,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 | A business user who wants test data or a shareable copy of a database | [Quick start (command line)](#quick-start-command-line), then the [user guide](docs/user-guide.md) |
 | A data scientist or engineer who wants it in Python | [Quick start (Python)](#quick-start-python), then the [API reference](docs/api.md) |
 | Setting up a CI/CD job | [CI/CD](#cicd) and [docs/cicd.md](docs/cicd.md) |
+| Running relsynth as a service for many teams (SSO, approvals, Kubernetes, air-gapped) | [docs/service/](docs/service/README.md) |
 | A database administrator | [Connectors](docs/connectors.md), [security](docs/security.md), [large tables](docs/pushdown.md) |
 | Reviewing the method | [Theory](#theory-propositions-and-proofs), [docs/theory.md](docs/theory.md) and the [proofs](docs/proofs/relsynth-proofs.pdf) |
 

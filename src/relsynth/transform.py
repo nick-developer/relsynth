@@ -205,6 +205,9 @@ class Plan:
         if isinstance(fact.get("condition_on_parents"), list):
             fact["condition_on_parents"] = [x for x in fact["condition_on_parents"] if x.split(".")[0] in line_parents]
         T["fact"] = fact
+        seq = T.get("sequence")
+        if isinstance(seq, dict) and seq.get("time") in hset and seq.get("entity") in hset:
+            s["tables"][H]["sequence"] = T.pop("sequence")     # one time per order, on its header
         keep_u = []
         for u in T.get("unique", []):
             if set(u) <= hset | {key} and key not in u:

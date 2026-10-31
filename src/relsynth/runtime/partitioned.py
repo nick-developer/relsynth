@@ -308,6 +308,8 @@ def sample_partitioned(syn, scale=None, index=None, executor: Executor | dict | 
         for r in parts:
             _merge_log(syn.sample_log, r[3])
         out[f] = df
+        # event sequences (T12) order each entity's events: redrawn over the joined table
+        out[f] = syn._apply_fact_sequence(f, out, index)
         fact_rows[f] = _join_rows([r[1] for r in parts])
         plans.append(FactPlan(f, mode, why, n1, [b[:3] for b in blocks], len(df), time.time() - t1))
         say(f"sample: fact {f}: {len(df):,} rows in {len(blocks)} partition(s)")

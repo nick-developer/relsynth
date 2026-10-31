@@ -69,9 +69,6 @@ src/relsynth/source.py: [var-annotated] Need type annotation for "_counts" (hint
 src/relsynth/source.py: [var-annotated] Need type annotation for "_frames" (hint: "_frames: dict[<type>, <type>] = ...")
 src/relsynth/source.py: [var-annotated] Need type annotation for "unseeded" (hint: "unseeded: list[<type>] = ...")
 src/relsynth/spec.py: [attr-defined] "bool" has no attribute "__iter__"; maybe "__invert__"? (not iterable)
-src/relsynth/table_model.py: [call-arg] Too many arguments for "_latent_draw"
-src/relsynth/table_model.py: [index] Invalid index type "tuple[slice[None, None, None], int]" for "float64"; expected type "tuple[()]"
-src/relsynth/table_model.py: [index] Value of type "DataFrame | None" is not indexable
 src/relsynth/table_model.py: [var-annotated] Need type annotation for "fd_groups" (hint: "fd_groups: list[<type>] = ...")
 src/relsynth/verify.py: [attr-defined] "object" has no attribute "stats"
 src/relsynth/verify.py: [attr-defined] "object" has no attribute "tables"

@@ -1,0 +1,14 @@
+{{- if not .Values.storage.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "relsynth.fullname" . }}-data
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+  annotations: {"helm.sh/resource-policy": keep}
+spec:
+  accessModes: [{{ .Values.storage.accessMode }}]
+  {{- with .Values.storage.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources: {requests: {storage: {{ .Values.storage.size }}}}
+{{- end }}

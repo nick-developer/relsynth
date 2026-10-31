@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>relsynth</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="#/">relsynth</a>
+    <label class="tenant">Tenant <select id="tenant"></select></label>
+    <nav id="nav">
+      <a href="#/">Projects</a>
+      <a href="#/runs">Runs</a>
+      <a href="#/compare">Compare</a>
+      <a href="#/audit">Audit</a>
+    </nav>
+    <span id="who"></span>
+    <button id="logout" class="link" hidden>Sign out</button>
+  </header>
+  <main id="main"><p class="muted">Loading…</p></main>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

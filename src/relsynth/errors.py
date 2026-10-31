@@ -6,6 +6,9 @@
       SourceError            a source or target cannot be reached, read or written
       EngineError            fitting or sampling failed
       QualityGateError       the synthetic data failed the quality gate
+      GovernanceError        a policy, key, registry or approval is invalid or tampered with
+      ReleaseDenied          the organisation's policy refuses a release (reasons attached)
+      PrivacyError           a differentially private run would break its guarantee
 """
 from __future__ import annotations
 
@@ -39,6 +42,25 @@ class QualityGateError(RelsynthError):
     def __init__(self, message: str, report=None):
         super().__init__(message)
         self.report = report
+
+
+class GovernanceError(RelsynthError):
+    """A policy, key, registry entry or approval is invalid, or the registry was tampered with."""
+    exit_code = EXIT_SPEC
+
+
+class ReleaseDenied(RelsynthError):
+    """The organisation's policy refuses a release; `reasons` holds one sentence per rule."""
+    exit_code = EXIT_GATE
+
+    def __init__(self, message: str, reasons=()):
+        self.reasons = list(reasons)
+        super().__init__(message + ("".join(f"\n  - {r}" for r in self.reasons)))
+
+
+class PrivacyError(RelsynthError):
+    """A differentially private run would read data it cannot account for, or exceed its budget."""
+    exit_code = EXIT_SPEC
 
 
 def exit_code_for(exc: BaseException) -> int:

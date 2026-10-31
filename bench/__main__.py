@@ -4,8 +4,9 @@
     python -m bench all                      # every suite: lint, unit, e2e, live servers (if configured),
                                              # golden databases x 5 seeds, fake suite; then compare
     python -m bench fetch                    # download and build the golden databases
-    python -m bench run [--datasets ...] [--seeds 1,2,3,4,5] [--no-fake]
-    python -m bench compare [RECORD]         # the newest record (or RECORD) against bench/baseline.json
+    python -m bench run [--datasets ...] [--seeds 1,2,3,4,5] [--suites scorecard,quality,privacy,repro]
+                        [--no-fake | --fake-only]
+    python -m bench compare [RECORD ...]     # the newest record (or the RECORDs of one run) against bench/baseline.json
     python -m bench baseline RECORD...       # rebuild bench/baseline.json from history records
     python -m bench list                     # the datasets and whether each is available
 
@@ -23,15 +24,24 @@ from pathlib import Path
 
 from . import regress
 from .datasets import DATASETS, available, is_private, private_store, say
+from .runner import SUITES
 
 ROOT = Path(__file__).resolve().parents[1]
 HISTORY = ROOT / "bench" / "history"
 BASELINE = ROOT / "bench" / "baseline.json"
-GOLDEN = ["bi_corep_lr", "chinook", "adventureworks", "contoso_sqlite", "contoso_parquet"]
+GOLDEN = ["bi_corep_lr", "chinook", "adventureworks", "contoso_sqlite", "contoso_parquet", "berka", "acs", "chinook_x2"]
 
 
 def _seeds(s: str) -> list[int]:
     return [int(x) for x in s.split(",") if x.strip()]
+
+
+def _suites(s: str) -> tuple[str, ...]:
+    out = tuple(x.strip() for x in s.split(",") if x.strip())
+    bad = [x for x in out if x not in SUITES]
+    if bad:
+        raise SystemExit(f"unknown suites {bad}; choose from {', '.join(SUITES)}")
+    return out
 
 
 def _newest() -> Path:
@@ -50,12 +60,14 @@ def _load_baseline(path: Path) -> dict:
     return base
 
 
-def cmd_compare(record: Path, baseline: Path, full: bool, summary_to: str | None) -> int:
+def cmd_compare(records: list[Path], baseline: Path, full: bool, summary_to: str | None) -> int:
+    """Records of one run split over several jobs (bench.yml) are compared as one."""
     from .runner import load_record
     base = _load_baseline(baseline)
-    rec = load_record(record)
+    recs = [load_record(r) for r in records]
+    rec = {**recs[0], "runs": [r for x in recs for r in x["runs"]]}
     reg, notes, summ = regress.compare(base, rec, full=full)
-    text = f"Record `{record.name}` against `{baseline.name}` ({', '.join(base['relsynth'])})\n\n" + \
+    text = f"Record `{', '.join(r.name for r in records)}` against `{baseline.name}` ({', '.join(base['relsynth'])})\n\n" + \
         regress.report(reg, notes, summ)
     print(text)
     if summary_to:
@@ -79,8 +91,8 @@ def cmd_all(a) -> int:
             failed.append(" ".join(s[:4]))
     from .runner import run
     path = run(a.datasets or GOLDEN, _seeds(a.seeds), fake=True, pushdown=a.pushdown, label=a.label or "all",
-               overrides=tuple(a.overrides))
-    rc = cmd_compare(path, Path(a.baseline), full=True, summary_to=os.environ.get("GITHUB_STEP_SUMMARY"))
+               overrides=tuple(a.overrides), suites=_suites(a.suites))
+    rc = cmd_compare([path], Path(a.baseline), full=True, summary_to=os.environ.get("GITHUB_STEP_SUMMARY"))
     if failed:
         print("failed suites: " + "; ".join(failed))
     return 1 if failed or rc else 0
@@ -97,12 +109,16 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--label", default="")
         p.add_argument("--set", dest="overrides", action="append", default=[], metavar="KEY=VALUE",
                        help="spec override passed to every `relsynth run` (e.g. synthesis.facts.link_degree=auto)")
+        p.add_argument("--suites", default=",".join(SUITES),
+                       help="what each real database run includes, from " + ", ".join(SUITES) +
+                       " (each dataset declares which apply to it; docs/development/benchmarks.md)")
         p.add_argument("--baseline", default=str(BASELINE))
         if name == "run":
             p.add_argument("--no-fake", action="store_true", help="skip the statistical check suite")
+            p.add_argument("--fake-only", action="store_true", help="only the statistical check suite")
             p.add_argument("--out-dir", default=str(HISTORY))
     p = sub.add_parser("compare")
-    p.add_argument("record", nargs="?")
+    p.add_argument("record", nargs="*", help="one record, or the records of one run split over several jobs")
     p.add_argument("--baseline", default=str(BASELINE))
     p.add_argument("--full", action="store_true", help="a dataset of the baseline that was not run is a regression")
     p = sub.add_parser("baseline")
@@ -123,12 +139,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.cmd == "run":
         from .runner import run
-        path = run(a.datasets or GOLDEN, _seeds(a.seeds), fake=not a.no_fake, pushdown=a.pushdown,
-                   out_dir=Path(a.out_dir), label=a.label, overrides=tuple(a.overrides))
+        path = run([] if a.fake_only else a.datasets or GOLDEN, _seeds(a.seeds), fake=not a.no_fake, pushdown=a.pushdown,
+                   out_dir=Path(a.out_dir), label=a.label, overrides=tuple(a.overrides), suites=_suites(a.suites))
         print(path)
         return 0
     if a.cmd == "compare":
-        return cmd_compare(Path(a.record) if a.record else _newest(), Path(a.baseline), a.full,
+        return cmd_compare([Path(r) for r in a.record] or [_newest()], Path(a.baseline), a.full,
                            os.environ.get("GITHUB_STEP_SUMMARY"))
     if a.cmd == "baseline":
         recs = regress.load(a.records)

@@ -1,0 +1,228 @@
+version: 1
+name: berka
+source:
+  kind: sqlite
+  path: bench/.cache/berka/berka.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  account:
+    role: entity
+    columns:
+      account_id:
+        type: id
+      district_id:
+        type: id
+      frequency:
+        type: categorical
+      date:
+        type: date
+    primary_key: account_id
+  card:
+    role: entity
+    columns:
+      card_id:
+        type: id
+      disp_id:
+        type: id
+      type:
+        type: categorical
+      issued:
+        type: date
+    primary_key: card_id
+  client:
+    role: entity
+    columns:
+      client_id:
+        type: id
+      gender:
+        type: categorical
+      birth_date:
+        type: date
+      district_id:
+        type: id
+    primary_key: client_id
+  disp:
+    role: entity
+    columns:
+      disp_id:
+        type: id
+      client_id:
+        type: id
+      account_id:
+        type: id
+      type:
+        type: categorical
+    primary_key: disp_id
+    link_affinity:
+    - match:
+      - client_id.district_id
+      - account_id.district_id
+  district:
+    role: entity
+    columns:
+      district_id:
+        type: id
+      A2:
+        type: categorical
+      A3:
+        type: categorical
+      A4:
+        type: integer
+      A5:
+        type: integer
+      A6:
+        type: integer
+      A7:
+        type: integer
+      A8:
+        type: integer
+      A9:
+        type: integer
+      A10:
+        type: float
+      A11:
+        type: integer
+      A12:
+        type: float
+      A13:
+        type: float
+      A14:
+        type: integer
+      A15:
+        type: integer
+      A16:
+        type: integer
+    primary_key: district_id
+    mode: copy
+  loan:
+    role: entity
+    columns:
+      loan_id:
+        type: id
+      account_id:
+        type: id
+      date:
+        type: date
+      amount:
+        type: integer
+      duration:
+        type: integer
+      payments:
+        type: integer
+      status:
+        type: categorical
+    primary_key: loan_id
+  order:
+    role: entity
+    columns:
+      order_id:
+        type: id
+      account_id:
+        type: id
+      bank_to:
+        type: categorical
+      account_to:
+        type: integer
+      amount:
+        type: float
+      k_symbol:
+        type: categorical
+    primary_key: order_id
+  trans:
+    role: fact
+    columns:
+      trans_id:
+        type: id
+      account_id:
+        type: id
+      date:
+        type: date
+      type:
+        type: categorical
+      operation:
+        type: categorical
+      amount:
+        type: integer
+      balance:
+        type: integer
+      k_symbol:
+        type: categorical
+      bank:
+        type: categorical
+      account:
+        type: integer
+    primary_key: trans_id
+    fact:
+      anchor: account
+      time_column: date
+      time_bucket: month
+relationships:
+- child: account
+  child_key: district_id
+  parent: district
+  parent_key: district_id
+- child: card
+  child_key: disp_id
+  parent: disp
+  parent_key: disp_id
+- child: client
+  child_key: district_id
+  parent: district
+  parent_key: district_id
+- child: disp
+  child_key: client_id
+  parent: client
+  parent_key: client_id
+- child: disp
+  child_key: account_id
+  parent: account
+  parent_key: account_id
+- child: loan
+  child_key: account_id
+  parent: account
+  parent_key: account_id
+- child: order
+  child_key: account_id
+  parent: account
+  parent_key: account_id
+- child: trans
+  child_key: account_id
+  parent: account
+  parent_key: account_id
+rules:
+- table: loan
+  type: derive
+  expr: amount = duration * payments
+- table: account
+  type: aggregate
+  column: date
+  agg: min
+  from: trans
+  of: date
+- table: loan
+  type: check
+  expr: days(account_id.date) < days(date)
+- table: trans
+  type: check
+  expr: days(account_id.date) <= days(date)
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'card.issued: date (values parse as dates)'
+- 'district.A2: categorical (labels of a small reference table)'
+- 'trans.account: integer (numeric strings)'
+- 'district: 77 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
+- 'loan: derive rule amount = duration * payments (holds on the sampled rows)'
+- 'account.date = min(date) of trans: aggregate inferred (holds for every one of 400 parents checked)'
+- 'loan: check days(account_id.date) < days(date) (holds on 100.0% of 682 sampled rows with both dates, 71.2% by
+  chance)'
+- 'trans: check days(account_id.date) <= days(date) (holds on 100.0% of 20,000 sampled rows with both dates, 85.2%
+  by chance)'
+- 'disp: client_id.district_id = account_id.district_id on 90.8% of rows (by chance 2.7%); link affinity: account_id
+  is moved to a matching parent on the extra share'
+- 'trans: role fact (anchor account, time column date); check the anchor is the ''one'' side whose row counts should
+  be preserved'

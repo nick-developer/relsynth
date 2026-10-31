@@ -1,0 +1,119 @@
+# relsynth Helm values. docs/service/deployment.md explains every block.
+image:
+  repository: relsynth-service
+  tag: ""                       # default: the chart's appVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Settings passed to every pod as RELSYNTH_SVC_* (docs/service/README.md, "Settings")
+config:
+  auth_mode: oidc
+  oidc_issuer: ""               # required, e.g. https://sso.example.org/realms/relsynth
+  oidc_audience: relsynth
+  oidc_jwks_url: ""             # optional: in-cluster URL of the JWKS when the issuer URL is not reachable from pods
+  roles_claim: relsynth_roles
+  ui_client_id: relsynth-ui
+  kms: local                    # local | vault-transit | aws-kms | azure-kv | gcp-kms
+  kms_key_id: ""
+  file_roots: ""
+  allowed_hosts: ""             # e.g. "*.db.example.org"
+  approval_internal: "true"
+  approval_quorum: "1"
+  otel: "false"
+  max_attempts: "3"
+  job_timeout_s: "21600"
+extraEnv: []                    # e.g. VAULT_ADDR, OTEL_EXPORTER_OTLP_ENDPOINT
+
+# Metadata database: a PostgreSQL URL in a Secret (key "url"), e.g.
+# postgresql+psycopg://relsynth:<pw>@pg-rw.db:5432/relsynth?sslmode=verify-full
+database:
+  existingSecret: relsynth-db
+  key: url
+
+# Master key for local envelope encryption (32 random bytes, base64) in a Secret (key "master.key").
+# Not used with a KMS.  Create it with:  kubectl create secret generic relsynth-master-key \
+#   --from-literal=master.key="$(head -c32 /dev/urandom | base64)"
+masterKey:
+  existingSecret: relsynth-master-key
+  key: master.key
+
+# Secrets the workers may reference as file:/run/secrets/<name>/<key> (connection secret_ref)
+sourceSecrets: []               # - name: shop-db     (a Secret in this namespace)
+
+# Encrypted artefacts. One ReadWriteMany volume shared by the API and the workers, unless a
+# tenant has its own volume below (then only the API and that tenant's workers mount it).
+storage:
+  existingClaim: ""
+  storageClass: ""
+  size: 50Gi
+  accessMode: ReadWriteMany
+
+# Tenants with their own worker pool and, optionally, their own volume.
+tenants: []
+#  - id: acme
+#    workers: 2
+#    storage: {existingClaim: relsynth-acme}
+#    resources: {limits: {cpu: "8", memory: 32Gi}}
+
+api:
+  replicas: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+  podDisruptionBudget: {minAvailable: 1}
+
+# Shared worker pool (tenants without their own pool)
+workers:
+  replicas: 2
+  concurrency: 1
+  terminationGracePeriodSeconds: 3600     # let a running job finish on a rolling upgrade
+  jobMemoryMb: 0                           # per-job address-space limit inside the pod (0 = pod limit only)
+  resources:
+    requests: {cpu: "1", memory: 4Gi}
+    limits: {cpu: "4", memory: 16Gi}
+  workTmpSize: 20Gi                        # emptyDir for plaintext outputs of a running job
+
+service:
+  type: ClusterIP
+  port: 8080
+  nodePort: null                # with type NodePort
+
+ingress:
+  enabled: false
+  className: ""
+  host: relsynth.example.org
+  tlsSecret: ""
+  annotations: {}
+
+# OpenShift: a Route instead of an Ingress; the pods already fit restricted-v2 (any UID, group 0)
+openshift:
+  route:
+    enabled: false
+    host: ""
+    termination: edge
+
+networkPolicy:
+  enabled: true
+  # where the identity provider, the source databases and the metadata database live
+  egress:
+    - to: [{ipBlock: {cidr: 0.0.0.0/0}}]
+      ports: [{port: 443}, {port: 5432}, {port: 1433}, {port: 1521}, {port: 3306}]
+  ingressFrom: []                 # e.g. [{namespaceSelector: {matchLabels: {name: ingress-nginx}}}]
+
+serviceAccount:
+  create: true
+  annotations: {}                 # e.g. eks.amazonaws.com/role-arn, azure.workload.identity/client-id, iam.gke.io/gcp-service-account
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: {type: RuntimeDefault}
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+# Set to true outside OpenShift to pin UID 10001; OpenShift assigns its own UID.
+pinUid: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -43,7 +43,7 @@ Messages never contain passwords.
 """
 
 FUNCTIONS = ["introspect", "validate_spec", "fit", "sample", "evaluate", "assess_quality", "run", "verify", "doctor", "tune",
-             "export_model", "clone_schema", "profile", "ping", "connect", "load_spec", "dump_spec"]
+             "export_model", "extend", "clone_schema", "profile", "ping", "connect", "load_spec", "dump_spec"]
 CLASSES = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "QualityReport", "RunResult", "VerifyReport", "Diagnosis",
            "Synthesizer"]
 
