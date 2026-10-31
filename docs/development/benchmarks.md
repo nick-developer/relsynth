@@ -200,7 +200,11 @@ or let GitHub-hosted runners build it: dispatch `bench.yml` on the pull
 request's branch with `rebuild_baseline` (and, to reuse the records of a run
 that already finished, `records_from_run: <run id>`). Its `baseline` job copies
 the records to `bench/history/`, builds `bench/baseline.json` and pushes a
-signed-off commit to that branch; it never writes to main.
+signed-off commit to that branch; it never writes to main. A push made with the
+workflow's token starts no other workflow, so push a further commit (or re-run
+CI) before the pull request is reviewed. The current baseline was built this way
+from bench run 41168715489 (seven parallel jobs on GitHub-hosted runners, about
+2 h 40 min wall time, Contoso the longest job).
 
 The pull request says why the numbers moved. A baseline built on a different
 machine from the previous one says so in its description.
