@@ -1,0 +1,84 @@
+{{- /* one shared pool, plus one pool per tenant listed in .Values.tenants */ -}}
+{{- $root := . -}}
+{{- $own := list -}}
+{{- range .Values.tenants }}{{- $own = append $own .id -}}{{- end -}}
+{{- $pools := list (dict "name" "shared" "replicas" .Values.workers.replicas "resources" .Values.workers.resources "only" "" "exclude" (join "," $own) "claim" "") -}}
+{{- range .Values.tenants }}
+{{- $pools = append $pools (dict "name" .id "replicas" (.workers | default 1) "resources" (.resources | default $root.Values.workers.resources) "only" .id "exclude" "" "claim" (and .storage .storage.existingClaim | default "")) -}}
+{{- end }}
+{{- range $pools }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "relsynth.fullname" $root }}-worker-{{ .name }}
+  labels: {{- include "relsynth.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: worker
+    relsynth.io/pool: {{ .name }}
+spec:
+  replicas: {{ .replicas }}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector:
+    matchLabels: {{- include "relsynth.selector" $root | nindent 6 }}
+      app.kubernetes.io/component: worker
+      relsynth.io/pool: {{ .name }}
+  template:
+    metadata:
+      labels: {{- include "relsynth.selector" $root | nindent 8 }}
+        app.kubernetes.io/component: worker
+        relsynth.io/pool: {{ .name }}
+      annotations:
+        checksum/config: {{ toJson $root.Values.config | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "relsynth.sa" $root }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ $root.Values.workers.terminationGracePeriodSeconds }}
+      securityContext: {{- include "relsynth.podSecurity" $root | nindent 8 }}
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "relsynth.image" $root }}
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+          args: [worker]
+          env:
+            {{- include "relsynth.env" $root | nindent 12 }}
+            - {name: RELSYNTH_SVC_WORKER_CONCURRENCY, value: {{ $root.Values.workers.concurrency | quote }}}
+            - {name: RELSYNTH_SVC_JOB_MEMORY_MB, value: {{ $root.Values.workers.jobMemoryMb | quote }}}
+            {{- if .only }}
+            - {name: RELSYNTH_SVC_WORKER_TENANTS, value: {{ .only | quote }}}
+            {{- end }}
+            {{- if .exclude }}
+            - {name: RELSYNTH_SVC_WORKER_EXCLUDE_TENANTS, value: {{ .exclude | quote }}}
+            {{- end }}
+          securityContext: {{- toYaml $root.Values.securityContext | nindent 12 }}
+          resources: {{- toYaml .resources | nindent 12 }}
+          volumeMounts:
+            {{- include "relsynth.mounts" $root | nindent 12 }}
+            - {name: work, mountPath: /var/lib/relsynth/data/work}
+            {{- if .claim }}
+            - {name: tenant-data, mountPath: /var/lib/relsynth/data/tenants/{{ .only }}}
+            {{- end }}
+            {{- range $root.Values.sourceSecrets }}
+            - {name: src-{{ .name }}, mountPath: /run/secrets/sources/{{ .name }}, readOnly: true}
+            {{- end }}
+      volumes:
+        {{- include "relsynth.volumes" $root | nindent 8 }}
+        - name: work            # plaintext outputs of a running job: node-local, gone with the pod
+          emptyDir: {sizeLimit: {{ $root.Values.workers.workTmpSize }}}
+        {{- if .claim }}
+        - name: tenant-data
+          persistentVolumeClaim: {claimName: {{ .claim }}}
+        {{- end }}
+        {{- range $root.Values.sourceSecrets }}
+        - name: src-{{ .name }}
+          secret: {secretName: {{ .name }}, defaultMode: 0440}
+        {{- end }}
+      {{- with $root.Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $root.Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

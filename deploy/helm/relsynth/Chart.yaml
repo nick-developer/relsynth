@@ -1,0 +1,11 @@
+apiVersion: v2
+name: relsynth
+description: relsynth service (synthetic relational data) - API, web UI and job workers
+type: application
+version: 0.1.0
+appVersion: "1.0.1"
+license: Apache-2.0
+home: https://github.com/nick-developer/relsynth
+sources: [https://github.com/nick-developer/relsynth]
+keywords: [synthetic-data, privacy, databases]
+kubeVersion: ">=1.25.0-0"

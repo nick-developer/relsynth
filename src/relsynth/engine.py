@@ -2320,10 +2320,24 @@ class Synthesizer:
                 links = {u.split(".")[0] for u in used if "." in u} | {u for u in used if u in fkcols}
                 (krules if links and not links <= fixed else arules).append(r)
             # rules that read an aggregate (directly or through a derived column) can only be
-            # evaluated once the child tables exist; they are applied/reported after the aggregates
-            late = self.late[t]
-            krules = [r for r in krules if not (names_in(r["expr"]) & late)]
-            arules = [r for r in arules if not (names_in(r["expr"]) & late)]
+            # evaluated once the child tables exist; they are applied/reported after the aggregates;
+            # the same for a parent's aggregated column read through a link (loan reads
+            # account_id.date when account.date = min(date) of the transactions): the
+            # aggregates are computed after every table is drawn
+            def is_late(r, t=t):
+                for u in names_in(r["expr"]):
+                    if u in self.late[t]:
+                        return True
+                    if "." in u:
+                        try:
+                            _, (pt, pc) = resolve_path(spec, t, u)
+                        except (KeyError, ValueError, SpecError):
+                            continue
+                        if pc in self.late.get(pt, ()):
+                            return True
+                return False
+            krules = [r for r in krules if not is_late(r)]
+            arules = [r for r in arules if not is_late(r)]
             self.cons[t] = {"unique": ukeys, "key_rules": krules, "attr_rules": arules,
                             "anchor_rules": [r for r in spec["rules"] if r["table"] == t and r.get("anchor_link")
                                              and T[t]["role"] == "entity"]}

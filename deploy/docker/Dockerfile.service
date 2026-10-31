@@ -1,0 +1,58 @@
+# The relsynth service image: API, web UI and job worker in one image.
+#
+#   docker build -f deploy/docker/Dockerfile.service -t relsynth-service:1.0.1 .
+#   docker run --rm -p 8080:8080 -e RELSYNTH_SVC_... relsynth-service:1.0.1 serve
+#   docker run --rm -e RELSYNTH_SVC_... relsynth-service:1.0.1 worker
+#
+# Offline (air-gapped) build: put every wheel in deploy/docker/wheelhouse/
+# (tools/make_airgap_bundle.py does it) and pass --build-arg OFFLINE=1; pip then
+# never contacts an index.
+#
+# Built for restricted platforms: it runs as a non-root user, works under an
+# arbitrary UID with group 0 (OpenShift restricted-v2), and writes only to
+# /var/lib/relsynth (a volume) and /tmp (an emptyDir), so the root filesystem can
+# be read-only.  Build argument EXTRAS picks the database drivers; WITH_MSSQL=1
+# adds Microsoft's ODBC driver (proprietary licence, see NOTICE; needs network).
+ARG PYTHON=python:3.12-slim-bookworm
+FROM ${PYTHON} AS build
+ARG EXTRAS=service,postgres,mysql,oracle,parquet
+ARG OFFLINE=0
+WORKDIR /src
+COPY deploy/docker/wheelhouse/ /wheelhouse/
+COPY pyproject.toml README.md LICENSE NOTICE ./
+COPY src ./src
+RUN set -eu; \
+    if [ "$OFFLINE" = "1" ]; then idx="--no-index --find-links /wheelhouse"; else idx="--find-links /wheelhouse"; fi; \
+    pip install --no-cache-dir $idx "setuptools>=77" wheel; \
+    pip wheel --no-cache-dir --no-build-isolation $idx --wheel-dir /wheels ".[${EXTRAS}]"
+
+FROM ${PYTHON}
+ARG EXTRAS=service,postgres,mysql,oracle,parquet
+ARG WITH_MSSQL=0
+LABEL org.opencontainers.image.title="relsynth-service" \
+      org.opencontainers.image.source="https://github.com/nick-developer/relsynth" \
+      org.opencontainers.image.licenses="Apache-2.0"
+ARG DEBIAN_FRONTEND=noninteractive
+RUN if [ "$WITH_MSSQL" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends curl gnupg ca-certificates unixodbc \
+      && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
+      && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+           > /etc/apt/sources.list.d/mssql-release.list \
+      && apt-get update && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+      && apt-get purge -y curl gnupg && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
+    fi
+COPY --from=build /wheels /tmp/wheels
+COPY LICENSE NOTICE /usr/share/doc/relsynth/
+RUN pip install --no-cache-dir --no-index --find-links /tmp/wheels "relsynth[${EXTRAS}]" && rm -rf /tmp/wheels \
+ && useradd --uid 10001 --gid 0 --no-create-home --home-dir /var/lib/relsynth relsynth \
+ && mkdir -p /var/lib/relsynth && chown 10001:0 /var/lib/relsynth && chmod 0770 /var/lib/relsynth
+USER 10001:0
+WORKDIR /var/lib/relsynth
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HOME=/var/lib/relsynth \
+    RELSYNTH_SVC_DATA_DIR=/var/lib/relsynth/data \
+    RELSYNTH_SVC_DB_URL=sqlite:////var/lib/relsynth/service.db \
+    RELSYNTH_SVC_MASTER_KEY_REF=file:/var/lib/relsynth/master.key
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz',timeout=2)" || exit 1
+ENTRYPOINT ["relsynth-service"]
+CMD ["serve", "--proxy-headers"]

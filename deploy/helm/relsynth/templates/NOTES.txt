@@ -1,0 +1,6 @@
+relsynth {{ .Chart.AppVersion }} is installed as "{{ .Release.Name }}".
+
+API and UI: {{ if .Values.ingress.enabled }}https://{{ .Values.ingress.host }}/ui/{{ else }}kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "relsynth.fullname" . }} 8080:{{ .Values.service.port }}  then http://localhost:8080/ui/{{ end }}
+Create the first tenant (platform_admin token, or):
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "relsynth.fullname" . }}-api -- relsynth-service tenant add acme "Acme Ltd"
+Check:  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

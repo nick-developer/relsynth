@@ -1,0 +1,5332 @@
+[
+ {
+  "name": "allow_partner",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": true,
+   "approval_required": true,
+   "reasons": []
+  }
+ },
+ {
+  "name": "no_dp",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "none"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"partner\" is outside the organisation: differential privacy is required, and this run has none"
+   ]
+  }
+ },
+ {
+  "name": "unknown_context",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "press",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"press\" is not defined in the organisation policy",
+    "the privacy verdict for context \"press\" is \"missing\"; it cannot be released or approved"
+   ]
+  }
+ },
+ {
+  "name": "unit_mismatch",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Employee"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "the run protects \"Employee\" but the policy's privacy unit for domain \"customers\" is \"Customer\""
+   ]
+  }
+ },
+ {
+  "name": "domain_mismatch",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "employees",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "the run's domain \"customers\" does not match the ledger's \"employees\""
+   ]
+  }
+ },
+ {
+  "name": "facts_not_public",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": false
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "an external DP release must use only public schema facts or charged statistics (spec.public_facts_only is not true)"
+   ]
+  }
+ },
+ {
+  "name": "per_release_cap",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.06,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "this release spends rho 0.06, above the per-release cap 0.05613 (epsilon 2 at delta 1e-09)"
+   ]
+  }
+ },
+ {
+  "name": "lifetime_cap",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.47,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "domain \"customers\" would reach rho 0.47, above its lifetime cap 0.435346 (epsilon 6 at delta 1e-09)"
+   ]
+  }
+ },
+ {
+  "name": "period_cap",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.2,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "domain \"customers\" would spend rho 0.2 this period, above the period cap 0.120582"
+   ]
+  }
+ },
+ {
+  "name": "verdict_fail",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "partner": "fail"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "the privacy verdict for context \"partner\" is \"fail\"; it cannot be released or approved"
+   ]
+  }
+ },
+ {
+  "name": "verdict_missing",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {},
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "the privacy verdict for context \"partner\" is \"missing\"; it cannot be released or approved"
+   ]
+  }
+ },
+ {
+  "name": "check_failed",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [
+    {
+     "criterion": "membership",
+     "attack": "domias_auc",
+     "value": 0.71,
+     "limit": 0.6,
+     "status": "fail"
+    }
+   ],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "domias_auc: 0.71 is above the limit 0.6"
+   ]
+  }
+ },
+ {
+  "name": "quality_low",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.9
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "quality pass rate 0.9 is below the organisation's minimum 0.95"
+   ]
+  }
+ },
+ {
+  "name": "target_not_allowed",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "s3-bucket",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "target \"s3-bucket\" is not allowed for context \"partner\""
+   ]
+  }
+ },
+ {
+  "name": "privacy_report_in_package",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1",
+     "p1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "the privacy report was computed on real data without DP and cannot leave the organisation"
+   ]
+  }
+ },
+ {
+  "name": "no_approval",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"partner\" needs 1 approval(s) from [\"dpo\"]; 0 valid"
+   ]
+  }
+ },
+ {
+  "name": "operator_approves_self",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "op",
+     "approver": "OP",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"partner\" needs 1 approval(s) from [\"dpo\"]; 0 valid"
+   ]
+  }
+ },
+ {
+  "name": "wrong_role",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "ana",
+     "approver": "ANA",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "operator"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"partner\" needs 1 approval(s) from [\"dpo\"]; 0 valid"
+   ]
+  }
+ },
+ {
+  "name": "expired",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": true
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"partner\" needs 1 approval(s) from [\"dpo\"]; 0 valid"
+   ]
+  }
+ },
+ {
+  "name": "rejected",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    },
+    {
+     "key": "dpo2",
+     "approver": "DPO2",
+     "decision": "reject",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "partner",
+    "target": "partner-sftp",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "rejected by DPO2: no reason given"
+   ]
+  }
+ },
+ {
+  "name": "public_quorum_1_of_2",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "public": "pass"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "public",
+    "target": "open-data-portal",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"public\" needs 2 approval(s) from [\"dpo\"]; 1 valid"
+   ]
+  }
+ },
+ {
+  "name": "public_quorum_2",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "dp",
+     "unit": "Customer"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "public": "pass"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {
+    "domain": "customers",
+    "delta": 1e-09,
+    "run_rho": 0.05,
+    "domain_rho_after": 0.08,
+    "lifetime_rho_cap": 0.435346,
+    "lifetime_epsilon_cap": 6.0,
+    "period_rho_after": 0.08,
+    "period_rho_cap": 0.120582,
+    "per_release_rho_cap": 0.05613,
+    "per_release_epsilon_cap": 2.0
+   },
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [
+    {
+     "key": "dpo1",
+     "approver": "DPO1",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    },
+    {
+     "key": "dpo2",
+     "approver": "DPO2",
+     "decision": "approve",
+     "manifest": "m",
+     "roles": [
+      "dpo"
+     ],
+     "expired": false
+    }
+   ],
+   "request": {
+    "action": "release",
+    "context": "public",
+    "target": "open-data-portal",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": true,
+   "approval_required": true,
+   "reasons": []
+  }
+ },
+ {
+  "name": "internal_pass_nondp",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "none"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "pass",
+     "partner": "pass",
+     "public": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {},
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [],
+   "request": {
+    "action": "release",
+    "context": "internal",
+    "target": "dev-sandbox",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": true,
+   "approval_required": false,
+   "reasons": []
+  }
+ },
+ {
+  "name": "internal_review_needs_approval",
+  "input": {
+   "policy": {
+    "schema": "relsynth.org-policy/1",
+    "organisation": "Example Retail Ltd",
+    "version": "2026-11-01.1",
+    "effective_from": "2026-11-01",
+    "privacy_owner": {
+     "name": "Data Protection Officer",
+     "role": "dpo",
+     "contact": "dpo@example.org"
+    },
+    "domains": {
+     "customers": {
+      "description": "Retail customers and everything they bought.",
+      "unit": {
+       "entity": "Customer"
+      },
+      "adjacency": "add_remove",
+      "sources": [
+       {
+        "id": "dwh-prod"
+       },
+       {
+        "id": "crm-extract"
+       }
+      ],
+      "budget": {
+       "accounting": "zcdp",
+       "delta": 1e-09,
+       "lifetime": {
+        "epsilon": 6.0
+       },
+       "period": {
+        "length": "P1Y",
+        "epsilon": 3.0
+       },
+       "per_release": {
+        "epsilon_max": 2.0
+       }
+      },
+      "reassess_after": "P1Y"
+     }
+    },
+    "contexts": {
+     "internal": {
+      "description": "Staff of the organisation, for development and testing.",
+      "external": false,
+      "attacker_knows": "quasi_identifiers",
+      "dp_required": false,
+      "limits": {
+       "risk": 0.1,
+       "attribute_leakage": 0.05,
+       "mia_auc": 0.65,
+       "mia_tpr_at_fpr_0.01": 0.1,
+       "record_auc": 0.85
+      },
+      "approval": {
+       "on_verdicts": [
+        "review"
+       ],
+       "approver_roles": [
+        "dpo",
+        "privacy_officer"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "dev-sandbox",
+       "test-postgres"
+      ]
+     },
+     "partner": {
+      "description": "A named organisation under contract.",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.05,
+       "attribute_leakage": 0.03,
+       "mia_auc": 0.6,
+       "mia_tpr_at_fpr_0.01": 0.05,
+       "record_auc": 0.75
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 1
+      },
+      "allowed_targets": [
+       "partner-sftp"
+      ]
+     },
+     "public": {
+      "description": "Anyone (open data, publication).",
+      "external": true,
+      "attacker_knows": "all",
+      "dp_required": true,
+      "limits": {
+       "risk": 0.02,
+       "attribute_leakage": 0.02,
+       "mia_auc": 0.55,
+       "mia_tpr_at_fpr_0.01": 0.02,
+       "record_auc": 0.65
+      },
+      "approval": {
+       "on_verdicts": [
+        "pass",
+        "review"
+       ],
+       "approver_roles": [
+        "dpo"
+       ],
+       "quorum": 2
+      },
+      "allowed_targets": [
+       "open-data-portal"
+      ]
+     }
+    },
+    "quality": {
+     "min_pass_rate": 0.95
+    },
+    "approvals": {
+     "separation_of_duties": true,
+     "expires_after": "P30D"
+    },
+    "reidentification": {
+     "allowed_roles": [
+      "dpo"
+     ]
+    },
+    "rego": []
+   },
+   "manifest": {
+    "privacy": {
+     "mode": "none"
+    },
+    "source": {
+     "domain": "customers"
+    },
+    "spec": {
+     "public_facts_only": true
+    },
+    "verdicts": {
+     "internal": "review"
+    },
+    "run": {
+     "operator": {
+      "key": "op"
+     }
+    },
+    "reports": [
+     {
+      "kind": "privacy",
+      "digest": {
+       "sha256": "p1"
+      },
+      "external_safe": false
+     },
+     {
+      "kind": "dp_statement",
+      "digest": {
+       "sha256": "d1"
+      },
+      "external_safe": true
+     }
+    ]
+   },
+   "manifest_digest": "m",
+   "ledger": {},
+   "privacy_checks": [],
+   "quality": {
+    "pass_rate": 0.97
+   },
+   "approvals": [],
+   "request": {
+    "action": "release",
+    "context": "internal",
+    "target": "dev-sandbox",
+    "package": [
+     "d1"
+    ]
+   }
+  },
+  "expect": {
+   "allow": false,
+   "approval_required": true,
+   "reasons": [
+    "context \"internal\" needs 1 approval(s) from [\"dpo\", \"privacy_officer\"]; 0 valid"
+   ]
+  }
+ }
+]

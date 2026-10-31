@@ -1,0 +1,268 @@
+{
+  "realm": "relsynth",
+  "enabled": true,
+  "sslRequired": "external",
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "bruteForceProtected": true,
+  "passwordPolicy": "length(12) and notUsername",
+  "roles": {
+    "realm": [
+      {
+        "name": "*:platform_admin",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "acme:consumer",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "acme:data_owner",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "acme:engineer",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "acme:privacy_officer",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "acme:tenant_admin",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "beta:data_owner",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "beta:engineer",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "beta:privacy_officer",
+        "description": "relsynth role (tenant:role)"
+      },
+      {
+        "name": "beta:tenant_admin",
+        "description": "relsynth role (tenant:role)"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "relsynth-ui",
+      "name": "relsynth web UI",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/ui/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/ui/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "relsynth roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "relsynth_roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "relsynth audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "relsynth",
+            "access.token.claim": "true",
+            "id.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "relsynth-e2e",
+      "name": "end-to-end tests only: delete in production",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "relsynth roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "relsynth_roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "relsynth audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "relsynth",
+            "access.token.claim": "true",
+            "id.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "erin",
+      "enabled": true,
+      "email": "erin@example.org",
+      "emailVerified": true,
+      "firstName": "Erin",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "erin-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "acme:engineer"
+      ]
+    },
+    {
+      "username": "pat",
+      "enabled": true,
+      "email": "pat@example.org",
+      "emailVerified": true,
+      "firstName": "Pat",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "pat-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "acme:privacy_officer"
+      ]
+    },
+    {
+      "username": "cody",
+      "enabled": true,
+      "email": "cody@example.org",
+      "emailVerified": true,
+      "firstName": "Cody",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "cody-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "acme:consumer"
+      ]
+    },
+    {
+      "username": "olga",
+      "enabled": true,
+      "email": "olga@example.org",
+      "emailVerified": true,
+      "firstName": "Olga",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "olga-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "acme:data_owner"
+      ]
+    },
+    {
+      "username": "tom",
+      "enabled": true,
+      "email": "tom@example.org",
+      "emailVerified": true,
+      "firstName": "Tom",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tom-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "acme:tenant_admin"
+      ]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.org",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "beta:data_owner",
+        "beta:engineer",
+        "beta:privacy_officer",
+        "beta:tenant_admin"
+      ]
+    },
+    {
+      "username": "root",
+      "enabled": true,
+      "email": "root@example.org",
+      "emailVerified": true,
+      "firstName": "Root",
+      "lastName": "Demo",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "root-Demo-Passw0rd",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-relsynth",
+        "*:platform_admin"
+      ]
+    }
+  ]
+}

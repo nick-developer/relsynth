@@ -47,11 +47,17 @@ parquet = ["pyarrow>=14"]
 speed = ["numba>=0.59"]
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
+# the service: REST API, workers, OIDC, encryption at rest (docs/service/README.md)
+service = ["fastapi>=0.110", "uvicorn>=0.29", "PyJWT[crypto]>=2.8", "cryptography>=42"]
+service-otel = ["relsynth[service]", "opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp-proto-http>=1.24"]
+gov = ["cryptography>=42", "jsonschema>=4.18"]   # signed manifests, registry, policy (relsynth gov)
+dp = ["opendp>=0.12,<0.17"]                         # differential privacy mode (relsynth run --dp; MIT)
 all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
 dev = [
-    "relsynth[all,ir]",
+    "relsynth[all,ir,gov,dp,service]",
+    "httpx>=0.27",                           # FastAPI's test client
     "pytest>=8",
     "pytest-cov>=5",
     "hypothesis>=6.100",
@@ -68,6 +74,7 @@ dev = [
 
 [project.scripts]
 relsynth = "relsynth.cli:main"
+relsynth-service = "relsynth.service.cli:main"
 
 [project.urls]
 Source = "https://github.com/nick-developer/relsynth"
@@ -82,7 +89,8 @@ version = { attr = "relsynth._version.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-relsynth = ["py.typed", "ir/schema/*.json", "quality/schema/*.json", "privacy/report_schema.json", "data/*.yaml"]
+relsynth = ["py.typed", "ir/schema/*.json", "quality/schema/*.json", "privacy/report_schema.json", "data/*.yaml",
+            "service/ui/*", "governance/schema/*.json", "governance/rego/*.rego"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -148,6 +156,8 @@ ignore = [
 # fake-data generators (wide literal specs) and the generators of the reference docs
 "tests/fakedata/**" = ["S", "B", "E501", "E401"]
 "docs/*.py" = ["E501"]
+# FastAPI declares dependencies as argument defaults (Depends)
+"src/relsynth/service/app.py" = ["B008"]
 # benchmark builders and domain checks, kept as they were written for layer 2 (bench/README.md);
 # their SQL names come from the dataset's own DDL, not from users
 "bench/builders/**" = ["E501", "S608", "UP031"]

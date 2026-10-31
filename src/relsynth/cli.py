@@ -16,6 +16,8 @@
     relsynth version
     relsynth ir migrate spec.yaml --out spec.ir.yaml   # 1.0 spec -> IR 2.0 (and ir validate, convert,
                                                    # privacy, odcs, from-odcs, openlineage, schema)
+    relsynth gov init registry/ --owner-key dpo.key    # governance: keys, policy, budget, approve, release,
+                                                   # revoke, verify (docs/governance/design.md)
 
 Exit codes: 0 success, 1 quality gate failed, 2 invalid spec or arguments,
 3 connection / read / write failure, 4 fitting, sampling or internal error.
@@ -232,9 +234,147 @@ def cmd_plan(a, out):
     return EXIT_OK
 
 
+def _governed(a, s=None):
+    """The registry, policy and operator key of a governed run (--registry), checked
+    before any data is read."""
+    if not getattr(a, "registry", None):
+        if any(getattr(a, k, None) for k in ("context", "release_target", "source_id")):
+            raise SpecError("--context, --release-target and --source-id need --registry")
+        return None
+    from . import governance as G
+    from .errors import PrivacyError
+    missing = [f"--{k.replace('_', '-')}" for k in ("context", "release_target", "source_id", "key") if not getattr(a, k, None)]
+    if missing:
+        raise SpecError(f"a governed run (--registry) also needs {', '.join(missing)}")
+    reg = G.open_registry(a.registry)
+    pol = G.current_policy(reg)
+    ctx = pol.context(a.context)
+    if ctx["external"] and not _dp_mode(a, s):
+        raise PrivacyError(f"context {a.context!r} is outside the organisation: differential privacy is required "
+                           "(run with --dp); nothing was read")
+    if a.release_target not in (ctx.get("allowed_targets") or []):
+        raise SpecError(f"target {a.release_target!r} is not allowed for context {a.context!r} "
+                        f"(allowed: {ctx.get('allowed_targets') or 'none'})")
+    return {"G": G, "reg": reg, "policy": pol, "key": G.Signer.load(a.key), "started": G.now()}
+
+
+def _dp_mode(a, s) -> bool:
+    """Differential privacy mode: --dp, --epsilon, or a dp section in the spec."""
+    if getattr(a, "dp", False) or getattr(a, "epsilon", None) is not None:
+        return True
+    from .dp.config import section
+    return s is not None and section(s.resolved) is not None
+
+
+def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public_facts_only=None, generator=None,
+                     report=None):
+    G = gv["G"]
+    rep = None
+    if a.privacy_report:
+        rep = json.loads(Path(a.privacy_report).read_text(encoding="utf-8"))
+    elif a.assess:
+        from . import privacy as P
+        cfg = P.load_config(a.privacy_config) if a.privacy_config else P.load_config()
+        cfg["contexts"] = G.contexts_from_policy(gv["policy"])
+        if privacy is not None:
+            cfg["release"] = {"dp": {"epsilon": float(privacy["stated"]["epsilon"]),
+                                     "delta": float(privacy["stated"]["delta"]), "unit": privacy["unit"]}}
+        rep = P.assess(s, cfg, generator=generator, progress=lambda m: out.line(m))
+    report = report if privacy is not None else res.report
+    sc = None
+    if report is not None:
+        sc = {"schema": "relsynth.scorecard/1", "passed": report.passed, "total": report.total, "score": report.score}
+    spec = s.resolved if privacy is not None else res.data.spec
+    seeds = {} if privacy is not None else {"generator": int(spec["synthesis"].get("seed", 0))}
+    rr = G.record_run(gv["reg"], spec, dict(res.data), context=a.context, target=a.release_target,
+                      operator=gv["key"], source_id=a.source_id, locator=_source_locator(spec),
+                      command="relsynth " + " ".join(sys.argv[1:]), started=gv["started"], privacy_report=rep,
+                      scorecard=sc, seeds=seeds, pol=gv["policy"], privacy=privacy, dp_statement=dp_statement,
+                      public_facts_only=public_facts_only)
+    d = rr.decisions[a.context]
+    out.put(governance={"run": rr.run_id, "manifest": rr.manifest, "decision": d})
+    out.line(f"manifest {rr.manifest[:12]}… recorded as run {rr.run_id} (log entry {rr.seq})")
+    if not d["allow"]:
+        out.line(f"before release to {a.context}/{a.release_target}:" + "".join(f"\n  - {r}" for r in d["reasons"]))
+
+
+def _source_locator(spec):
+    src = spec.get("source") or {}
+    return src.get("url") or src.get("url_env") or src.get("path") or ""
+
+
+def _dp_override(a) -> dict:
+    o = {}
+    if getattr(a, "epsilon", None) is not None:
+        o["epsilon"] = float(a.epsilon)
+    if getattr(a, "dp_unit", None):
+        o["unit"] = a.dp_unit
+    return o
+
+
+def cmd_run_dp(a, out, s, gv):
+    """`run` in differential privacy mode (docs/dp.md)."""
+    from . import dp
+    spec = s.resolved
+    override = {"enabled": True, **_dp_override(a)}
+    led = dom = run_id = None
+    if gv is not None:
+        G = gv["G"]
+        dom = gv["policy"].domain_of_source(a.source_id)
+        override = dp.domain_override(spec, gv["policy"], dom or "", override)
+        led, run_id = G.Ledger(gv["reg"], gv["policy"]), G.new_run_id()
+    pl, cfg, _ = dp.plan(spec, override)            # refuses before anything is reserved or read
+    out.line(f"DP plan: unit {cfg.unit}, rho {cfg.rho:.6g}, delta {cfg.delta:g}; tables of the unit: "
+             f"{', '.join(pl.order)}; public: {', '.join(pl.public) or 'none'}")
+    if led is not None:
+        led.reserve(dom, run_id, cfg.rho, cfg.delta * cfg.levels_delta_share)
+        out.line(f"reserved rho {cfg.rho:.6g} in domain {dom!r} for run {run_id}")
+    target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
+    t0 = time.time()
+    settled: list = []
+    res = dp.synthesize(spec, override=override, out=target, write=not a.no_write, scale=a.scale,
+                        datasets=a.datasets, seed=a.seed, privacy=not a.no_privacy,
+                        before_read=(lambda: led.touch(dom, run_id)) if led else None,
+                        after_fit=(lambda r, d: settled.append(led.settle(dom, run_id, r, d))) if led else None)
+    from .api import EvaluationReport
+    rep = EvaluationReport(res.report["scorecard"]) if res.report.get("scorecard") is not None else None
+    out.put(seconds=round(time.time() - t0, 1), rows={t: len(d) for t, d in res.data.items()},
+            dp={"epsilon": res.epsilon, "delta": res.config.delta, "rho": res.rho, "delta_approx": res.delta,
+                "unit": res.config.unit, "charges": [c.to_manifest() for c in res.charges]},
+            written=[_mask(w) for w in (res.run.written if res.run else [])])
+    out.line(f"DP guarantee: ({res.epsilon:.4g}, {res.config.delta:g})-DP for one {res.config.unit} and all their rows "
+             f"(rho {res.rho:.6g})")
+    if rep is not None:
+        out.put(scorecard={"passed": rep.passed, "total": rep.total, "score": rep.score, "failed": rep.failed})
+        _scorecard_lines(out, rep)
+        if a.report:
+            Path(a.report).write_text(rep.to_markdown(), encoding="utf-8")
+    if gv is not None:
+        from .governance.accounting import dec
+        summ = led.summary(dom)
+        note = {"seq": settled[0], "domain_rho": dec(summ["rho"]), "domain_delta": dec(summ["delta_spent"], 30),
+                "domain_epsilon": dec(summ["epsilon"], 6)}
+        res.statement["domain"] = {"domain": dom, "epsilon_after_this_release": note["domain_epsilon"],
+                                   "delta": dec(summ["delta"], 30)}
+        _record_governed(a, out, gv, res, s, privacy=dp.manifest_privacy(res, run_id, note),
+                         dp_statement=res.statement, public_facts_only=cfg.spec_is_public,
+                         generator=dp.generator(spec, override), report=rep)
+    if a.dp_statement:
+        Path(a.dp_statement).write_text(json.dumps(res.statement, indent=2), encoding="utf-8")
+        out.line(f"DP statement -> {a.dp_statement}")
+    if a.fail_under is not None and rep is not None and rep.score + 1e-12 < a.fail_under:
+        out.line(f"quality gate failed: {rep.score:.3f} < {a.fail_under:.3f}")
+        out.put(gate={"fail_under": a.fail_under, "passed": False})
+        return EXIT_GATE
+    return EXIT_OK
+
+
 def cmd_run(a, out):
     from .api import run
     s = _spec(a)
+    gv = _governed(a, s)
+    if _dp_mode(a, s):
+        return cmd_run_dp(a, out, s, gv)
     target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
@@ -255,6 +395,8 @@ def cmd_run(a, out):
         out.line(f"{len(res.errors)} step(s) failed: " + "; ".join(f"{e['step']}: {e['error']}" for e in res.errors))
         out.line("run `relsynth doctor` on the bundle for causes and fixes")
         return _run_exit_code(res)
+    if gv is not None:
+        _record_governed(a, out, gv, res, s)
     if a.fail_under is not None and res.report is not None and res.report.score + 1e-12 < a.fail_under:
         out.line(f"quality gate failed: {res.report.score:.3f} < {a.fail_under:.3f}")
         out.put(gate={"fail_under": a.fail_under, "passed": False})
@@ -305,9 +447,20 @@ def _mask(sec):
     return mask_spec_urls({"target": dict(sec)})["target"]
 
 
+def _no_dp(s, what: str) -> None:
+    """Refuse a command that would turn real data into spec values or models
+    outside the DP accounting of a spec in DP mode (docs/dp.md#what-dp-mode-refuses)."""
+    from .dp.config import section
+    from .errors import PrivacyError
+    if section(s.resolved if hasattr(s, "resolved") else s) is not None:
+        raise PrivacyError(f"{what} reads real data outside the DP accounting, and its output would not be covered by "
+                           "the guarantee; run it on a copy of the spec without synthesis.privacy.dp (internal use only)")
+
+
 def cmd_verify(a, out):
     from .api import verify
     s = _spec(a)
+    _no_dp(s, "verify")
     target = _location(a, "target") if (a.target or a.target_url_env) else None
     rep = verify(s, draws=a.draws, stability=not a.no_stability, out=target, privacy=not a.no_privacy,
                  pushdown=a.pushdown or "off", seed=a.seed)
@@ -401,6 +554,7 @@ def cmd_doctor(a, out):
     if a.apply:
         doc = read_yaml(a.spec) if a.spec else b["spec"]
         raw = from_ir(doc)
+        _no_dp(raw, "doctor --apply")
         new = D.apply_patches(raw, patches)
         dest = a.out or (str(Path(a.spec).with_suffix("")) + ".fixed.yaml" if a.spec else "spec.fixed.yaml")
         _write_like(doc, new, dest)
@@ -410,7 +564,8 @@ def cmd_doctor(a, out):
 
 
 def cmd_tune(a, out):
-    from .spec import read_yaml
+    from .spec import load_spec, read_yaml
+    _no_dp(load_spec(a.spec), "tune")
     best, bundle, hist = tune(a.spec, a.rounds)
     dest = a.out or str(Path(a.spec).with_suffix("")) + ".tuned.yaml"
     _write_like(read_yaml(a.spec), best, dest)
@@ -436,6 +591,7 @@ def cmd_model(a, out):
 def cmd_export_model(a, out):
     from .pipeline import export_model_for
     s = _spec(a)
+    _no_dp(s, "export-model")
     fmts = tuple(x.strip() for x in a.formats.split(",") if x.strip())
     dest = a.out or str(Path(a.spec).with_suffix("")) + ".model"
     res = export_model_for(s.resolved, dest, draws=a.draws, formats=fmts, replica_check=not a.no_replica_check,
@@ -487,6 +643,7 @@ def cmd_privacy(a, out):
     if a.no_shadow:
         cfg["attacks"]["membership"]["shadow"]["enabled"] = False
     salt = bytes.fromhex(Path(a.salt_file).read_text().strip()) if a.salt_file and Path(a.salt_file).exists() else None
+    # a spec in DP mode is audited through the DP pipeline, against its guarantee (privacy.assess)
     rep = P.assess(s, cfg, salt=salt, progress=lambda m: out.line(m))
     P.sign_off(rep, a.signed_off_by)
     paths = P.write_report(rep, a.out)
@@ -643,6 +800,20 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--seed", type=int, help="override synthesis.seed")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    g = s.add_argument_group("governance (docs/governance/design.md)")
+    g.add_argument("--registry", help="record a signed manifest of this run in this registry")
+    g.add_argument("--context", help="intended release context from the organisation policy")
+    g.add_argument("--release-target", help="intended target id from the context's allowed_targets")
+    g.add_argument("--source-id", help="the source's id in the organisation policy (selects its privacy domain)")
+    g.add_argument("--key", help="the operator's private signing key")
+    g.add_argument("--privacy-report", help="privacy_report.json of `relsynth privacy` for this spec")
+    g.add_argument("--assess", action="store_true", help="run the privacy assessment against the policy's contexts")
+    g.add_argument("--privacy-config", help="privacy.yaml for --assess (its contexts are replaced by the policy's)")
+    d = s.add_argument_group("differential privacy (docs/dp.md)")
+    d.add_argument("--dp", action="store_true", help="differentially private run (the spec's synthesis.privacy.dp)")
+    d.add_argument("--epsilon", type=float, help="this run's epsilon (implies --dp; overrides the spec)")
+    d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's)")
+    d.add_argument("--dp-statement", help="also write the DP statement (JSON) here")
     s.set_defaults(fn=cmd_run)
 
     s = sub.add_parser("extend", help="continue the event histories of a synthetic dataset step by step "
@@ -765,6 +936,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .ir.cli import add_parser as _add_ir_parser
     _add_ir_parser(sub, _common)
+    from .governance.cli import add_parser as _add_gov_parser
+    _add_gov_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)

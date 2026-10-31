@@ -412,6 +412,8 @@ SYNTH_DOC = {
     "compute.overrides": "Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, "
                          "batch_size, memory_limit, threads, fallback.",
     "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
+    "privacy.dp": "Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, "
+                  "spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent.",
     "pushdown.mode": "auto | on | off: fit eligible fact tables from exact statistics computed where the data lives "
                      "(row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample "
                      "for their attribute models, instead of loading them. auto: facts with at least min_rows rows; "
@@ -422,7 +424,7 @@ SYNTH_DOC = {
 }
 
 # synthesis keys whose value is a free map (table names) or may be a map
-FREE = {"scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
+FREE = {"privacy.dp", "scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
         "compute.overrides"}
 # keys normalise() adds (a normalised spec written back, e.g. by `doctor --apply`, still
 # validates); the keys of the engine's internal plan (anchor_link, virtual, unit, _refs,
