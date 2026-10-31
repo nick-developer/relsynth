@@ -119,6 +119,14 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
             t.pop("mode")
         if POS in cols:
             cols[POS] = {"type": "integer", "min": 0}
+        for cn, cd in list(cols.items()):
+            # a drafted ratio or offset to a holder's column (``_parent.x``) is a
+            # coincidence of sparse fields more often than a business rule
+            for k in ("ratio_of", "offset_from"):
+                if isinstance(cd, dict) and "." in str(cd.get(k, "")):
+                    cols[cn] = {kk: vv for kk, vv in cd.items() if kk not in (k, "ratio_same_as")}
+                    if cols[cn].get("type") in (None, "lookup"):
+                        cols[cn]["type"] = "float"
         for c in tl.columns:
             if c.role == "tag" and c.name in cols:
                 cols[c.name] = {"type": "categorical"}

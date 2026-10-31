@@ -431,6 +431,8 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
             groups.setdefault(r[PARENT], []).append((order, r[ROW_ID], val))
         for g in groups.values():
             g.sort(key=lambda t: (_sort_key(t[0]), _sort_key(t[1])))
+        if tl.kind == "object":
+            groups = _match_presence(lay, tl, groups, frames, seed)
         built[name] = groups
     docs = {}
     for cname in lay.order:
@@ -450,6 +452,38 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
             out.append(d)
         docs[cname] = out
     return docs
+
+
+def _match_presence(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
+    """An optional sub-document is there when the holder's tag says so: the tag
+    is modelled with the holder's other attributes (so which fields a document
+    holds together follows the source), and the engine's sub-document rows are
+    matched to the holders that need one.  Rows under holders whose tag says
+    absent or null are spare and go, in a seeded random order, to holders whose
+    tag says object and that got no row."""
+    import numpy as np
+    parent = lay.tables[tl.parent]
+    key = ".".join(tl.holder)
+    tag = lay.shapes.get(parent.name, {}).get(key, {}).get("tag")
+    if tag is None or tag not in frames[parent.name].columns:
+        return groups
+    pf = frames[parent.name]
+    ids = pf[parent.id_column].tolist() if parent.id_column in pf.columns else pf[ROW_ID].tolist()
+    want = [i for i, t in zip(ids, pf[tag].tolist()) if t == "object"]
+    wset = set(want)
+    spare = [g for k, g in groups.items() if k not in wset]
+    out = {k: g for k, g in groups.items() if k in wset}
+    rng = np.random.default_rng(int(str(object_id(seed, tl.name, "match"))[:8], 16))
+    order = rng.permutation(len(spare)) if spare else []
+    j = 0
+    for k in want:
+        if k in out:
+            continue
+        if j >= len(spare):
+            break
+        out[k] = spare[order[j]]
+        j += 1
+    return out
 
 
 def _sort_key(v):
@@ -580,7 +614,7 @@ def _restore(c: Column, v, idmap, seed):
         key = v
         if key not in m:
             key = next((k for k in m if str(k) == str(v)), None)
-        return m.get(key, ObjectId(str(v)))
+        return m.get(key, from_cell(v, "objectId"))
     if c.fmt and c.type == "string":
         try:
             return pd.Timestamp(v).strftime(c.fmt)

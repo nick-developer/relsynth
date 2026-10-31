@@ -7,7 +7,8 @@ attributes of type ``object`` with ``fields``, arrays are ``array`` with
 discriminated sub-document carries ``variants``, and references are
 relationships.  What the IR has no field for (the counts of each type of a
 union, presence rates, length histograms) is kept in ``x-relsynth-counts``
-extensions, which every IR reader carries along unchanged.
+extensions, which every IR reader carries along unchanged; a map's value schema is in
+``x-relsynth-map`` (RFC-T13-01 in roadmap/rfcs/).
 """
 from __future__ import annotations
 
@@ -37,12 +38,15 @@ def _attr(nd: Node, *, key: bool = False) -> dict:
     if len(vt) > 1:
         counts["union"] = vt
     if nd.is_map:
+        # IR 2.0 gives `items` and `length` to arrays only (RFC-T13-01 proposes
+        # them for maps): the value schema and entry counts go in an extension
         lo, hi = nd.length_bounds()
-        a["length"] = {"min": lo, "max": hi}
+        m = {"length": {"min": lo, "max": hi}}
         if nd.items is not None:
-            a["items"] = _attr(nd.items)
+            m["values"] = _attr(nd.items)
         if nd.key_field:
-            counts["key_field"] = nd.key_field
+            m["key_field"] = nd.key_field
+        a["x-relsynth-map"] = m
     elif t == "object":
         fields = {k: _attr(f) for k, f in nd.fields.items()}
         if nd.variants:

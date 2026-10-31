@@ -266,7 +266,14 @@ def to_cell(v: Any, t: str) -> Any:
         return bool(v)
     if t == "binary":
         return base64.b64encode(bytes(v)).decode()
+    if t == "objectId":
+        # prefixed: a hex id such as 4e7369407549cb8f... reads as a number with a
+        # huge exponent, and pandas 3.0 to_numeric crashes on it
+        return OID_PREFIX + str(v)
     return str(v)
+
+
+OID_PREFIX = "oid:"
 
 
 def from_cell(v: Any, t: str, decimals: int | None = None) -> Any:
@@ -307,7 +314,8 @@ def from_cell(v: Any, t: str, decimals: int | None = None) -> Any:
     if t == "binary":
         return Binary(base64.b64decode(str(v)))
     if t == "objectId":
-        return ObjectId(str(v))
+        v = str(v)
+        return ObjectId(v[len(OID_PREFIX):] if v.startswith(OID_PREFIX) else v)
     return str(v)
 
 
