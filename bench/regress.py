@@ -81,8 +81,9 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
            "machines": sorted({(rec.get("machine") or {}).get("node", "") for rec in records}), "datasets": {}}
     for ds, runs in sorted(by_ds.items()):
         rates = [rate(r) for r in runs]
+        ok = [x for x in rates if x == x] or [float("nan")]    # a run without verdicts (an error) counts under R3
         n_judged = statistics.median(len(judged(r)) for r in runs) or 1
-        sd = statistics.stdev(rates) if len(rates) > 1 else 0.0
+        sd = statistics.stdev(ok) if len(ok) > 1 else 0.0
         per_check: dict = defaultdict(lambda: {"passed": 0, "judged": 0, "failed_seeds": []})
         for r in runs:
             for c in judged(r):
@@ -93,9 +94,9 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
                 else:
                     pc["failed_seeds"].append(r.get("seed"))
         out["datasets"][ds] = {
-            "seeds": [r.get("seed") for r in runs], "pass_rates": [round(x, 6) for x in rates],
+            "seeds": [r.get("seed") for r in runs], "pass_rates": [round(x, 6) if x == x else None for x in rates],
             "passed": [sum(c["pass"] for c in judged(r)) for r in runs], "judged": [len(judged(r)) for r in runs],
-            "mean": round(statistics.fmean(rates), 6), "sd": round(sd, 6),
+            "mean": round(statistics.fmean(ok), 6), "sd": round(sd, 6),
             "spread": round(max(2 * sd, 1 / n_judged), 6),
             "seconds": [r.get("seconds") for r in runs],
             "checks": {k: {"passed": v["passed"], "judged": v["judged"],

@@ -201,3 +201,13 @@ def test_new_kinds_of_check_do_not_move_r2():
     run["checks"] += [{"id": f"quality:q{i}", "pass": False} for i in range(10)]
     reg, notes, summ = regress.compare(_baseline(), {"runs": [run]})
     assert reg == [] and summ["db"]["mean"] == 1.0
+
+
+def test_baseline_skips_runs_without_verdicts():
+    from bench import regress
+    ok = {"dataset": "d", "seed": 1, "checks": [{"id": "a", "pass": True}]}
+    bad = {"dataset": "d", "seed": 2, "error": "boom", "checks": []}
+    ok2 = {"dataset": "d", "seed": 3, "checks": [{"id": "a", "pass": True}]}
+    b = regress.build([{"runs": [ok, bad, ok2]}])["datasets"]["d"]
+    assert b["mean"] == 1.0 and b["sd"] == 0.0 and b["errors"] == 1
+    assert b["pass_rates"] == [1.0, None, 1.0]
