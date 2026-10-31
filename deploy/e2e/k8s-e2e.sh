@@ -5,10 +5,21 @@
 # isolation) against NodePorts 30080 (API) and 30081 (Keycloak).
 #   KUBECONFIG=... deploy/e2e/k8s-e2e.sh        # images relsynth-service:<v>, postgres:16-alpine,
 #                                              # keycloak/keycloak:26.0.7 must be loaded on the nodes
+# A kind cluster that maps the NodePorts to localhost: deploy/e2e/k8s/kind.yaml
+# (CI: .github/workflows/service-e2e.yml). On failure the pods, events and logs
+# of the namespace are printed.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; root="$here/../.."
 ns=relsynth-e2e
 kc() { kubectl -n "$ns" "$@"; }
+diagnose() {
+  rc=$?; [ "$rc" = 0 ] && return
+  echo "::group::pods, events and logs of $ns (exit $rc)"
+  kc get pods -o wide || true; kc get events --sort-by=.lastTimestamp | tail -60 || true
+  for p in $(kc get pods -o name 2>/dev/null); do echo "--- $p"; kc logs "$p" --all-containers --tail=80 || true; done
+  echo "::endgroup::"
+}
+trap diagnose EXIT
 if command -v helm >/dev/null; then helm() { command helm "$@"; }
 else helm() { docker run --rm --network host -v "$KUBECONFIG:/kube:ro" -v "$root:/src:ro" -e KUBECONFIG=/kube alpine/helm:3.16.3 "$@"; }; fi
 chart=/src/deploy/helm/relsynth; command -v helm >/dev/null 2>&1 && [ "$(type -t helm)" = file ] && chart="$root/deploy/helm/relsynth"
@@ -29,3 +40,7 @@ helm test e2e -n "$ns"
 python3 "$here/e2e_flow.py" --api http://localhost:30080 \
   --token-url http://localhost:30081/realms/relsynth/protocol/openid-connect/token \
   --source-url postgresql://reader@sources:5432/shop --secret-ref file:/run/secrets/sources/shop-db/password
+# restart survival: delete the worker pod that runs a job; the other worker must finish it
+python3 "$here/restart_check.py" --k8s-namespace "$ns" --api http://localhost:30080 \
+  --token-url http://localhost:30081/realms/relsynth/protocol/openid-connect/token
+kc wait --for=condition=available deploy -l app.kubernetes.io/component=worker --timeout=300s

@@ -63,7 +63,17 @@ What the chart creates: the API Deployment (2 replicas, anti-affinity, PodDisrup
 
 **Secrets from Vault or a cloud store.** Add `VAULT_ADDR` and `VAULT_K8S_ROLE` to `extraEnv` and use `vault:` references in connections; or use the External Secrets Operator or the Secrets Store CSI driver to project secrets as files and keep `file:` references. Set `RELSYNTH_SVC_SECRET_PREFIX_VAULT=vault:kv/data/relsynth/{tenant}/` so each tenant can only name its own secrets.
 
-`deploy/e2e/k8s-e2e.sh` installs the chart with test dependencies (PostgreSQL, Keycloak) in a kind, k3d or k3s cluster and runs the acceptance flow.
+`deploy/e2e/k8s-e2e.sh` installs the chart with test dependencies (PostgreSQL, Keycloak) in a kind, k3d or k3s cluster, runs `helm test` and the acceptance flow, then deletes the worker pod that runs a job and checks that the other worker finishes it. For kind, `deploy/e2e/k8s/kind.yaml` maps the NodePorts to localhost:
+
+```bash
+kind create cluster --name relsynth-e2e --config deploy/e2e/k8s/kind.yaml
+v=$(python3 -c "exec(open('src/relsynth/_version.py').read());print(__version__)")
+docker build -f deploy/docker/Dockerfile.service -t relsynth-service:$v .
+kind load docker-image --name relsynth-e2e relsynth-service:$v postgres:16-alpine keycloak/keycloak:26.0.7
+deploy/e2e/k8s-e2e.sh
+```
+
+The workflow `.github/workflows/service-e2e.yml` runs this on a kind cluster, and the docker compose test, whenever the service, the chart or the images change, and weekly. kind's default network plugin does not enforce NetworkPolicy, so that test does not prove the policy; it does check the chart against Pod Security `restricted` with a server-side dry run.
 
 ## Air-gapped install
 
