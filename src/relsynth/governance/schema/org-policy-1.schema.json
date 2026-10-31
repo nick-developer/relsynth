@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nick-developer/relsynth/org-policy/1",
+  "title": "relsynth organisation policy",
+  "description": "Written and signed by the organisation that operates relsynth. Holds the privacy domains and their budgets, the release contexts with their limits, approval rules and who may re-identify report labels. relsynth has no built-in epsilon for external releases: every budget value comes from this file. Design: docs/governance/design.md.",
+  "type": "object",
+  "required": ["schema", "organisation", "version", "privacy_owner", "domains", "contexts"],
+  "additionalProperties": false,
+  "$defs": {
+    "duration": {"type": "string", "pattern": "^P(?!$)(\\d+Y)?(\\d+M)?(\\d+W)?(\\d+D)?$", "description": "ISO 8601 duration in days, weeks, months or years."},
+    "epsilon": {"type": "number", "exclusiveMinimum": 0},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Limits of the T06 privacy checks; a check passes only when its upper confidence bound is below the limit.",
+      "properties": {
+        "risk": {"type": "number", "minimum": 0, "maximum": 1},
+        "attribute_leakage": {"type": "number", "minimum": 0, "maximum": 1},
+        "mia_auc": {"type": "number", "minimum": 0.5, "maximum": 1},
+        "mia_tpr_at_fpr_0.01": {"type": "number", "minimum": 0, "maximum": 1},
+        "record_auc": {"type": "number", "minimum": 0.5, "maximum": 1}
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["external", "dp_required", "limits", "approval"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string"},
+        "external": {"type": "boolean", "description": "Recipients outside the organisation."},
+        "attacker_knows": {"enum": ["quasi_identifiers", "all"], "default": "all"},
+        "dp_required": {"type": "boolean"},
+        "limits": {"$ref": "#/$defs/limits"},
+        "approval": {
+          "type": "object",
+          "required": ["on_verdicts", "approver_roles"],
+          "additionalProperties": false,
+          "properties": {
+            "on_verdicts": {"type": "array", "items": {"enum": ["pass", "review"]}, "uniqueItems": true,
+                            "description": "Verdicts that need a named approval before release. 'fail' and 'blocked' can never be approved."},
+            "approver_roles": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "quorum": {"type": "integer", "minimum": 1, "default": 1}
+          }
+        },
+        "allowed_targets": {"type": "array", "items": {"type": "string"}, "description": "Target ids a release in this context may be written to; empty or missing means none."}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"external": {"const": true}}},
+          "then": {
+            "properties": {
+              "dp_required": {"const": true},
+              "attacker_knows": {"const": "all"},
+              "approval": {"properties": {"on_verdicts": {"contains": {"const": "pass"}}}}
+            },
+            "description": "User decision 2026-10-26: DP is required for any release outside the organisation. External releases always need a human approval."
+          }
+        }
+      ]
+    },
+    "domain": {
+      "type": "object",
+      "required": ["unit", "sources", "budget"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string"},
+        "unit": {"type": "object", "required": ["entity"], "additionalProperties": false,
+                 "properties": {"entity": {"type": "string"}}},
+        "adjacency": {"enum": ["add_remove", "replace"], "default": "add_remove"},
+        "sources": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id"], "additionalProperties": false,
+                    "properties": {"id": {"type": "string"}, "description": {"type": "string"}}}},
+        "budget": {
+          "type": "object",
+          "required": ["accounting", "delta", "lifetime"],
+          "additionalProperties": false,
+          "properties": {
+            "accounting": {"const": "zcdp"},
+            "delta": {"type": "number", "exclusiveMinimum": 0, "maximum": 1e-5,
+                      "description": "Delta at which every epsilon of this domain is stated. NIST SP 800-226 sec. 2.3: values above 1e-5 are suspicious."},
+            "lifetime": {"type": "object", "required": ["epsilon"], "additionalProperties": false,
+                         "properties": {"epsilon": {"$ref": "#/$defs/epsilon"}},
+                         "description": "Hard cap over the life of the domain. Never resets (Prop. 801)."},
+            "period": {"type": "object", "required": ["length", "epsilon"], "additionalProperties": false,
+                       "properties": {"length": {"$ref": "#/$defs/duration"}, "epsilon": {"$ref": "#/$defs/epsilon"}},
+                       "description": "Optional throttle per period. It resets, so it is not a guarantee on its own."},
+            "per_release": {"type": "object", "required": ["epsilon_max"], "additionalProperties": false,
+                            "properties": {"epsilon_max": {"$ref": "#/$defs/epsilon"}}}
+          }
+        },
+        "reassess_after": {"$ref": "#/$defs/duration"}
+      }
+    }
+  },
+  "properties": {
+    "schema": {"const": "relsynth.org-policy/1"},
+    "organisation": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "effective_from": {"type": "string", "format": "date"},
+    "privacy_owner": {"type": "object", "required": ["name", "role"], "additionalProperties": false,
+                      "properties": {"name": {"type": "string"}, "role": {"type": "string"}, "contact": {"type": "string"}}},
+    "domains": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/domain"}},
+    "contexts": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/context"}},
+    "quality": {"type": "object", "additionalProperties": false,
+                "properties": {"min_pass_rate": {"type": "number", "minimum": 0, "maximum": 1}}},
+    "approvals": {"type": "object", "additionalProperties": false,
+                  "properties": {"separation_of_duties": {"type": "boolean", "default": true},
+                                 "expires_after": {"$ref": "#/$defs/duration"}}},
+    "reidentification": {"type": "object", "additionalProperties": false,
+                         "properties": {"allowed_roles": {"type": "array", "items": {"type": "string"}}}},
+    "engine": {"enum": ["builtin", "opa"], "default": "builtin", "description": "Who evaluates the release rules: relsynth's built-in evaluator of release.rego, or Open Policy Agent (needed for the organisation's own Rego modules). The invariants of design sec. 8.3 are enforced in code either way."},
+    "rego": {"type": "array", "items": {"type": "string"}, "description": "Paths of extra Rego modules (package relsynth.org) that may add deny reasons. They can only tighten the built-in rules."}
+  }
+}

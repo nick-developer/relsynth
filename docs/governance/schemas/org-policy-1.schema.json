@@ -107,6 +107,7 @@
                                  "expires_after": {"$ref": "#/$defs/duration"}}},
     "reidentification": {"type": "object", "additionalProperties": false,
                          "properties": {"allowed_roles": {"type": "array", "items": {"type": "string"}}}},
+    "engine": {"enum": ["builtin", "opa"], "default": "builtin", "description": "Who evaluates the release rules: relsynth's built-in evaluator of release.rego, or Open Policy Agent (needed for the organisation's own Rego modules). The invariants of design sec. 8.3 are enforced in code either way."},
     "rego": {"type": "array", "items": {"type": "string"}, "description": "Paths of extra Rego modules (package relsynth.org) that may add deny reasons. They can only tighten the built-in rules."}
   }
 }

@@ -51,6 +51,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`compute`](#compute) | GPUs found and the device each kind of generator would get |
 | [`version`](#version) | versions of relsynth and its main dependencies |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
+| [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
 
 ## introspect
 
@@ -138,7 +139,11 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
                     [--target-schema TARGET_SCHEMA] [--target-password-env TARGET_PASSWORD_ENV]
                     [--target-url-env TARGET_URL_ENV] [--bundle BUNDLE] [--report REPORT]
                     [--no-privacy] [--no-write] [--datasets DATASETS] [--mode {draw,mean}]
-                    [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE] [--json]
+                    [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE]
+                    [--registry REGISTRY] [--context CONTEXT] [--release-target RELEASE_TARGET]
+                    [--source-id SOURCE_ID] [--key KEY] [--privacy-report PRIVACY_REPORT]
+                    [--assess] [--privacy-config PRIVACY_CONFIG] [--dp] [--epsilon EPSILON]
+                    [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT] [--json]
                     [--log-level {debug,info,warning,error}]
                     spec
 ```
@@ -162,6 +167,18 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
 | `--pushdown` auto\|on\|off |  |  | override synthesis.pushdown.mode |
 | `--seed` SEED |  |  | override synthesis.seed |
 | `--fail-under` SHARE |  |  | quality gate: exit 1 when the share of passed checks is below SHARE (0-1) |
+| `--registry` REGISTRY |  |  | record a signed manifest of this run in this registry |
+| `--context` CONTEXT |  |  | intended release context from the organisation policy |
+| `--release-target` RELEASE_TARGET |  |  | intended target id from the context's allowed_targets |
+| `--source-id` SOURCE_ID |  |  | the source's id in the organisation policy (selects its privacy domain) |
+| `--key` KEY |  |  | the operator's private signing key |
+| `--privacy-report` PRIVACY_REPORT |  |  | privacy_report.json of `relsynth privacy` for this spec |
+| `--assess` |  |  | run the privacy assessment against the policy's contexts |
+| `--privacy-config` PRIVACY_CONFIG |  |  | privacy.yaml for --assess (its contexts are replaced by the policy's) |
+| `--dp` |  |  | differentially private run (the spec's synthesis.privacy.dp) |
+| `--epsilon` EPSILON |  |  | this run's epsilon (implies --dp; overrides the spec) |
+| `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's) |
+| `--dp-statement` DP_STATEMENT |  |  | also write the DP statement (JSON) here |
 
 ## verify
 
@@ -425,3 +442,15 @@ usage: relsynth ir [-h] [--json] [--log-level {debug,info,warning,error}] IR_COM
 | Option | Required | Default | Meaning |
 |---|---|---|---|
 | `ir_cmd` | yes |  |  |
+
+## gov
+
+Governance: registry, keys, policy, privacy budget, approvals and releases.
+
+```
+usage: relsynth gov [-h] [--json] [--log-level {debug,info,warning,error}] ACTION ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `gov_cmd` | yes |  |  |
