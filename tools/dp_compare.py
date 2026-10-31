@@ -90,6 +90,8 @@ def main() -> int:
     ap.add_argument("--acs-db")
     ap.add_argument("--summary", metavar="JSONL")
     a = ap.parse_args()
+    if a.out:
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     if a.summary:
         return summary(a.summary)
     W = _workload()

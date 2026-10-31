@@ -91,6 +91,8 @@ def main() -> int:
     ap.add_argument("--out", default="dp-curves.jsonl")
     ap.add_argument("--summary", metavar="JSONL")
     a = ap.parse_args()
+    if a.out:
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     if a.summary:
         summary(a.summary)
         return 0

@@ -294,8 +294,8 @@ def select_and_measure(method: str, table: str, nodes: dict, cells: dict, n_hat:
             break
         pen = math.sqrt(2 / math.pi) * sig
         est = {e: n_hat * model.pair(*e) for e in live}
-        scores = [_l1(exact[e], est[e]) - pen * exact[e].size for e in live]
-        i = noisy_max(scores, c, (1 - alpha) * r_round, acct, "fit", f"{table}: pair selection")
+        q_aim = [_l1(exact[e], est[e]) - pen * exact[e].size for e in live]
+        i = noisy_max(q_aim, c, (1 - alpha) * r_round, acct, "fit", f"{table}: pair selection")
         e = live[i]
         y = gaussian(exact[e].ravel(), c, alpha * r_round, acct, "fit", f"{table}: pair {e[0]} x {e[1]}")
         left -= r_round
