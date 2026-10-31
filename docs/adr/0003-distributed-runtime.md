@@ -28,7 +28,7 @@ relsynth 1.0 samples a dataset in one process from one random stream. Lake-scale
 
 ## Benchmark
 
-The scale study in `roadmap/reports/T10.md` (script `roadmap/reports/T10/scripts/scale_study.py`) measures throughput per executor and worker count on one 4-core machine, with identical digests across executors as the check. On one machine, `process` is the fastest executor; Spark `local[n]` has a fixed cost per job of several seconds (JVM start, Python worker start, broadcast) and pays off only on a cluster. No cluster run has been made yet.
+The scale study in `roadmap/reports/T10.md` (script `roadmap/reports/T10/scripts/scale_study.py`, fake star schema S2, one 4-core machine, 3 repeats) gives identical tables with every executor at every size. At 16.8M rows: local 66.0 s, 2 processes 42.5 s, 4 processes 30.6 s (2.2x); the driver's share (entities, state, join, tail: about 8 s) is serial and bounds the speedup. Spark `local[2]` has a fixed cost of about 20 s per job (JVM and Python workers, broadcast) on Chinook and pays off only on a cluster. On one machine `process` is the executor to use. No cluster run has been made yet.
 
 ## Consequences
 

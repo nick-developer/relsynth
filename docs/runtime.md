@@ -76,4 +76,5 @@ relsynth does not yet model a law that changes across partitions; split the tabl
 
 * Entities (dimensions) are generated on the driver. In schemas where order headers or customers are entities with millions of rows, the driver's share of the time grows; facts are where partitions help (see the scale study in the T10 report).
 * The driver holds the joined tables, so a dataset must fit in the driver's memory. Writing partitions straight from the workers to Iceberg or Delta data files, with the aggregates combined from per-partition partials, is the next step.
+* Measured on one 4-core machine (fake star schema, 16.8M rows): 0.25M rows/s with the local executor and 0.55M rows/s with 4 processes; the driver's serial share is about a quarter of the time at that size, and the driver held about 9 GB. Throughput per core falls as the dimensions grow (0.5M rows/s at 0.2M rows). See the T10 report.
 * `partition_rows` is part of the dataset's identity: change it and the draws change (the law does not).
