@@ -53,12 +53,14 @@ Every validation error of a spec (empty list when valid).
 ### `rs.fit`
 
 ```python
-fit(spec, *, pushdown: str | None = None, seed: int | None = None) -> FittedModel
+fit(spec, *, pushdown: str | None = None, seed: int | None = None, settings=None) -> FittedModel
 ```
 
 Fit the model to the spec's source.  Fact tables of at least
 synthesis.pushdown.min_rows rows are fitted from in-database statistics and a
-uniform sample (pushdown: 'auto' (default), 'on' or 'off').
+uniform sample (pushdown: 'auto' (default), 'on' or 'off').  settings:
+engine settings over the spec's synthesis block (relsynth.Settings, a
+mapping or a settings file; docs/settings.md).
 
 ### `rs.sample`
 
@@ -92,7 +94,7 @@ split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS
 ### `rs.run`
 
 ```python
-run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True) -> RunResult
+run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True, settings=None) -> RunResult
 ```
 
 The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
@@ -100,7 +102,8 @@ evaluate -> diagnostics bundle.  out: folder or target section (default: the
 spec's target); datasets: independent posterior draws to write; mode: 'draw'
 (default) or 'mean'; fail_under: quality gate on the share of passed checks.
 raise_errors=False returns a RunResult with `errors` instead of raising (the
-bundle explains them; see doctor).
+bundle explains them; see doctor).  settings: engine settings over the
+spec's synthesis block (relsynth.Settings, a mapping or a settings file).
 
 ### `rs.verify`
 
@@ -214,7 +217,7 @@ is the validated form with every default filled in (what the engine reads).
 Relative paths in source and target sections resolve against `base_dir` (the
 spec file's folder).
 
-Properties: `relationships`, `resolved`, `review`, `tables`.
+Properties: `relationships`, `resolved`, `review`, `settings`, `tables`.
 
 #### `Spec.check`
 
@@ -294,6 +297,15 @@ parsed as YAML scalars ("2" -> 2, "true" -> True, "[a, b]" -> list).
 to_yaml(self, mask_secrets: bool = True) -> str
 ```
 
+#### `Spec.with_settings`
+
+```python
+with_settings(self, settings) -> Spec
+```
+
+A copy whose synthesis block has these engine settings over it
+(relsynth.Settings, a settings mapping, or a settings file path).
+
 #### `Spec.with_source`
 
 ```python
@@ -370,7 +382,7 @@ to_csv(self, folder: str | Path) -> Path
 #### `SyntheticData.to_dict`
 
 ```python
-to_dict(self) -> dict[str, pandas.DataFrame]
+to_dict(self) -> dict[str, DataFrame]
 ```
 
 #### `SyntheticData.to_parquet`
@@ -523,7 +535,7 @@ A copy of the spec with every patch applied.
 #### `Synthesizer.fit`
 
 ```python
-fit(self, tables: dict[str, pandas.DataFrame], stats=None)
+fit(self, tables: dict[str, DataFrame], stats=None)
 ```
 
 Fit the model.  `stats` (pushdown) maps fact tables given as uniform

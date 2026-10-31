@@ -94,7 +94,7 @@ class Spec:
     def resolved(self) -> dict:
         """The validated spec with defaults (raises SpecError when invalid)."""
         d = copy.deepcopy(self.raw)
-        d.pop("_base_dir", None)
+        d["_base_dir"] = str(self.base_dir.resolve())
         s = load_spec(d)
         s["_base_dir"] = str(self.base_dir.resolve())
         return s
@@ -160,6 +160,24 @@ class Spec:
             cur = nxt
         cur[parts[-1]] = value
         return out
+
+    def with_settings(self, settings) -> Spec:
+        """A copy whose synthesis block has these engine settings over it
+        (relsynth.Settings, a settings mapping, or a settings file path)."""
+        from .settings import Settings
+        if isinstance(settings, (str, Path)):
+            settings = Settings.from_file(settings)
+        elif isinstance(settings, dict):
+            settings = Settings(settings.get("synthesis", settings))
+        out = self.copy()
+        out.raw = settings.apply(out.raw)
+        return out
+
+    @property
+    def settings(self):
+        """The engine settings in force (relsynth.Settings: defaults < settings file < synthesis block)."""
+        from .settings import Settings
+        return Settings.load(self)
 
     def with_source(self, source) -> Spec:
         """A copy reading from another source (a spec section or a location such as
@@ -475,12 +493,16 @@ def validate_spec(spec) -> list[str]:
     return Spec.coerce(spec).errors()
 
 
-def fit(spec, *, pushdown: str | None = None, seed: int | None = None) -> FittedModel:
+def fit(spec, *, pushdown: str | None = None, seed: int | None = None, settings=None) -> FittedModel:
     """Fit the model to the spec's source.  Fact tables of at least
     synthesis.pushdown.min_rows rows are fitted from in-database statistics and a
-    uniform sample (pushdown: 'auto' (default), 'on' or 'off')."""
+    uniform sample (pushdown: 'auto' (default), 'on' or 'off').  settings:
+    engine settings over the spec's synthesis block (relsynth.Settings, a
+    mapping or a settings file; docs/settings.md)."""
     from .engine import Synthesizer
     from .pushdown import load_for_fit
+    if settings is not None:
+        spec = Spec.coerce(spec).with_settings(settings)
     s = _resolved(spec)
     if seed is not None:
         s["synthesis"]["seed"] = int(seed)
@@ -623,14 +645,18 @@ class RunResult:
 
 def run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None,
         pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True,
-        bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True) -> RunResult:
+        bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True,
+        settings=None) -> RunResult:
     """The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
     evaluate -> diagnostics bundle.  out: folder or target section (default: the
     spec's target); datasets: independent posterior draws to write; mode: 'draw'
     (default) or 'mean'; fail_under: quality gate on the share of passed checks.
     raise_errors=False returns a RunResult with `errors` instead of raising (the
-    bundle explains them; see doctor)."""
+    bundle explains them; see doctor).  settings: engine settings over the
+    spec's synthesis block (relsynth.Settings, a mapping or a settings file)."""
     from .pipeline import execute
+    if settings is not None:
+        spec = Spec.coerce(spec).with_settings(settings)
     r = execute(_resolved(spec), scale=scale, out=out if write else False, bundle_path=bundle, privacy=privacy,
                 datasets=datasets, mode=mode, pushdown=pushdown, seed=seed, write=write)
     model = FittedModel(r.spec, r.synthesizer, r.fit_data) if r.synthesizer is not None else None

@@ -111,7 +111,8 @@ class TableModel:
         self.cols = modelled_columns(tspec, exclude)
         mcfg = cfg["marginals"]
         kmin = cfg.get("privacy", {}).get("suppress_small_counts", 5)
-        self.codecs = [Codec(c, tspec["columns"][c], df[c], max_levels=mcfg["max_levels"], tail_min=kmin)
+        self.codecs = [Codec(c, tspec["columns"][c], df[c], max_levels=mcfg["max_levels"], tail_min=kmin,
+                             discrete_int_max=int(mcfg.get("discrete_int_max", 30)))
                        for c in self.cols]
         self.X = [cd.encode(df[cd.name]) for cd in self.codecs]
         self.n_rows = len(df)               # also when no column is modelled (keys and identifiers only)
@@ -157,7 +158,8 @@ class TableModel:
                 i = parent[i]
             return i
         # the test is run on a fixed subsample of large tables (the evidence only grows with n)
-        sub = np.random.default_rng(0).permutation(n)[:50000] if n > 50000 else slice(None)
+        fd_rows = int(self.cfg["marginals"].get("fd_sample_rows", 50000))
+        sub = np.random.default_rng(0).permutation(n)[:fd_rows] if n > fd_rows else slice(None)
         for i in cand:
             for j in cand:
                 if i != j and find(i) != find(j) and fd_log_bf(self.X[i][sub], self.X[j][sub]) > lbf:

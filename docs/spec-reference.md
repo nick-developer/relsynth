@@ -617,6 +617,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `copula.grid` | `64` | Grid of the rank likelihood. |
 | `copula.min_rows` | `80` | Fewer rows: independence copula. |
 | `copula.pooled_cells` | `1000000.0` | Budget of rows x columns^2 latent updates per sweep for the pooled copula (the one fact tables use); it is fitted on max(2 * sample_rows, pooled_cells / p^2) rows, because a dataset drawn from it shows the posterior spread, about 1/sqrt(rows fitted), in every correlation. |
+| `copula.mh_steps` | `15` | Metropolis steps per sweep of the correlation sampler (copula.mode bayes). |
+| `copula.mcse_z` | `0.01` | Fixed-width rule of the copula chain: a correlation whose Monte Carlo standard error on the Fisher-z scale is at most this passes the convergence test (Jones et al. 2006). |
 | `marginals.bayesian_bootstrap` | `True` | Draw continuous marginals by the Bayesian bootstrap. |
 | `marginals.dirichlet_prior` | `0.25` | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | `200` | Levels kept per categorical (rarer ones pooled). |
@@ -625,6 +627,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.fd_bf` | `100.0` | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | `64` | Largest joint of dependent categoricals. |
 | `marginals.joint_min_cramers_v` | `0.3` | Association that joins two categoricals. |
+| `marginals.discrete_int_max` | `30` | Integer columns with at most this many distinct values are modelled as discrete. |
+| `marginals.max_obs` | `20000` | Observations kept per continuous marginal (a seeded subsample above it). |
+| `marginals.fd_sample_rows` | `50000` | Rows of the seeded subsample on which functional dependencies are tested. |
 | `facts.min_group_rows` | `30` | Rows below which a block borrows the coarser dimension's marginals. |
 | `facts.frailty` | `auto` | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | `1.5` | Dispersion index above which frailty is used. |
@@ -635,6 +640,10 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.group_fallback` | `auto` | Default of fact.group_fallback. |
 | `facts.link_degree` | `auto` | Default of fact.link_degree. |
 | `facts.link_degree_min_rows` | `50.0` | auto gives a key a degree law only when each segment's links are spread over at least this many rows (Kish effective number, link-weighted); below it a few rows carry the links and attributes joined through the key would follow them. |
+| `facts.frailty_min_rows` | `30` | Rows of a segment needed to estimate its dispersion (frailty). |
+| `facts.occupancy_z` | `-4.0` | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
+| `facts.occupancy_min_expected` | `10.0` | ... and at least this many repeats are expected under Poisson. |
+| `facts.dp_count_sweeps` | `30` | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
@@ -652,8 +661,25 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `text.backoff_strength` | `2.0` | Back-off weight of the n-gram model. |
 | `text.max_retries` | `30` | Retries before a text value is replaced. |
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
+| `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
+| `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
+| `repair.pair_tries` | `200` | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
+| `repair.constraint_rounds` | `200` | Redraw rounds of entity rows that break a check rule or a unique key. |
+| `repair.thin_rounds` | `200` | Rounds of anchor thinning (participation of facts). |
+| `repair.tree_redraws` | `40` | Redraws of a hierarchy that breaks a depth or cycle rule. |
+| `repair.unique_code_rounds` | `50` | Redraw rounds of identifier codes until they are distinct. |
+| `repair.participation_rounds` | `4` | Rounds that move rows away from parents the participation hurdle leaves empty. |
+| `repair.occupancy_rounds` | `20` | Redraws that give every parent its mandatory first row in occupancy facts. |
+| `detection.group_effect_share` | `0.95` | A group effect holding on fewer source groups than this share is reported. |
+| `detection.scd_stable_share` | `0.99` | SCD2 stable auto: columns equal across versions on at least this share of keys. |
+| `detection.scd_max_versions` | `50` | Largest number of versions per key modelled exactly (more are pooled). |
+| `evaluation.thresholds` | `{}` | Fixed tolerances of the scorecard by name (ks, tvd, auc, ...; see the table below). Each limit is the larger of its tolerance and its sampling limit. |
+| `evaluation.assoc_max_rows` | `20000` | Rows sampled for the association metrics. |
+| `evaluation.discriminator_rows` | `5000` | Rows sampled per side for the discriminator AUC. |
+| `per_table` | `{}` | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
+| `settings_file` | `None` | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
 | `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle. |
-| `privacy.dp` | none | Differential privacy mode: `unit`, `epsilon` or `rho`, `delta`, `public_tables`, `public`, `max_degree`, `spec_is_public`, and tuning keys (`split`, `bins`, `clip`, `degree_quantile`, `degree_fallback`, `levels_delta_share`, `max_parent_attrs`, `max_degree_range`). See [dp.md](dp.md). |
+| `privacy.dp` | `None` | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
 | `pushdown.mode` | `auto` | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | `1000000` | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | `500000` | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
