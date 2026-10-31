@@ -1,0 +1,721 @@
+# Claim register: every claim of the documents in `scope` traced to its evidence.
+#
+# Checked by `python tools/claims_check.py` (CI job `lint`, and tests/unit/test_assurance.py).
+# How to keep it green, and what each field means: docs/assurance/README.md#the-claim-register.
+#
+#   id        stable identifier, cited by the assurance case (AC-...) and the regulation mapping
+#   doc       the document that makes the claim
+#   quote     the claim's words (one string or a list); must still appear in `doc`
+#   area      structure | statistics | privacy-measured | privacy-formal | governance | security | scope
+#   status    supported   the evidence establishes the claim as written
+#             partial     the evidence establishes part of it; `note` says which part is open
+#             limitation  the claim states a limit of relsynth; the evidence shows the limit is enforced or measured
+#             scope       says what a source (a regulation, a paper) says, not what relsynth does
+#   evidence  list of {prop: label} {check: Cnnn} {test: file::name} {report: path} {code: file::symbol} {source: text}
+#   note      optional: what the evidence does not show
+
+scope:
+  - docs/privacy.md
+  - docs/dp.md
+  - docs/security.md
+  - docs/governance/guide.md
+
+claims:
+
+  # ------------------------------------------------------------------ docs/privacy.md (measured privacy, T06)
+
+  - id: PRV-01
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "relsynth privacy attacks a synthetic release the way a recipient could, person by person, and writes a privacy report with one page per release context (internal, partner, public)."
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+      - test: tests/unit/test_privacy.py::test_cli_privacy_writes_report_and_gates
+
+  - id: PRV-02
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "A data protection officer can read the pages without the annex; the annex and the JSON file hold the technical results."
+    status: partial
+    note: Readability by a DPO is a design aim; the test shows the report's structure (one page per context, annex, JSON), not that it is readable.
+    evidence:
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+
+  - id: PRV-03
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "The report never shows a real key."
+      - "People are named by keyed hashes (P-3f2a…, HMAC-SHA256 of the key) under a secret 256-bit salt that is not the split seed"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+      - test: tests/unit/test_privacy.py::test_cli_privacy_writes_report_and_gates
+
+  - id: PRV-04
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| No record isolation (sec. 3.4.1) | Can someone single out a real person?"
+    status: supported
+    evidence:
+      - prop: prop:puctrl
+      - check: C601
+      - test: tests/unit/test_privacy.py::test_wilson_and_residual_match_anonymeter_formulas
+      - report: docs/assurance/evidence/T06/repro_anonymeter.json
+      - source: "EDPB Guidelines 02/2026 v1.0, sec. 3.4.1, paras. 54-57"
+
+  - id: PRV-05
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| No linkage (sec. 3.4.2) | Can someone connect two records about one person?"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_copy_release_is_caught_and_fresh_release_is_not
+      - report: docs/assurance/evidence/T06/repro_anonymeter.json
+      - source: "EDPB Guidelines 02/2026 v1.0, sec. 3.4.2, paras. 58-65"
+
+  - id: PRV-06
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| No inference (sec. 3.4.3) | Can someone learn a person's attribute?"
+    status: supported
+    evidence:
+      - prop: prop:puattr
+      - check: C606
+      - test: tests/unit/test_privacy.py::test_attribute_inference_against_population
+      - source: "EDPB Guidelines 02/2026 v1.0, sec. 3.4.3, paras. 66-67"
+
+  - id: PRV-07
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| Membership | Can someone tell that a person's data was used?"
+    status: supported
+    evidence:
+      - prop: prop:pushadow
+      - prop: prop:putpr
+      - check: C602
+      - check: C604
+      - test: tests/unit/test_privacy.py::test_shadow_attack_raw_release_vs_population_generator
+      - test: tests/unit/test_privacy.py::test_domias_detects_overfitting
+      - report: docs/assurance/evidence/T06/repro_mia.json
+
+  - id: PRV-08
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "Every number has a confidence interval (95% by default)."
+      - "Membership attacks are run on the most exposed people, chosen by the Meeus et al. (2023) outlier score, and on as many random people."
+    status: supported
+    evidence:
+      - prop: prop:putpr
+      - check: C604
+      - test: tests/unit/test_privacy.py::test_clopper_pearson_edges
+      - test: tests/unit/test_privacy.py::test_auc_interval_never_zero_width
+      - test: tests/unit/test_privacy.py::test_vulnerability_ranks_outliers_first
+
+  - id: PRV-09
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "The privacy unit is the table that holds the people"
+      - "Every table that reaches it through foreign keys belongs to it: a customer's invoices and invoice lines are attacked together with the customer."
+      - "Chains stop at other person tables: a customer's sales representative does not own the customer."
+    status: supported
+    evidence:
+      - prop: prop:pusplit
+      - check: C600
+      - test: tests/unit/test_privacy.py::test_unit_paths_and_split_keep_people_whole
+      - test: tests/unit/test_privacy.py::test_unit_chain_stops_at_other_person_tables
+
+  - id: PRV-10
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "Profiles hold no key values, because synthetic keys are new labels."
+    status: supported
+    evidence:
+      - prop: prop:puprofile
+      - check: C605
+      - test: tests/unit/test_privacy.py::test_profiles_ignore_keys_and_row_order
+
+  - id: PRV-11
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "Control people are never seen: the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
+      - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
+    status: supported
+    evidence:
+      - prop: prop:puctrl
+      - check: C601
+      - report: docs/assurance/evidence/T06/repro_anonymeter.json
+
+  - id: PRV-12
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "It never assumes a less motivated attacker (para. 31)."
+      - "Each check compares the upper confidence bound with the limit (safety margin, para. 88):"
+      - "pass when it is below, fail when even the lower bound is above, review otherwise."
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+      - test: tests/unit/test_privacy.py::test_review_sign_off_per_person_and_small_population
+      - source: "EDPB Guidelines 02/2026 v1.0, para. 31 (motivation), para. 88 (safety margins)"
+
+  - id: PRV-13
+    doc: docs/privacy.md
+    area: governance
+    quote: "Contexts outside the organisation are blocked unless the release carries a differential-privacy guarantee: the organisation decided that DP is required for every external release, with ε set by the organisation (there is no built-in ε)."
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+      - test: tests/unit/test_privacy.py::test_assess_with_dp_is_not_blocked
+      - test: tests/unit/governance/test_governance.py::test_partner_without_dp_is_refused
+
+  - id: PRV-14
+    doc: docs/privacy.md
+    area: governance
+    quote: "A named person (the DPO) signs off a review with relsynth privacy ... --signed-off-by \"Name, DPO\"; the report records the name."
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_review_sign_off_per_person_and_small_population
+
+  - id: PRV-15
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "With fewer than small_population (1000) people in the unit, the report warns, and every context outside the organisation fails without DP (check small_population)."
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy.py::test_review_sign_off_per_person_and_small_population
+
+  - id: PRV-16
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote:
+      - "When the release carries a DP guarantee (release.dp: {epsilon, delta}), the page also shows the largest TPR any attack can reach at FPR 1% (Kairouz et al. 2015; Prop. 603)."
+      - "With cumulative_epsilon (and cumulative_delta), the budget spent by all releases from the same domain so far, it also shows the bound for all of them together, since releases about the same people compose."
+    status: supported
+    evidence:
+      - prop: prop:pudp
+      - check: C603
+      - test: tests/unit/test_privacy.py::test_dp_bound
+      - test: tests/unit/test_privacy.py::test_assess_with_dp_is_not_blocked
+
+  - id: PRV-17
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "One set of fits serves every target (Prop. 602)."
+    status: supported
+    evidence:
+      - prop: prop:pushadow
+      - check: C602
+      - test: tests/unit/test_privacy.py::test_shadow_cache_reuses_fits
+
+  - id: PRV-18
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "The scorecard's distance-to-closest-record ratio and exact-match rate stay in every run (relsynth run) for continuity, but they are not a privacy check: calibration showed the distance guard misses even 20% copied records, which DOMIAS catches at 5%."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/T06/guards_adult.json
+      - test: tests/unit/test_privacy.py::test_copy_release_is_caught_and_fresh_release_is_not
+
+  - id: PRV-19
+    doc: docs/privacy.md
+    area: scope
+    quote:
+      - "Results hold for the attacks run, not for every possible attack."
+      - "Only differential privacy gives a guarantee against all attacks; this module measures, it does not protect."
+    status: limitation
+    evidence:
+      - prop: prop:pudp
+      - source: "NIST SP 800-226, sec. 1.1 (DP protects against all attacks, including with auxiliary data)"
+
+  # ------------------------------------------------------------------ docs/dp.md (formal privacy, T07)
+
+  - id: DP-01
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "relsynth can produce a synthetic database with a formal differential privacy (DP) guarantee."
+      - "The guarantee is user level: anyone who sees the synthetic data learns about the same about one person (one row of the privacy unit table and every row that belongs to it) whether or not that person was in the real database."
+    status: supported
+    evidence:
+      - prop: prop:run
+      - prop: prop:bound
+      - prop: prop:sens
+      - check: C901
+      - check: C902
+      - test: tests/unit/dp/test_dp.py::test_end_to_end_statement_and_charges
+
+  - id: DP-02
+    doc: docs/dp.md
+    area: governance
+    quote:
+      - "An external release (a context with external: true in the organisation policy) must be a DP run."
+      - "relsynth enforces this before it reads any data"
+    status: supported
+    evidence:
+      - check: C906
+      - test: tests/unit/governance/test_governance.py::test_partner_without_dp_is_refused
+      - test: tests/unit/governance/test_governance.py::test_invariants_hold_under_a_permissive_policy
+
+  - id: DP-03
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "relsynth has no default ε."
+      - "A DP run without epsilon or rho is refused, and so is a δ above 10⁻⁵."
+    status: supported
+    evidence:
+      - check: C906
+      - test: tests/unit/dp/test_dp.py::test_config_needs_a_budget_unit_and_small_delta
+
+  - id: DP-04
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "Plan, before any read. relsynth finds the tables that hold data of the unit: those with a chain of foreign keys to it."
+      - "Every other table must be listed in public_tables, or all_unowned must be set."
+      - "The plan refuses three cases, before reading anything or charging the budget: a table with two chains to the unit, a self-reference on an owned table, and a foreign key between owned tables off the chain."
+    status: supported
+    evidence:
+      - check: C906
+      - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
+
+  - id: DP-05
+    doc: docs/dp.md
+    area: privacy-formal
+    quote: "Each statistic is charged to an accountant that refuses anything beyond the run's budget."
+    status: supported
+    evidence:
+      - prop: prop:dgauss
+      - check: C900
+      - test: tests/science/test_dp_checks.py::test_c900_accountant_refuses_beyond_the_plan
+
+  - id: DP-06
+    doc: docs/dp.md
+    area: privacy-formal
+    quote: "This is post-processing, so it keeps the guarantee."
+    status: supported
+    evidence:
+      - prop: prop:post
+      - check: C905
+
+  - id: DP-07
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "The proofs are Propositions 900 to 906 in docs/proofs."
+      - "C902, for example, removes one customer at a time and confirms that no released statistic moves by more than the sensitivity it was charged for."
+    status: supported
+    evidence:
+      - prop: prop:dgauss
+      - prop: prop:run
+      - check: C902
+      - test: tests/science/test_dp_checks.py::test_c902_every_released_statistic_respects_its_sensitivity
+
+  - id: DP-08
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "Every DP run produces a statement (schema relsynth.dp-statement/1; write it with --dp-statement)."
+      - "the guarantee in ε, δ and ρ, and how it was computed (zCDP, converted with Canonne, Kamath and Steinke 2020);"
+      - "It holds no data and no exact counts."
+    status: supported
+    evidence:
+      - prop: prop:run
+      - test: tests/unit/dp/test_dp.py::test_end_to_end_statement_and_charges
+      - test: tests/unit/dp/test_dp.py::test_epsilon_is_converted_at_the_delta_left_after_level_selection
+
+  - id: DP-09
+    doc: docs/dp.md
+    area: governance
+    quote:
+      - "In a governed run it is signed into the manifest and goes into the release package."
+      - "A run refused by the per-release, period or lifetime cap reads nothing."
+    status: supported
+    evidence:
+      - prop: prop:reserve
+      - check: C802
+      - test: tests/unit/governance/test_governance.py::test_external_dp_release_with_quorum_and_token
+      - test: tests/unit/governance/test_governance.py::test_budget_exceeded_is_refused
+
+  - id: DP-10
+    doc: docs/dp.md
+    area: privacy-formal
+    quote: "--assess runs the attack suite against the DP pipeline itself, and compares each attack's true-positive rate with the bound that ε implies."
+    status: supported
+    evidence:
+      - prop: prop:pudp
+      - test: tests/unit/test_privacy.py::test_assess_with_dp_is_not_blocked
+      - report: docs/assurance/evidence/T07/audit_contoso_eps1.jsonl
+
+  - id: DP-11
+    doc: docs/dp.md
+    area: scope
+    quote: "Those values are outside the guarantee unless you write the spec from public facts only and set spec_is_public: true."
+    status: limitation
+    evidence:
+      - test: tests/unit/test_governance_design.py::test_external_context_cannot_waive_dp_or_approval
+      - code: src/relsynth/dp/__init__.py
+
+  - id: DP-12
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "What DP mode refuses: tune, verify, export-model and doctor --apply refuse a DP spec, because they would turn real data into models or spec values outside the accounting."
+      - "The ordinary pipeline (relsynth.run, execute) also refuses a DP spec rather than run it without DP."
+    status: supported
+    evidence:
+      - test: tests/unit/dp/test_dp.py::test_ordinary_pipeline_refuses_a_dp_spec
+      - test: tests/unit/dp/test_dp.py::test_cli_refuses_tune_and_export_model_on_a_dp_spec
+    note: The CLI test covers tune and export-model; verify and doctor --apply are refused by the same guard but have no test of their own.
+
+  - id: DP-13
+    doc: docs/dp.md
+    area: scope
+    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), more than one privacy unit, composite parent keys (generated as (i, 1)), and values of pii, text and binary columns (placeholders)."
+    status: limitation
+    evidence:
+      - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
+
+  - id: DP-14
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "Membership-inference TPR at FPR 0.01 is 0.014, below the bound of 0.027."
+      - "Shadow-model AUCs are 0.45 to 0.52, and attribute inference gains nothing over the population baseline."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/T07/audit_contoso_eps1.jsonl
+
+  - id: DP-15
+    doc: docs/dp.md
+    area: statistics
+    quote: "The curve is nearly flat, so the loss comes from what stage 1 measures, not from the noise."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/T07/utility_vs_epsilon.jsonl
+    note: The cause (one-dimensional stage-1 statistics) is an inference from the flat curve; roadmap T07b tests it with two-way marginals.
+
+  # ------------------------------------------------------------------ docs/security.md
+
+  - id: SEC-01
+    doc: docs/security.md
+    area: security
+    quote: "| Database credentials | Leaked through spec files, logs, error messages, CI output, diagnostics bundles, process lists | Credentials come from the environment, and every output masks them (see below) |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_mask_url
+      - test: tests/unit/test_security.py::test_spec_urls_masked_everywhere
+      - test: tests/unit/test_security.py::test_bundle_holds_no_password
+      - test: tests/e2e/test_cli.py::test_connection_errors_exit_3_and_mask_passwords
+
+  - id: SEC-02
+    doc: docs/security.md
+    area: privacy-measured
+    quote: "| Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_synthetic_rows_are_not_copies
+      - test: tests/unit/test_security.py::test_privacy_checks_run_by_default
+      - prop: prop:guard
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+
+  - id: SEC-03
+    doc: docs/security.md
+    area: security
+    quote:
+      - "| The target database | SQL injection through table or column names or values | SQLAlchemy Core with quoted identifiers and bound values everywhere |"
+      - "Tables are reflected by name and every statement is built with SQLAlchemy Core."
+      - "Identifiers are quoted by the dialect, and values are bound parameters."
+      - "Rule expressions are never translated into SQL text; they are evaluated in Python on loaded rows."
+    status: supported
+    evidence:
+      - test: tests/unit/test_connectors.py::test_hostile_table_and_column_names_are_quoted
+      - test: tests/integration/test_servers.py::test_hostile_identifiers_on_server
+
+  - id: SEC-04
+    doc: docs/security.md
+    area: security
+    quote:
+      - "Masked everywhere. mask_url replaces:"
+      - "It is applied to every error message the CLI prints (_scrub), the JSON output, saved specs, diagnostics bundles (again when they are written, whoever built them), exported models and ping results."
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_mask_url
+      - test: tests/unit/test_security.py::test_scrub_masks_urls_inside_messages
+      - test: tests/unit/test_security.py::test_spec_urls_masked_everywhere
+      - test: tests/unit/test_security.py::test_bundle_holds_no_password
+      - test: tests/unit/test_security.py::test_failed_connection_logs_no_password
+      - test: tests/unit/test_spec.py::test_save_masks_passwords
+
+  - id: SEC-05
+    doc: docs/security.md
+    area: security
+    quote:
+      - "YAML is read with a safe loader that also refuses anchors and aliases."
+      - "Python tags (!!python/object) cannot construct objects, and an alias bomb (a few lines that expand to billions of nodes) is refused before it expands."
+    status: supported
+    evidence:
+      - test: tests/unit/test_spec.py::test_yaml_aliases_are_refused
+      - test: tests/unit/test_spec.py::test_yaml_python_tags_are_refused
+      - test: tests/unit/test_security.py::test_spec_cannot_construct_python_objects
+
+  - id: SEC-06
+    doc: docs/security.md
+    area: security
+    quote:
+      - "Rule expressions are parsed with Python's ast module and evaluated by relsynth's own interpreter, never by eval:"
+      - "attribute access, subscripts, lambdas, comprehensions, f-strings, assignment expressions and keyword arguments are refused;"
+      - "expressions longer than 10,000 characters or nested more than 100 levels are refused."
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_rule_expressions_are_sandboxed
+      - test: tests/unit/test_security.py::test_expression_size_and_depth_limits
+      - test: tests/unit/test_security.py::test_allowed_expressions_still_work
+
+  - id: SEC-07
+    doc: docs/security.md
+    area: security
+    quote: "Patterns that can backtrack catastrophically are refused, such as nested repetition (a+)+ or repeated alternatives that can match the same text (a|aa)+, and so are patterns longer than 500 characters."
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_catastrophic_regexes_are_refused
+      - test: tests/unit/test_security.py::test_ordinary_regexes_are_accepted
+
+  - id: SEC-08
+    doc: docs/security.md
+    area: security
+    quote: "Unknown keys are errors (with a \"did you mean\" suggestion), so a misspelt privacy setting cannot silently turn a protection off."
+    status: supported
+    evidence:
+      - test: tests/unit/test_settings.py::test_validation_errors
+      - test: tests/unit/test_privacy.py::test_config_rejects_unknown_keys
+      - test: tests/unit/test_spec.py::test_invalid_settings_are_refused
+
+  - id: SEC-09
+    doc: docs/security.md
+    area: security
+    quote:
+      - ".., ., empty names, /, \\, NUL and absolute paths are refused;"
+      - "so is any name whose file resolves outside the folder, through a symbolic link for example."
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_inside_refuses_non_plain_names
+      - test: tests/unit/test_security.py::test_symlinked_table_cannot_escape
+      - test: tests/unit/test_connectors.py::test_file_table_names_cannot_escape_the_folder
+
+  - id: SEC-10
+    doc: docs/security.md
+    area: privacy-measured
+    quote:
+      - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
+      - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
+    status: partial
+    note: The bundle test checks that no password is in it; there is no test that a bundle holds no row. Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103).
+    evidence:
+      - test: tests/unit/test_security.py::test_bundle_holds_no_password
+      - prop: prop:pdsuff
+      - prop: prop:hashsample
+      - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+
+  - id: SEC-11
+    doc: docs/security.md
+    area: privacy-formal
+    quote:
+      - "Differential privacy is optional."
+      - "Without it, protection is measured, not guaranteed: relsynth privacy attacks the release per person (privacy.md)."
+      - "With --epsilon, a run has a user-level (ε, δ) guarantee (dp.md)."
+      - "Under the governance policy, a release outside the organisation is refused without DP (governance/guide.md)."
+    status: supported
+    evidence:
+      - prop: prop:run
+      - test: tests/unit/test_privacy.py::test_assess_report_and_contexts
+      - test: tests/unit/governance/test_governance.py::test_partner_without_dp_is_refused
+
+  - id: SEC-12
+    doc: docs/security.md
+    area: security
+    quote:
+      - "The core package depends on seven well-known libraries (numpy, pandas, scipy, SQLAlchemy, PyYAML, DuckDB and its SQLAlchemy dialect) and the database driver you choose; every other dependency comes with an extra you install."
+      - "Versions have lower bounds only, so you can patch them yourself."
+    status: supported
+    evidence:
+      - report: pyproject.toml
+
+  - id: SEC-13
+    doc: docs/security.md
+    area: security
+    quote:
+      - "CI runs on every change:"
+      - "Every suppressed finding is annotated in the code with its test ID and a reason, for example # nosec B608 where a query is built with SQLAlchemy and not by string formatting."
+    status: supported
+    evidence:
+      - report: .github/workflows/ci.yml
+      - report: pyproject.toml
+
+  - id: SEC-14
+    doc: docs/security.md
+    area: security
+    quote:
+      - "The package and the CLI connect only to the databases, warehouses and storage you name, and send no telemetry."
+      - "The service also contacts the OIDC identity provider and the Vault server you configure, and exports traces only when you turn on OpenTelemetry (relsynth[service-otel]) and give it an endpoint."
+    status: supported
+    evidence:
+      - test: tests/unit/test_assurance.py::test_network_access_is_confined_to_named_modules
+    note: The test checks which modules may open connections; third-party drivers (database and warehouse clients) are outside it.
+
+  - id: SEC-15
+    doc: docs/security.md
+    area: security
+    quote: "subprocess runs fixed argument lists, never a shell, in four places: pdflatex (when present) for the exported model's PDF, the OPA binary when the policy engine is opa, the GPU listing commands of relsynth compute, and the service worker's job runner."
+    status: supported
+    evidence:
+      - report: pyproject.toml
+      - test: tests/unit/governance/test_policy_parity.py::test_engine_failure_denies
+    note: Enforced by bandit B602-B607 in CI (no shell=True accepted); the four call sites are annotated with nosec B404 and a reason.
+
+  # ------------------------------------------------------------------ docs/governance/guide.md (T08)
+
+  - id: GOV-01
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "relsynth can record every run in a registry: a folder with signed run manifests, the organisation's privacy budget, approvals and releases, kept in a hash chain so that any later change is detected."
+    status: supported
+    evidence:
+      - prop: prop:govchain
+      - check: C803
+      - test: tests/unit/governance/test_governance.py::test_tampered_registry_is_detected
+      - test: tests/unit/governance/test_governance.py::test_tampered_report_or_manifest_object_is_detected
+
+  - id: GOV-02
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "Every person or service that signs gets an Ed25519 key."
+      - "Private keys are written with mode 0600."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_key_file_roundtrip_and_mode
+      - test: tests/unit/governance/test_governance.py::test_dsse_signature_binds_payload_type_and_bytes
+
+  - id: GOV-03
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "Until then, gov policy check refuses the policy with a sentence that says what is missing."
+      - "Only a trusted key with the privacy owner's role can sign it."
+      - "Every manifest records the digest of the policy it was judged under."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_policy_without_budget_is_refused_with_guidance
+      - test: tests/unit/governance/test_governance.py::test_policy_must_be_signed_by_privacy_owner
+      - test: tests/unit/test_governance_design.py::test_budget_has_no_default_and_bounded_delta
+      - test: tests/unit/governance/test_governance.py::test_cli_end_to_end
+
+  - id: GOV-04
+    doc: docs/governance/guide.md
+    area: governance
+    quote: "Four invariants hold whatever the policy says: an external release needs DP, an external release needs an approval by someone other than the operator, a fail or blocked privacy verdict is never released, and no domain may exceed its lifetime budget."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_invariants_hold_under_a_permissive_policy
+      - test: tests/unit/governance/test_governance.py::test_failed_verdict_quality_and_target_are_refused
+      - test: tests/unit/test_governance_design.py::test_external_context_cannot_waive_dp_or_approval
+      - test: tests/unit/governance/test_policy_parity.py::test_builtin_engine_matches_fixture
+
+  - id: GOV-05
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "A context outside the organisation is refused unless the run is differentially private (--epsilon, --dp or a dp section; see dp.md)."
+      - "Without either, the verdict is missing and the run cannot be released."
+      - "context \"partner\" is outside the organisation: differential privacy is required, and this run has none"
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_partner_without_dp_is_refused
+      - test: tests/unit/governance/test_governance.py::test_failed_verdict_quality_and_target_are_refused
+
+  - id: GOV-06
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "The run writes its synthetic data as usual and then records a signed manifest: hashes of the outputs and the spec, versions, seeds, the verdicts, the quality score and what the policy still needs before a release."
+      - "The manifest holds no data, no row counts and no credentials."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_manifest_holds_no_data_or_credentials
+      - test: tests/unit/test_governance_design.py::test_example_policy_and_manifest_validate
+
+  - id: GOV-07
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "On allow it signs a release token and writes the package: the synthetic tables byte for byte as signed, the manifest, the approvals, the token, a checkpoint, and the DP statement for DP runs."
+      - "The privacy report never goes into a package: it was computed on real data."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_external_dp_release_with_quorum_and_token
+      - test: tests/unit/governance/test_governance.py::test_privacy_report_cannot_leave_the_organisation
+
+  - id: GOV-08
+    doc: docs/governance/guide.md
+    area: governance
+    quote:
+      - "Revoking never refunds privacy budget, because the data has already left."
+      - "Budget is reserved before a DP run reads data and refunded only if it never read any (Proposition 802)."
+    status: supported
+    evidence:
+      - prop: prop:reserve
+      - check: C802
+      - test: tests/unit/governance/test_governance.py::test_ledger_reserve_touch_settle_refund
+      - test: tests/unit/governance/test_governance.py::test_external_dp_release_with_quorum_and_token
+      - test: tests/unit/governance/test_governance.py::test_rejection_and_revocation
+
+  - id: GOV-09
+    doc: docs/governance/guide.md
+    area: governance
+    quote: "A registry check catches edited, deleted, inserted, reordered and truncated log entries and any changed report or manifest (Proposition 803, check C803)."
+    status: supported
+    evidence:
+      - prop: prop:govchain
+      - check: C803
+      - test: tests/unit/governance/test_governance.py::test_tampered_registry_is_detected
+      - test: tests/unit/governance/test_governance.py::test_resigned_manifest_by_untrusted_key_is_detected
+
+  - id: GOV-10
+    doc: docs/governance/guide.md
+    area: privacy-formal
+    quote:
+      - "Values below 1 give strong protection; deployments use 1 < ε ≤ 20, and the risk above 1 should be measured, for example with relsynth privacy."
+      - "δ should be at most 1/n² for n people and never above 10⁻⁵ (the policy schema refuses more)."
+      - "The lifetime cap never resets; a period cap only spreads it over time (Proposition 801)."
+    status: supported
+    evidence:
+      - prop: prop:period
+      - prop: prop:ledger
+      - check: C800
+      - check: C801
+      - test: tests/unit/governance/test_governance.py::test_policy_refuses_external_without_dp_and_large_delta
+      - test: tests/unit/governance/test_governance.py::test_ledger_lifetime_cap_under_concurrency
+      - source: "NIST SP 800-226, sec. 2.2 (no rule for choosing epsilon)"
+    note: The ε ranges are the deployment practice NIST SP 800-226 reports, not something relsynth proves.
+
+  - id: GOV-11
+    doc: docs/governance/guide.md
+    area: governance
+    quote: "each DP run's state (reserved, touched, settled, refunded) and the number of releases made without DP."
+    status: supported
+    evidence:
+      - test: tests/unit/governance/test_governance.py::test_nondp_runs_are_recorded
+      - test: tests/unit/governance/test_governance.py::test_ledger_reserve_touch_settle_refund
+
+not_claims:
+  - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
+  - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
+  - {doc: docs/security.md, quote: "Pass secrets as masked CI variables (see cicd.md), and use read-only database accounts for sources.", reason: "advice to the operator"}
