@@ -87,7 +87,17 @@ Not supported yet: in-database pushdown in DP mode (every owned table is loaded)
 
 ## 6. Utility against ε
 
-See the [T07 report](../roadmap/reports/T07.md) for the scorecards at ε ∈ {0.5, 1, 2, 4, 8} on Chinook, Contoso and AdventureWorks. It also compares DP mode with MST and AIM and checks the attack audit against the bound.
+Share of scorecard checks that pass on three real databases (bench specs, unedited; 2026-10-31):
+
+| Database (unit) | non-DP | ε = 0.5 | ε = 1 | ε = 2 | ε = 4 | ε = 8 |
+|---|---|---|---|---|---|---|
+| Chinook (Customer, 59 people), mean of 3 | 0.986 | 0.895 | 0.895 | 0.860 | 0.871 | 0.895 |
+| Contoso (Customer, about 105,000) | 1.000 | 0.801 | 0.809 | 0.813 | 0.809 | 0.825 |
+| AdventureWorks DW (DimCustomer, 18,484) | 0.963 | | | 0.914 | | |
+
+The curve is nearly flat, so the loss comes from what stage 1 measures, not from the noise. Stage 1 measures one-dimensional marginals, degrees and one correlation matrix per table. Releasing selected two-way marginals is the planned next step.
+
+An attack audit of Contoso at ε = 1 found the following. Membership-inference TPR at FPR 0.01 is 0.014, below the bound of 0.027. Shadow-model AUCs are 0.45 to 0.52, and attribute inference gains nothing over the population baseline.
 
 ## API
 
