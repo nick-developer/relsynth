@@ -1,15 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """Checks C800-C803: the governance propositions of docs/proofs (section v2.5,
-governance), tested against known answers.  T08 is in its design phase, so the
-ledger, the reservation protocol and the hash chain are small reference
-implementations kept in this file; the build phase replaces them with
-`relsynth.governance` and keeps these checks.  About ten seconds:
+governance), tested against known answers on the shipped code
+(`relsynth.governance`: accounting, the ledger on a local registry, the hash
+chain and checkpoints).  The design phase kept reference implementations
+here; the build replaced them and kept the checks.  About thirty seconds:
 
     pytest -m science tests/science/test_governance_checks.py
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import random
@@ -17,7 +16,7 @@ import threading
 
 import numpy as np
 import pytest
-from scipy.optimize import brentq, minimize_scalar
+from scipy.optimize import brentq
 from scipy.stats import binom, norm
 
 pytestmark = [pytest.mark.science]
@@ -27,64 +26,9 @@ pytestmark = [pytest.mark.science]
 # Reference privacy-loss ledger (Prop. 800)
 # ---------------------------------------------------------------------------
 
-def to_azcdp(entry):
-    """One ledger entry as delta-approximate rho-zCDP: (rho, delta).
-
-    pure eps          -> (eps^2/2, 0)    Bun and Steinke 2016, Prop. 1.4
-    zcdp rho          -> (rho, 0)
-    approx (eps, del) -> (eps^2/2, del)  approximate zCDP, Bun and Steinke 2016
-    """
-    kind = entry["kind"]
-    if kind == "pure":
-        return entry["epsilon"] ** 2 / 2, 0.0
-    if kind == "zcdp":
-        return entry["rho"], 0.0
-    if kind == "approx":
-        return entry["epsilon"] ** 2 / 2, entry["delta"]
-    raise ValueError(kind)
-
-
-def compose(entries):
-    """Adaptive composition: rho and delta add (Prop. 800 a)."""
-    rho = sum(to_azcdp(e)[0] for e in entries)
-    dlt = sum(to_azcdp(e)[1] for e in entries)
-    return rho, dlt
-
-
-def cks_delta(rho, eps):
-    """delta(eps) of rho-zCDP, Canonne, Kamath and Steinke 2020, Prop. 12:
-    inf_{a>1} exp((a-1)(a rho - eps)) / (a-1) * (1 - 1/a)^a."""
-    if rho <= 0:
-        return 0.0
-
-    def logd(la):
-        a = 1 + math.exp(la)
-        return (a - 1) * (a * rho - eps) - math.log(a - 1) + a * math.log1p(-1 / a)
-
-    grid = np.linspace(-12, 12, 481)
-    vals = [logd(x) for x in grid]
-    i = int(np.argmin(vals))
-    lo, hi = grid[max(i - 1, 0)], grid[min(i + 1, len(grid) - 1)]
-    r = minimize_scalar(logd, bounds=(lo, hi), method="bounded", options={"xatol": 1e-10})
-    return min(1.0, math.exp(min(r.fun, vals[i])))
-
-
-def ledger_epsilon(entries, delta):
-    """Smallest eps the ledger states at total delta <= `delta` (Prop. 800 b, c):
-    the zCDP conversion, or basic composition when every entry is pure or
-    approximate and that is smaller (both are valid, so their minimum is)."""
-    rho, d0 = compose(entries)
-    if d0 >= delta:
-        return math.inf
-    if rho == 0:
-        return 0.0
-    target = delta - d0
-    hi = rho + 2 * math.sqrt(rho * math.log(1 / target)) + 1
-    eps = brentq(lambda e: cks_delta(rho, e) - target, 0.0, hi, xtol=1e-9)
-    if all(e["kind"] in ("pure", "approx") for e in entries):
-        if sum(e.get("delta", 0.0) for e in entries) <= delta:
-            eps = min(eps, sum(e["epsilon"] for e in entries))
-    return eps
+from relsynth.governance.accounting import compose, to_azcdp  # noqa: E402,F401
+from relsynth.governance.accounting import epsilon_of as _eps_of  # noqa: E402
+from relsynth.governance.accounting import ledger_epsilon  # noqa: E402
 
 
 def classic_epsilon(rho, delta):
@@ -168,70 +112,43 @@ def test_C801_period_caps_understate_lifetime_loss():
 # Reservation protocol (Prop. 802)
 # ---------------------------------------------------------------------------
 
-class Ledger:
-    """Append-only ledger for one privacy domain with a lifetime cap on rho.
-
-    reserve -> (touch data) -> settle(actual) | crash.  A reservation is
-    refunded only if the run never touched data; otherwise it is charged in
-    full until settled with the accountant's figure, which is at most the
-    reservation."""
-
-    def __init__(self, cap):
-        self.cap, self.lock, self.log = cap, threading.Lock(), []
-
-    def charged(self):
-        state = {}
-        for op, run, x in self.log:
-            if op == "reserve":
-                state[run] = x
-            elif op == "settle":
-                state[run] = x
-            elif op == "release":
-                state[run] = 0.0
-        return sum(state.values())
-
-    def reserve(self, run, rho):
-        with self.lock:
-            if self.charged() + rho > self.cap + 1e-12:
-                return False
-            self.log.append(("reserve", run, rho))
-            return True
-
-    def touched(self, run):
-        with self.lock:
-            self.log.append(("touch", run, None))
-
-    def settle(self, run, actual):
-        with self.lock:
-            reserved = [x for op, r, x in self.log if op == "reserve" and r == run][-1]
-            if actual > reserved + 1e-12:
-                raise ValueError("a run may not spend more than it reserved")
-            self.log.append(("settle", run, actual))
-
-    def release(self, run):
-        with self.lock:
-            if any(op == "touch" and r == run for op, r, _ in self.log):
-                raise ValueError("a run that touched data cannot be refunded")
-            self.log.append(("release", run, None))
+def _ledger(tmp, cap_rho):
+    from relsynth import governance as G
+    owner = G.Signer.generate("owner")
+    reg = G.LocalRegistry.create(tmp, owner)
+    eps = _eps_of(cap_rho, 1e-9)
+    pol = G.policy.load({
+        "schema": "relsynth.org-policy/1", "organisation": "test", "version": "1",
+        "privacy_owner": {"name": "o", "role": "dpo"},
+        "domains": {"d": {"unit": {"entity": "P"}, "sources": [{"id": "s"}],
+                          "budget": {"accounting": "zcdp", "delta": 1e-9, "lifetime": {"epsilon": eps}}}},
+        "contexts": {"internal": {"external": False, "dp_required": False, "limits": {},
+                                  "approval": {"on_verdicts": ["review"], "approver_roles": ["dpo"]}}}})
+    return G.Ledger(reg, pol), pol.caps("d").lifetime_rho
 
 
-def test_C802_reservations_never_undercharge():
+def test_C802_reservations_never_undercharge(tmp_path):
     """Prop. 802: with reserve-before-read, refunds only without data access
     and settlement at most the reservation, the charged total is at least the
-    true privacy loss and at most the cap, under concurrency and crashes."""
+    true privacy loss and at most the cap, under concurrency and crashes
+    (relsynth.governance.Ledger on a LocalRegistry)."""
+    from relsynth.errors import PrivacyError
     for trial in range(20):
-        led, true_loss, tl_lock = Ledger(cap=1.0), [0.0], threading.Lock()
+        led, cap = _ledger(tmp_path / f"r{trial}", 1.0)
+        true_loss, tl_lock = [0.0], threading.Lock()
         rnd = random.Random(trial)
 
         def run(i, rnd_seed):
             r = random.Random(rnd_seed)
             want = r.uniform(0.02, 0.3)
-            if not led.reserve(i, want):
+            try:
+                led.reserve("d", f"run{i}", want)
+            except PrivacyError:
                 return
             if r.random() < 0.2:          # gives up before reading data
-                led.release(i)
+                led.release("d", f"run{i}")
                 return
-            led.touched(i)
+            led.touch("d", f"run{i}")
             steps = r.randint(1, 5)
             spent = 0.0
             for _ in range(steps):
@@ -242,96 +159,82 @@ def test_C802_reservations_never_undercharge():
                 spent += want / steps * r.uniform(0.5, 1.0)
             with tl_lock:
                 true_loss[0] += spent
-            led.settle(i, spent)
+            led.settle("d", f"run{i}", spent)
 
         threads = [threading.Thread(target=run, args=(i, rnd.random())) for i in range(40)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        assert led.charged() <= led.cap + 1e-9
-        assert led.charged() >= true_loss[0] - 1e-9
-    with pytest.raises(ValueError):
-        led = Ledger(1.0)
-        led.reserve("x", 0.1)
-        led.touched("x")
-        led.release("x")
+        charged = led.summary("d")["rho"]
+        assert charged <= cap + 1e-9
+        assert charged >= true_loss[0] - 1e-9
+    led, _ = _ledger(tmp_path / "x", 1.0)
+    led.reserve("d", "x", 0.1)
+    led.touch("d", "x")
+    with pytest.raises(PrivacyError):
+        led.release("d", "x")
 
 
 # ---------------------------------------------------------------------------
 # Hash chain and signed checkpoints (Prop. 803)
 # ---------------------------------------------------------------------------
 
-def canon(obj) -> bytes:
-    """Canonical JSON for the objects relsynth writes (strings, integers,
-    booleans, null, lists, objects; no floats in hashed fields).  On that
-    subset this equals RFC 8785 (JCS) output."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-
-
-GENESIS = "0" * 64
-
-
-def append(chain, body):
-    prev = chain[-1]["hash"] if chain else GENESIS
-    h = hashlib.sha256(prev.encode() + canon(body)).hexdigest()
-    chain.append({"seq": len(chain), "prev": prev, "body": body, "hash": h})
-
-
-def verify(chain, checkpoint, pub):
-    """True iff the chain is intact and ends at the signed checkpoint."""
-    from cryptography.exceptions import InvalidSignature
-    try:
-        pub.verify(bytes.fromhex(checkpoint["sig"]), canon({"seq": checkpoint["seq"], "hash": checkpoint["hash"]}))
-    except InvalidSignature:
-        return False
-    prev = GENESIS
-    for i, e in enumerate(chain):
-        if e["seq"] != i or e["prev"] != prev:
-            return False
-        if hashlib.sha256(prev.encode() + canon(e["body"])).hexdigest() != e["hash"]:
-            return False
-        prev = e["hash"]
-    return len(chain) - 1 == checkpoint["seq"] and prev == checkpoint["hash"]
-
-
-def test_C803_tampering_is_detected():
+def test_C803_tampering_is_detected(tmp_path):
     """Prop. 803: any edit, deletion, insertion, reordering or truncation of
     the log before a signed checkpoint is detected; a forged checkpoint is
-    rejected."""
-    ed = pytest.importorskip("cryptography.hazmat.primitives.asymmetric.ed25519")
-    key = ed.Ed25519PrivateKey.generate()
-    pub = key.public_key()
-    chain = []
-    for i in range(200):
-        append(chain, {"type": "run", "run_id": f"r{i}", "rho_milli": i % 17, "verdict": ["pass", "review"][i % 2]})
-    cp = {"seq": len(chain) - 1, "hash": chain[-1]["hash"]}
-    cp["sig"] = key.sign(canon(cp)).hex()
-    assert verify(chain, cp, pub)
-
+    rejected (relsynth.governance.LocalRegistry and verify_registry)."""
     import copy
+    import hashlib as _h
+
+    from relsynth import governance as G
+    from relsynth.governance.registry import chain_hash
+    owner = G.Signer.generate("owner")
+    reg = G.LocalRegistry.create(tmp_path / "reg", owner)
+    for i in range(200):
+        reg.append({"type": "note", "run_id": f"r{i}", "rho_milli": i % 17, "verdict": ["pass", "review"][i % 2]})
+    reg.checkpoint(owner)
+    assert G.verify_registry(reg) == []
+    log = reg.root / "log.jsonl"
+    good = log.read_text().splitlines()
     rnd = random.Random(803)
     detected = 0
     for trial in range(400):
-        c = copy.deepcopy(chain)
+        c = [json.loads(x) for x in good]
         kind = trial % 5
-        j = rnd.randrange(1, len(c) - 1)
+        j = rnd.randrange(2, len(c) - 2)
         if kind == 0:                      # edit one field
-            c[j]["body"]["rho_milli"] += 1
+            c[j]["entry"]["rho_milli"] = c[j]["entry"].get("rho_milli", 0) + 1
         elif kind == 1:                    # delete an entry
             del c[j]
-        elif kind == 2:                    # insert a forged entry
-            c.insert(j, {"seq": j, "prev": c[j - 1]["hash"], "body": {"type": "run", "run_id": "x"},
-                         "hash": hashlib.sha256(c[j - 1]["hash"].encode() + canon({"type": "run", "run_id": "x"})).hexdigest()})
+        elif kind == 2:                    # insert a forged entry with a correct local hash
+            e = {"type": "note", "run_id": "x"}
+            c.insert(j, {"seq": j, "prev": c[j - 1]["hash"], "entry": e, "hash": chain_hash(c[j - 1]["hash"], e)})
         elif kind == 3:                    # swap two entries
             c[j], c[j + 1] = c[j + 1], c[j]
         else:                              # truncate the tail
             c = c[:j]
-        detected += not verify(c, cp, pub)
+        log.write_text("\n".join(json.dumps(x) for x in c) + "\n")
+        detected += bool(G.verify_registry(reg))
     assert detected == 400
-
-    forged = dict(cp, hash=hashlib.sha256(b"other").hexdigest())
-    assert not verify(chain, forged, pub)
-    other = ed.Ed25519PrivateKey.generate()
-    resigned = {"seq": cp["seq"], "hash": cp["hash"], "sig": other.sign(canon({"seq": cp["seq"], "hash": cp["hash"]})).hex()}
-    assert not verify(chain, resigned, pub)
+    log.write_text("\n".join(good) + "\n")
+    assert G.verify_registry(reg) == []
+    # a recomputed chain after an edit (an operator without the checkpoint key) fails the checkpoint
+    c = [json.loads(x) for x in good]
+    c[5]["entry"]["verdict"] = "edited"
+    prev = "0" * 64
+    for x in c:
+        x["prev"] = prev
+        x["hash"] = chain_hash(prev, x["entry"])
+        prev = x["hash"]
+    log.write_text("\n".join(json.dumps(x) for x in c) + "\n")
+    assert any("checkpoint" in p for p in G.verify_registry(reg))
+    # a checkpoint signed by a key the registry does not trust is rejected
+    log.write_text("\n".join(good) + "\n")
+    cpf = sorted((reg.root / "checkpoints").glob("*.dsse"))[-1]
+    cp = json.loads(cpf.read_text())
+    st = G.payload(cp)
+    st["predicate"]["hash"] = _h.sha256(b"other").hexdigest()
+    cpf.write_text(json.dumps(G.envelope(st, G.Signer.generate("mallory"))))
+    assert any("checkpoint" in p for p in G.verify_registry(reg))
+    _ = copy

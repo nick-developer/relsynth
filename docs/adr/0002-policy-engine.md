@@ -31,7 +31,7 @@ Use **OPA with Rego** for release policy.
 3. The inputs are documents (manifests and reports), not principal-action-resource triples. This is OPA's home ground.
 4. OPA is the more mature project (CNCF graduated). Its maintainer change in 2025 did not change its governance.
 
-relsynth runs OPA as a pinned static binary that it calls with `opa eval`, or as a sidecar in the T09 service. The binary's version goes into every manifest (`policy.engine`). The built-in rules ship as `relsynth/governance/policies/release.rego`, a draft of which is in `docs/governance/examples/policies/`. Organisations add their own modules in `package relsynth.org`. These modules can add deny reasons but cannot remove any.
+relsynth runs OPA as a pinned static binary that it calls with `opa eval`, or as a sidecar in the T09 service. The binary's version goes into every manifest (`policy.engine`). The built-in rules ship as `relsynth/governance/rego/release.rego`. A Python port of the same rules (`engine: builtin`, the default) runs them without the binary; CI runs `opa test` and checks both engines agree on every fixture. `engine: opa` is required when the organisation adds its own modules. Organisations add their own modules in `package relsynth.org`. These modules can add deny reasons but cannot remove any.
 
 ## Defence in depth
 

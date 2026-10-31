@@ -1,6 +1,6 @@
 # Governance core and differential privacy for releases: design (T08)
 
-- Status: design accepted by the user, 2026-10-27 (decisions in §17). Build follows in wave C, after T03; the DP engine itself is T07.
+- Status: design accepted by the user, 2026-10-27 (decisions in §17). Build items 1–4 of §15 are implemented in `relsynth.governance` (2026-10-30; [user guide](guide.md)); item 5 comes with the DP engine (T07), item 6 (lineage) is open. One change from this design: the release rules run in a built-in Python port of `release.rego` by default, and OPA is needed only for the organisation's own Rego modules (ADR 0002 updated).
 - Scope: run manifests, signing and tamper evidence, the registry, the policy engine, approvals, lineage and catalogs, and the organisation's privacy budget. The budget is the part of differential privacy that spans runs. It answers three questions: who sets ε, how spending is tracked across releases, and how a release outside the organisation is refused without DP.
 - Not in scope: DP mechanisms, the accountant inside a run, and the DP-safe pipeline (all T07); the service, UI and identity provider (T09).
 - Companion files: [ADR 0002](../adr/0002-policy-engine.md) (OPA vs Cedar); schemas in [schemas/](schemas/); examples in [examples/](examples/); Propositions 800–803 in `docs/proofs/sec_v25_governance.tex`; checks C800–C803 in `tests/science/test_governance_checks.py`.
@@ -227,7 +227,7 @@ OPA with Rego; see [ADR 0002](../adr/0002-policy-engine.md). The release rules c
 }
 ```
 
-It returns `{"allow": bool, "approval_required": bool, "reasons": [...]}`. Python verifies the signatures of approvals before they enter the input, and converts ε caps to ρ (Rego only compares). The draft rules are in [examples/policies/release.rego](examples/policies/release.rego). Reasons read like:
+It returns `{"allow": bool, "approval_required": bool, "reasons": [...]}`. Python verifies the signatures of approvals before they enter the input, and converts ε caps to ρ (Rego only compares). The rules are in [release.rego](../../src/relsynth/governance/rego/release.rego); `relsynth.governance.decide.builtin` is a Python port of them that needs no OPA binary, and CI checks that both agree. Reasons read like:
 
 - "context "partner" is outside the organisation: differential privacy is required, and this run has none"
 - "domain "customers" would reach rho 0.47, above its lifetime cap 0.435 (epsilon 6 at delta 1e-09)"

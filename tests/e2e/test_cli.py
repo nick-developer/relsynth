@@ -224,3 +224,49 @@ def test_if_exists_fail_is_an_io_error(capsys, tmp_path, spec_file):
     p.write_text(yaml.safe_dump(spec))
     code, j, _ = jcli(capsys, "run", p, "--no-privacy", "--bundle", "")
     assert code == 3 and "if_exists: fail" in j["errors"][0]["error"]
+
+
+def test_governed_run_records_manifest_and_releases(capsys, tmp_path, spec_file):
+    """relsynth run --registry: a signed manifest, the policy's decision before
+    approval, then approve, release and verify (T08 acceptance, internal context)."""
+    pytest.importorskip("cryptography")
+    k = tmp_path / "keys"
+    for name in ("dpo", "ana"):
+        assert cli(capsys, "gov", "keys", "new", k / f"{name}.key", "--name", name)[0] == 0
+    reg = tmp_path / "reg"
+    assert cli(capsys, "gov", "init", reg, "--owner-key", k / "dpo.key")[0] == 0
+    pol = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), "..", "..", "docs", "governance", "examples",
+                                           "org-policy.yaml")))
+    pol["domains"]["customers"]["unit"]["entity"] = "customer"
+    pf = tmp_path / "policy.yaml"
+    pf.write_text(yaml.safe_dump(pol))
+    assert cli(capsys, "gov", "policy", "sign", pf, "--key", k / "dpo.key", "--registry", reg)[0] == 0
+    assert cli(capsys, "gov", "keys", "trust", k / "ana.pub.json", "--roles", "operator", "--owner-key", k / "dpo.key",
+               "--registry", reg)[0] == 0
+    # an external context without DP is refused before anything is read
+    code, j, _ = jcli(capsys, "run", spec_file, "--registry", reg, "--context", "partner", "--release-target",
+                      "partner-sftp", "--source-id", "dwh-prod", "--key", k / "ana.key")
+    assert code == 2 and "differential privacy is required" in j["error"]
+    rep = {"schema": "relsynth.privacy-report/1",
+           "contexts": {"internal": {"verdict": "review", "checks": []}}}
+    rf = tmp_path / "privacy_report.json"
+    rf.write_text(json.dumps(rep))
+    code, j, _ = jcli(capsys, "run", spec_file, "--no-privacy", "--registry", reg, "--context", "internal",
+                      "--release-target", "dev-sandbox", "--source-id", "dwh-prod", "--key", k / "ana.key",
+                      "--privacy-report", rf)
+    assert code == 0, (j.get("error"), j.get("errors"))
+    run = j["governance"]["run"]
+    assert not j["governance"]["decision"]["allow"]          # a review verdict needs a named approval
+    code, j, _ = jcli(capsys, "gov", "release", run, "--context", "internal", "--target", "dev-sandbox",
+                      "--key", k / "ana.key", "--registry", reg)
+    assert code == 1 and any("approval" in r for r in j["reasons"])
+    assert cli(capsys, "gov", "approve", run, "--context", "internal", "--key", k / "dpo.key", "--registry", reg)[0] == 0
+    code, j, _ = jcli(capsys, "gov", "release", run, "--context", "internal", "--target", "dev-sandbox",
+                      "--key", k / "ana.key", "--registry", reg, "--out", tmp_path / "pkg")
+    assert code == 0 and j["allow"]
+    assert cli(capsys, "gov", "verify", tmp_path / "pkg")[0] == 0
+    assert cli(capsys, "gov", "verify", reg)[0] == 0
+    code, j, _ = jcli(capsys, "gov", "ls", "--registry", reg)
+    assert [r["state"] for r in j["runs"]] == ["released"]
+    code, j, _ = jcli(capsys, "gov", "budget", "--registry", reg)
+    assert j["budget"]["customers"]["nondp_releases"] == [run]
