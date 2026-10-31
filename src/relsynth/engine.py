@@ -364,8 +364,9 @@ class Synthesizer:
         self.log = {"warnings": [], "errors": [], "timings": {}, "source": {}, "decisions": {}}
 
     def _k(self, group, key, default):
-        """A setting of the synthesis block (relsynth.settings), default when absent."""
-        return (self.cfg.get(group) or {}).get(key, default)
+        """A setting of the synthesis block (relsynth.settings), default when absent
+        (also on a bare instance without cfg, as the science checks build one)."""
+        return ((getattr(self, "cfg", None) or {}).get(group) or {}).get(key, default)
 
     # ================================================================== fit
     def fit(self, tables: dict[str, pd.DataFrame], stats=None):
