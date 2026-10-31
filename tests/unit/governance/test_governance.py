@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import copy
 import json
+import re
 import sys
 import threading
 from pathlib import Path
@@ -391,9 +392,21 @@ def test_external_dp_release_with_quorum_and_token(people, tmp_path):
 
 def test_manifest_holds_no_data_or_credentials(people):
     rr = _record(people)
-    raw = json.dumps(rr.statement)
+
+    def leaves(o):
+        if isinstance(o, dict):
+            for x in o.values():
+                yield from leaves(x)
+        elif isinstance(o, list):
+            for x in o:
+                yield from leaves(x)
+        else:
+            yield o
+    # key ids, signatures and digests are random-looking text that may contain any short string by chance
+    opaque = re.compile(r"^[A-Za-z0-9+/=:_-]{20,}$")
+    text = [str(x) for x in leaves(rr.statement) if not (isinstance(x, str) and opaque.match(x))]
     for v in ("secret", "db.internal", "GR", "9.9"):
-        assert v not in raw
+        assert not any(v in x for x in text), v
     assert G.verify_registry(people["reg"]) == []
 
 
