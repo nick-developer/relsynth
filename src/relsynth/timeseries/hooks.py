@@ -18,6 +18,7 @@ columns of a dataset are the same as without the sequence model.
 """
 from __future__ import annotations
 
+import functools
 import re
 
 import numpy as np
@@ -143,16 +144,9 @@ def fit_sequences(S, tables):
 
         k_seq = len(S.seq)
 
-        def draw(rng, m=m, S=S, k=k_seq):
-            # its own parameter stream per dataset: drawing from the engine's stream
-            # would change every parameter drawn after it (Prop. 1203)
-            from ..posterior import MeanRNG
-            if isinstance(rng, MeanRNG):
-                m.redraw(None)
-                return
-            base = S.cfg["seed"] if S.cfg["posterior"].get("sample_seed") is None else S.cfg["posterior"]["sample_seed"]
-            m.redraw(np.random.default_rng(np.random.SeedSequence([int(base), 1202, int(S._runs), k])))
-        S._register(draw, now=False)
+        # a module-level function, not a closure: the synthesizer is pickled to the
+        # worker processes of a partitioned run (spawn start on macOS and Windows)
+        S._register(functools.partial(_redraw_sequence, m, S, k_seq), now=False)
         S.log["decisions"].setdefault(t, {})["sequence"] = (
             f"event times of each {P} row redrawn jointly (sequence model, {K} segment(s), window "
             f"{[b[:2] for b in bounds] or 'global'})")
@@ -318,6 +312,18 @@ def fit_series(S, tables):
                        "parent_key": rel.get("parent_key") or S.user_spec["tables"][rel["parent"]]["primary_key"]}
         S.log["decisions"].setdefault(t, {})["series"] = (
             f"regular series per {rel['parent']} row: {m.summary()}")
+
+
+def _redraw_sequence(m, S, k, rng):
+    """The sequence model's posterior draw for a dataset, from its own parameter
+    stream: drawing from the engine's stream would change every parameter drawn
+    after it (Prop. 1203)."""
+    from ..posterior import MeanRNG
+    if isinstance(rng, MeanRNG):
+        m.redraw(None)
+        return
+    base = S.cfg["seed"] if S.cfg["posterior"].get("sample_seed") is None else S.cfg["posterior"]["sample_seed"]
+    m.redraw(np.random.default_rng(np.random.SeedSequence([int(base), 1202, int(S._runs), k])))
 
 
 def sample_series(S, ext, prng, index, mode="draw"):

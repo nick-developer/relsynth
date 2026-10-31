@@ -367,7 +367,7 @@ def test_sequence_runs_in_the_partitioned_runtime(tmp_path):
     o, c = ref["Orders"], ref["Customer"]
     end = c.set_index("CustomerKey")["EndDT"].reindex(o["CustomerKey"]).to_numpy()
     assert (pd.to_datetime(o["OrderDate"]).to_numpy() < pd.to_datetime(end)).all()
-    got, run = sample_partitioned(syn, index=0, executor=ProcessExecutor(2), partition_rows=150)
+    got, run = sample_partitioned(syn, index=0, executor=ProcessExecutor(2, start="spawn"), partition_rows=150)
     assert any(len(p.blocks) > 1 for p in run.facts)
     for t in ref:
         pd.testing.assert_frame_equal(ref[t], got[t])
