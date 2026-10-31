@@ -54,6 +54,9 @@ jobs:
         run: python tools/check_spdx.py
       - name: Dependency licences
         run: python tools/check_licenses.py --report licenses.md && cat licenses.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Claim register (every documented claim traces to a proof, test or report)
+        shell: bash   # -o pipefail: the step fails when the check does
+        run: python tools/claims_check.py --json claims-resolved.json | tee -a "$GITHUB_STEP_SUMMARY"
 
   types:
     runs-on: ubuntu-latest

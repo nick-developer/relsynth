@@ -1,0 +1,803 @@
+{
+ "raw_release": {
+  "pooled": {
+   "classifier": {
+    "auc": 0.9991759122193906,
+    "auc_ci": [
+     0.99666937035169,
+     1.0
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": -1.2112150326749518,
+      "tpr": 1.0,
+      "tpr_ci": [
+       0.9722333948899635,
+       1.0
+      ],
+      "fpr": 0.08,
+      "fpr_ci": [
+       0.039029918964379615,
+       0.14220310282821583
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": 0.11098656240664218,
+      "tpr": 0.9770992366412213,
+      "tpr_ci": [
+       0.9345334122372114,
+       0.9952521819713963
+      ],
+      "fpr": 0.016,
+      "fpr_ci": [
+       0.0019435818023689144,
+       0.05660211961975487
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 1.0,
+    "mean_auc_random": 0.9934612171454277
+   },
+   "lira": {
+    "auc": 1.0,
+    "auc_ci": [
+     0.9997588511379375,
+     1.0
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": -2.9668408199996972e+16,
+      "tpr": 1.0,
+      "tpr_ci": [
+       0.9722333948899635,
+       1.0
+      ],
+      "fpr": 0.136,
+      "fpr_ci": [
+       0.08126488247065346,
+       0.20879827174915336
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": -4741775848828320.0,
+      "tpr": 1.0,
+      "tpr_ci": [
+       0.9722333948899635,
+       1.0
+      ],
+      "fpr": 0.008,
+      "fpr_ci": [
+       0.0002025219535342447,
+       0.04376653637502473
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 1.0,
+    "mean_auc_random": 1.0
+   }
+  },
+  "seconds": 30.484925508499146,
+  "targets": [
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.43342925,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.980113456,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3453256514,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9849263561,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3448868303,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9846193699,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.331607959,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9846193699,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3291765998,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9852547964,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3218197399,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9842116397,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3193475163,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9842116397,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3160277824,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9836935634,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0003784228,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9830504492,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0839446355,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9836935634,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0022037225,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9836935634,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0868692697,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9846193699,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0259393387,
+    "classifier_auc": 0.963562753,
+    "classifier_auc_ci": [
+     0.8887324745,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0613782024,
+    "classifier_auc": 0.9841269841,
+    "classifier_auc_ci": [
+     0.9362273945,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0638613695,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9836935634,
+     1.0
+    ],
+    "lira_auc": 1.0
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.1063787166,
+    "classifier_auc": 1.0,
+    "classifier_auc_ci": [
+     0.9852547964,
+     1.0
+    ],
+    "lira_auc": 1.0
+   }
+  ]
+ },
+ "population_marginals": {
+  "pooled": {
+   "classifier": {
+    "auc": 0.5188395623178231,
+    "auc_ci": [
+     0.46872879166045267,
+     0.5689503329751936
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": 2.20991270006166,
+      "tpr": 0.0916030534351145,
+      "tpr_ci": [
+       0.048232606292222584,
+       0.15454525591786367
+      ],
+      "fpr": 0.104,
+      "fpr_ci": [
+       0.05654885749481344,
+       0.17127618765792438
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": 4.386018017607288,
+      "tpr": 0.007633587786259542,
+      "tpr_ci": [
+       0.00019324703518952029,
+       0.04179686306423274
+      ],
+      "fpr": 0.016,
+      "fpr_ci": [
+       0.0019435818023689144,
+       0.05660211961975487
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 0.5520616070765427,
+    "mean_auc_random": 0.4866884582780481
+   },
+   "lira": {
+    "auc": 0.5421429334472814,
+    "auc_ci": [
+     0.49214519743486046,
+     0.5921406694597022
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": 0.5618522521772137,
+      "tpr": 0.08396946564885496,
+      "tpr_ci": [
+       0.04266381778741492,
+       0.14527746052856297
+      ],
+      "fpr": 0.136,
+      "fpr_ci": [
+       0.08126488247065346,
+       0.20879827174915336
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": 1.135342736759033,
+      "tpr": 0.030534351145038167,
+      "tpr_ci": [
+       0.008381012720473995,
+       0.07633430782864756
+      ],
+      "fpr": 0.048,
+      "fpr_ci": [
+       0.017816322500502527,
+       0.10154868108862163
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 0.5174770452688652,
+    "mean_auc_random": 0.5735635397883849
+   }
+  },
+  "seconds": 21.80527138710022,
+  "targets": [
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.43342925,
+    "classifier_auc": 0.4978354978,
+    "classifier_auc_ci": [
+     0.2800580488,
+     0.7156129469
+    ],
+    "lira_auc": 0.5194805195
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3453256514,
+    "classifier_auc": 0.496031746,
+    "classifier_auc_ci": [
+     0.2878888033,
+     0.7041746888
+    ],
+    "lira_auc": 0.4603174603
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3448868303,
+    "classifier_auc": 0.5254901961,
+    "classifier_auc_ci": [
+     0.3136429373,
+     0.7373374548
+    ],
+    "lira_auc": 0.568627451
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.331607959,
+    "classifier_auc": 0.5803921569,
+    "classifier_auc_ci": [
+     0.3719611429,
+     0.7888231708
+    ],
+    "lira_auc": 0.4980392157
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3291765998,
+    "classifier_auc": 0.475,
+    "classifier_auc_ci": [
+     0.2594458818,
+     0.6905541182
+    ],
+    "lira_auc": 0.5958333333
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3218197399,
+    "classifier_auc": 0.62890625,
+    "classifier_auc_ci": [
+     0.4295139593,
+     0.8282985407
+    ],
+    "lira_auc": 0.5078125
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3193475163,
+    "classifier_auc": 0.7265625,
+    "classifier_auc_ci": [
+     0.542900964,
+     0.910224036
+    ],
+    "lira_auc": 0.625
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3160277824,
+    "classifier_auc": 0.4862745098,
+    "classifier_auc_ci": [
+     0.2778460265,
+     0.6947029931
+    ],
+    "lira_auc": 0.3647058824
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0003784228,
+    "classifier_auc": 0.6587301587,
+    "classifier_auc_ci": [
+     0.4640569045,
+     0.853403413
+    ],
+    "lira_auc": 0.5119047619
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0839446355,
+    "classifier_auc": 0.4392156863,
+    "classifier_auc_ci": [
+     0.2323035469,
+     0.6461278256
+    ],
+    "lira_auc": 0.5098039216
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0022037225,
+    "classifier_auc": 0.4196078431,
+    "classifier_auc_ci": [
+     0.2101367881,
+     0.6290788982
+    ],
+    "lira_auc": 0.6196078431
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0868692697,
+    "classifier_auc": 0.6156862745,
+    "classifier_auc_ci": [
+     0.4131932841,
+     0.8181792649
+    ],
+    "lira_auc": 0.5098039216
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0259393387,
+    "classifier_auc": 0.5263157895,
+    "classifier_auc_ci": [
+     0.3063329665,
+     0.7462986124
+    ],
+    "lira_auc": 0.6761133603
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0613782024,
+    "classifier_auc": 0.3650793651,
+    "classifier_auc_ci": [
+     0.1608218281,
+     0.569336902
+    ],
+    "lira_auc": 0.6666666667
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0638613695,
+    "classifier_auc": 0.4980392157,
+    "classifier_auc_ci": [
+     0.2874305483,
+     0.708647883
+    ],
+    "lira_auc": 0.6196078431
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.1063787166,
+    "classifier_auc": 0.3708333333,
+    "classifier_auc_ci": [
+     0.1576055915,
+     0.5840610752
+    ],
+    "lira_auc": 0.475
+   }
+  ]
+ },
+ "relsynth": {
+  "pooled": {
+   "classifier": {
+    "auc": 0.5596013856883423,
+    "auc_ci": [
+     0.5098937038662978,
+     0.6093090675103867
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": 2.6063852139943546,
+      "tpr": 0.1450381679389313,
+      "tpr_ci": [
+       0.08963828061992946,
+       0.21719465157818257
+      ],
+      "fpr": 0.096,
+      "fpr_ci": [
+       0.05059487235144333,
+       0.16168861021681072
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": 5.815694092479607,
+      "tpr": 0.015267175572519083,
+      "tpr_ci": [
+       0.001854303171805998,
+       0.054061380891561546
+      ],
+      "fpr": 0.016,
+      "fpr_ci": [
+       0.0019435818023689144,
+       0.05660211961975487
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 0.6299340320882141,
+    "mean_auc_random": 0.5027984979416869
+   },
+   "lira": {
+    "auc": 0.5259969173012652,
+    "auc_ci": [
+     0.4758126850708006,
+     0.5761811495317298
+    ],
+    "tpr_at_fpr": [
+     {
+      "fpr_target": 0.1,
+      "identified": true,
+      "threshold": 0.7686906405436926,
+      "tpr": 0.16793893129770993,
+      "tpr_ci": [
+       0.10834144127007268,
+       0.2431481762266256
+      ],
+      "fpr": 0.104,
+      "fpr_ci": [
+       0.05654885749481344,
+       0.17127618765792438
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.01,
+      "identified": true,
+      "threshold": 2.407364492432068,
+      "tpr": 0.030534351145038167,
+      "tpr_ci": [
+       0.008381012720473995,
+       0.07633430782864756
+      ],
+      "fpr": 0.008,
+      "fpr_ci": [
+       0.0002025219535342447,
+       0.04376653637502473
+      ],
+      "n_members": 131,
+      "n_non_members": 125
+     },
+     {
+      "fpr_target": 0.001,
+      "identified": false,
+      "reason": "needs at least 1000 calibration non-members, has 134"
+     }
+    ],
+    "mean_auc_vulnerable": 0.6120990713993931,
+    "mean_auc_random": 0.4158300575628362
+   }
+  },
+  "seconds": 234.679758310318,
+  "targets": [
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.43342925,
+    "classifier_auc": 0.5930735931,
+    "classifier_auc_ci": [
+     0.3797583997,
+     0.8063887865
+    ],
+    "lira_auc": 0.4761904762
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3453256514,
+    "classifier_auc": 0.7420634921,
+    "classifier_auc_ci": [
+     0.5706598402,
+     0.9134671439
+    ],
+    "lira_auc": 0.4920634921
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3448868303,
+    "classifier_auc": 0.5921568627,
+    "classifier_auc_ci": [
+     0.3887593939,
+     0.7955543316
+    ],
+    "lira_auc": 0.6039215686
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.331607959,
+    "classifier_auc": 0.7058823529,
+    "classifier_auc_ci": [
+     0.5154357856,
+     0.8963289203
+    ],
+    "lira_auc": 0.6862745098
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3291765998,
+    "classifier_auc": 0.7791666667,
+    "classifier_auc_ci": [
+     0.6064452123,
+     0.951888121
+    ],
+    "lira_auc": 0.675
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3218197399,
+    "classifier_auc": 0.55859375,
+    "classifier_auc_ci": [
+     0.3429323257,
+     0.7742551743
+    ],
+    "lira_auc": 0.6953125
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3193475163,
+    "classifier_auc": 0.5234375,
+    "classifier_auc_ci": [
+     0.3119292526,
+     0.7349457474
+    ],
+    "lira_auc": 0.65234375
+   },
+   {
+    "kind": "vulnerable",
+    "vulnerability": 0.3160277824,
+    "classifier_auc": 0.5450980392,
+    "classifier_auc_ci": [
+     0.3356295023,
+     0.7545665761
+    ],
+    "lira_auc": 0.6156862745
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0003784228,
+    "classifier_auc": 0.5357142857,
+    "classifier_auc_ci": [
+     0.327232337,
+     0.7441962344
+    ],
+    "lira_auc": 0.4007936508
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0839446355,
+    "classifier_auc": 0.4352941176,
+    "classifier_auc_ci": [
+     0.2283360969,
+     0.6422521384
+    ],
+    "lira_auc": 0.4078431373
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0022037225,
+    "classifier_auc": 0.4274509804,
+    "classifier_auc_ci": [
+     0.2192959922,
+     0.6356059686
+    ],
+    "lira_auc": 0.3764705882
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0868692697,
+    "classifier_auc": 0.7019607843,
+    "classifier_auc_ci": [
+     0.5031560303,
+     0.9007655384
+    ],
+    "lira_auc": 0.4941176471
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0259393387,
+    "classifier_auc": 0.4412955466,
+    "classifier_auc_ci": [
+     0.2354843371,
+     0.647106756
+    ],
+    "lira_auc": 0.4291497976
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0613782024,
+    "classifier_auc": 0.3571428571,
+    "classifier_auc_ci": [
+     0.1500770948,
+     0.5642086195
+    ],
+    "lira_auc": 0.3650793651
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.0638613695,
+    "classifier_auc": 0.6235294118,
+    "classifier_auc_ci": [
+     0.4196656839,
+     0.8273931396
+    ],
+    "lira_auc": 0.4156862745
+   },
+   {
+    "kind": "random",
+    "vulnerability": 0.1063787166,
+    "classifier_auc": 0.5,
+    "classifier_auc_ci": [
+     0.2885953354,
+     0.7114046646
+    ],
+    "lira_auc": 0.4375
+   }
+  ]
+ }
+}

@@ -2,6 +2,8 @@
 
 `relsynth privacy` attacks a synthetic release the way a recipient could, person by person, and writes a privacy report with one page per release context (internal, partner, public). A data protection officer can read the pages without the annex; the annex and the JSON file hold the technical results.
 
+For the people who approve a release, the assurance case, the regulation mapping and a DPIA template are in [docs/assurance](assurance/README.md).
+
 ```bash
 relsynth privacy spec.yaml --config privacy.yaml --out privacy_report --cache .relsynth-cache --jobs 4
 relsynth privacy spec.yaml --config privacy.yaml --context internal --fail-on review   # CI gate: exit 1
