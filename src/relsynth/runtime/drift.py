@@ -186,7 +186,7 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
         types = {r[0]: r[1] for r in con.execute("DESCRIBE rs_t").fetchall()}
         exprs = [_expr(b) for b in by]
         part = " || '|' || ".join(f"COALESCE(CAST({e} AS VARCHAR), '<null>')" for e, _ in exprs)
-        con.execute(f"CREATE TEMP VIEW rs_p AS SELECT *, {part} AS rs_part FROM rs_t")   # noqa: S608 - quoted names
+        con.execute(f"CREATE TEMP VIEW rs_p AS SELECT *, {part} AS rs_part FROM rs_t")   # noqa: S608  # nosec B608 - quoted names
         k, rows = con.execute("SELECT count(DISTINCT rs_part), count(*) FROM rs_p").fetchone() or (0, 0)
         used = {parse_col(b) for b in by}
         todo = [c for c in (columns or cols) if c not in used and c in types]
@@ -197,7 +197,7 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
             if t.startswith(("DATE", "TIMESTAMP")):
                 q, t = f"epoch(CAST({q} AS TIMESTAMP))", "DOUBLE"           # times are compared as numbers
             if any(x in t for x in ("INT", "DOUBLE", "FLOAT", "DECIMAL", "REAL", "NUMERIC")) and "[]" not in t:
-                g = con.execute(f"SELECT count({q}), avg({q}), var_samp({q}) FROM rs_p GROUP BY rs_part").fetchall()  # noqa: S608
+                g = con.execute(f"SELECT count({q}), avg({q}), var_samp({q}) FROM rs_p GROUP BY rs_part").fetchall()  # noqa: S608  # nosec B608
                 g = [x for x in g if x[0]]
                 if len(g) < 2:
                     continue
@@ -207,12 +207,12 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
                             "effect_name": "eta2", "effect": e, "kind": "numeric"})
             elif not any(x in t for x in ("[]", "STRUCT", "MAP", "BLOB")):
                 top = [r[0] for r in con.execute(
-                    f"SELECT CAST({q} AS VARCHAR) v FROM rs_p WHERE {q} IS NOT NULL GROUP BY v "  # noqa: S608
+                    f"SELECT CAST({q} AS VARCHAR) v FROM rs_p WHERE {q} IS NOT NULL GROUP BY v "  # noqa: S608  # nosec B608
                     f"ORDER BY count(*) DESC, v LIMIT {MAX_LEVELS}").fetchall()]
                 if len(top) < 2:
                     continue
                 lv = con.execute(
-                    f"SELECT rs_part, CASE WHEN CAST({q} AS VARCHAR) IN (SELECT unnest(?)) THEN CAST({q} AS VARCHAR) "  # noqa: S608
+                    f"SELECT rs_part, CASE WHEN CAST({q} AS VARCHAR) IN (SELECT unnest(?)) THEN CAST({q} AS VARCHAR) "  # noqa: S608  # nosec B608
                     f"ELSE '<other>' END v, count(*) FROM rs_p WHERE {q} IS NOT NULL GROUP BY ALL", [top]).fetchdf()
                 tab = lv.pivot_table(index=lv.columns[0], columns="v", values=lv.columns[2], aggfunc="sum",
                                     fill_value=0).to_numpy()
