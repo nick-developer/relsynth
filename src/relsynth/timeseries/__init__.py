@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Time series and event sequences (roadmap T12, release 3.2).
+"""Time series and event sequences (roadmap T12, released in 2.0).
 
 * :mod:`.calendar`  operational time: seasonal and trend intensity per segment.
 * :mod:`.events`    the history of each entity's events (inter-arrival, burstiness,
