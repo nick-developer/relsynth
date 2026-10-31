@@ -273,6 +273,17 @@ def run(root: Path = ROOT) -> Result:
         for s in res.unclaimed.get(doc, []):
             res.problems.append(f"{doc}: unregistered claim: \"{s[:110]}\"")
 
+    ids = {c.get("id") for c in reg.get("claims", [])}
+    for path in sorted((root / REGISTER.parent).glob("*.md")):
+        rel = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        for ref in sorted(set(re.findall(r"\b(?:PRV|DP|SEC|GOV|RM)-\d+\b", text)) - ids):
+            res.problems.append(f"{rel}: cites {ref}, which the register does not have")
+        for label in sorted(set(re.findall(r"`(prop:[\w-]+)`", text)) - set(props)):
+            res.problems.append(f"{rel}: cites {label}, which the proofs do not define")
+        for cid in sorted(set(re.findall(r"\bC\d{2,4}\b", text)) - checks):
+            res.problems.append(f"{rel}: cites check {cid}, which does not exist")
+
     for path in sorted(root.glob("*.md")) + sorted((root / "docs").rglob("*.md")):
         rel = path.relative_to(root).as_posix()
         if rel.startswith(("docs/research/", "CHANGELOG")):

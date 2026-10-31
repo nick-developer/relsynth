@@ -108,6 +108,16 @@ def test_checker_catches_drift(tmp_path, doc, register, expect):
     assert any(expect in p for p in res.problems), res.problems
 
 
+def test_checker_catches_bad_citations_in_the_assurance_documents(tmp_path):
+    root = _mini_repo(tmp_path, GOOD, "Every key resolves. Run it every night.\n")
+    (root / "docs/assurance/case.md").write_text("G1 rests on CL-1, PRV-99, `prop:b`, `prop:gone`, C900 and C777.\n")
+    problems = cc.run(root).problems
+    assert any("cites PRV-99" in p for p in problems)
+    assert any("cites prop:gone" in p for p in problems)
+    assert any("cites check C777" in p for p in problems)
+    assert not any("prop:b," in p or "C900" in p for p in problems)
+
+
 # Modules allowed to open network connections, and why (docs/security.md).
 NETWORK_ALLOWED = {
     "relsynth/service/auth.py": "OIDC discovery and keys of the identity provider the operator configures",
