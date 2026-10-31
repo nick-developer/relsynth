@@ -68,7 +68,7 @@ jobs:
       - name: Structure and proposition numbers
         run: python3 tools/check_proofs.py
       - name: TeX Live
-        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends texlive-latex-extra texlive-science texlive-fonts-recommended latexmk
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends texlive-latex-extra texlive-science texlive-fonts-recommended lmodern cm-super latexmk
       - name: Build relsynth-proofs.pdf
         working-directory: docs/proofs
         run: |
