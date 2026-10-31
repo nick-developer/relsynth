@@ -57,7 +57,7 @@ def flow(client, worker, shop):
     job = _ok(client.post(f"{T}/connections/{con['id']}/introspect", json={"name": "shop"}, headers=ENG), 202)
     assert worker.serve(once=True) == 1
     job = _ok(client.get(f"{T}/runs/{job['id']}", headers=ENG))
-    assert job["state"] == "succeeded", job
+    assert job["state"] == "succeeded", (job["state"], job.get("exit_code"), job.get("error"))
     specs = _ok(client.get(f"{T}/projects/{prj['id']}/specs", headers=ENG))
     assert len(specs) == 1 and specs[0]["review"], specs          # the review questions reach the UI
     spec = _ok(client.get(f"{T}/specs/{specs[0]['id']}", headers=ENG))

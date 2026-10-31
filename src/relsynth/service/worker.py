@@ -46,7 +46,10 @@ RETRYABLE = {3}
 # the environment a job process inherits: nothing else (no worker credentials)
 ENV_KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "TZ", "PYTHONPATH", "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS",
             "MKL_NUM_THREADS", "OPENBLAS_CORETYPE", "TMPDIR", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE",
-            "ODBCSYSINI", "ORACLE_HOME", "TNS_ADMIN", "LD_LIBRARY_PATH")
+            "ODBCSYSINI", "ORACLE_HOME", "TNS_ADMIN", "LD_LIBRARY_PATH",
+            # Windows (development only): the interpreter's sockets and crypto need these
+            "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA",
+            "LOCALAPPDATA", "PROGRAMDATA", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE")
 DATA_EXT = (".csv", ".parquet")
 
 
@@ -171,7 +174,7 @@ class Worker:
 
     def _spawn(self, job: dict, work: Path, env: dict) -> tuple[int, bool, bool, bool]:
         tid, rid = job["tenant_id"], job["id"]
-        env["TMPDIR"] = str(work)
+        env["TMPDIR"] = env["TEMP"] = env["TMP"] = str(work)
         # POSIX: own session plus rlimits; Windows (development only): no limits, plain terminate/kill
         extra: dict = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)} if os.name == "nt"
                        else {"preexec_fn": _limits(self.s.job_memory_mb, self.s.job_cpu_s)})
