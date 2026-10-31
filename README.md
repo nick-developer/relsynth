@@ -389,7 +389,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 
 - The scorecard on real data compares with the source, which is itself only one draw. A check can fail by chance, and each check's level is reported (`alpha`).
 - Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly. Declare them in the spec.
-- Formal differential privacy is not part of v1.0. The privacy checks are empirical (distances to closest records, memorisation guards).
+- Differential privacy (`relsynth run --epsilon`, [docs/dp.md](docs/dp.md)) protects one person of a single privacy unit. It loads every owned table (no pushdown), and its quality depends on what stage 1 measures: `measure: mst` or `aim` release two-way marginals, the default copula does not.
 - NoSQL stores and data lakes on cloud object storage are planned for a later version. Files on a mounted or synced folder work today.
 - Free text is synthesised by a word-level predictive model. It keeps vocabulary and length laws, not meaning.
 
@@ -412,6 +412,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/profiling.md](docs/profiling.md) | Where 1.0 spends time and memory, and which changes that justifies |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
 | [docs/security.md](docs/security.md) | Threat model and protections |
+| [docs/dp.md](docs/dp.md) | Differential privacy mode: the guarantee, the two stages, MST/AIM two-way marginals, utility against ε |
 | [docs/theory.md](docs/theory.md) | The model in brief and the v1.0 propositions with proofs |
 | [docs/proofs/](docs/proofs/) | The full proofs (PDF and LaTeX source) |
 | [docs/testing.md](docs/testing.md) | The test suite |
