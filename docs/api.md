@@ -139,6 +139,17 @@ export_model(spec, out_dir, **kw) -> dict
 
 Fit and export the model (see FittedModel.export).
 
+### `rs.extend`
+
+```python
+extend(model: FittedModel, until, *, base: SyntheticData | Mapping | None = None, dataset: int = 0, start=None, step: str = 'day') -> list
+```
+
+Continue the event histories (tables with a `sequence` block) of synthetic
+dataset `dataset` past its end: [(period start, period end, {table: new
+rows})] per step.  The rows up to a day do not depend on how far or in how
+many steps the history is extended (relsynth.timeseries.incremental).
+
 ### `rs.clone_schema`
 
 ```python

@@ -663,6 +663,21 @@ class Diagnosis:
         return f"<Diagnosis {len(self.issues)} issue(s), {len(self.patches)} patch(es)>"
 
 
+def extend(model: FittedModel, until, *, base: SyntheticData | Mapping | None = None, dataset: int = 0,
+           start=None, step: str = "day") -> list:
+    """Continue the event histories (tables with a `sequence` block) of synthetic
+    dataset `dataset` past its end: [(period start, period end, {table: new
+    rows})] per step.  The rows up to a day do not depend on how far or in how
+    many steps the history is extended (relsynth.timeseries.incremental)."""
+    from .timeseries.incremental import extend as _extend
+    try:
+        return _extend(model, until, base=base, dataset=dataset, start=start, step=step)
+    except (RelsynthError, SpecError):
+        raise
+    except ValueError as e:
+        raise SpecError(str(e)) from e
+
+
 def doctor(bundle: RunResult | dict | str | Path) -> Diagnosis:
     """Diagnose a run from its bundle (a RunResult, a bundle dict or a bundle
     file): failed checks and errors mapped to causes and spec fixes."""

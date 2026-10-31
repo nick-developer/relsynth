@@ -1,0 +1,170 @@
+%=====================================================================
+\section{Time series and event sequences (v3.2)}\label{sec:v32ts}
+% numbered from 1200 so that the parallel 2.x/3.x threads (600 privacy, 700 generators, 800 governance) do not collide
+\newcounter{savedpropts}\setcounter{savedpropts}{\value{proposition}}
+\setcounter{proposition}{1199}
+Version 3.2 adds two models of time (\texttt{relsynth/timeseries}, guide \texttt{docs/timeseries.md}, design record
+\texttt{docs/adr/0004-time-series.md}). An \emph{event-sequence} table (\texttt{sequence:} in the spec) holds the
+events of a parent entity, such as a customer's orders: the engine still decides how many events $n_i$ entity $i$
+has and what each holds, and the sequence model redraws their times jointly. A \emph{series} table
+(\texttt{series:}) holds regular readings of an entity, such as a meter's hourly load, and is drawn by a seasonal
+autoregressive model. The checks are \texttt{tests/unit/test\_timeseries.py} and C1200--C1206 in
+\texttt{tests/science/test\_timeseries\_checks.py}; numbers on real data are in the T12 report.
+
+\paragraph{Event sequences.} Times are in days. Entity $i$ has segment $k_i$ (the engine's latent segment), a window
+$[A_i,B_i)$ (from \texttt{sequence.window}, or from the check rules that bound the time by a column of the entity),
+and events $t_{i1}\le\dots\le t_{in_i}$. Segment $k$ has a piecewise-constant calendar intensity $\lambda_k$ on day
+(or hour) cells, $\lambda_k(\text{cell})\propto P_{kb}\,w_{\mathrm{dow}}\,h_{\mathrm{hour}}$, with
+$\Lambda_k(t)=\int_{T_0}^t\lambda_k$ normalised to one unit per average day. In operational time $u=\Lambda_k(t)$,
+with $U_i=\Lambda(B_i)-\Lambda(A_i)$, the history of $i$ is: the head share $h_i=(u_{i1}-\Lambda(A_i))/U_i$; for
+$n_i\ge2$ the span share $q_i=(u_{in_i}-u_{i1})/(\Lambda(B_i)-u_{i1})$; for $n_i\ge3$ the gap shares
+$g_{ij}/(u_{in_i}-u_{i1})$, $j=1,\dots,n_i-1$. The model is: $(h_i,q_i)\mid n_i$ from a Gaussian copula per count
+stratum ($1,2,3$--$4,5$--$8,\dots$) with quantile-grid marginals; gap shares
+$\sim\mathrm{Dirichlet}(\alpha_i\mathbf 1)$ with $\log\alpha_i\sim N(\mu_k,\sigma_k^2)$.
+
+\begin{proposition}[Time change]\label{prop:tschange}
+Let $N$ be a point process on $[T_0,T_1)$ with intensity $\lambda>0$ and compensator $\Lambda$. Then
+$\{\Lambda(t_j)\}$ is a unit-rate Poisson process on $[0,\Lambda(T_1))$, and conversely
+$\{\Lambda^{-1}(u_j)\}$ has intensity $\lambda$ when $\{u_j\}$ is unit-rate Poisson. For the piecewise-constant
+$\Lambda$ above, $\Lambda$ and $\Lambda^{-1}$ are exact (linear on each cell), and the Gamma--Poisson and Dirichlet
+posteriors of $(P,w,h)$ give $\mathbb E\,\lambda_k$ equal to the observed bucket, weekday and hour rates up to the
+prior pseudo-counts. When the profile is read as a rate per entity at risk, multiplying it by
+$(\text{real}_b+1)/(\text{simulated}_b+1)$ until the bucket counts of the fitted model equal the real ones is a
+fixed-point (method of simulated moments) step whose fixed point reproduces the bucket totals in expectation.
+\end{proposition}
+\begin{proof}
+The first part is the random time change theorem (Daley and Vere-Jones 2003, Thm.~7.4.I; Brown et al.\ 2002). For
+the converse, $P(\text{no event of }\Lambda^{-1}(u)\text{ in }(s,t])=e^{-(\Lambda(t)-\Lambda(s))}$ and independent
+increments carry over through the monotone map. Exactness: on a cell of width $\Delta$ with mass $m$,
+$\Lambda(t)=C+m(t-t_c)/\Delta$, which \texttt{Intensity.forward}/\texttt{inverse} evaluate in closed form. The
+posterior means are those of $\mathrm{Dirichlet}(n_{kb}+c\,p_b)$, $\mathrm{Gamma}(1+n_j,\mathrm{days}_j)$ and
+$\mathrm{Dirichlet}(1+n_{\mathrm{hour}})$. For the last sentence: the expected simulated count of bucket $b$ is a
+continuous, increasing function of its own profile weight at fixed others, so the multiplicative update is the
+iterative proportional fitting map, whose fixed point equates expected and real counts (Deming and Stephan 1940).
+\end{proof}
+
+\begin{proposition}[Gamma renewal bridge]\label{prop:tsbridge}
+Let the gaps $G_1,\dots,G_m$ of a renewal process be i.i.d.\ $\mathrm{Gamma}(\alpha,\beta)$. Then, given the first
+and last event, i.e.\ given $S=\sum_jG_j$, the shares $G/S$ are $\mathrm{Dirichlet}(\alpha\mathbf 1)$ and independent
+of $S$, whatever $\beta$. The sampler, which places the interior events at the cumulative Dirichlet shares of the
+span in operational time, draws exactly the gamma renewal bridge in operational time.
+\end{proposition}
+\begin{proof}
+Lukacs (1955): for independent gammas with a common scale, $S\sim\mathrm{Gamma}(m\alpha,\beta)$ and $G/S$ is
+Dirichlet and independent of $S$ (the joint density factorises after the change of variables
+$(G)\mapsto(S,G/S)$ with Jacobian $S^{m-1}$). The sampler draws $\gamma_j\sim\mathrm{Gamma}(\alpha_i)$ and sets the
+shares $\gamma/\sum\gamma$, which is the same construction. $\alpha=1$ gives uniform order statistics (Poisson),
+$\alpha<1$ bursts and $\alpha>1$ regularity. C1201 tests shapes 0.3, 1 and 3.
+\end{proof}
+
+\begin{proposition}[Posterior of the sequence parameters]\label{prop:tspost}
+(1) With $\log\alpha_i\sim N(\mu,\sigma^2)$ integrated out by $24$-node Gauss--Hermite quadrature, the gap likelihood
+of an entity is $\int\mathrm{Dir}(s_i;\alpha\mathbf 1)\,\phi(\log\alpha)\,d\log\alpha$ up to a quadrature error that
+decays geometrically in the node count for analytic integrands; the MAP of $(\mu,\log\sigma)$ under a Normal prior
+centred on the pooled fit and its Laplace approximation are consistent and asymptotically normal (Bernstein--von
+Mises). (2) The life-time marginals at their posterior mean are the empirical quantile functions on the grid; their
+posterior draw gives the $N_Q$ cells $\mathrm{Dirichlet}(m/N_Q)$ masses, the Bayesian bootstrap of the cells (Rubin
+1981), and the copula correlation the Fisher-$z$ posterior $N(\operatorname{atanh}\hat r,1/(m-3))$.
+(3) No entity value is stored: a marginal is $N_Q+1=201$ quantile knots.
+\end{proposition}
+\begin{proof}
+(1) The Dirichlet log-density is analytic in $\log\alpha$, so the Gauss--Hermite error bound applies (Davis and
+Rabinowitz 1984, Ch.~4); MAP consistency and the Laplace limit follow from the regularity of a finite-dimensional
+exponential-family mixture with a positive continuous prior (van der Vaart 1998, Thm.~10.1). (2) With equal cell masses
+the piecewise-linear CDF through the knots is the empirical quantile function interpolated on the grid. Cell masses
+with exchangeable Dirichlet weights of total concentration $m$ have the moments of the Bayesian bootstrap of $m$
+observations aggregated to $N_Q$ cells (aggregation property of the Dirichlet). The Fisher transform of a sample
+correlation of $m$ bivariate normals is approximately $N(\operatorname{atanh}\rho,1/(m-3))$ (Fisher 1921). (3) By
+construction of \texttt{\_Marginal}. C1202 checks recovery and coverage.
+\end{proof}
+
+\begin{proposition}[The sequence hook keeps the skeleton and the rules]\label{prop:tshook}
+The hook changes only the time column (or the calendar foreign key) of the rows of a sequence table, and columns
+computed from it. Row counts, keys, links and the other tables are unchanged, and draws use their own random
+streams, so the other tables of a dataset are identical with and without \texttt{sequence}. A row that breaks a check
+rule the engine's row satisfied is redrawn with its entity up to \texttt{redraws} times; entities still breaking a
+rule get their engine times back. Hence no rule the 1.0 output satisfied is broken, and each accepted entity history
+has the model's law restricted to the rules.
+\end{proposition}
+\begin{proof}
+\texttt{apply\_sequence} writes only \texttt{tc} (or the calendar key) and then calls \texttt{\_computed} for the
+derived columns. The parameter draw uses \texttt{SeedSequence([seed, 1202, run, k])} and the sampling draw
+\texttt{SeedSequence([seed, 1201, dataset, t])}, both separate from the engine's streams, so the engine's draws are
+unchanged (the earlier version took its draw from the parameter stream and shifted every later table; C1203 compares
+the tables). The rejection argument is that of Prop.~\ref{prop:genskeleton}(3), per entity. Reverted entities have
+the 1.0 times, which satisfied the rules.
+\end{proof}
+
+\begin{proposition}[Calibrated limits]\label{prop:tscalib}
+Let $T$ be a distance between two populations whose null law for halves of the real entities is approximately
+normal on the log scale with variance proportional to $1/N_a+1/N_b$. (1) The limit
+$\exp(\bar\ell+t_{S-1,0.99}\,s_\ell\sqrt{1+1/S})$, rescaled by $\kappa$ (Prop.~\ref{prop:splitnull}), keeps level $1\%$ for an
+independent draw of the real law. (2) For a posterior predictive draw, the parameter uncertainty adds about one
+sampling variance at the real size $N$, so $\kappa^2=(2/N+1/M)/(1/N_a+1/N_b)$ keeps the level. (3) For series that
+share common shocks, both halves of a split share the shock path, which the split cannot see; comparing half $A$ with
+a moving-block bootstrap (weekly blocks, the same blocks for every series) of half $B$ and taking $\kappa=1$ gives a
+null with two shock paths, as in a real-versus-synthetic comparison, and more entity noise, so the limit is
+conservative.
+\end{proposition}
+\begin{proof}
+(1) is Prop.~\ref{prop:splitnull} applied to the sequence distances. (2) A posterior predictive draw is
+$y^*\sim p(\cdot\mid\theta^*)$, $\theta^*\sim p(\theta\mid y)$. By the law of total variance,
+$\operatorname{Var}(T(y^*)-T(y))=\operatorname{Var}_{\theta}(\text{sampling at }M)+\operatorname{Var}(\mathbb E[T\mid\theta^*]-T(y))$,
+and under Bernstein--von Mises the second term is the sampling variance at $N$ plus the posterior variance, which is
+asymptotically also the sampling variance at $N$. (3) The moving-block bootstrap reproduces the sampling law of
+smooth functionals of a weakly dependent series (K\"unsch 1989), so $B^*$ has an independent copy of the shock
+path's sampling error; $\kappa=1$ uses the half sizes, larger noise than at full size. C1204 measures 4 false failures
+in 330 independent checks (1.2\%) and 0 in 192 predictive checks, and the planted Poisson-for-bursty defect fails;
+without (3), two independent populations of shared-shock meters fail the ACF and spectrum checks (T12
+report), and with it they pass.
+\end{proof}
+
+\paragraph{Series.} For a value column of a series table, $z=\log(1+y)$ per entity is decomposed into a level, daily,
+weekly and (spans of at least 300 days) yearly profiles (principal component scores), and a residual
+$\sigma(\lambda f_t+\sqrt{1-\lambda^2}\,\varepsilon_t)$, where $f$ is a common factor and $\varepsilon$ an AR($p$)
+process (parametrised by partial autocorrelations, Barndorff-Nielsen and Schou 1973) times a seasonal AR at lag one
+day. Entity parameters are drawn from a Gaussian mixture over the standardised parameter vectors with
+Normal--inverse-Wishart posteriors.
+
+\begin{proposition}[Series model: stationarity and range]\label{prop:tsseries}
+(1) Every AR polynomial the sampler uses is stationary: partial autocorrelations in $(-1,1)$ map one to one onto
+stationary AR coefficients. (2) The seasonal filter $Y_t=\Phi Y_{t-P}+\sqrt{1-\Phi^2}\,V_t$ with $|\Phi|<1$ and
+unit-variance stationary $V$ keeps unit variance and has lag-$P$ correlation $\Phi$ plus the lag-$P$ correlation of
+$V$ times $(1-\Phi^2)$-weighted terms; in particular it is $\Phi$ for white $V$. (3) Sampled parameter vectors lie in
+the Mahalanobis ball of probability $0.99$ of their mixture component and in the real range widened by $5\%$, and
+$\sigma\ge0.01$, so no sampled series has a level, amplitude or noise outside what the real series show.
+\end{proposition}
+\begin{proof}
+(1) The Durbin--Levinson recursion is a bijection between $(-1,1)^p$ and the stationary region (Barndorff-Nielsen
+and Schou 1973; Monahan 1984). (2) Stationarity of the first-order recursion in $Y_{t-P}$ with $|\Phi|<1$; the
+variance solves $v=\Phi^2v+(1-\Phi^2)$, so $v=1$; the lag-$P$ covariance is $\Phi v+\sqrt{1-\Phi^2}\,
+\operatorname{Cov}(Y_{t-P},V_t)$, which is $\Phi$ when $V$ is white. C1205's companion unit test checks both. (3) By
+construction (\texttt{\_Mixture.sample} rejects draws outside the $\chi^2_{d,0.99}$ ball;
+\texttt{SeriesModel.\_fit\_params} clips).
+\end{proof}
+
+\paragraph{Incremental runs.} \texttt{relsynth extend} adds the events of the days after a dataset. For entity $i$
+with base count $n_i$, exposure $U_i$ and segment rate law $\mathrm{Gamma}(a_k,b_k)$, the rate has posterior
+$r_i\sim\mathrm{Gamma}(a_k+n_i,b_k+U_i)$, the gap shape $\alpha_i$ is drawn from the segment's random effect, and new
+gaps are $\mathrm{Gamma}(\alpha_i,\alpha_ir_i)$ (mean $1/r_i$) in operational time. Every uniform comes from a
+counter-based hash of (seed, entity key, event number, purpose) and is turned into a variate by its inverse CDF.
+
+\begin{proposition}[Incremental runs equal one long run]\label{prop:tsincr}
+(1) The first new gap of an entity whose last event was $c$ units before the start is drawn from
+$\mathrm{Gamma}(\alpha,\beta)$ conditioned on exceeding $c$; then the new events have the law of the renewal process
+continued past the start given its history. (2) The events of $[s,e)$ do not depend on $e$, so runs of $[s,e_1)$,
+$[e_1,e_2)$, $\dots$ with their outputs concatenated equal one run of $[s,e_K)$, for any step (day, week, month).
+\end{proposition}
+\begin{proof}
+(1) Given the last event at $u_{\mathrm{last}}$ and no event in $(u_{\mathrm{last}},s)$, the current gap $G$ has the
+law of $G\mid G>c$, $c=s-u_{\mathrm{last}}$, by the renewal property; it is drawn by inverse CDF:
+$G=Q_\Gamma\big(1-U\,\bar F_\Gamma(c)\big)$, with $Q_\Gamma$ and $\bar F_\Gamma$ the regularized incomplete gamma
+inverse and complement. Later gaps are independent of the past. (2) Event $j$ of an entity is
+$u_{\mathrm{last}}+G_1+\dots+G_j$, where each $G$ is a deterministic function of the hash of
+(seed, key, $j$, purpose) and of $(\alpha_i,r_i)$, which are functions of the hash and of the base dataset only. The
+run stops at the first event at or after $e$, so the events before $e_1$ are the same for every $e\ge e_1$. The
+\texttt{Extender} uses the base dataset (not earlier deltas) for every state and continues key numbering from the
+previous output, so step-wise and one-shot runs give equal tables (unit test
+\texttt{test\_extension\_is\_step\_invariant}); C1206 checks (1) against a simulated renewal and (2) for prefixes.
+\end{proof}
+\setcounter{proposition}{\value{savedpropts}}

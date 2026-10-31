@@ -49,7 +49,8 @@ DEFAULT_SYNTHESIS = {
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
     "rules": {"max_rejection_rounds": 25},
-    "privacy": {"suppress_small_counts": 5},
+    # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
+    "privacy": {"suppress_small_counts": 5, "dp": None},
     # fit large fact tables from statistics computed in the database and a bounded
     # uniform sample (relsynth.pushdown); auto: facts with at least min_rows rows
     "pushdown": {"mode": "auto", "min_rows": 1_000_000, "sample_rows": 500_000},
@@ -844,6 +845,71 @@ def _validate_io(spec):
         else:
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
+    errs += _validate_sequences(spec)
+    return errs
+
+
+def _validate_sequences(spec):
+    """tables.<t>.sequence: an entity foreign key and a time column of t."""
+    errs = []
+    rels = spec.get("relationships") or []
+    for tname, t in (spec.get("tables") or {}).items():
+        sq = t.get("sequence")
+        if sq is None:
+            continue
+        where = f"{tname}.sequence"
+        if not isinstance(sq, dict):
+            errs.append(f"{where} must be a mapping {{entity, time}}")
+            continue
+        cols = t.get("columns") or {}
+        ent, tc = sq.get("entity"), sq.get("time")
+        if t.get("role") not in ("entity", "fact"):
+            errs.append(f"{where}: only entity and fact tables have sequences")
+        if ent not in cols or not any(r.get("child") == tname and r.get("child_key") == ent for r in rels):
+            errs.append(f"{where}.entity {ent} must be a foreign key column of {tname}")
+        cs = cols.get(tc)
+        if not isinstance(cs, dict):
+            errs.append(f"{where}.time {tc} is not a column of {tname}")
+        elif cs.get("type") not in ("date", "datetime") and not (
+                cs.get("type") == "lookup" and isinstance(cs.get("lookup"), str) and cs["lookup"].count(".") == 1):
+            errs.append(f"{where}.time {tc} must be a date or datetime column, or a lookup fk.col")
+        w = sq.get("window", "auto")
+        if not (w in ("auto", "none") or isinstance(w, dict)):
+            errs.append(f"{where}.window must be auto, none or {{start, end}}")
+        if sq.get("bucket", "month") not in ("day", "week", "month", "quarter", "year"):
+            errs.append(f"{where}.bucket must be day/week/month/quarter/year")
+        if sq.get("hourly", "auto") not in ("auto", True, False):
+            errs.append(f"{where}.hourly must be auto, true or false")
+        for k in ("redraws", "min_entities"):
+            if k in sq and (not isinstance(sq[k], int) or isinstance(sq[k], bool) or sq[k] < 0):
+                errs.append(f"{where}.{k} must be a non-negative integer")
+        if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
+            errs.append(f"{where}.shrinkage must be a positive number")
+    for tname, t in (spec.get("tables") or {}).items():
+        se = t.get("series")
+        if se is None:
+            continue
+        where = f"{tname}.series"
+        if not isinstance(se, dict):
+            errs.append(f"{where} must be a mapping {{entity, time, values}}")
+            continue
+        cols = t.get("columns") or {}
+        if t.get("sequence"):
+            errs.append(f"{where}: a table has a sequence or a series, not both")
+        if t.get("role") != "fact":
+            errs.append(f"{where}: series tables have role fact")
+        ent, tc = se.get("entity"), se.get("time")
+        if ent not in cols or not any(r.get("child") == tname and r.get("child_key") == ent for r in rels):
+            errs.append(f"{where}.entity {ent} must be a foreign key column of {tname}")
+        if (cols.get(tc) or {}).get("type") not in ("date", "datetime"):
+            errs.append(f"{where}.time {tc} must be a date or datetime column")
+        for c in se.get("values") or []:
+            if (cols.get(c) or {}).get("type") not in ("float", "integer"):
+                errs.append(f"{where}.values: {c} must be a number column")
+        if any(r.get("parent") == tname for r in rels):
+            errs.append(f"{where}: a series table cannot be referenced by other tables")
+        if any(r.get("table") == tname for r in spec.get("rules") or []):
+            errs.append(f"{where}: rules on series tables are not supported")
     return errs
 
 

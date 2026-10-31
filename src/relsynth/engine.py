@@ -349,6 +349,8 @@ class Synthesizer:
     def __init__(self, spec):
         from .spec import validate
         self.user_spec = spec
+        from .timeseries.hooks import split_series
+        spec, self.series_spec = split_series(spec)          # regular series: outside the relational model
         self.plan = Plan(spec)
         self.spec = self.plan.spec
         errs = validate(self.spec, keys=False)
@@ -372,6 +374,8 @@ class Synthesizer:
         n_src = sum(self.fstats[t].n_rows if t in self.fstats else len(d) for t, d in tables.items())
         say(f"fit: preparing {len(tables)} tables ({n_src:,} rows"
             + (f"; {len(self.fstats)} fact table(s) from statistics and samples)" if self.fstats else ")"))
+        series_src = {t: tables[t] for t in self.series_spec if t in tables}
+        tables = {t: d for t, d in tables.items() if t not in self.series_spec}
         tables = self.plan.to_internal({t: df.copy() for t, df in tables.items()},
                                        headers=self._pushed_headers(tables))
         for f, hl in self.plan.log.items():
@@ -591,6 +595,12 @@ class Synthesizer:
         self._fit_affinity(tables)
         self._fit_participation(tables)
         self._fit_scd(tables)
+        if any(T_.get("sequence") for T_ in self.spec["tables"].values()):
+            from .timeseries.hooks import fit_sequences
+            fit_sequences(self, tables)
+        if self.series_spec:
+            from .timeseries.hooks import fit_series
+            fit_series(self, series_src)
         self.dist_src = {(t, c): tables[t][c].dropna().to_numpy(dtype=object)
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
@@ -2310,10 +2320,24 @@ class Synthesizer:
                 links = {u.split(".")[0] for u in used if "." in u} | {u for u in used if u in fkcols}
                 (krules if links and not links <= fixed else arules).append(r)
             # rules that read an aggregate (directly or through a derived column) can only be
-            # evaluated once the child tables exist; they are applied/reported after the aggregates
-            late = self.late[t]
-            krules = [r for r in krules if not (names_in(r["expr"]) & late)]
-            arules = [r for r in arules if not (names_in(r["expr"]) & late)]
+            # evaluated once the child tables exist; they are applied/reported after the aggregates;
+            # the same for a parent's aggregated column read through a link (loan reads
+            # account_id.date when account.date = min(date) of the transactions): the
+            # aggregates are computed after every table is drawn
+            def is_late(r, t=t):
+                for u in names_in(r["expr"]):
+                    if u in self.late[t]:
+                        return True
+                    if "." in u:
+                        try:
+                            _, (pt, pc) = resolve_path(spec, t, u)
+                        except (KeyError, ValueError, SpecError):
+                            continue
+                        if pc in self.late.get(pt, ()):
+                            return True
+                return False
+            krules = [r for r in krules if not is_late(r)]
+            arules = [r for r in arules if not is_late(r)]
             self.cons[t] = {"unique": ukeys, "key_rules": krules, "attr_rules": arules,
                             "anchor_rules": [r for r in spec["rules"] if r["table"] == t and r.get("anchor_link")
                                              and T[t]["role"] == "entity"]}
@@ -2522,6 +2546,9 @@ class Synthesizer:
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                if t in getattr(self, "seq", {}):
+                    from .timeseries.hooks import apply_sequence
+                    out[t] = apply_sequence(self, t, out[t], out, index)
                 self._renumber_by_order(t, out, keys)
         fact_rows = {}
         for f in self.fact_order:
@@ -2529,6 +2556,9 @@ class Synthesizer:
             out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
             out[f] = self._apply_affinity(f, out[f], out)
             out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            if f in getattr(self, "seq", {}):
+                from .timeseries.hooks import apply_sequence
+                out[f] = apply_sequence(self, f, out[f], out, index)
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
@@ -2538,7 +2568,11 @@ class Synthesizer:
         self.sample_log["seconds"] = round(time.time() - t0, 2)
         say(f"sample: done in {time.time() - t0:.0f} s")
         self.internal_out = out
-        return self.plan.to_external(out, self.rng, getattr(self, "_mode", "draw"))
+        ext = self.plan.to_external(out, self.rng, getattr(self, "_mode", "draw"))
+        if self.series_spec:
+            from .timeseries.hooks import sample_series
+            ext = sample_series(self, ext, prng, index, mode)
+        return ext
 
     def _stratum_keys(self, e, z, out):
         """Strata are rows of small copied parents and segments are nested in them,

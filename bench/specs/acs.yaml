@@ -1,0 +1,102 @@
+version: 1
+name: acs
+source:
+  kind: sqlite
+  path: bench/.cache/acs/acs.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  acs:
+    role: entity
+    columns:
+      pid:
+        type: id
+      PUMA:
+        type: categorical
+      AGEP:
+        type: integer
+      SEX:
+        type: integer
+      MSP:
+        type: integer
+      HISP:
+        type: integer
+      RAC1P:
+        type: integer
+      NOC:
+        type: integer
+      NPF:
+        type: integer
+      HOUSING_TYPE:
+        type: integer
+      OWN_RENT:
+        type: integer
+      DENSITY:
+        type: float
+      INDP:
+        type: integer
+      INDP_CAT:
+        type: integer
+      EDU:
+        type: integer
+      PINCP:
+        type: integer
+      PINCP_DECILE:
+        type: integer
+      POVPIP:
+        type: integer
+      DVET:
+        type: integer
+      DREM:
+        type: integer
+      DPHY:
+        type: integer
+      DEYE:
+        type: integer
+      DEAR:
+        type: integer
+      PWGTP:
+        type: integer
+      WGTP:
+        type: integer
+    primary_key: pid
+    dimensions:
+    - key: INDP
+      columns:
+      - INDP_CAT
+relationships: []
+rules:
+- table: acs
+  type: check
+  expr: EDU < AGEP
+- table: acs
+  type: check
+  expr: NOC < NPF
+- table: acs
+  type: check
+  expr: HOUSING_TYPE <= EDU
+- table: acs
+  type: check
+  expr: OWN_RENT <= WGTP
+- table: acs
+  type: check
+  expr: PINCP_DECILE <= POVPIP
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+review:
+- 'acs.MSP: integer (numeric strings)'
+- 'acs.INDP: integer (numeric strings)'
+- 'acs.INDP_CAT: integer (numeric strings)'
+- 'acs.PINCP: integer (numeric strings)'
+- 'acs.PINCP_DECILE: integer (numeric strings)'
+- 'acs.DVET: integer (numeric strings)'
+- 'acs: INDP (258 values) determines INDP_CAT on at least 99.9% of the sampled rows; generated through a copied
+  dimension of their observed combinations'
+- 'acs: check EDU < AGEP (holds on 100.0% of 19,436 sampled rows, 95.9% by chance)'
+- 'acs: check NOC < NPF (holds on 100.0% of 14,134 sampled rows, 94.0% by chance)'
+- 'acs: check HOUSING_TYPE <= EDU (holds on 99.9% of 19,436 sampled rows, 99.7% by chance)'
+- 'acs: check OWN_RENT <= WGTP (holds on 100.0% of 20,000 sampled rows, 93.8% by chance)'
+- 'acs: check PINCP_DECILE <= POVPIP (holds on 99.9% of 15,836 sampled rows, 97.3% by chance)'

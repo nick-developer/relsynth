@@ -1,0 +1,75 @@
+%=====================================================================
+\section{Differential privacy mode (v2.5)}\label{sec:v25dp}
+% numbered to match checks C900--C906; the shared counter is restored at the end
+\newcounter{savedpropdp}\setcounter{savedpropdp}{\value{proposition}}
+Release 2.5 adds a differentially private mode (\texttt{relsynth run --dp}; guide \texttt{docs/dp.md}). It works in two stages. Stage~1 reads the real tables once and releases noisy integer statistics: ranges and category levels, one-dimensional histograms, histograms of rows per parent row, and sums of outer products of normal scores. Stage~2 decodes them into a \emph{seed database} and fits the ordinary engine to it. The propositions of this section are numbered from 900. Each is tested by a check in \texttt{tests/science/test\_dp\_checks.py} (C900--C906) on the shipped code (\texttt{relsynth.dp}).
+
+\paragraph{Setting.} The privacy unit is a table $U$ of the spec with one row per person. A table is \emph{owned} by $U$ when a chain of foreign keys leads from it to $U$; the plan computes the chains from the spec before reading data, and refuses a table with two chains to $U$, a self-reference on an owned table, and a foreign key from an owned table to another owned table off its chain. Every other table must be declared public; it is released as given and a foreign key to it is an ordinary categorical coordinate whose levels are the public keys. Two databases are neighbours when one is obtained from the other by removing one row of $U$ and every row of the owned tables whose chain ends in it (add/remove adjacency, user level: NIST SP 800-226 \cite{nist800226}, sec.~2.4). Every statistic is a vector of integers, perturbed by the discrete Gaussian $\mathcal{N}_\mathbb{Z}(0,\sigma^2)$ on each coordinate, drawn by OpenDP from the operating system's random source.
+
+\setcounter{proposition}{899}
+\begin{proposition}[Discrete Gaussian]\label{prop:dgauss}
+Let $f$ map databases to $\mathbb{Z}^d$ with $\|f(x)-f(x')\|_2\le\Delta$ for neighbours. Then $M(x)=f(x)+Z$, with $Z$ having independent $\mathcal{N}_\mathbb{Z}(0,\sigma^2)$ coordinates, satisfies $\rho$-zCDP with $\rho=\Delta^2/(2\sigma^2)$. Each coordinate of $Z$ has variance below $\sigma^2$.
+\end{proposition}
+\begin{proof}
+This is the multivariate discrete Gaussian mechanism of Canonne, Kamath and Steinke \cite{cks2020}. The R\'enyi divergence of order $\alpha$ between $\mathcal{N}_\mathbb{Z}(\mu,\sigma^2)$ and $\mathcal{N}_\mathbb{Z}(\mu',\sigma^2)$ for $\mu,\mu'\in\mathbb{Z}^d$ is at most $\alpha\|\mu-\mu'\|_2^2/(2\sigma^2)$, and the variance bound is also theirs. Integer statistics with integer noise avoid the floating-point attacks on continuous noise (Mironov \cite{mironov2012}).
+\end{proof}
+\noindent relsynth sets $\sigma=\lceil\Delta\rceil/\sqrt{2\rho}$ and charges the figure that OpenDP's privacy map returns for $\lceil\Delta\rceil$. Check C900 computes the R\'enyi divergence of orders $1.5$ to $16$ exactly on the support for three $(\Delta,\rho)$ pairs. It also checks that the accountant charges $\rho$ and refuses a mechanism that would exceed the run's plan.
+
+\setcounter{proposition}{900}
+\begin{proposition}[Contribution bounding is stable]\label{prop:bound}
+Order the owned tables along their chains from $U$. For a child table $t$ with parent $p$ on its chain, keep at most $D_t$ rows of $t$ per row of $p$: the $D_t$ with the smallest keyed hash $h_k(\text{row})$, where $k$ is a secret key drawn once per run. Let $c_U=1$ and $c_t=c_p D_t$. Then for neighbours $x,x'$ that differ in unit $u$, the truncated databases $T(x),T(x')$ differ only in rows whose chain ends in $u$, and in each table $t$ there are at most $c_t$ such rows.
+\end{proposition}
+\begin{proof}
+By induction along the chains. $U$ has one row for $u$. Suppose that in the kept rows of $p$, the rows of units other than $u$ are the same in $T(x)$ and $T(x')$ and that $u$ has at most $c_p$. A row of $t$ belongs to the unit of its parent row. The rows of $t$ that are kept for a parent row depend only on the rows of $t$ with that parent and on $k$, because each row's priority $h_k(\text{row})$ depends on nothing else. So the kept rows of other units are unchanged, and $u$ keeps at most $D_t$ rows for each of its at most $c_p$ parent rows. The chains are unique, so no row is reached twice. Truncation by data-independent priority is the stable transformation of Wilson et al.\ \cite{wilson2020}. A random priority has the same law for a fixed key, and the key is never released.
+\end{proof}
+\noindent The caps $D_t$ are chosen after the histogram of rows per parent row has been released (Prop.~\ref{prop:degree}), at a public quantile of it. Choosing them is therefore post-processing, and the sensitivities below hold given the chosen caps (adaptive composition). Check C901 removes the busiest customer of a star schema. The kept sales of every other customer are unchanged, and no customer keeps more than $D$.
+
+\setcounter{proposition}{901}
+\begin{proposition}[Sensitivity of the released statistics]\label{prop:sens}
+After the truncation of Prop.~\ref{prop:bound}, for a table $t$ with $c=c_t$:
+(a) a vector of $q$ histograms of single columns over cells fixed before the read, with one null cell each, plus the row count, has $L_2$ sensitivity at most $c\sqrt{q+1}$;
+(b) let $z(r)\in\mathbb{R}^m$ be the normal scores of row $r$ under released marginals (attributes, truncated degrees and, for a child table, the parent row's attribute scores). Clip $z$ to norm $R=\kappa\sqrt m$ and let $v(r)$ be the upper triangle with diagonal of $\mathrm{round}(S\,zz^\top)$ for the fixed scale $S=1024$. Then $\sum_r v(r)$ has $L_2$ sensitivity at most $c\,(SR^2+\tfrac12\sqrt{m(m+1)/2})$.
+\end{proposition}
+\begin{proof}
+(a) Each of the at most $c$ rows of $u$ adds one to one cell of each histogram and one to the count, so each of the $q+1$ blocks changes by at most $c$ in $L_1$, hence in $L_2$, and the blocks add in squares. (b) For one row, the upper triangle with diagonal of $zz^\top$ has norm at most $\|zz^\top\|_F=\|z\|_2^2\le R^2$. Rounding changes each of the $m(m+1)/2$ coordinates by at most $1/2$. A row's score depends only on that row, its parent row and released marginals, so rows of other units do not change. The triangle inequality over the at most $c$ rows of $u$ gives the bound.
+\end{proof}
+\noindent The normalised sum is a noisy second-moment matrix of the scores. relsynth projects it to the nearest correlation matrix, which is post-processing, and uses it as the Gaussian copula of the seed database. Check C902 is the central check. With public ranges, levels and caps fixed, so that the shapes do not depend on the data, it removes thirteen customers one at a time, including the busiest one. Each time it replays the noisy outputs of the full run into the neighbour's run and compares the exact statistics of every mechanism. Every difference is within its charged sensitivity, and for the marginals of both tables it comes within a factor of three of it.
+
+\setcounter{proposition}{902}
+\begin{proposition}[Category levels by partition selection]\label{prop:levels}
+For a categorical column of $t$ that is not public, release the noisy count of each level present in the data and keep the levels whose noisy count exceeds $\tau=c+\tau_0$, where $\tau_0$ is the smallest integer with $k\,\Pr[Z>\tau_0]\le\delta_c$ for $Z\sim\mathcal{N}_\mathbb{Z}(0,\sigma^2)$ and $k=c$. This is $\delta_c$-approximately $c^2/(2\sigma^2)$-zCDP.
+\end{proposition}
+\begin{proof}
+On the levels present in both neighbours the counts differ by at most $c$ in $L_1$, so the released vector restricted to them satisfies Prop.~\ref{prop:dgauss}. Unit $u$ alone can hold at most $c$ levels, each with count at most $c$. Each such level is released with probability $\Pr[\text{count}+Z>\tau]\le\Pr[Z>\tau_0]$, so by the union bound with probability at most $\delta_c$ in all. Outside that event the output law is that of the restricted mechanism, which is the definition of approximate zCDP (Bun and Steinke \cite{bun2016}). This is Gaussian partition selection (Desfontaines, Voss, Gipson and Mandayam \cite{desfontaines2022}).
+\end{proof}
+\noindent relsynth sums the tail of the discrete Gaussian exactly. Check C903 found that the continuous approximation $\tau_0=\sigma\,\Phi^{-1}(1-\delta_c/k)$ is not conservative: for $c=40$, $\rho=0.1$ it gives $1.03\,\delta_c$. The shipped threshold is the exact one. Numeric ranges are found the same way: the noisy counts on a fixed, data-free logarithmic grid, keeping the outermost cells above $3\sigma$ (pure zCDP, by (a) of Prop.~\ref{prop:sens}). A declared public range or level list replaces discovery and its budget share.
+
+\setcounter{proposition}{903}
+\begin{proposition}[Rows per parent row]\label{prop:degree}
+For a parent table $t$ and a child $s$, the histogram over the rows of $t$ of their number of $s$-rows, on cells fixed before the read, has $L_2$ sensitivity at most $c_t$.
+\end{proposition}
+\begin{proof}
+Each of the at most $c_t$ rows of $u$ in $t$ falls in one cell, and the rows of other units do not change their counts (their children are theirs, Prop.~\ref{prop:bound}).
+\end{proof}
+
+\setcounter{proposition}{904}
+\begin{proposition}[Post-processing]\label{prop:post}
+The seed database, the model of stage~2 fitted to it, every synthetic database sampled from that model and every report computed from the synthetic data alone satisfy the guarantee of stage~1.
+\end{proposition}
+\begin{proof}
+Each is a randomised function of the released statistics, the spec and the public tables, and does not read the real data. Post-processing preserves zCDP and approximate DP (\cite{bun2016}; Dwork and Roth \cite{dworkroth2014}, Prop.~2.1). The spec is an input. Values in it that were drawn from the data (levels, ranges, rules written by \texttt{introspect}) are outside the guarantee unless the spec is declared public (\texttt{spec\_is\_public}), and the DP statement says so.
+\end{proof}
+\noindent Check C904 runs the whole pipeline with nothing declared public and plants a region held by one customer. The region does not appear in the synthetic data. The run spends at most its plan, and the stated $\varepsilon$ is at most the requested one. Check C905 confirms that every link of the synthetic database is valid and that the public table is used as given.
+
+\setcounter{proposition}{905}
+\begin{proposition}[The run's guarantee]\label{prop:run}
+Let the run's plan be $(\rho,\delta)$ with $\delta\le10^{-5}$, and let a share $s$ of $\delta$ be reserved for level selection. The accountant charges every mechanism of stage~1 and refuses any that would exceed $\rho$ or $s\delta$. The whole run is then $s\delta$-approximately $\rho$-zCDP and $(\varepsilon_\rho((1-s)\delta),\delta)$-DP for one unit and all their rows. When the run is governed, its reservation is $(\rho,s\delta)$ in the ledger of its domain, at the domain's $\delta$, and Props.~\ref{prop:ledger}--\ref{prop:reserve} apply.
+\end{proposition}
+\begin{proof}
+Stage~1 is an adaptive composition of the mechanisms of Props.~\ref{prop:dgauss}, \ref{prop:levels} and \ref{prop:degree}, each with the sensitivity of Props.~\ref{prop:sens} and \ref{prop:degree} given the earlier outputs. Their $\rho$ and $\delta$ add (\cite{bun2016}), and the accountant keeps the sums within the plan. Stage~2 is post-processing (Prop.~\ref{prop:post}). The conversion to $(\varepsilon,\delta)$ is (b) of Prop.~\ref{prop:ledger}. A run that is refused, because it names no budget, has a $\delta$ above $10^{-5}$, has a unit that is not a table or has an ownership the plan cannot trace, is refused before it reads data and before it reserves budget.
+\end{proof}
+\noindent Check C906 tests these refusals. relsynth ships no default $\varepsilon$: a DP run without \texttt{epsilon} or \texttt{rho} is refused.
+
+\paragraph{What the guarantee does not cover.} The guarantee does not cover tables that hold no data of the unit (they are released as given), spec values not declared public, and releases of the same people made without DP. An empirical attack audit (\texttt{relsynth privacy}, which audits the DP pipeline itself) is an average-case check. Its true-positive rate is compared with the bound $\mathrm{TPR}\le e^\varepsilon\mathrm{FPR}+\delta$ (Kairouz, Oh and Viswanath \cite{kairouz2015}), but it does not bound outliers. Rare levels are suppressed and large contributions are truncated, which biases the data towards typical units, and the DP statement lists both.
+
+\setcounter{proposition}{\value{savedpropdp}}

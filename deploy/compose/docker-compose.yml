@@ -1,0 +1,104 @@
+# A small on-premises install: metadata PostgreSQL, Keycloak for single
+# sign-on, the API and two workers.  Also used by deploy/e2e/compose-e2e.sh.
+#
+#   cp deploy/compose/.env.example deploy/compose/.env   # then set real secrets
+#   docker compose -f deploy/compose/docker-compose.yml up -d --build --wait
+#   open http://localhost:8080/ui/   (users in keycloak/realm-relsynth.json; change their passwords)
+#
+# Production notes (docs/service/deployment.md): put a TLS-terminating reverse
+# proxy in front, replace the demo realm's users and passwords, store the master
+# key in a secret store, and back up the metadata database and the data volume.
+name: relsynth
+x-svc-env: &svc-env
+  RELSYNTH_SVC_DB_URL: postgresql+psycopg://relsynth:${METADATA_DB_PASSWORD:?set METADATA_DB_PASSWORD}@metadata:5432/relsynth
+  RELSYNTH_SVC_AUTH_MODE: oidc
+  RELSYNTH_SVC_OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8081/realms/relsynth}
+  RELSYNTH_SVC_OIDC_JWKS_URL: http://keycloak:8080/realms/relsynth/protocol/openid-connect/certs
+  RELSYNTH_SVC_OIDC_AUDIENCE: relsynth
+  RELSYNTH_SVC_MASTER_KEY_REF: file:/run/secrets/master_key
+  RELSYNTH_SVC_DATA_DIR: /var/lib/relsynth/data
+  RELSYNTH_SVC_FILE_ROOTS: /srv/relsynth-files
+  RELSYNTH_SVC_ALLOWED_HOSTS: ${ALLOWED_HOSTS:-sources,*.internal}
+  RELSYNTH_SVC_SECRET_PREFIX_FILE: "file:/run/secrets/"
+  RELSYNTH_SVC_OTEL: ${OTEL:-false}
+
+services:
+  metadata:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: relsynth
+      POSTGRES_PASSWORD: ${METADATA_DB_PASSWORD:?set METADATA_DB_PASSWORD}
+      POSTGRES_DB: relsynth
+    volumes: [metadata:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U relsynth"], interval: 5s, retries: 30}
+
+  keycloak:
+    image: keycloak/keycloak:26.0.7    # the same image as quay.io/keycloak/keycloak
+    command: ["start-dev", "--import-realm", "--hostname=${OIDC_HOST:-http://localhost:8081}", "--hostname-backchannel-dynamic=true"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+    volumes: ["./keycloak/realm-relsynth.json:/opt/keycloak/data/import/realm-relsynth.json:ro"]
+    ports: ["8081:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: x\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      retries: 60
+
+  # a demo source database for the walkthrough and the end-to-end test
+  sources:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: reader
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD:?set SOURCE_DB_PASSWORD}
+      POSTGRES_DB: shop
+    volumes: ["../e2e/shop.sql:/docker-entrypoint-initdb.d/shop.sql:ro"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U reader -d shop"], interval: 5s, retries: 30}
+
+  api:
+    build: {context: ../.., dockerfile: deploy/docker/Dockerfile.service}
+    image: relsynth-service:local
+    command: ["serve", "--proxy-headers"]
+    environment: *svc-env
+    secrets: [master_key]
+    volumes: [data:/var/lib/relsynth]
+    ports: ["8080:8080"]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    depends_on:
+      metadata: {condition: service_healthy}
+      keycloak: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/readyz',timeout=2)"]
+      interval: 5s
+      retries: 30
+
+  worker:
+    image: relsynth-service:local
+    command: ["worker"]
+    environment: *svc-env
+    secrets: [master_key, source_db_password]
+    volumes: [data:/var/lib/relsynth]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    stop_grace_period: 10m           # let a running job finish on shutdown
+    healthcheck:                     # the image's check probes the API port; a worker checks the store instead
+      test: ["CMD", "relsynth-service", "check"]
+      interval: 30s
+      retries: 3
+    deploy: {replicas: 2}
+    depends_on:
+      api: {condition: service_healthy}
+
+secrets:
+  master_key: {file: ./secrets/master_key}
+  source_db_password: {file: ./secrets/source_db_password}
+
+volumes:
+  metadata:
+  data:

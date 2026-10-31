@@ -27,6 +27,7 @@ Field correspondence (1.0 -> IR):
       group_effects, link_affinity synthesis.group_effects, synthesis.link_affinity
       unknown_members              synthesis.unknown_members
       generator                    synthesis.generator {name, version, options}
+      sequence, series             synthesis.sequence, synthesis.series (options unchanged)
     relationships[]                relationships[] (child -> from, parent -> to)
     rules[]                        rules[] (table -> entity, column -> attribute, from -> source)
     version: 1                     ir_version: "2.0"
@@ -184,6 +185,9 @@ def _lift_table(tname: str, T: dict, rels) -> Entity:
     elif isinstance(g, dict):
         syn.generator = GeneratorChoice(name=g.get("name"), version=g.get("version"),
                                         options=copy.deepcopy(g["options"]) if g.get("options") is not None else None)
+    for k in ("sequence", "series"):
+        if T.get(k) is not None:
+            setattr(syn, k, copy.deepcopy(T[k]))
     if syn != EntitySynthesis():
         e.synthesis = syn
     return e
@@ -411,6 +415,9 @@ def _lower_entity(name: str, e: Entity, est: Estate, unsupported: list) -> dict:
         T["generator"] = g.name if g.version is None and g.options is None else {
             "name": g.name, **({"version": g.version} if g.version is not None else {}),
             **({"options": copy.deepcopy(g.options)} if g.options is not None else {})}
+    for k in ("sequence", "series"):
+        if getattr(s, k) is not None:
+            T[k] = copy.deepcopy(getattr(s, k))
     if e.allocation is not None:
         T["bridge"] = {k: getattr(e.allocation, k) for k in ("group", "weight", "total", "decimals")
                        if getattr(e.allocation, k) is not None}
