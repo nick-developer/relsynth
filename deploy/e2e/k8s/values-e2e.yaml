@@ -1,0 +1,18 @@
+image: {repository: relsynth-service, pullPolicy: Never}
+config:
+  oidc_issuer: http://localhost:30081/realms/relsynth
+  oidc_jwks_url: http://keycloak:8080/realms/relsynth/protocol/openid-connect/certs
+  allowed_hosts: sources
+database: {existingSecret: relsynth-db}
+sourceSecrets: [{name: shop-db}]
+storage: {accessMode: ReadWriteOnce, size: 2Gi}
+api: {replicas: 2, resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: "1", memory: 1Gi}}}
+workers:
+  replicas: 2
+  resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {cpu: "2", memory: 4Gi}}
+  workTmpSize: 2Gi
+service: {type: NodePort, nodePort: 30080}
+networkPolicy:
+  enabled: true
+  egress:
+    - ports: [{port: 5432}, {port: 8080}]

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "relsynth.fullname" . }}-api
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels: {{- include "relsynth.selector" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels: {{- include "relsynth.selector" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      annotations:
+        checksum/config: {{ toJson .Values.config | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "relsynth.sa" . }}
+      automountServiceAccountToken: false
+      securityContext: {{- include "relsynth.podSecurity" . | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "relsynth.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [serve, --proxy-headers, --port, "8080"]
+          env: {{- include "relsynth.env" . | nindent 12 }}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5, failureThreshold: 3}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 10, failureThreshold: 6}
+          startupProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 2, failureThreshold: 60}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "relsynth.mounts" . | nindent 12 }}
+            {{- range .Values.tenants }}
+            {{- if and .storage .storage.existingClaim }}
+            - {name: tenant-{{ .id }}, mountPath: /var/lib/relsynth/data/tenants/{{ .id }}}
+            {{- end }}
+            {{- end }}
+      volumes:
+        {{- include "relsynth.volumes" . | nindent 8 }}
+        {{- range .Values.tenants }}
+        {{- if and .storage .storage.existingClaim }}
+        - name: tenant-{{ .id }}
+          persistentVolumeClaim: {claimName: {{ .storage.existingClaim }}}
+        {{- end }}
+        {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}, app.kubernetes.io/component: api}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "relsynth.fullname" . }}
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "relsynth.selector" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      {{- if .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "relsynth.fullname" . }}-api
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.api.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: {{- include "relsynth.selector" . | nindent 6 }}
+      app.kubernetes.io/component: api

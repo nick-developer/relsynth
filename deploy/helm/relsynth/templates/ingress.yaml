@@ -1,0 +1,39 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "relsynth.fullname" . }}
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tlsSecret }}
+  tls: [{hosts: [{{ .Values.ingress.host | quote }}], secretName: {{ .Values.ingress.tlsSecret }}}]
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: {{ include "relsynth.fullname" . }}, port: {name: http}}}
+{{- end }}
+{{- if .Values.openshift.route.enabled }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "relsynth.fullname" . }}
+  labels: {{- include "relsynth.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.openshift.route.host }}
+  host: {{ . }}
+  {{- end }}
+  to: {kind: Service, name: {{ include "relsynth.fullname" . }}}
+  port: {targetPort: http}
+  tls: {termination: {{ .Values.openshift.route.termination }}, insecureEdgeTerminationPolicy: Redirect}
+{{- end }}
