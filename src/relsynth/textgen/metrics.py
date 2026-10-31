@@ -139,9 +139,10 @@ def mauve(p_texts, q_texts, embed=None, k: int | None = None, c: float = 5.0, se
         ys.append(math.exp(-c * kl_p))
     xs.append(0.0)
     ys.append(1.0)
-    xs, ys = np.array(xs), np.array(ys)
-    o = np.argsort(xs)
-    return float(np.trapezoid(ys[o], xs[o]) if hasattr(np, "trapezoid") else np.trapz(ys[o], xs[o]))
+    X1, Y1 = np.array(xs), np.array(ys)
+    o = np.argsort(X1)
+    xo, yo = X1[o], Y1[o]
+    return float(np.sum((xo[1:] - xo[:-1]) * (yo[1:] + yo[:-1]) / 2))
 
 
 def report(real: pd.DataFrame, syn: pd.DataFrame, text: str, cols=(), owners=None, label: str | None = None,

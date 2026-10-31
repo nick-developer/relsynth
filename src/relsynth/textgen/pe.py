@@ -108,6 +108,8 @@ class PETextModel:
         self.H, self.embed = float(threshold), make_embedder(embed)
         self.class_share = float(class_share)
         self.release: dict = {}
+        self.weights: dict = {}
+        self.pool: dict = {}
 
     def fit_dp(self, texts, owners, classes, acct, rho: float, delta: float, stage: str = "fit", label: str = "text"):
         from ..dp.mechanisms import Charge, gaussian, sigma_for, threshold_for
@@ -152,7 +154,8 @@ class PETextModel:
         P = self.embed([t for _, t, _ in flat]) if flat else np.zeros((0, 1))
         hist_log = []
         for it in range(self.T):
-            offs, allp = {}, []
+            offs: dict = {}
+            allp: list[str] = []
             for c in levels:
                 offs[c] = len(allp)
                 allp += pool[c]

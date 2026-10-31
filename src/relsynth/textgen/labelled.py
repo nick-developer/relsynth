@@ -109,7 +109,7 @@ def value(typ: str, rng: np.random.Generator) -> str:
         f = i(3)
         return (f"{y}-{m + 1:02d}-{d:02d}", f"{d}/{m + 1}/{y}", f"{d} {MONTHS[m]} {y}")[f]
     if typ == "ID":
-        return rng.choice([f"{i(10 ** 7) + 10 ** 6}", f"INV-{i(10 ** 6) + 10 ** 5}", f"AB{i(10 ** 6) + 10 ** 5}"])
+        return str(rng.choice([f"{i(10 ** 7) + 10 ** 6}", f"INV-{i(10 ** 6) + 10 ** 5}", f"AB{i(10 ** 6) + 10 ** 5}"]))
     if typ == "ADDRESS":
         return f"{i(300) + 1} {HELD_OUT_LAST[i(len(HELD_OUT_LAST))]} " \
                f"{rng.choice(['Street', 'Road', 'Avenue', 'Lane', 'Drive'])}"
@@ -120,7 +120,7 @@ def labelled_set(n: int = 1000, seed: int = 1506, no_pii_share: float = 0.15) ->
     """n labelled texts: {"text", "spans": [[start, end, type]]}."""
     import re
     rng = np.random.default_rng(seed)
-    out = []
+    out: list[dict] = []
     slot = re.compile(r"\{([A-Z]+)\}")
     for _ in range(n):
         if rng.random() < no_pii_share:

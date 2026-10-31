@@ -99,8 +99,9 @@ class LMTextModel:
                              **self.stub_size)
             self.net = GPT2LMHeadModel(cfg)
         else:
-            self.tok = _HFTok(AutoTokenizer.from_pretrained(self.model_name, local_files_only=True))
-            self.net = AutoModelForCausalLM.from_pretrained(self.model_name, local_files_only=True)
+            # a local folder only (local_files_only): nothing is downloaded, so there is no revision to pin
+            self.tok = _HFTok(AutoTokenizer.from_pretrained(self.model_name, local_files_only=True))  # nosec B615
+            self.net = AutoModelForCausalLM.from_pretrained(self.model_name, local_files_only=True)  # nosec B615
         if self.lora:
             from peft import LoraConfig, get_peft_model
             o = dict(self.lora)

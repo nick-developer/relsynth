@@ -61,7 +61,7 @@ class DPNgramModel(TextModel):
         for i, o in enumerate(owners):
             by[o].append(i)
         people = []
-        for o, idx in by.items():
+        for idx in by.values():
             if len(idx) > self.max_texts:
                 idx = list(rng.choice(idx, self.max_texts, replace=False))
             rows = []
@@ -161,14 +161,18 @@ class DPNgramModel(TextModel):
 
     # ------------------------------------------------------------ scoring (audits)
     def logprob(self, tokens, c) -> float:
-        """log P(tokens, EOS | class) under the model (natural log); a token
-        outside the vocabulary has probability 0."""
+        """log P(tokens, EOS | class) under the model (natural log).  A token
+        outside the vocabulary, which the model never emits, scores a fixed
+        log(1e-12) and stays in the history (the next token backs off past it),
+        so candidates that share such a token are still ranked by the rest."""
         hist = [BOS] * self.N
         lp = 0.0
         for w in list(tokens) + [EOS]:
             j = self.widx.get(w)
             if j is None:
-                return -math.inf
+                lp += math.log(1e-12)
+                hist.append(w)
+                continue
             p = self.dist(c, hist)
             lp += math.log(max(p[j] / p.sum(), 1e-300))
             hist.append(w)
@@ -177,4 +181,4 @@ class DPNgramModel(TextModel):
 
 def ngram_logprob(model: TextModel, tokens, c) -> float:
     """log P(tokens, EOS | class) of any `TextModel` (the non-private one too)."""
-    return DPNgramModel.logprob(model, tokens, c)
+    return DPNgramModel.logprob(model, tokens, c)  # type: ignore[arg-type]  # uses TextModel fields only

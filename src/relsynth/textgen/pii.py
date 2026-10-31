@@ -92,7 +92,8 @@ _PATTERNS = [
     ("PERSON", re.compile(r"(?:[Rr]egards|[Tt]hanks|[Tt]hank you|[Cc]heers|[Ss]incerely|[Bb]est),?\s+(" + _CAP
                           + r"(?: " + _CAP + r")?)\b")),
     ("PERSON", re.compile(r"\b(?:[Mm]y name is|[Tt]his is|I am|I'm|[Cc]ontact|[Aa]sk for|[Ss]poke (?:to|with)|"
-                          r"[Cc]alled|[Nn]amed|[Pp]atient|[Hh]older|[Cc]ustomer|[Cc]lient|[Ee]mployee|[Cc]olleague) (" + _CAP + r"(?: " + _CAP + r")?)\b")),
+                          r"[Cc]alled|[Nn]amed|[Pp]atient|[Hh]older|[Cc]ustomer|[Cc]lient|[Ee]mployee|"
+                          r"[Cc]olleague) (" + _CAP + r"(?: " + _CAP + r")?)\b")),
     ("ID", re.compile(r"\b[A-Z]{0,4}-?\d{5,}\b|\b[A-Z]{1,3}\d{2,}[A-Z]\d*\b")),
 ]
 _NOT_PERSON = {"The", "This", "That", "Please", "Hello", "Hi", "Dear", "Thanks", "Thank", "Regards", "Monday", "Tuesday",
@@ -262,7 +263,8 @@ class PiiPipeline:
         return "".join(parts), sp
 
     def redact_all(self, texts) -> tuple[list, dict]:
-        out, counts = [], {}
+        out: list = []
+        counts: dict[str, int] = {}
         for t in texts:
             r, sp = self.redact(t)
             out.append(r)
@@ -346,7 +348,7 @@ def evaluate(pipeline: PiiPipeline, labelled: list[dict]) -> dict:
     `typed` recall also needs the predicted type to match.  Precision counts
     predicted spans that overlap a gold entity.  Each figure has a 95% Wilson
     interval."""
-    per = {}
+    per: dict[str, dict] = {}
     tp_pred = n_pred = 0
     for row in labelled:
         text = row["text"]
@@ -367,7 +369,7 @@ def evaluate(pipeline: PiiPipeline, labelled: list[dict]) -> dict:
             full = bool(cover[[not text[gs + k].isspace() for k in range(ge - gs)]].all())
             d["redacted"] += full
             d["typed"] += full and typed
-    out = {"recognizers": pipeline.names, "types": {}}
+    out: dict = {"recognizers": pipeline.names, "types": {}}
     N = R = T = 0
     for t, d in sorted(per.items()):
         out["types"][t] = {"n": d["n"], "recall": d["redacted"] / d["n"], "recall_ci": wilson(d["redacted"], d["n"]),

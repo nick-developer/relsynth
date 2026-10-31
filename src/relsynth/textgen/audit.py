@@ -109,6 +109,8 @@ def exposure_bound(t: float, rho: float | None = None, delta_extra: float = 0.0,
         return min(1.0, math.exp(epsilon) * 2.0 ** (-t) + (delta or 0.0) + delta_extra)
     from ..governance.accounting import cks_delta, epsilon_of
     best = 1.0
+    if rho is None:
+        raise ValueError("exposure_bound needs epsilon or rho")
     for d in np.logspace(-12, -0.5, 60):
         e = 0.0 if cks_delta(rho, 0.0) <= d else epsilon_of(rho, float(d))
         best = min(best, math.exp(e) * 2.0 ** (-t) + float(d))
@@ -223,3 +225,75 @@ def extraction_attack(samples, train, owners=None, k: int = 3, top: int = 100, l
             hits.append(s)
     return {"samples": len(samples), "distinct": len(uniq), "top": len(order), "rare_training_texts": len(rare),
             "extracted": len(hits), "precision": len(hits) / max(len(order), 1), "examples": hits[:5]}
+
+
+# ------------------------------------------------------------------ the whole audit of one column
+def run_audit(df, column: str, options: dict, canaries: int = 64, repeats: int = 4, words: int = 16, k: int = 3,
+              samples: int = 2000, seed: int = 1500, owner_column: str | None = None) -> dict:
+    """Fit the column's text configuration on `df` plus canary people, then
+    measure exposure (with the DP bound when the configuration is DP), exact and
+    near duplicates of the generated texts, and an extraction attack."""
+    import pandas as pd
+
+    from . import TextColumn, dp_budget, logprob_fn
+    o = dict(options)
+    owner_column = owner_column or (o.get("dp") or {}).get("unit_column")
+    cols = [c for c in ([o["condition_on"]] if isinstance(o.get("condition_on"), str) else o.get("condition_on") or [])]
+    texts = df[column].tolist()
+    owners = df[owner_column].tolist() if owner_column else list(range(len(df)))
+    wl = candidate_words(texts, n=words)
+    sec = make_canaries(wl, k, canaries, seed)
+    base = df[[column] + cols].copy()
+    base["_owner"] = owners
+    if cols:
+        cls_rows = base[cols].astype(str).drop_duplicates()
+        pick = np.random.default_rng(seed + 1).integers(len(cls_rows), size=canaries)
+    extra = []
+    for i, s in enumerate(sec):
+        row = {column: canary_text(wl, s), "_owner": f"canary-{i}"}
+        if cols:
+            row.update(cls_rows.iloc[int(pick[i])].to_dict())
+        extra += [row] * repeats
+    train = pd.concat([base, pd.DataFrame(extra)], ignore_index=True)
+    if o.get("dp"):
+        o["dp"] = {**o["dp"], "unit_column": "_owner"}
+    tc = TextColumn("audit", column, o).fit(train, seg=["0"] * len(train) if not cols else None)
+    from . import class_keys
+    can_cls = class_keys(pd.DataFrame(extra[::repeats]), cols, ["0"] * canaries) if cols else ["0"] * canaries
+    lp = logprob_fn(tc.model)
+    out: dict = {"method": tc.method, "canaries": canaries, "repeats": repeats, "candidates": len(wl) ** k,
+                 "words": wl}
+    if lp is not None:
+        if tc.method == "lm":
+            can_c = [dict(zip(cols, c.split(" | "))) if cols else {"segment": "0"} for c in can_cls]
+            if len(cols) == 1:
+                can_c = [{cols[0]: c} for c in can_cls]
+            e = exposures(lambda toks, c: lp(toks, c), wl, k, sec, can_c, seed=seed)
+        else:
+            e = exposures(lp, wl, k, sec, can_cls, seed=seed)
+        out["exposure"] = {"mean": float(e.mean()), "max": float(e.max()), "p90": float(np.quantile(e, 0.9)),
+                           "max_possible": math.log2(len(wl) ** k), "values": [round(float(x), 3) for x in e]}
+        if o.get("dp"):
+            rho, d_sel, delta = dp_budget(options["dp"])
+            ts = [2.0, 4.0, 6.0, 8.0]
+            from scipy.stats import binom
+            out["exposure"]["bound"] = {}
+            for t in ts:
+                b = exposure_bound(t, rho=rho, delta_extra=d_sel)
+                hits = int((e >= t).sum())
+                out["exposure"]["bound"][str(t)] = {"observed": hits / len(e), "bound": b,
+                                                    "p_value": float(binom.sf(hits - 1, len(e), b))}
+            from ..governance.accounting import epsilon_of
+            eps = epsilon_of(rho, delta - d_sel)
+            out["exposure"]["expected_bound"] = expected_exposure_bound(eps, delta, len(wl) ** k)
+            out["exposure"]["consistent"] = bool(all(v["p_value"] > 0.01 for v in out["exposure"]["bound"].values()))
+    rng = np.random.default_rng(seed + 2)
+    idx = rng.integers(len(df), size=samples)
+    syn_src = df.iloc[idx].reset_index(drop=True)
+    gen = tc.generate(syn_src, None if cols else ["0"] * samples, rng)
+    real_texts = [t for t in texts if t is not None]
+    out["duplicates"] = near_duplicates(real_texts, gen)
+    out["extraction"] = extraction_attack(gen, real_texts, owners, k=3)
+    out["canaries_generated"] = int(sum(CANARY_PREFIX in str(g) for g in gen))
+    out["dp"] = tc.info.get("dp")
+    return out
