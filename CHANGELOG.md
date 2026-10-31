@@ -26,6 +26,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Changed
 
+- Science check C00 names the layer 1 checks that failed, and reruns the layer 1 script once when only its wall-clock checks (T4, T9) failed; seeded checks still fail at once.
 - The ordinary pipeline, `tune`, `verify`, `export-model` and `doctor --apply` refuse a spec in DP mode instead of reading it without DP.
 
 - **MySQL 8 and MariaDB connector** (`mysql://`, `mariadb://`, `relsynth[mysql]`): read, write in every mode, `clone-schema`, and fitting inside the database (GROUP BY statistics, window-function rank sums, a seeded SHA-256 hash sample). Text is grouped and compared in a binary collation, so statistics stay exact on case- and accent-insensitive columns. Created columns keep the data: `DOUBLE`, `DATETIME(6)`, `utf8mb4` text with a binary no-pad collation, key columns within MySQL's index limit and wide tables within its row limit. Tested live on MySQL 8.4 and MariaDB 11.4.

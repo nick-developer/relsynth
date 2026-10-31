@@ -113,11 +113,20 @@ def c00():
         # two of the 14 layer 1 checks need the datasketches package (no wheel on some
         # platforms, e.g. Python 3.14 on Windows): report as not run instead of failing
         return [item("layer 1 validate_algorithms.py", "not run: `pip install datasketches` needed", "14/14", True)]
-    out = subprocess.run([sys.executable, str(p)], capture_output=True, text=True, timeout=900).stdout
-    last = [l for l in out.splitlines() if "checks passed" in l]
-    n = last[-1].split()[0] if last else "0/14"
-    a, b = n.split("/")
-    return [item("layer 1 validate_algorithms.py", n, "14/14", a == b)]
+    # T4 and T9 compare wall-clock times; on a shared CI runner a noisy neighbour can
+    # push one ratio over its bound. Every other layer 1 check is seeded and exact,
+    # so the script runs a second time only when all its failures are timing checks.
+    timing = ("T4 ", "T9 ")
+    for attempt in (1, 2):
+        out = subprocess.run([sys.executable, str(p)], capture_output=True, text=True, timeout=900).stdout
+        last = [l for l in out.splitlines() if "checks passed" in l]
+        n = last[-1].split()[0] if last else "0/14"
+        a, b = n.split("/")
+        failed = [l[len("[FAIL] "):].split(":")[0] for l in out.splitlines() if l.startswith("[FAIL] ")]
+        if a == b or not failed or not all(f.startswith(timing) for f in failed):
+            break
+    detail = n + (f" (failed: {'; '.join(failed)})" if failed else "") + (" on the second run" if attempt == 2 else "")
+    return [item("layer 1 validate_algorithms.py", detail, "14/14", a == b)]
 
 
 # ====================================================================== S1
