@@ -154,7 +154,7 @@ def check_contract(contract: dict, read: Callable[[str, list[str] | None], pd.Da
             if ("minimum" in opts or "maximum" in opts) and lt in ("integer", "number"):
                 x = pd.to_numeric(s, errors="coerce")
                 lo, hi = opts.get("minimum"), opts.get("maximum")
-                n = int(((x < lo) if lo is not None else False).sum() + ((x > hi) if hi is not None else False).sum())
+                n = int((x < lo).sum() if lo is not None else 0) + int((x > hi).sum() if hi is not None else 0)
                 rep.add(name, c, "range", n == 0, f"{n} values outside [{lo}, {hi}]" if n else "")
             for q in p.get("quality") or []:
                 _quality(rep, name, c, q, df, [c])
