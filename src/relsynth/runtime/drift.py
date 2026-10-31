@@ -115,7 +115,7 @@ def chi2_homogeneity(table: np.ndarray) -> tuple[float, float, float]:
     t = t[:, order]
     while t.shape[1] > 2:
         exp = np.outer(t.sum(axis=1), t.sum(axis=0)) / t.sum()
-        if exp.min() >= 5:
+        if float(np.min(exp)) >= 5:
             break
         t = np.column_stack([t[:, 0] + t[:, 1], t[:, 2:]])         # merge the two rarest levels
     chi2, p, _, _ = st.chi2_contingency(t, correction=False)
@@ -187,7 +187,7 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
         exprs = [_expr(b) for b in by]
         part = " || '|' || ".join(f"COALESCE(CAST({e} AS VARCHAR), '<null>')" for e, _ in exprs)
         con.execute(f"CREATE TEMP VIEW rs_p AS SELECT *, {part} AS rs_part FROM rs_t")   # noqa: S608 - quoted names
-        k, rows = con.execute("SELECT count(DISTINCT rs_part), count(*) FROM rs_p").fetchone()
+        k, rows = con.execute("SELECT count(DISTINCT rs_part), count(*) FROM rs_p").fetchone() or (0, 0)
         used = {parse_col(b) for b in by}
         todo = [c for c in (columns or cols) if c not in used and c in types]
         res = []
@@ -211,10 +211,10 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
                     f"ORDER BY count(*) DESC, v LIMIT {MAX_LEVELS}").fetchall()]
                 if len(top) < 2:
                     continue
-                g = con.execute(
+                lv = con.execute(
                     f"SELECT rs_part, CASE WHEN CAST({q} AS VARCHAR) IN (SELECT unnest(?)) THEN CAST({q} AS VARCHAR) "  # noqa: S608
                     f"ELSE '<other>' END v, count(*) FROM rs_p WHERE {q} IS NOT NULL GROUP BY ALL", [top]).fetchdf()
-                tab = g.pivot_table(index=g.columns[0], columns="v", values=g.columns[2], aggfunc="sum",
+                tab = lv.pivot_table(index=lv.columns[0], columns="v", values=lv.columns[2], aggfunc="sum",
                                     fill_value=0).to_numpy()
                 stat, p, e = chi2_homogeneity(tab)
                 res.append({"column": c, "test": "chi-square", "statistic": stat, "p": p,

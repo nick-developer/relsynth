@@ -191,8 +191,9 @@ def make_executor(spec: dict | str | Executor | None = None) -> Executor:
     name = cfg.get("executor", "local")
     if name == "local":
         return LocalExecutor()
+    workers = int(cfg["workers"]) if cfg.get("workers") is not None else None
     if name == "process":
-        return ProcessExecutor(cfg.get("workers"), cfg.get("start"))
+        return ProcessExecutor(workers, cfg.get("start"))
     if name == "spark":
-        return SparkExecutor(workers=cfg.get("workers"), master=cfg.get("master"))
+        return SparkExecutor(workers=workers, master=cfg.get("master"))
     raise ValueError(f"runtime.executor must be one of {', '.join(EXECUTORS)}, not {name!r}")

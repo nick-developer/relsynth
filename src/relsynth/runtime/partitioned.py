@@ -155,7 +155,8 @@ def blocks_by_rows(u, n_anchor: int, partition_rows: int) -> tuple[np.ndarray, l
     order = np.argsort(u, kind="stable")
     per = np.bincount(u, minlength=n_anchor) if n_anchor else np.zeros(0, np.int64)
     cum = np.concatenate([[0], np.cumsum(per)])
-    blocks, a, p = [], 0, 0
+    blocks: list[tuple] = []
+    a, p = 0, 0
     while a < n_anchor or (n_anchor == 0 and not blocks):
         b = int(np.searchsorted(cum, cum[a] + partition_rows, side="left")) if n_anchor else 0
         b = min(max(b, a + 1), n_anchor) if n_anchor else 0
