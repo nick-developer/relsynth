@@ -93,6 +93,8 @@ class Param:
         if t == "choice":
             if isinstance(value, (dict, list)) and "map" in self.choices:
                 return None
+            if isinstance(value, bool) and "on" in self.choices:
+                return None                 # YAML reads a bare on / off as true / false
             if value in self.choices:
                 return None
             return f"must be one of {', '.join(map(str, (c for c in self.choices if c != 'map')))}" + \

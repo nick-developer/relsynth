@@ -294,3 +294,20 @@ def test_settings_reference_is_up_to_date():
     ref = pathlib.Path(__file__).resolve().parents[2] / "docs" / "settings-reference.md"
     assert ref.read_text(encoding="utf-8") == S.reference(), \
         "docs/settings-reference.md is stale: python -m relsynth.settings > docs/settings-reference.md"
+
+
+def test_on_off_choices_accept_yaml_booleans():
+    # YAML reads a bare `frailty: on` as True; relsynth doctor writes True
+    p = S.params()["trees.frailty"]
+    assert p.check(True) is None and p.check(False) is None and p.check("on") is None
+    assert S.validate({"trees": {"frailty": True}, "facts": {"frailty": "off"}}) == []
+    assert S.validate({"trees": {"frailty": "maybe"}})
+
+
+def test_engine_settings_read_on_bare_objects():
+    # the science checks call engine methods on Synthesizer.__new__ and SimpleNamespace objects
+    from types import SimpleNamespace
+
+    from relsynth.engine import _setting
+    assert _setting(SimpleNamespace(), "repair", "occupancy_rounds", 20) == 20
+    assert _setting(SimpleNamespace(cfg={"repair": {"occupancy_rounds": 5}}), "repair", "occupancy_rounds", 20) == 5

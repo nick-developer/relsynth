@@ -346,6 +346,13 @@ def say(msg):
     _log.info(msg)
 
 
+
+def _setting(obj, group, key, default):
+    """A setting of the synthesis block (relsynth.settings), default when absent.
+    A function, not a method: the science checks call engine methods on bare
+    objects (Synthesizer.__new__, SimpleNamespace) that have no cfg."""
+    return ((getattr(obj, "cfg", None) or {}).get(group) or {}).get(key, default)
+
 class Synthesizer:
     def __init__(self, spec):
         from .spec import validate
@@ -363,10 +370,6 @@ class Synthesizer:
         self._runs = 0
         self.log = {"warnings": [], "errors": [], "timings": {}, "source": {}, "decisions": {}}
 
-    def _k(self, group, key, default):
-        """A setting of the synthesis block (relsynth.settings), default when absent
-        (also on a bare instance without cfg, as the science checks build one)."""
-        return ((getattr(self, "cfg", None) or {}).get(group) or {}).get(key, default)
 
     # ================================================================== fit
     def fit(self, tables: dict[str, pd.DataFrame], stats=None):
@@ -1554,8 +1557,8 @@ class Synthesizer:
         elif setting == "occupancy" or declared or info.get("vdim") or info["nested"]:
             model = "occupancy"
         else:
-            model = "occupancy" if (z < self._k("facts", "occupancy_z", -4.0)
-                                    and exp_ >= self._k("facts", "occupancy_min_expected", 10.0)) else "poisson"
+            model = "occupancy" if (z < _setting(self, "facts", "occupancy_z", -4.0)
+                                    and exp_ >= _setting(self, "facts", "occupancy_min_expected", 10.0)) else "poisson"
         if declared or (c.max(initial=1) <= 1 and mult == "auto" and model == "occupancy"):
             mult = "none"
         dec["model"], dec["multiplicity"] = model, mult
@@ -1565,7 +1568,7 @@ class Synthesizer:
     # ------------------------------------------------------------------ post-fit
     def _frailty_on(self, mode, D):
         thr = self.cfg["facts"]["frailty_threshold"]
-        return mode is True or (mode == "auto" and np.nanmax(D) > thr)
+        return mode is True or mode == "on" or (mode == "auto" and np.nanmax(D) > thr)
 
     def _post_edges(self):
         rng = self.rng
@@ -1580,7 +1583,7 @@ class Synthesizer:
                 info["max_depth"] = int(rel.depth.max()) if len(rel.depth) else 0
                 info["lam_d"], info["psi_d"] = self._tree_levels(rel, info["psi"], rel.lam, info["max_depth"])
                 alpha, D = dispersion_alpha(rel.nchild, e.z, e.K, rel.lam, self.cfg["facts"]["frailty_threshold"],
-                                            min_rows=self._k("facts", "frailty_min_rows", 30))
+                                            min_rows=_setting(self, "facts", "frailty_min_rows", 30))
                 info["frailty"] = alpha if self._frailty_on(self.cfg["trees"]["frailty"], D) else np.full(e.K, np.inf)
                 info["dispersion"] = D
                 continue
@@ -1595,7 +1598,7 @@ class Synthesizer:
                                       nk - nullk + 1) if nm.any() else np.zeros(c.K)
             fan = np.bincount(rel.v, minlength=p.n).astype(float)
             alpha, D = dispersion_alpha(fan, p.z, p.K, None, self.cfg["facts"]["frailty_threshold"],
-                                        min_rows=self._k("facts", "frailty_min_rows", 30))
+                                        min_rows=_setting(self, "facts", "frailty_min_rows", 30))
             info["parent_frailty"] = alpha if self._frailty_on(self.cfg["facts"]["frailty"], D) else np.full(p.K, np.inf)
             info["dispersion"] = D
             info["fixed_parent"] = bool(p.fixed or getattr(p, "copied", False))
@@ -1678,7 +1681,7 @@ class Synthesizer:
         z1 = e1.z[a_idx[ok]]
         parent = None
         if rel.kind == "single":
-            alpha, D = dispersion_alpha(rel.N, e1.z, e1.K, rel.lam, thr, min_rows=self._k("facts", "frailty_min_rows", 30))
+            alpha, D = dispersion_alpha(rel.N, e1.z, e1.K, rel.lam, thr, min_rows=_setting(self, "facts", "frailty_min_rows", 30))
             info["frailty1"] = alpha if self._frailty_on(mode, D) else np.full(e1.K, np.inf)
             info["dispersion1"] = D
             info["obs1"] = rel.N
@@ -1695,8 +1698,8 @@ class Synthesizer:
             tot1 = np.bincount(rel.u, weights=rel.c, minlength=e1.n)
             tot2 = np.bincount(rel.v, weights=rel.c, minlength=e2.n)
             info["obs1"], info["obs2"] = tot1, tot2
-            a1, D1 = dispersion_alpha(tot1, e1.z, e1.K, None, thr, min_rows=self._k("facts", "frailty_min_rows", 30))
-            a2, D2 = dispersion_alpha(tot2, e2.z, e2.K, None, thr, min_rows=self._k("facts", "frailty_min_rows", 30))
+            a1, D1 = dispersion_alpha(tot1, e1.z, e1.K, None, thr, min_rows=_setting(self, "facts", "frailty_min_rows", 30))
+            a2, D2 = dispersion_alpha(tot2, e2.z, e2.K, None, thr, min_rows=_setting(self, "facts", "frailty_min_rows", 30))
             info["dispersion1"], info["dispersion2"] = D1, D2
             if rel.kind == "occ":
                 self._finalise_occ(f, rel, info)
@@ -1750,7 +1753,7 @@ class Synthesizer:
                 self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
                 fan = rx.fan_exact if getattr(rx, "fan_exact", None) is not None else \
                     np.bincount(xi[xi >= 0], minlength=ex.n).astype(float)
-                ax, Dx = dispersion_alpha(fan, ex.z, ex.K, None, thr, min_rows=self._k("facts", "frailty_min_rows", 30))
+                ax, Dx = dispersion_alpha(fan, ex.z, ex.K, None, thr, min_rows=_setting(self, "facts", "frailty_min_rows", 30))
                 d["frailty"] = ax if self._frailty_on(mode, Dx) else np.full(ex.K, np.inf)
                 d["obs"] = fan
                 info["extra_p"].append(d)
@@ -2046,7 +2049,7 @@ class Synthesizer:
         if unique or info.get("no_loops"):
             pz = z2 if elig2 is None else np.where(elig2, z2, -1)
             u, v, blk, moved, dropped = self._repair_pairs(u, v, blk, len(z2), K2, unique, info.get("no_loops", False),
-                                                           tries=int(self._k("repair", "pair_tries", 200)),
+                                                           tries=int(_setting(self, "repair", "pair_tries", 200)),
                                                            partners=lambda b: np.flatnonzero(pz == b % K2))
             if moved or dropped:
                 self.sample_log.setdefault("link_degree_repair", {})[f] = {"moved": moved, "dropped": dropped}
@@ -2352,8 +2355,8 @@ class Synthesizer:
                             "anchor_rules": [r for r in spec["rules"] if r["table"] == t and r.get("anchor_link")
                                              and T[t]["role"] == "entity"]}
             if krules and T[t]["role"] == "entity" and t not in self.copied:
-                self._fit_rake(t, krules, tables, max_levels=int(self._k("rules", "rake_max_levels", 50)),
-                               max_cells=int(self._k("rules", "rake_max_cells", 2000)))
+                self._fit_rake(t, krules, tables, max_levels=int(_setting(self, "rules", "rake_max_levels", 50)),
+                               max_cells=int(_setting(self, "rules", "rake_max_cells", 2000)))
             for u in T[t].get("unique", []):
                 if all(c in tables[t].columns for c in u):
                     d = int(tables[t].duplicated(u).sum())
@@ -2482,7 +2485,7 @@ class Synthesizer:
                 base = cfg["seed"] if pc.get("sample_seed") is None else pc["sample_seed"]
                 self.rng = np.random.default_rng(np.random.SeedSequence([int(base), 7919, int(index), 104729]))
                 try:
-                    for _ in range(int(self._k("repair", "tree_redraws", 40))):
+                    for _ in range(int(_setting(self, "repair", "tree_redraws", 40))):
                         _, p2 = self._grow_tree(tree, s)
                         ppc.append(np.bincount(tree_depth(p2.copy())).tolist())
                 finally:
@@ -2748,7 +2751,7 @@ class Synthesizer:
         starts from the balanced allocation."""
         rng = self.rng
         if sweeps is None:
-            sweeps = int(self._k("facts", "dp_count_sweeps", 30))
+            sweeps = int(_setting(self, "facts", "dp_count_sweeps", 30))
         if M == 0:
             return np.zeros(0, np.int64)
         n = len(obs)
@@ -3268,7 +3271,7 @@ class Synthesizer:
             def draw_all():
                 pending = np.arange(len(df))
                 mixed[0] = 0
-                for it in range(int(self._k("repair", "constraint_rounds", 200))):
+                for it in range(int(_setting(self, "repair", "constraint_rounds", 200))):
                     if not len(pending):
                         break
                     if it == 100:
@@ -3323,7 +3326,7 @@ class Synthesizer:
             exact_log = None
 
         rounds = 0
-        while (~valid).any() and rounds < int(self._k("repair", "constraint_rounds", 200)):
+        while (~valid).any() and rounds < int(_setting(self, "repair", "constraint_rounds", 200)):
             rows = rng.permutation(np.flatnonzero(~valid))
             try_move(rows, propose(rows, blocks[rounds % len(blocks)]), False)
             rounds += 1
@@ -3586,7 +3589,7 @@ class Synthesizer:
         r = np.clip(1 - e / np.maximum(p0, 1e-300), 0, 1)
         rows = np.flatnonzero(elig & (n == 0))
         rounds = 0
-        while len(rows) and rounds < int(self._k("repair", "thin_rounds", 200)):
+        while len(rows) and rounds < int(_setting(self, "repair", "thin_rounds", 200)):
             rej = rows[self.rng.random(len(rows)) >= r[z[rows]]]
             if not len(rej):
                 break
@@ -4092,7 +4095,7 @@ class Synthesizer:
 
         draw(active)
         if min_one:
-            n_occ = int(self._k("repair", "occupancy_rounds", 20))
+            n_occ = int(_setting(self, "repair", "occupancy_rounds", 20))
             for r in range(n_occ + 1):
                 has = np.zeros(len(z1), bool)
                 for ii in us:
@@ -4250,7 +4253,7 @@ class Synthesizer:
             if c in df.columns:
                 continue
             if cs["type"] == "id" and (t, c) in self.pii:
-                df[c] = _unique_codes(self.pii[(t, c)], n, rng, rounds=int(self._k("repair", "unique_code_rounds", 50)))
+                df[c] = _unique_codes(self.pii[(t, c)], n, rng, rounds=int(_setting(self, "repair", "unique_code_rounds", 50)))
             elif cs["type"] == "id":
                 df[c] = np.arange(1, n + 1)
             elif cs["type"] == "text":
@@ -4429,7 +4432,7 @@ class Synthesizer:
                 self.log["decisions"].setdefault(t, {})[f"group effect {g['column']} by {', '.join(g['by'])}"] = (
                     f"one value per group on {share:.1%} of {int(multi.sum())} source groups with 2+ rows; "
                     "one value drawn per group")
-                if share < self._k("detection", "group_effect_share", 0.95):
+                if share < _setting(self, "detection", "group_effect_share", 0.95):
                     self.log["warnings"].append(f"{t}: group effect on {g['column']} holds on only {share:.1%} of source groups; "
                          "the synthetic data will make it hold on all groups")
 
@@ -4631,7 +4634,7 @@ class Synthesizer:
                 if excess == 0 or not len(empty):
                     continue
                 empty = empty[self.rng.permutation(len(empty))][:excess]
-                for rnd in range(int(self._k("repair", "participation_rounds", 4))):
+                for rnd in range(int(_setting(self, "repair", "participation_rounds", 4))):
                     if not len(empty):
                         break
                     # donors from the same segment first: a child's other columns were
@@ -4700,7 +4703,7 @@ class Synthesizer:
             end = pd.to_datetime(df[vt], errors="coerce", format="mixed") if vt in df.columns else None
             ok = key.notna().to_numpy()
             sizes = key[ok].value_counts()
-            M = int(min(sizes.max(), self._k("detection", "scd_max_versions", 50)))
+            M = int(min(sizes.max(), _setting(self, "detection", "scd_max_versions", 50)))
             vcount = np.bincount(np.minimum(sizes.to_numpy(), M), minlength=M + 1)[1:].astype(float)
             fr = pd.DataFrame({"k": key, "s": start, "e": end if end is not None else pd.NaT}).loc[ok]
             fr = fr.sort_values(["k", "s"])
@@ -4728,7 +4731,7 @@ class Synthesizer:
                     if c in skip or c not in df.columns or cs["type"] in ("id", "text", "binary") or not inm.any():
                         continue
                     nun = pd.Series(_keystr(df[c]).fillna("\x00").to_numpy()[inm]).groupby(key.to_numpy()[inm]).nunique()
-                    if float((nun == 1).mean()) >= self._k("detection", "scd_stable_share", 0.99):
+                    if float((nun == 1).mean()) >= _setting(self, "detection", "scd_stable_share", 0.99):
                         stable.append(c)
             if cur is None and end is not None:
                 isnull = end.isna().to_numpy()
