@@ -496,9 +496,9 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 want = cfg.max_degree.get(ch, "auto")
                 if want == "auto":
                     # post-processing: cells that do not stand above the noise are dropped when choosing
-                    # the cap (a Bonferroni bound: all-noise cells pass with probability about 5 % in all)
+                    # the cap (a Bonferroni bound: all-noise cells pass with probability about 1 % in all)
                     sig = sigma_for(c_t, share)
-                    z = float(norm.isf(0.05 / len(noisy)))
+                    z = float(norm.isf(0.01 / len(noisy)))
                     pr = np.where(noisy > z * sig, noisy, 0).astype(float)
                     if pr.sum() <= 0:
                         # the noise hides the whole histogram: a small cap keeps the later noise small
@@ -721,7 +721,42 @@ def decode(spec: dict, model: DPModel) -> dict:
     res = {t: df[[c for c in df.columns if not str(c).startswith("#")]] for t, df in out.items()}
     for t, df in model.public.items():
         res[t] = df
+    _enforce_checks(spec, model.plan, res)
+    for t in model.plan.views:
+        # a view is rebuilt from its base table by stage 2; it reads no rows of its own
+        res[t] = pd.DataFrame({c: pd.Series(dtype=object) for c in spec["tables"][t]["columns"]})
     return res
+
+
+def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
+    """Drop seed rows that break a check rule of the spec, then the rows whose owner
+    was dropped (post-processing).  The seed is decoded from low-dimensional
+    statistics, so cross-table rules (an order's store in the customer's country)
+    often fail in it; stage 2 would learn the violations and spend its sampling
+    on rejecting them."""
+    from ..expr import check_mask
+    from ..prepare import make_resolver
+    for t in plan.order:
+        P = plan.tables[t]
+        if P.parent_rel is not None:
+            r = P.parent_rel
+            ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
+            keep = set(_key_list(res[r["parent"]], pk))
+            df = res[t]
+            res[t] = df[[k in keep for k in _key_list(df, ck)]].reset_index(drop=True)
+        for rule in spec.get("rules") or []:
+            if rule.get("table") != t or rule.get("type") != "check" or not len(res[t]):
+                continue
+            df = res[t]
+            try:
+                ok = check_mask(df, rule["expr"], make_resolver(spec, t, df, res))
+            except (KeyError, ValueError) as e:
+                log.debug("DP seed: rule %r not checked: %s", rule["expr"], e)
+                continue
+            if (~ok).any():
+                log.info("DP seed: %s: %d of %d rows break %r and are dropped", t, int((~ok).sum()), len(df),
+                         rule["expr"])
+                res[t] = df[ok].reset_index(drop=True)
 
 
 def _nearest_corr_cov(S):
