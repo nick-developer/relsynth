@@ -717,10 +717,11 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
     return errs
 
 
-SOURCE_KINDS = ("csv", "files", "parquet", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks",
-                "fabric", "snowflake", "bigquery", "sqlalchemy")
+SOURCE_KINDS = ("csv", "files", "parquet", "iceberg", "delta", "sqlite", "postgresql", "mssql", "oracle", "mysql", "mariadb",
+                "databricks", "fabric", "snowflake", "bigquery", "sqlalchemy")
 TARGET_KINDS = SOURCE_KINDS
 WAREHOUSE_KINDS = ("databricks", "fabric", "snowflake", "bigquery")
+LAKE_KINDS = ("iceberg", "delta")
 SERVER_KINDS = ("postgresql", "mssql", "oracle", "mysql", "mariadb", "databricks", "fabric", "snowflake", "bigquery",
                 "sqlalchemy")
 TARGET_STRUCTURES = ("auto", "clone", "infer", "existing")
@@ -774,6 +775,19 @@ def _validate_io(spec):
             errs.append(f"{key}: auth, guards and bulk are for the cloud warehouses ({', '.join(WAREHOUSE_KINDS)})")
         if x.get("kind", "csv") in SERVER_KINDS and not (x.get("url") or x.get("url_env")):
             errs.append(f"{key}: kind {x.get('kind')} needs `url` or `url_env`")
+        lake_keys = [k for k in ("catalog", "storage", "storage_env", "snapshot", "as_of", "partition_by")
+                     if x.get(k) is not None]
+        if lake_keys and x.get("kind") not in LAKE_KINDS:
+            errs.append(f"{key}: {', '.join(lake_keys)}: only for the lakehouse kinds ({', '.join(LAKE_KINDS)})")
+        for k in ("catalog", "storage", "storage_env", "partition_by"):
+            if x.get(k) is not None and not isinstance(x[k], dict):
+                errs.append(f"{key}.{k} must be a mapping")
+        if x.get("snapshot") is not None and key == "target":
+            errs.append("target.snapshot: versions are pinned when reading; a target writes a new version")
+        if x.get("kind") == "delta" and not x.get("path"):
+            errs.append(f"{key}: kind delta needs `path`")
+        if x.get("kind") == "iceberg" and not (x.get("path") or x.get("catalog")):
+            errs.append(f"{key}: kind iceberg needs `catalog` or a local `path`")
         if x.get("format") is not None and x["format"] not in ("csv", "parquet"):
             errs.append(f"{key}.format must be csv or parquet")
         nv = x.get("null_values")

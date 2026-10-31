@@ -297,7 +297,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other engine): `url`. |
+| `kind` | csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; iceberg: `catalog` (PyIceberg catalog properties) or a local `path` (a SQL catalog in <path>/catalog.db), tables in namespace `schema`; delta: `path`, a folder or object-store URI (s3://, abfss://) with one folder per table; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other engine): `url`. |
 | `path` | str |  | Folder (files) or file (sqlite); relative to the spec's folder. |
 | `url` | str |  | Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen when omitted). |
 | `url_env` | str |  | Environment variable that holds the URL (with its password), used instead of `url`: keeps the password out of the file. Specs written for sharing (introspect drafts, exported spec.yaml, bundles) show the URL with *** for the password and set url_env (RELSYNTH_SOURCE_URL). |
@@ -311,15 +311,20 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `auth` | map |  | Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default; fabric: default, azure-sp, azure-cli, managed-identity, interactive, sql-login; snowflake: key-pair, pat, oauth, password, sso, workload-identity, default; bigquery: default, service-account, external-account, impersonate) and the environment variables that hold the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env, password_env, private_key_passphrase_env) or key files as <name>_file. Without it: databricks uses DATABRICKS_TOKEN when set, else the platform's credential chain; fabric uses the Azure credential chain; snowflake uses the URL's password; bigquery uses Application Default Credentials. |
 | `guards` | map |  | Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in the warehouse's history), max_rows (largest table read into memory), max_bytes (largest estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs. |
 | `bulk` | map |  | Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. fabric: {method: insert} (ODBC parameter arrays, the default) or {method: copy, stage: https://<account>.dfs.core.windows.net/<container>/<dir>} (Parquet staged in ADLS Gen2 or OneLake, then COPY INTO). snowflake: {method: insert} (multi-row INSERT, the default) or {method: stage} (Parquet PUT in a temporary stage, then COPY INTO). bigquery: {method: load} (load jobs from Parquet, the default) or {method: insert} (DML INSERT). |
+| `catalog` | map |  | Iceberg: the properties of a PyIceberg catalog (type: rest | glue | hive | sql | ..., uri, warehouse, name). Secrets come from the environment (storage_env, or the platform's credential chain). |
+| `storage` | map |  | Iceberg and Delta on object storage: storage options without secrets, e.g. {s3.endpoint: ..., s3.region: ...} (Iceberg) or {AWS_REGION: ..., AZURE_STORAGE_ACCOUNT_NAME: ...} (Delta). |
+| `storage_env` | map |  | Iceberg and Delta: storage option -> environment variable holding its value (keys and tokens stay out of the file). |
+| `snapshot` | int or map |  | Iceberg and Delta sources: the version to read (Iceberg snapshot id, Delta version), one value or table -> value. Default: the current version; the bundle records what was read. |
+| `as_of` | str |  | Iceberg and Delta sources: read every table as it was at this ISO time (one consistent instant for all tables). |
 | `format` | csv | parquet | `csv` | File format written (target of kind files). |
-| `engine` | auto | duckdb | pandas | `auto` | Folders: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
+| `engine` | auto | duckdb | pandas | `auto` | Folders and lakehouse tables: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
 | `duckdb` | map |  | Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory (where larger-than-memory sorts and groupings spill). |
 
 ### `target`
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
+| `kind` | csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
 | `path` | str | `synthetic` | Output folder or SQLite file; dataset i > 1 goes to <path>_i. |
 | `url` | str |  | URL of the target database. |
 | `url_env` | str |  | As for source (RELSYNTH_TARGET_URL in shared specs). |
@@ -332,6 +337,10 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `auth` | map |  | As for source. |
 | `guards` | map |  | As for source. |
 | `bulk` | map |  | As for source. |
+| `catalog` | map |  | As for source. |
+| `storage` | map |  | As for source. |
+| `storage_env` | map |  | As for source. |
+| `partition_by` | map |  | Iceberg and Delta targets: table -> list of partition expressions. Iceberg: column, year(c), month(c), day(c), hour(c), bucket(n, c), truncate(n, c); Delta: columns. |
 | `format` | csv | parquet | `csv` | File format of a files target. |
 | `timescale` | map |  | PostgreSQL targets with TimescaleDB: hypertables (auto: the source's hypertables and tables whose series, sequence or fact time column is a date or datetime; none; or {table: time column}) and chunk_interval (e.g. '7 days'). |
 

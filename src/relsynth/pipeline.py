@@ -34,6 +34,9 @@ def parse_source(s: str) -> dict:
     files:DIR (CSV and Parquet files), parquet:DIR, sqlite:FILE or a database URL."""
     if s.startswith("parquet:"):
         return {"kind": "parquet", "path": s[len("parquet:"):]}
+    for pre in ("iceberg:", "delta:"):
+        if s.startswith(pre):
+            return {"kind": pre[:-1], "path": s[len(pre):]}
     for pre in ("csv:", "files:"):
         if s.startswith(pre):
             return {"kind": "csv", "path": s[len(pre):]}
@@ -78,7 +81,7 @@ def dataset_target(spec: dict, out, i: int) -> dict:
     tgt = dict(base)
     if i == 0:
         return tgt
-    if tgt.get("kind", "csv") in ("csv", "files", "parquet"):
+    if tgt.get("kind", "csv") in ("csv", "files", "parquet", "delta"):
         tgt["path"] = f"{tgt.get('path', 'synthetic')}_{i + 1}"
     elif tgt.get("kind") == "sqlite" and tgt.get("path"):
         pth = Path(tgt["path"])

@@ -203,6 +203,9 @@ jobs:
       RELSYNTH_TEST_MARIADB_URL: mariadb://root:RelSynthTest1@127.0.0.1:3307/relsynth
       # Microsoft Fabric's T-SQL on the same SQL Server, in a UTF-8 database (tests/emulators/fabric)
       RELSYNTH_TEST_FABRIC_URL: "fabric://sa:RelSynth_Test1!@localhost:1433/rs_fabric?TrustServerCertificate=yes"
+      # Iceberg and Delta on object storage (tests/integration/test_lakehouse_stores.py)
+      RELSYNTH_TEST_S3_ENDPOINT: http://127.0.0.1:5555
+      RELSYNTH_TEST_AZURITE_ENDPOINT: http://127.0.0.1:10000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -224,6 +227,15 @@ jobs:
           sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
           odbcinst -q -d -n "ODBC Driver 18 for SQL Server"
       - run: pip install -e ".[dev,fabric]"
+      # Object stores for the lakehouse connectors. Azurite runs as a step, not a service,
+      # because it needs --skipApiVersionCheck: the current Azure SDKs send a newer
+      # storage API version than the emulator knows, and it answers 400 to every call.
+      - name: S3 endpoint (moto server), Azure Blob emulator (Azurite) and storage clients
+        run: |
+          pip install "moto[server]>=5" boto3 azure-storage-blob adlfs
+          nohup moto_server -p 5555 > /tmp/moto.log 2>&1 &
+          docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite:3.35.0 \
+            azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck --loose
       - name: Wait for SQL Server
         run: |
           python - <<'EOF'

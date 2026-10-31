@@ -15,6 +15,8 @@ relsynth reads from and writes to one *location* at a time: a schema of a SQL da
 | SQLite | `sqlite:shop.db`, `sqlite:///shop.db`, or a path ending in `.db` | `{kind: sqlite, path: shop.db}` | standard library | SQLite 3.45 |
 | CSV folder | `csv:data/` (also `files:data/`) | `{kind: csv, path: data, null_values: ["", "n/a"]}` | pandas | yes |
 | Parquet folder | `parquet:lake/sales/` | `{kind: parquet, path: lake/sales}` | pyarrow (`relsynth[parquet]`) | yes |
+| Apache Iceberg | `iceberg:./lake` | `{kind: iceberg, path: ./lake, schema: sales}` or `{kind: iceberg, catalog: {...}, schema: sales}` | PyIceberg (`relsynth[iceberg]`) | local disk; S3 (moto server) and Azure Blob (Azurite); see [lakehouse.md](lakehouse.md) |
+| Delta Lake | `delta:./lake/sales`, `delta:s3://bucket/sales` | `{kind: delta, path: ..., storage: {...}}` | deltalake (`relsynth[delta]`) | local disk; S3 (moto server) and Azure Blob (Azurite); see [lakehouse.md](lakehouse.md) |
 
 The cloud warehouses take three more settings, `auth`, `guards` and `bulk`, described in [warehouses.md](warehouses.md).
 

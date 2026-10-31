@@ -44,6 +44,8 @@ fabric = ["pyodbc>=5.0", "azure-identity>=1.15", "azure-storage-file-datalake>=1
 bigquery = ["sqlalchemy-bigquery>=1.11", "google-cloud-bigquery[pandas]>=3.20"]
 snowflake = ["snowflake-sqlalchemy>=1.7", "snowflake-connector-python[pandas]>=3.12"]
 parquet = ["pyarrow>=14"]
+iceberg = ["pyiceberg[sql-sqlite,pyarrow,pyiceberg-core]>=0.10", "pyarrow>=14"]
+delta = ["deltalake>=1.0", "pyarrow>=14"]
 speed = ["numba>=0.59"]
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
@@ -52,7 +54,7 @@ service = ["fastapi>=0.110", "uvicorn>=0.29", "PyJWT[crypto]>=2.8", "cryptograph
 service-otel = ["relsynth[service]", "opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp-proto-http>=1.24"]
 gov = ["cryptography>=42", "jsonschema>=4.18"]   # signed manifests, registry, policy (relsynth gov)
 dp = ["opendp>=0.12,<0.17"]                         # differential privacy mode (relsynth run --dp; MIT)
-all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet]"]
+all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet,iceberg,delta]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
 dev = [
