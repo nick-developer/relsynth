@@ -9,9 +9,11 @@ reports neither:
 * a ``sec_*.tex`` file in ``docs/proofs/`` that ``relsynth-proofs.tex`` never
   ``\\input``s (its propositions are missing from the PDF), or an ``\\input``
   of a file that does not exist;
+* a number written only in a title, which LaTeX does not print (release
+  2.0's runtime propositions printed as 116-120 while titled 950-954);
 * two propositions that claim the same fixed number.  Sections number their
   propositions to match their checks, either in the title
-  (``[Worker independence; Prop.~950]``) or with
+  (``[Worker independence; Prop.~950]``, which must agree with the counter) or with
   ``\\setcounter{proposition}{N-1}`` just before ``\\begin{proposition}``.
   Release 2.0 shipped DP mode and the partitioned runtime both as
   "Prop. 900"; the runtime is now 950-954.
@@ -33,8 +35,11 @@ BEGIN = re.compile(r"\\begin\{proposition\}(\[[^\]]*\])?")
 TITLE_NUMBER = re.compile(r"Prop\.~?\s*(\d{3,5})\]")
 
 
-def fixed_numbers(path: Path) -> list[tuple[int, int]]:
-    """(proposition number, line) for every proposition with a fixed number."""
+def fixed_numbers(path: Path, mismatches: list[str] | None = None) -> list[tuple[int, int]]:
+    """(proposition number, line) for every proposition with a fixed number.
+
+    A number written only in the title is not what LaTeX prints (it prints the
+    running counter); such titles are added to ``mismatches``."""
     text = path.read_text(encoding="utf-8")
     found = []
     pending: int | None = None
@@ -54,6 +59,10 @@ def fixed_numbers(path: Path) -> list[tuple[int, int]]:
         t = TITLE_NUMBER.search(title)
         if t:
             found.append((int(t.group(1)), pos_to_line[start]))
+            if mismatches is not None and pending != int(t.group(1)):
+                printed = "the running counter" if pending is None else str(pending)
+                mismatches.append(f"{path.name}:{pos_to_line[start]}: the title says Prop. {t.group(1)} "
+                                  f"but LaTeX prints {printed}; set the counter with \\setcounter{{proposition}}{{N-1}}")
         elif pending is not None and pending >= 100:
             found.append((pending, pos_to_line[start]))
         pending = pending + 1 if pending is not None else None
@@ -74,7 +83,7 @@ def main() -> int:
     for name in [MAIN, *inputs]:
         path = ROOT / name
         if path.exists():
-            for number, line in fixed_numbers(path):
+            for number, line in fixed_numbers(path, problems):
                 seen[number].append(f"{name}:{line}")
     for number, where in sorted(seen.items()):
         if len(where) > 1:
