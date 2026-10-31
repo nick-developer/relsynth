@@ -66,6 +66,7 @@ def first_row_differences(sub: pd.DataFrame, keys: list[str], cols: list[str]) -
         a = sub[c].astype(object).to_numpy()
         b = a[lead]
         na, nb = pd.isna(a), pd.isna(b)
+        a, b = np.where(na, 0, a), np.where(nb, 0, b)        # pd.NA cannot be compared elementwise
         same = (na & nb) | (~na & ~nb & (a == b))
         diff += int((~same).sum())
     return diff
