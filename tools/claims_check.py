@@ -113,25 +113,33 @@ def _expand(path: Path) -> str:
     return "\n".join(out)
 
 
-def proposition_numbers(root: Path = ROOT) -> dict[str, int]:
-    """Label -> printed number of every proposition in the proofs document."""
+def proposition_numbers(root: Path = ROOT, aliases: dict[str, int] | None = None) -> dict[str, int]:
+    """Label -> printed number of every proposition in the proofs document.
+
+    A section may also name a fixed number in the title, ``[Worker independence;
+    Prop.~950]``, while LaTeX prints the running number; such numbers are
+    put in ``aliases`` (label -> number) when it is given.
+    """
     text = _expand(root / PROOFS / "relsynth-proofs.tex")
     token = re.compile(
-        r"\\begin\{proposition\}|\\setcounter\{(\w+)\}\{(?:\\value\{(\w+)\}|(-?\d+))\}|\\label\{(prop:[^}]+)\}"
+        r"\\begin\{proposition\}(\[[^\]]*\])?|\\setcounter\{(\w+)\}\{(?:\\value\{(\w+)\}|(-?\d+))\}|\\label\{(prop:[^}]+)\}"
     )
     counter, saved, labels, pending = 0, {}, {}, False
     for m in token.finditer(text):
         if m.group(0).startswith("\\begin"):
             counter += 1
             pending = True
-        elif m.group(1):
-            value = counter if m.group(2) == "proposition" else saved.get(m.group(2), 0) if m.group(2) else int(m.group(3))
-            if m.group(1) == "proposition":
+            title = re.search(r"Prop\.~?\s*(\d{3,5})\]", m.group(1) or "")
+        elif m.group(2):
+            value = counter if m.group(3) == "proposition" else saved.get(m.group(3), 0) if m.group(3) else int(m.group(4))
+            if m.group(2) == "proposition":
                 counter = value
             else:
-                saved[m.group(1)] = value
+                saved[m.group(2)] = value
         elif pending:
-            labels[m.group(4)] = counter
+            labels[m.group(5)] = counter
+            if title and aliases is not None:
+                aliases[m.group(5)] = int(title.group(1))
             pending = False
     return labels
 
@@ -196,8 +204,9 @@ def _resolve(kind: str, value: str, root: Path, props: dict[str, int], checks: s
 def run(root: Path = ROOT) -> Result:
     res = Result()
     reg = yaml.safe_load((root / REGISTER).read_text(encoding="utf-8"))
-    res.props = props = proposition_numbers(root)
-    numbers = set(props.values())
+    aliases: dict[str, int] = {}
+    res.props = props = proposition_numbers(root, aliases)
+    numbers = set(props.values()) | set(aliases.values())
     checks = check_ids(root)
     sym_cache: dict = {}
     docs: dict[str, str] = {}
@@ -246,6 +255,8 @@ def run(root: Path = ROOT) -> Result:
             item = {"kind": kind, "ref": value}
             if kind == "prop" and value in props:
                 item["number"] = props[value]
+                if value in aliases:
+                    item["named"] = aliases[value]
             resolved.append(item)
         if c.get("status") in ("supported", "partial", "limitation") and not set(kinds) & set(STRONG_KINDS):
             res.problems.append(f"{where}: a claim about relsynth needs a prop, check, test or report")
@@ -291,7 +302,9 @@ def run(root: Path = ROOT) -> Result:
         for m in PROP_REF.finditer(path.read_text(encoding="utf-8")):
             for a, b in re.findall(r"(\d+)(?:\s*[–-]\s*(\d+))?", m.group(1)):
                 lo, hi = int(a), int(b or a)
-                for n in (lo, hi):
+                if hi < lo:
+                    res.problems.append(f"{rel}: '{m.group(0).strip()}' is a range that runs backwards")
+                for n in sorted({lo, hi}):
                     if n not in numbers:
                         ref = m.group(0).strip()
                         res.problems.append(f"{rel}: '{ref}' names Proposition {n}, which the proofs do not define")
