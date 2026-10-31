@@ -383,7 +383,7 @@
  "info": {
   "description": "Synthetic relational data as a service: projects, connections, specs, runs, reports, approvals. See docs/service/README.md.",
   "title": "relsynth service",
-  "version": "1.0.1"
+  "version": "2.0.0"
  },
  "openapi": "3.1.0",
  "paths": {
