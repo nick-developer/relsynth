@@ -16,6 +16,7 @@
     relsynth version
     relsynth ir migrate spec.yaml --out spec.ir.yaml   # 1.0 spec -> IR 2.0 (and ir validate, convert,
                                                    # privacy, odcs, from-odcs, openlineage, schema)
+    relsynth agent review draft.yaml --md answers.md    # agents draft and explain; people decide (docs/agents.md)
     relsynth gov init registry/ --owner-key dpo.key    # governance: keys, policy, budget, approve, release,
                                                    # revoke, verify (docs/governance/design.md)
 
@@ -947,6 +948,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_ir_parser(sub, _common)
     from .governance.cli import add_parser as _add_gov_parser
     _add_gov_parser(sub, _common)
+    from .agents.cli import add_parser as _add_agent_parser
+    _add_agent_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)
