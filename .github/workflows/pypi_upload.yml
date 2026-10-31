@@ -52,6 +52,8 @@ jobs:
           VERSION=$(python3 -c "import re, pathlib; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)', pathlib.Path('src/relsynth/_version.py').read_text()).group(1))")
           echo "tag=$TAG  package=$VERSION"
           [ "${TAG#v}" = "$VERSION" ] || { echo "::error::release tag $TAG does not match package version $VERSION"; exit 1; }
+      - name: The README, docs, examples, images and changelog name this version
+        run: python3 tools/release.py check --release
 
   build:
     needs: [ci, check-version]

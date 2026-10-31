@@ -39,9 +39,9 @@ The reason of every `structure` and `whole` fact is in the run report.
 
 ## Guarantees
 
-* **Same output for any number of workers** (Prop. 900). Partitions are fixed before any task runs, and each partition's random numbers come from a Philox counter-based generator (Salmon et al., SC 2011) whose key is a hash of (seed, dataset, fact, partition). Run order, worker and executor do not enter. Tested with 1, 2, 8 and 64 processes and with Spark (`tests/unit/test_runtime.py`).
-* **Same law as one process** (Props. 901, 902). In `partition` mode the rows of different anchor rows are independent given the driver's state (Poisson thinning and superposition), so drawing them per block gives the law of drawing them together. In `structure` mode the joins are drawn exactly as in one process; the rest is per row. The output is a different draw from the 1.0 sampler's (other streams), with the same distribution.
-* **Keys and rules across partitions** (Prop. 903). Primary keys are unique and foreign keys resolve in the joined tables; unique keys and rules that contain the anchor key hold because an anchor's rows are never split; the others make the fact `whole`.
+* **Same output for any number of workers** (Prop. 950). Partitions are fixed before any task runs, and each partition's random numbers come from a Philox counter-based generator (Salmon et al., SC 2011) whose key is a hash of (seed, dataset, fact, partition). Run order, worker and executor do not enter. Tested with 1, 2, 8 and 64 processes and with Spark (`tests/unit/test_runtime.py`).
+* **Same law as one process** (Props. 951, 952). In `partition` mode the rows of different anchor rows are independent given the driver's state (Poisson thinning and superposition), so drawing them per block gives the law of drawing them together. In `structure` mode the joins are drawn exactly as in one process; the rest is per row. The output is a different draw from the 1.0 sampler's (other streams), with the same distribution.
+* **Keys and rules across partitions** (Prop. 953). Primary keys are unique and foreign keys resolve in the joined tables; unique keys and rules that contain the anchor key hold because an anchor's rows are never split; the others make the fact `whole`.
 * **No change without `runtime`.** With `executor: none` (the default) the sampler and its output are those of 1.0, byte for byte.
 
 ## Executors
@@ -68,7 +68,7 @@ report = partition_drift(lake, "month(OrderDate)", table="Sales")
 print(report.to_markdown(), report.drifting)
 ```
 
-It computes per-partition sufficient statistics in DuckDB in one pass per column (counts, means and variances of numbers and times; level counts of categories), tests homogeneity with Welch's ANOVA or the chi-square test, adjusts the p-values of all columns with Holm's procedure and flags a column when the adjusted p-value is below `alpha` (0.05) and the effect is not negligible (eta squared at least 0.01, Cramér's V at least 0.1; `min_effect` changes them). Under one law across partitions the chance of flagging any column is at most `alpha` (Prop. 904). A data frame or Arrow table works too: `partition_drift(df, "Region")`.
+It computes per-partition sufficient statistics in DuckDB in one pass per column (counts, means and variances of numbers and times; level counts of categories), tests homogeneity with Welch's ANOVA or the chi-square test, adjusts the p-values of all columns with Holm's procedure and flags a column when the adjusted p-value is below `alpha` (0.05) and the effect is not negligible (eta squared at least 0.01, Cramér's V at least 0.1; `min_effect` changes them). Under one law across partitions the chance of flagging any column is at most `alpha` (Prop. 954). A data frame or Arrow table works too: `partition_drift(df, "Region")`.
 
 relsynth does not yet model a law that changes across partitions; split the table by period, or wait for the time-varying models of the time-series work.
 
