@@ -56,6 +56,8 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **SyntheRela benchmark** script and results (`benchmarks/syntherela/`), and precise definitions of the roadmap's acceptance metrics (`docs/acceptance-metrics.md`).
 - **Degree laws for the keys of link tables** (`synthesis.facts.link_degree`, per fact `fact.link_degree`). With `auto`, each key of a many-to-many table (bonds per second atom, actors per movie) whose degrees prefer a Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it; degrees are drawn given the block totals and matched uniformly within blocks, and repeated pairs or self-links absent from the source are removed by degree-preserving swaps (proofs in `docs/proofs/sec_linkdeg.tex`). Pairs of complete blocks (a product × date grid) and keys whose links sit on fewer than `facts.link_degree_min_rows` (50) effective rows keep the 1.0 law. `auto` is the default; `segment` restores the 1.0 sampler.
 
+- **Benchmark harness: two more databases and the privacy and 2.0 quality suites.** `python -m bench` now runs Berka (the PKDD'99 Czech bank, 8 tables, 1.08M rows) and the NIST CRC ACS PUMS excerpt (27,253 people), a Chinook variant at scale 2, and for every database the calibrated 2.0 quality report, the T06 privacy attacks (where a database has people), a determinism check and the generation cost. New drift rule R4 flags tracked values (SyntheRela summaries, area pass rates, utility gap, attack values) that move the wrong way beyond the seed spread. `--suites` chooses what runs; `compare` accepts the records of one run split over several jobs, and `bench.yml` runs one job per database. See `docs/development/benchmarks.md`.
+
 ### Changed
 
 - **Synthetic draws for the same seed change** on databases with link tables, because `synthesis.facts.link_degree` defaults to `auto` (see Added). On the golden databases: Chinook's `InvoiceLine.TrackId` and `PlaylistTrack.TrackId`, and AdventureWorks' internet-sales order key. Set `link_degree: segment` for the 1.0 draws. `python -m bench run|all --set KEY=VALUE` passes spec overrides to every run.
@@ -73,6 +75,8 @@ Synthetic draws for the same seed are unchanged from 1.0.0.
 - relsynth is open source under the Apache License 2.0 (previously all rights reserved). The repository has LICENSE, NOTICE, a contributor guide with DCO sign-off, a code of conduct, a security policy with private vulnerability reporting, and a dataset register (`docs/datasets.md`).
 
 ### Fixed
+
+- **Sampling no longer fails when a rule reads a parent's aggregated column through a link** (an introspect draft of the Berka bank: `account.date` = min(date) of the transactions, with checks `days(account_id.date) < days(date)` on loans and transactions). The check is evaluated after the aggregates are computed, like rules that read an aggregate of their own table. Other specs draw the same data.
 
 - `relsynth run --bundle` (and `api.run(..., bundle=...)`) no longer fails after writing and scoring when a numeric column of a nullable pandas dtype is constant: its skew in the bundle's profile is recorded as null (seen on AdventureWorks DW).
 

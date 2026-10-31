@@ -1,0 +1,5713 @@
+{
+ "schema": 1,
+ "relsynth": "1.0.1",
+ "git": {
+  "sha": "ccdabff9c395025d80b3e0924d1d65ced3df1d2f",
+  "branch": "claude/project-thread-udpgbr",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm48cm3",
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "cpus": 4,
+  "python": "3.12.15",
+  "numpy": "2.5.4",
+  "pandas": "2.3.3",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-10-31T04:30:49+00:00",
+ "label": "weekly",
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "acs",
+   "seed": 1,
+   "pushdown": "auto",
+   "seconds": 153.2,
+   "cost": {
+    "cpu_seconds": 188.6,
+    "peak_mib": 897.2
+   },
+   "exit_code": 0,
+   "rows": {
+    "acs": 27253
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 56,
+    "total": 57
+   },
+   "quality": {
+    "seconds": 237.9,
+    "cpu_seconds": 716.3,
+    "peak_mib": 421.5
+   },
+   "privacy": {
+    "seconds": 408.5,
+    "cpu_seconds": 1345.6,
+    "peak_mib": 608.4
+   },
+   "checks": [
+    {
+     "id": "scorecard:acs.PUMA|marginal_tvd",
+     "pass": true,
+     "value": 0.0141,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PUMA|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.AGEP|marginal_ks",
+     "pass": true,
+     "value": 0.0114,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.AGEP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.SEX|marginal_tvd",
+     "pass": true,
+     "value": 0.0041,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.SEX|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.MSP|marginal_tvd",
+     "pass": true,
+     "value": 0.0051,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.MSP|null_rate_diff",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HISP|marginal_tvd",
+     "pass": true,
+     "value": 0.0029,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HISP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.RAC1P|marginal_tvd",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.RAC1P|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NOC|marginal_tvd",
+     "pass": true,
+     "value": 0.0136,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NOC|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NPF|marginal_tvd",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NPF|null_rate_diff",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|marginal_tvd",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|marginal_tvd",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DENSITY|marginal_ks",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DENSITY|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP|marginal_ks",
+     "pass": true,
+     "value": 0.0124,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP|null_rate_diff",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|marginal_tvd",
+     "pass": true,
+     "value": 0.0209,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|null_rate_diff",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.EDU|marginal_tvd",
+     "pass": true,
+     "value": 0.0104,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.EDU|null_rate_diff",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP|marginal_ks",
+     "pass": true,
+     "value": 0.0146,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP|null_rate_diff",
+     "pass": true,
+     "value": 0.0013,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|marginal_tvd",
+     "pass": true,
+     "value": 0.0117,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|null_rate_diff",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.POVPIP|marginal_ks",
+     "pass": true,
+     "value": 0.0149,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.POVPIP|null_rate_diff",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DVET|marginal_tvd",
+     "pass": true,
+     "value": 0.0886,
+     "limit": 0.1568
+    },
+    {
+     "id": "scorecard:acs.DVET|null_rate_diff",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DREM|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DREM|null_rate_diff",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DPHY|marginal_tvd",
+     "pass": true,
+     "value": 0.0014,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DPHY|null_rate_diff",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEYE|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEYE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEAR|marginal_tvd",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEAR|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PWGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0051,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PWGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.WGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.WGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs|association_max_diff",
+     "pass": false,
+     "value": 0.3131,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:acs|discriminator_auc",
+     "pass": true,
+     "value": 0.5125,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:acs|dcr_ratio",
+     "pass": true,
+     "value": 1.3171,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:acs|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:acs: EDU < AGEP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: NOC < NPF|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: HOUSING_TYPE <= EDU|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000844
+    },
+    {
+     "id": "scorecard:acs: OWN_RENT <= WGTP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: PINCP_DECILE <= POVPIP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000514
+    },
+    {
+     "id": "domain:A1 industry and industry group missing together",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A2 industry group is the industry's group",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A3 income and income decile missing together",
+     "pass": false,
+     "value": 0.99967,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A4 income asked from age 15",
+     "pass": false,
+     "value": 0.998129,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A5 education asked from age 3",
+     "pass": false,
+     "value": 0.99501,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A6 cognitive difficulty asked from age 5",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A7 no industry under age 16",
+     "pass": false,
+     "value": 0.944988,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A8 households own or rent, group quarters do not",
+     "pass": false,
+     "value": 0.999853,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A9 housing weight zero exactly in group quarters",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A10 density is the PUMA's density",
+     "pass": false,
+     "value": 0.840054,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A11 poverty ratio capped at 501",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A12 income median rises with the decile (share of steps)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A13 mean age",
+     "pass": null,
+     "value": 41.413202,
+     "real": 41.098705
+    },
+    {
+     "id": "domain:A14 median income of earners",
+     "pass": null,
+     "value": 27722.0,
+     "real": 27800.0
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 6920.3,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 897.2,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:deterministic",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "quality:js_distance:acs:PUMA",
+     "pass": true,
+     "value": 0.013276,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:AGEP",
+     "pass": true,
+     "value": 0.008889,
+     "limit": 0.05,
+     "alpha": 0.000353
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:AGEP",
+     "pass": true,
+     "value": 0.009674,
+     "limit": 0.05,
+     "alpha": 0.000197
+    },
+    {
+     "id": "quality:js_distance:acs:AGEP",
+     "pass": true,
+     "value": 0.016713,
+     "limit": 0.05,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:SEX",
+     "pass": true,
+     "value": 0.003866,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:MSP",
+     "pass": true,
+     "value": 0.012689,
+     "limit": 0.05,
+     "alpha": 3.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:HISP",
+     "pass": true,
+     "value": 0.011776,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:js_distance:acs:RAC1P",
+     "pass": true,
+     "value": 0.019297,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:acs:NOC",
+     "pass": true,
+     "value": 0.024709,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:acs:NPF",
+     "pass": true,
+     "value": 0.011029,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:js_distance:acs:HOUSING_TYPE",
+     "pass": true,
+     "value": 0.003275,
+     "limit": 0.05,
+     "alpha": 0.001514
+    },
+    {
+     "id": "quality:js_distance:acs:OWN_RENT",
+     "pass": true,
+     "value": 0.004301,
+     "limit": 0.05,
+     "alpha": 0.00135
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:DENSITY",
+     "pass": true,
+     "value": 0.005064,
+     "limit": 0.05,
+     "alpha": 0.001299
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:DENSITY",
+     "pass": true,
+     "value": 0.010634,
+     "limit": 0.05,
+     "alpha": 0.000669
+    },
+    {
+     "id": "quality:js_distance:acs:DENSITY",
+     "pass": true,
+     "value": 0.013853,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:INDP",
+     "pass": true,
+     "value": 0.012743,
+     "limit": 0.05,
+     "alpha": 0.002412
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:INDP",
+     "pass": true,
+     "value": 0.014113,
+     "limit": 0.05,
+     "alpha": 0.000722
+    },
+    {
+     "id": "quality:js_distance:acs:INDP",
+     "pass": true,
+     "value": 0.016162,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:INDP_CAT",
+     "pass": true,
+     "value": 0.018519,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:EDU",
+     "pass": true,
+     "value": 0.014902,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PINCP",
+     "pass": true,
+     "value": 0.025338,
+     "limit": 0.05,
+     "alpha": 0.003237
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PINCP",
+     "pass": true,
+     "value": 0.039555,
+     "limit": 0.05,
+     "alpha": 0.000199
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP",
+     "pass": false,
+     "value": 0.075552,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP_DECILE",
+     "pass": true,
+     "value": 0.013156,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:POVPIP",
+     "pass": true,
+     "value": 0.021421,
+     "limit": 0.05,
+     "alpha": 0.002764
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:POVPIP",
+     "pass": true,
+     "value": 0.032071,
+     "limit": 0.05,
+     "alpha": 0.002707
+    },
+    {
+     "id": "quality:js_distance:acs:POVPIP",
+     "pass": true,
+     "value": 0.03465,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:DVET",
+     "pass": true,
+     "value": 0.01291,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:DREM",
+     "pass": true,
+     "value": 0.00264,
+     "limit": 0.05,
+     "alpha": 0.002193
+    },
+    {
+     "id": "quality:js_distance:acs:DPHY",
+     "pass": true,
+     "value": 0.00665,
+     "limit": 0.05,
+     "alpha": 0.001289
+    },
+    {
+     "id": "quality:js_distance:acs:DEYE",
+     "pass": true,
+     "value": 0.00317,
+     "limit": 0.05,
+     "alpha": 0.007764
+    },
+    {
+     "id": "quality:js_distance:acs:DEAR",
+     "pass": true,
+     "value": 0.004435,
+     "limit": 0.053106,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PWGTP",
+     "pass": true,
+     "value": 0.035274,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PWGTP",
+     "pass": true,
+     "value": 0.01369,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:PWGTP",
+     "pass": true,
+     "value": 0.020328,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:WGTP",
+     "pass": true,
+     "value": 0.02402,
+     "limit": 0.05,
+     "alpha": 0.000114
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:WGTP",
+     "pass": true,
+     "value": 0.011713,
+     "limit": 0.05,
+     "alpha": 0.000272
+    },
+    {
+     "id": "quality:js_distance:acs:WGTP",
+     "pass": true,
+     "value": 0.024493,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:acs",
+     "pass": true,
+     "value": 0.037501,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:acs",
+     "pass": false,
+     "value": 0.1975,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:acs",
+     "pass": false,
+     "value": 0.089147,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:acs",
+     "pass": true,
+     "value": 0.01044,
+     "limit": 0.1,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:beta_recall_gap:acs",
+     "pass": false,
+     "value": 0.17072,
+     "limit": 0.1,
+     "alpha": 0.001305
+    },
+    {
+     "id": "quality:tstr_gap:acs:SEX",
+     "pass": false,
+     "value": 0.088526,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:acs:SEX",
+     "pass": false,
+     "value": 0.112273,
+     "limit": 0.095837,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9462,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.088526,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.088526,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_univariate",
+     "pass": true,
+     "value": 0.003379,
+     "limit": 0.1,
+     "upper": 0.028679,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_univariate",
+     "pass": null,
+     "value": 0.003379,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_multivariate",
+     "pass": false,
+     "value": 0.068295,
+     "limit": 0.1,
+     "upper": 0.144366,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_multivariate",
+     "pass": null,
+     "value": 0.068295,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:linkage|nearest_neighbour_linkage",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.008997,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_linkage_nearest_neighbour_linkage",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:PINCP_DECILE",
+     "pass": true,
+     "value": 0.004329,
+     "limit": 0.1,
+     "upper": 0.062864,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE",
+     "pass": null,
+     "value": 0.004329,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DPHY",
+     "pass": false,
+     "value": 0.020011,
+     "limit": 0.1,
+     "upper": 0.225457,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DPHY",
+     "pass": null,
+     "value": 0.020011,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DREM",
+     "pass": false,
+     "value": 0.187603,
+     "limit": 0.1,
+     "upper": 0.372221,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DREM",
+     "pass": null,
+     "value": 0.187603,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:PINCP_DECILE",
+     "pass": true,
+     "value": -0.0065,
+     "limit": 0.05,
+     "upper": 0.01043,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE",
+     "pass": null,
+     "value": -0.0065,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DPHY",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.05,
+     "upper": 0.009074,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DPHY",
+     "pass": null,
+     "value": 0.0025,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DREM",
+     "pass": true,
+     "value": 0.004,
+     "limit": 0.05,
+     "upper": 0.008099,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DREM",
+     "pass": null,
+     "value": 0.004,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_auc",
+     "pass": true,
+     "value": 0.505931,
+     "limit": 0.65,
+     "upper": 0.518584,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_auc",
+     "pass": null,
+     "value": 0.505931,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_tpr_at_fpr_0.01",
+     "pass": true,
+     "value": 0.011,
+     "limit": 0.1,
+     "upper": 0.016607,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_tpr_at_fpr_0.01",
+     "pass": null,
+     "value": 0.011,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_auc",
+     "pass": true,
+     "value": 0.465094,
+     "limit": 0.65,
+     "upper": 0.556112,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_auc",
+     "pass": null,
+     "value": 0.465094,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_auc",
+     "pass": true,
+     "value": 0.556251,
+     "limit": 0.65,
+     "upper": 0.646397,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_auc",
+     "pass": null,
+     "value": 0.556251,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.890909,
+     "limit": 0.85,
+     "upper": 1.0,
+     "status": "info"
+    },
+    {
+     "id": "metric:privacy_membership_most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.890909,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_vulnerable_auc",
+     "pass": true,
+     "value": 0.507776,
+     "limit": 0.65,
+     "upper": 0.639978,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_vulnerable_auc",
+     "pass": null,
+     "value": 0.507776,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_vulnerable_auc",
+     "pass": false,
+     "value": 0.664638,
+     "limit": 0.65,
+     "upper": 0.784307,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_vulnerable_auc",
+     "pass": null,
+     "value": 0.664638,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:privacy_internal",
+     "pass": true,
+     "value": null,
+     "status": "review"
+    },
+    {
+     "id": "goal:privacy_partner_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "goal:privacy_public_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_syn",
+     "pass": null,
+     "value": 2.253054,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_real",
+     "pass": null,
+     "value": 1.589376,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_ratio",
+     "pass": null,
+     "value": 1.417571,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_internal",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_any",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_n",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_m",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "acs",
+   "seed": 2,
+   "pushdown": "auto",
+   "seconds": 160.5,
+   "cost": {
+    "cpu_seconds": 200.6,
+    "peak_mib": 896.1
+   },
+   "exit_code": 0,
+   "rows": {
+    "acs": 27253
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 56,
+    "total": 57
+   },
+   "quality": {
+    "seconds": 243.9,
+    "cpu_seconds": 733.6,
+    "peak_mib": 421.2
+   },
+   "privacy": {
+    "seconds": 403.1,
+    "cpu_seconds": 1292.8,
+    "peak_mib": 617.3
+   },
+   "checks": [
+    {
+     "id": "scorecard:acs.PUMA|marginal_tvd",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PUMA|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.AGEP|marginal_ks",
+     "pass": true,
+     "value": 0.0094,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.AGEP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.SEX|marginal_tvd",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.SEX|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.MSP|marginal_tvd",
+     "pass": true,
+     "value": 0.0072,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.MSP|null_rate_diff",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HISP|marginal_tvd",
+     "pass": true,
+     "value": 0.0034,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HISP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.RAC1P|marginal_tvd",
+     "pass": true,
+     "value": 0.0063,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.RAC1P|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NOC|marginal_tvd",
+     "pass": true,
+     "value": 0.0127,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NOC|null_rate_diff",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NPF|marginal_tvd",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NPF|null_rate_diff",
+     "pass": true,
+     "value": 0.0033,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|marginal_tvd",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|marginal_tvd",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DENSITY|marginal_ks",
+     "pass": true,
+     "value": 0.0054,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DENSITY|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP|marginal_ks",
+     "pass": true,
+     "value": 0.0153,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP|null_rate_diff",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|marginal_tvd",
+     "pass": true,
+     "value": 0.0241,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|null_rate_diff",
+     "pass": true,
+     "value": 0.0016,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.EDU|marginal_tvd",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.EDU|null_rate_diff",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP|marginal_ks",
+     "pass": true,
+     "value": 0.0155,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP|null_rate_diff",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|marginal_tvd",
+     "pass": true,
+     "value": 0.0088,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|null_rate_diff",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.POVPIP|marginal_ks",
+     "pass": true,
+     "value": 0.0133,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.POVPIP|null_rate_diff",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DVET|marginal_tvd",
+     "pass": true,
+     "value": 0.0286,
+     "limit": 0.153
+    },
+    {
+     "id": "scorecard:acs.DVET|null_rate_diff",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DREM|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DREM|null_rate_diff",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DPHY|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DPHY|null_rate_diff",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEYE|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEYE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEAR|marginal_tvd",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEAR|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PWGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PWGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.WGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0101,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.WGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs|association_max_diff",
+     "pass": false,
+     "value": 0.3115,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:acs|discriminator_auc",
+     "pass": true,
+     "value": 0.5149,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:acs|dcr_ratio",
+     "pass": true,
+     "value": 1.3629,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:acs|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:acs: EDU < AGEP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: NOC < NPF|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: HOUSING_TYPE <= EDU|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000844
+    },
+    {
+     "id": "scorecard:acs: OWN_RENT <= WGTP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: PINCP_DECILE <= POVPIP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000514
+    },
+    {
+     "id": "domain:A1 industry and industry group missing together",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A2 industry group is the industry's group",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A3 income and income decile missing together",
+     "pass": false,
+     "value": 0.99978,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A4 income asked from age 15",
+     "pass": false,
+     "value": 0.998312,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A5 education asked from age 3",
+     "pass": false,
+     "value": 0.993762,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A6 cognitive difficulty asked from age 5",
+     "pass": false,
+     "value": 0.980516,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A7 no industry under age 16",
+     "pass": false,
+     "value": 0.954026,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A8 households own or rent, group quarters do not",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A9 housing weight zero exactly in group quarters",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A10 density is the PUMA's density",
+     "pass": false,
+     "value": 0.824606,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A11 poverty ratio capped at 501",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A12 income median rises with the decile (share of steps)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A13 mean age",
+     "pass": null,
+     "value": 41.351264,
+     "real": 41.098705
+    },
+    {
+     "id": "domain:A14 median income of earners",
+     "pass": null,
+     "value": 26747.0,
+     "real": 27800.0
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 7360.7,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 896.1,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:deterministic",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "quality:js_distance:acs:PUMA",
+     "pass": true,
+     "value": 0.019507,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:AGEP",
+     "pass": true,
+     "value": 0.008397,
+     "limit": 0.05,
+     "alpha": 0.000353
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:AGEP",
+     "pass": true,
+     "value": 0.010308,
+     "limit": 0.05,
+     "alpha": 0.000197
+    },
+    {
+     "id": "quality:js_distance:acs:AGEP",
+     "pass": true,
+     "value": 0.026721,
+     "limit": 0.05,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:SEX",
+     "pass": true,
+     "value": 0.001317,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:MSP",
+     "pass": true,
+     "value": 0.006482,
+     "limit": 0.05,
+     "alpha": 3.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:HISP",
+     "pass": true,
+     "value": 0.010848,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:js_distance:acs:RAC1P",
+     "pass": true,
+     "value": 0.01456,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:acs:NOC",
+     "pass": true,
+     "value": 0.0286,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:acs:NPF",
+     "pass": true,
+     "value": 0.011618,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:js_distance:acs:HOUSING_TYPE",
+     "pass": true,
+     "value": 0.004307,
+     "limit": 0.05,
+     "alpha": 0.001514
+    },
+    {
+     "id": "quality:js_distance:acs:OWN_RENT",
+     "pass": true,
+     "value": 0.004577,
+     "limit": 0.05,
+     "alpha": 0.00135
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:DENSITY",
+     "pass": true,
+     "value": 0.003846,
+     "limit": 0.05,
+     "alpha": 0.001299
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:DENSITY",
+     "pass": true,
+     "value": 0.005705,
+     "limit": 0.05,
+     "alpha": 0.000669
+    },
+    {
+     "id": "quality:js_distance:acs:DENSITY",
+     "pass": true,
+     "value": 0.016472,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:INDP",
+     "pass": true,
+     "value": 0.018735,
+     "limit": 0.05,
+     "alpha": 0.002412
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:INDP",
+     "pass": true,
+     "value": 0.017294,
+     "limit": 0.05,
+     "alpha": 0.000722
+    },
+    {
+     "id": "quality:js_distance:acs:INDP",
+     "pass": true,
+     "value": 0.016177,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:INDP_CAT",
+     "pass": true,
+     "value": 0.025195,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:EDU",
+     "pass": true,
+     "value": 0.01766,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PINCP",
+     "pass": true,
+     "value": 0.017451,
+     "limit": 0.05,
+     "alpha": 0.003237
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PINCP",
+     "pass": true,
+     "value": 0.035839,
+     "limit": 0.05,
+     "alpha": 0.000199
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP",
+     "pass": false,
+     "value": 0.062672,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP_DECILE",
+     "pass": true,
+     "value": 0.010294,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:POVPIP",
+     "pass": true,
+     "value": 0.013169,
+     "limit": 0.05,
+     "alpha": 0.002764
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:POVPIP",
+     "pass": true,
+     "value": 0.02076,
+     "limit": 0.05,
+     "alpha": 0.002707
+    },
+    {
+     "id": "quality:js_distance:acs:POVPIP",
+     "pass": true,
+     "value": 0.031704,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:DVET",
+     "pass": true,
+     "value": 0.009423,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:DREM",
+     "pass": true,
+     "value": 0.00313,
+     "limit": 0.05,
+     "alpha": 0.002193
+    },
+    {
+     "id": "quality:js_distance:acs:DPHY",
+     "pass": true,
+     "value": 0.003724,
+     "limit": 0.05,
+     "alpha": 0.001289
+    },
+    {
+     "id": "quality:js_distance:acs:DEYE",
+     "pass": true,
+     "value": 0.000669,
+     "limit": 0.05,
+     "alpha": 0.007764
+    },
+    {
+     "id": "quality:js_distance:acs:DEAR",
+     "pass": true,
+     "value": 0.003058,
+     "limit": 0.053106,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PWGTP",
+     "pass": true,
+     "value": 0.046201,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PWGTP",
+     "pass": true,
+     "value": 0.014997,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:PWGTP",
+     "pass": true,
+     "value": 0.02309,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:WGTP",
+     "pass": true,
+     "value": 0.022786,
+     "limit": 0.05,
+     "alpha": 0.000114
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:WGTP",
+     "pass": true,
+     "value": 0.013909,
+     "limit": 0.05,
+     "alpha": 0.000272
+    },
+    {
+     "id": "quality:js_distance:acs:WGTP",
+     "pass": true,
+     "value": 0.022102,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:acs",
+     "pass": true,
+     "value": 0.035559,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:acs",
+     "pass": false,
+     "value": 0.2285,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:acs",
+     "pass": false,
+     "value": 0.084327,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:acs",
+     "pass": true,
+     "value": 0.01084,
+     "limit": 0.1,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:beta_recall_gap:acs",
+     "pass": false,
+     "value": 0.16872,
+     "limit": 0.1,
+     "alpha": 0.001305
+    },
+    {
+     "id": "quality:tstr_gap:acs:SEX",
+     "pass": false,
+     "value": 0.072883,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:acs:SEX",
+     "pass": false,
+     "value": 0.116743,
+     "limit": 0.095837,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9462,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.072883,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.072883,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_univariate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.022081,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_univariate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_multivariate",
+     "pass": false,
+     "value": 0.035726,
+     "limit": 0.1,
+     "upper": 0.108706,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_multivariate",
+     "pass": null,
+     "value": 0.035726,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:linkage|nearest_neighbour_linkage",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.008997,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_linkage_nearest_neighbour_linkage",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:PINCP_DECILE",
+     "pass": true,
+     "value": 0.008452,
+     "limit": 0.1,
+     "upper": 0.06465,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE",
+     "pass": null,
+     "value": 0.008452,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DPHY",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.040663,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DPHY",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DREM",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.09823,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DREM",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:PINCP_DECILE",
+     "pass": true,
+     "value": 0.0105,
+     "limit": 0.05,
+     "upper": 0.027848,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE",
+     "pass": null,
+     "value": 0.0105,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DPHY",
+     "pass": true,
+     "value": -0.0005,
+     "limit": 0.05,
+     "upper": 0.006075,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DPHY",
+     "pass": null,
+     "value": -0.0005,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DREM",
+     "pass": true,
+     "value": -0.00375,
+     "limit": 0.05,
+     "upper": 0.00154,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DREM",
+     "pass": null,
+     "value": -0.00375,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_auc",
+     "pass": true,
+     "value": 0.519187,
+     "limit": 0.65,
+     "upper": 0.531832,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_auc",
+     "pass": null,
+     "value": 0.519187,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_tpr_at_fpr_0.01",
+     "pass": true,
+     "value": 0.009,
+     "limit": 0.1,
+     "upper": 0.014187,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_tpr_at_fpr_0.01",
+     "pass": null,
+     "value": 0.009,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_auc",
+     "pass": false,
+     "value": 0.602125,
+     "limit": 0.65,
+     "upper": 0.690094,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_auc",
+     "pass": null,
+     "value": 0.602125,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_auc",
+     "pass": true,
+     "value": 0.554149,
+     "limit": 0.65,
+     "upper": 0.643752,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_auc",
+     "pass": null,
+     "value": 0.554149,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.90625,
+     "limit": 0.85,
+     "upper": 1.0,
+     "status": "info"
+    },
+    {
+     "id": "metric:privacy_membership_most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.90625,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_vulnerable_auc",
+     "pass": true,
+     "value": 0.500938,
+     "limit": 0.65,
+     "upper": 0.630598,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_vulnerable_auc",
+     "pass": null,
+     "value": 0.500938,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_vulnerable_auc",
+     "pass": false,
+     "value": 0.552846,
+     "limit": 0.65,
+     "upper": 0.681184,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_vulnerable_auc",
+     "pass": null,
+     "value": 0.552846,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:privacy_internal",
+     "pass": true,
+     "value": null,
+     "status": "review"
+    },
+    {
+     "id": "goal:privacy_partner_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "goal:privacy_public_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_syn",
+     "pass": null,
+     "value": 2.214871,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_real",
+     "pass": null,
+     "value": 1.783435,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_ratio",
+     "pass": null,
+     "value": 1.241913,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_internal",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_any",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_n",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_m",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "acs",
+   "seed": 3,
+   "pushdown": "auto",
+   "seconds": 148.3,
+   "cost": {
+    "cpu_seconds": 186.7,
+    "peak_mib": 895.7
+   },
+   "exit_code": 0,
+   "rows": {
+    "acs": 27253
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 56,
+    "total": 57
+   },
+   "quality": {
+    "seconds": 244.9,
+    "cpu_seconds": 737.1,
+    "peak_mib": 421.1
+   },
+   "privacy": {
+    "seconds": 420.6,
+    "cpu_seconds": 1355.2,
+    "peak_mib": 617.5
+   },
+   "checks": [
+    {
+     "id": "scorecard:acs.PUMA|marginal_tvd",
+     "pass": true,
+     "value": 0.012,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PUMA|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.AGEP|marginal_ks",
+     "pass": true,
+     "value": 0.0107,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.AGEP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.SEX|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.SEX|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.MSP|marginal_tvd",
+     "pass": true,
+     "value": 0.0095,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.MSP|null_rate_diff",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HISP|marginal_tvd",
+     "pass": true,
+     "value": 0.0055,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HISP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.RAC1P|marginal_tvd",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.RAC1P|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NOC|marginal_tvd",
+     "pass": true,
+     "value": 0.0152,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NOC|null_rate_diff",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NPF|marginal_tvd",
+     "pass": true,
+     "value": 0.0171,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NPF|null_rate_diff",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DENSITY|marginal_ks",
+     "pass": true,
+     "value": 0.0092,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DENSITY|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP|marginal_ks",
+     "pass": true,
+     "value": 0.0164,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP|null_rate_diff",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|marginal_tvd",
+     "pass": true,
+     "value": 0.0211,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|null_rate_diff",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.EDU|marginal_tvd",
+     "pass": true,
+     "value": 0.0078,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.EDU|null_rate_diff",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP|marginal_ks",
+     "pass": true,
+     "value": 0.0117,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP|null_rate_diff",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|marginal_tvd",
+     "pass": true,
+     "value": 0.0126,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|null_rate_diff",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.POVPIP|marginal_ks",
+     "pass": true,
+     "value": 0.0136,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.POVPIP|null_rate_diff",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DVET|marginal_tvd",
+     "pass": true,
+     "value": 0.0774,
+     "limit": 0.1588
+    },
+    {
+     "id": "scorecard:acs.DVET|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DREM|marginal_tvd",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DREM|null_rate_diff",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DPHY|marginal_tvd",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DPHY|null_rate_diff",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEYE|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEYE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEAR|marginal_tvd",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEAR|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PWGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PWGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.WGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0143,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.WGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs|association_max_diff",
+     "pass": false,
+     "value": 0.3065,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:acs|discriminator_auc",
+     "pass": true,
+     "value": 0.5105,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:acs|dcr_ratio",
+     "pass": true,
+     "value": 1.3372,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:acs|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:acs: EDU < AGEP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: NOC < NPF|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: HOUSING_TYPE <= EDU|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000844
+    },
+    {
+     "id": "scorecard:acs: OWN_RENT <= WGTP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: PINCP_DECILE <= POVPIP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000514
+    },
+    {
+     "id": "domain:A1 industry and industry group missing together",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A2 industry group is the industry's group",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A3 income and income decile missing together",
+     "pass": false,
+     "value": 0.999817,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A4 income asked from age 15",
+     "pass": false,
+     "value": 0.998716,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A5 education asked from age 3",
+     "pass": false,
+     "value": 0.992221,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A6 cognitive difficulty asked from age 5",
+     "pass": false,
+     "value": 0.980626,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A7 no industry under age 16",
+     "pass": false,
+     "value": 0.955404,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A8 households own or rent, group quarters do not",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A9 housing weight zero exactly in group quarters",
+     "pass": false,
+     "value": 0.998936,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A10 density is the PUMA's density",
+     "pass": false,
+     "value": 0.843834,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A11 poverty ratio capped at 501",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A12 income median rises with the decile (share of steps)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A13 mean age",
+     "pass": null,
+     "value": 41.257513,
+     "real": 41.098705
+    },
+    {
+     "id": "domain:A14 median income of earners",
+     "pass": null,
+     "value": 27947.0,
+     "real": 27800.0
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 6850.6,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 895.7,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:deterministic",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "quality:js_distance:acs:PUMA",
+     "pass": true,
+     "value": 0.018208,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:AGEP",
+     "pass": true,
+     "value": 0.010699,
+     "limit": 0.05,
+     "alpha": 0.000353
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:AGEP",
+     "pass": true,
+     "value": 0.012154,
+     "limit": 0.05,
+     "alpha": 0.000197
+    },
+    {
+     "id": "quality:js_distance:acs:AGEP",
+     "pass": true,
+     "value": 0.032969,
+     "limit": 0.05,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:SEX",
+     "pass": true,
+     "value": 0.00102,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:MSP",
+     "pass": true,
+     "value": 0.008952,
+     "limit": 0.05,
+     "alpha": 3.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:HISP",
+     "pass": true,
+     "value": 0.012307,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:js_distance:acs:RAC1P",
+     "pass": true,
+     "value": 0.013049,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:acs:NOC",
+     "pass": true,
+     "value": 0.027011,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:acs:NPF",
+     "pass": true,
+     "value": 0.012771,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:js_distance:acs:HOUSING_TYPE",
+     "pass": true,
+     "value": 0.00281,
+     "limit": 0.05,
+     "alpha": 0.001514
+    },
+    {
+     "id": "quality:js_distance:acs:OWN_RENT",
+     "pass": true,
+     "value": 0.002864,
+     "limit": 0.05,
+     "alpha": 0.00135
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:DENSITY",
+     "pass": true,
+     "value": 0.013869,
+     "limit": 0.05,
+     "alpha": 0.001299
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:DENSITY",
+     "pass": true,
+     "value": 0.015768,
+     "limit": 0.05,
+     "alpha": 0.000669
+    },
+    {
+     "id": "quality:js_distance:acs:DENSITY",
+     "pass": true,
+     "value": 0.019559,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:INDP",
+     "pass": true,
+     "value": 0.018475,
+     "limit": 0.05,
+     "alpha": 0.002412
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:INDP",
+     "pass": true,
+     "value": 0.025673,
+     "limit": 0.05,
+     "alpha": 0.000722
+    },
+    {
+     "id": "quality:js_distance:acs:INDP",
+     "pass": true,
+     "value": 0.019856,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:INDP_CAT",
+     "pass": true,
+     "value": 0.021838,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:EDU",
+     "pass": true,
+     "value": 0.011981,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PINCP",
+     "pass": true,
+     "value": 0.018267,
+     "limit": 0.05,
+     "alpha": 0.003237
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PINCP",
+     "pass": true,
+     "value": 0.02489,
+     "limit": 0.05,
+     "alpha": 0.000199
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP",
+     "pass": false,
+     "value": 0.056974,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP_DECILE",
+     "pass": true,
+     "value": 0.013512,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:POVPIP",
+     "pass": true,
+     "value": 0.021991,
+     "limit": 0.05,
+     "alpha": 0.002764
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:POVPIP",
+     "pass": true,
+     "value": 0.027511,
+     "limit": 0.05,
+     "alpha": 0.002707
+    },
+    {
+     "id": "quality:js_distance:acs:POVPIP",
+     "pass": true,
+     "value": 0.030428,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:DVET",
+     "pass": true,
+     "value": 0.014448,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:DREM",
+     "pass": true,
+     "value": 0.004766,
+     "limit": 0.05,
+     "alpha": 0.002193
+    },
+    {
+     "id": "quality:js_distance:acs:DPHY",
+     "pass": true,
+     "value": 0.001201,
+     "limit": 0.05,
+     "alpha": 0.001289
+    },
+    {
+     "id": "quality:js_distance:acs:DEYE",
+     "pass": true,
+     "value": 0.000799,
+     "limit": 0.05,
+     "alpha": 0.007764
+    },
+    {
+     "id": "quality:js_distance:acs:DEAR",
+     "pass": true,
+     "value": 0.002033,
+     "limit": 0.053106,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PWGTP",
+     "pass": false,
+     "value": 0.063251,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PWGTP",
+     "pass": true,
+     "value": 0.03428,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:PWGTP",
+     "pass": true,
+     "value": 0.022216,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:WGTP",
+     "pass": true,
+     "value": 0.043132,
+     "limit": 0.05,
+     "alpha": 0.000114
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:WGTP",
+     "pass": true,
+     "value": 0.023239,
+     "limit": 0.05,
+     "alpha": 0.000272
+    },
+    {
+     "id": "quality:js_distance:acs:WGTP",
+     "pass": true,
+     "value": 0.024522,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:acs",
+     "pass": true,
+     "value": 0.037884,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:acs",
+     "pass": false,
+     "value": 0.24135,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:acs",
+     "pass": false,
+     "value": 0.089538,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:acs",
+     "pass": true,
+     "value": 0.02704,
+     "limit": 0.1,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:beta_recall_gap:acs",
+     "pass": false,
+     "value": 0.18616,
+     "limit": 0.1,
+     "alpha": 0.001305
+    },
+    {
+     "id": "quality:tstr_gap:acs:SEX",
+     "pass": false,
+     "value": 0.080688,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:acs:SEX",
+     "pass": false,
+     "value": 0.12362,
+     "limit": 0.095837,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9355,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9355,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9355,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.080688,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.080688,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_univariate",
+     "pass": true,
+     "value": 0.013656,
+     "limit": 0.1,
+     "upper": 0.045622,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_univariate",
+     "pass": null,
+     "value": 0.013656,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_multivariate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.043503,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_multivariate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:linkage|nearest_neighbour_linkage",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.008997,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_linkage_nearest_neighbour_linkage",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:PINCP_DECILE",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.048901,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DPHY",
+     "pass": false,
+     "value": 0.125894,
+     "limit": 0.1,
+     "upper": 0.314839,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DPHY",
+     "pass": null,
+     "value": 0.125894,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DREM",
+     "pass": false,
+     "value": 0.111186,
+     "limit": 0.1,
+     "upper": 0.332128,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DREM",
+     "pass": null,
+     "value": 0.111186,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:PINCP_DECILE",
+     "pass": true,
+     "value": 0.013,
+     "limit": 0.05,
+     "upper": 0.028503,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE",
+     "pass": null,
+     "value": 0.013,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DPHY",
+     "pass": true,
+     "value": 0.00825,
+     "limit": 0.05,
+     "upper": 0.015948,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DPHY",
+     "pass": null,
+     "value": 0.00825,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DREM",
+     "pass": true,
+     "value": 0.00175,
+     "limit": 0.05,
+     "upper": 0.006575,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DREM",
+     "pass": null,
+     "value": 0.00175,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_auc",
+     "pass": true,
+     "value": 0.516429,
+     "limit": 0.65,
+     "upper": 0.529078,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_auc",
+     "pass": null,
+     "value": 0.516429,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_tpr_at_fpr_0.01",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.1,
+     "upper": 0.012959,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_tpr_at_fpr_0.01",
+     "pass": null,
+     "value": 0.008,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_auc",
+     "pass": false,
+     "value": 0.625724,
+     "limit": 0.65,
+     "upper": 0.712479,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_auc",
+     "pass": null,
+     "value": 0.625724,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_auc",
+     "pass": true,
+     "value": 0.519793,
+     "limit": 0.65,
+     "upper": 0.610028,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_auc",
+     "pass": null,
+     "value": 0.519793,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.983333,
+     "limit": 0.85,
+     "upper": 1.0,
+     "status": "info"
+    },
+    {
+     "id": "metric:privacy_membership_most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.983333,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_vulnerable_auc",
+     "pass": false,
+     "value": 0.699248,
+     "limit": 0.65,
+     "upper": 0.814741,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_vulnerable_auc",
+     "pass": null,
+     "value": 0.699248,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_vulnerable_auc",
+     "pass": false,
+     "value": 0.575815,
+     "limit": 0.65,
+     "upper": 0.702863,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_vulnerable_auc",
+     "pass": null,
+     "value": 0.575815,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:privacy_internal",
+     "pass": true,
+     "value": null,
+     "status": "review"
+    },
+    {
+     "id": "goal:privacy_partner_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "goal:privacy_public_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_syn",
+     "pass": null,
+     "value": 2.326024,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_real",
+     "pass": null,
+     "value": 1.592024,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_ratio",
+     "pass": null,
+     "value": 1.461048,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_internal",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_any",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_n",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_m",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "acs",
+   "seed": 4,
+   "pushdown": "auto",
+   "seconds": 140.9,
+   "cost": {
+    "cpu_seconds": 175.0,
+    "peak_mib": 896.1
+   },
+   "exit_code": 0,
+   "rows": {
+    "acs": 27253
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 56,
+    "total": 57
+   },
+   "quality": {
+    "seconds": 240.6,
+    "cpu_seconds": 721.6,
+    "peak_mib": 421.7
+   },
+   "privacy": {
+    "seconds": 423.8,
+    "cpu_seconds": 1399.9,
+    "peak_mib": 611.2
+   },
+   "checks": [
+    {
+     "id": "scorecard:acs.PUMA|marginal_tvd",
+     "pass": true,
+     "value": 0.0175,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PUMA|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.AGEP|marginal_ks",
+     "pass": true,
+     "value": 0.012,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.AGEP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.SEX|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.SEX|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.MSP|marginal_tvd",
+     "pass": true,
+     "value": 0.0074,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.MSP|null_rate_diff",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HISP|marginal_tvd",
+     "pass": true,
+     "value": 0.0024,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HISP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.RAC1P|marginal_tvd",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.RAC1P|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NOC|marginal_tvd",
+     "pass": true,
+     "value": 0.0094,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NOC|null_rate_diff",
+     "pass": true,
+     "value": 0.0013,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NPF|marginal_tvd",
+     "pass": true,
+     "value": 0.0134,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NPF|null_rate_diff",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|marginal_tvd",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|marginal_tvd",
+     "pass": true,
+     "value": 0.0094,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DENSITY|marginal_ks",
+     "pass": true,
+     "value": 0.0106,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DENSITY|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP|marginal_ks",
+     "pass": true,
+     "value": 0.0071,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP|null_rate_diff",
+     "pass": true,
+     "value": 0.0024,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|marginal_tvd",
+     "pass": true,
+     "value": 0.0196,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|null_rate_diff",
+     "pass": true,
+     "value": 0.0024,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.EDU|marginal_tvd",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.EDU|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP|marginal_ks",
+     "pass": true,
+     "value": 0.01,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP|null_rate_diff",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|marginal_tvd",
+     "pass": true,
+     "value": 0.0101,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|null_rate_diff",
+     "pass": true,
+     "value": 0.0023,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.POVPIP|marginal_ks",
+     "pass": true,
+     "value": 0.0134,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.POVPIP|null_rate_diff",
+     "pass": true,
+     "value": 0.0013,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DVET|marginal_tvd",
+     "pass": true,
+     "value": 0.0896,
+     "limit": 0.1561
+    },
+    {
+     "id": "scorecard:acs.DVET|null_rate_diff",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DREM|marginal_tvd",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DREM|null_rate_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DPHY|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DPHY|null_rate_diff",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEYE|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEYE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEAR|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEAR|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PWGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0071,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PWGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.WGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.WGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs|association_max_diff",
+     "pass": false,
+     "value": 0.3074,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:acs|discriminator_auc",
+     "pass": true,
+     "value": 0.5194,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:acs|dcr_ratio",
+     "pass": true,
+     "value": 1.3411,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:acs|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:acs: EDU < AGEP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: NOC < NPF|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: HOUSING_TYPE <= EDU|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000844
+    },
+    {
+     "id": "scorecard:acs: OWN_RENT <= WGTP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: PINCP_DECILE <= POVPIP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000514
+    },
+    {
+     "id": "domain:A1 industry and industry group missing together",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A2 industry group is the industry's group",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A3 income and income decile missing together",
+     "pass": false,
+     "value": 0.999706,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A4 income asked from age 15",
+     "pass": false,
+     "value": 0.998385,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A5 education asked from age 3",
+     "pass": false,
+     "value": 0.993762,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A6 cognitive difficulty asked from age 5",
+     "pass": false,
+     "value": 0.980736,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A7 no industry under age 16",
+     "pass": false,
+     "value": 0.963866,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A8 households own or rent, group quarters do not",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A9 housing weight zero exactly in group quarters",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A10 density is the PUMA's density",
+     "pass": false,
+     "value": 0.819176,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A11 poverty ratio capped at 501",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A12 income median rises with the decile (share of steps)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A13 mean age",
+     "pass": null,
+     "value": 41.405423,
+     "real": 41.098705
+    },
+    {
+     "id": "domain:A14 median income of earners",
+     "pass": null,
+     "value": 27403.5,
+     "real": 27800.0
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 6421.3,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 896.1,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:deterministic",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "quality:js_distance:acs:PUMA",
+     "pass": true,
+     "value": 0.023035,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:AGEP",
+     "pass": true,
+     "value": 0.013366,
+     "limit": 0.05,
+     "alpha": 0.000353
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:AGEP",
+     "pass": true,
+     "value": 0.01419,
+     "limit": 0.05,
+     "alpha": 0.000197
+    },
+    {
+     "id": "quality:js_distance:acs:AGEP",
+     "pass": true,
+     "value": 0.023731,
+     "limit": 0.05,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:SEX",
+     "pass": true,
+     "value": 0.003016,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:MSP",
+     "pass": true,
+     "value": 0.011005,
+     "limit": 0.05,
+     "alpha": 3.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:HISP",
+     "pass": true,
+     "value": 0.009556,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:js_distance:acs:RAC1P",
+     "pass": true,
+     "value": 0.009642,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:acs:NOC",
+     "pass": true,
+     "value": 0.020216,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:acs:NPF",
+     "pass": true,
+     "value": 0.014307,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:js_distance:acs:HOUSING_TYPE",
+     "pass": true,
+     "value": 0.006941,
+     "limit": 0.05,
+     "alpha": 0.001514
+    },
+    {
+     "id": "quality:js_distance:acs:OWN_RENT",
+     "pass": true,
+     "value": 0.005309,
+     "limit": 0.05,
+     "alpha": 0.00135
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:DENSITY",
+     "pass": true,
+     "value": 0.018133,
+     "limit": 0.05,
+     "alpha": 0.001299
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:DENSITY",
+     "pass": true,
+     "value": 0.014839,
+     "limit": 0.05,
+     "alpha": 0.000669
+    },
+    {
+     "id": "quality:js_distance:acs:DENSITY",
+     "pass": true,
+     "value": 0.023028,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:INDP",
+     "pass": true,
+     "value": 0.012603,
+     "limit": 0.05,
+     "alpha": 0.002412
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:INDP",
+     "pass": true,
+     "value": 0.013483,
+     "limit": 0.05,
+     "alpha": 0.000722
+    },
+    {
+     "id": "quality:js_distance:acs:INDP",
+     "pass": true,
+     "value": 0.01645,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:INDP_CAT",
+     "pass": true,
+     "value": 0.019252,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:EDU",
+     "pass": true,
+     "value": 0.014062,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PINCP",
+     "pass": true,
+     "value": 0.02263,
+     "limit": 0.05,
+     "alpha": 0.003237
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PINCP",
+     "pass": true,
+     "value": 0.02976,
+     "limit": 0.05,
+     "alpha": 0.000199
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP",
+     "pass": false,
+     "value": 0.058964,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP_DECILE",
+     "pass": true,
+     "value": 0.011142,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:POVPIP",
+     "pass": true,
+     "value": 0.017736,
+     "limit": 0.05,
+     "alpha": 0.002764
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:POVPIP",
+     "pass": true,
+     "value": 0.019167,
+     "limit": 0.05,
+     "alpha": 0.002707
+    },
+    {
+     "id": "quality:js_distance:acs:POVPIP",
+     "pass": true,
+     "value": 0.027974,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:DVET",
+     "pass": true,
+     "value": 0.013076,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:DREM",
+     "pass": true,
+     "value": 0.006287,
+     "limit": 0.05,
+     "alpha": 0.002193
+    },
+    {
+     "id": "quality:js_distance:acs:DPHY",
+     "pass": true,
+     "value": 0.005036,
+     "limit": 0.05,
+     "alpha": 0.001289
+    },
+    {
+     "id": "quality:js_distance:acs:DEYE",
+     "pass": true,
+     "value": 0.00256,
+     "limit": 0.05,
+     "alpha": 0.007764
+    },
+    {
+     "id": "quality:js_distance:acs:DEAR",
+     "pass": true,
+     "value": 0.001007,
+     "limit": 0.053106,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PWGTP",
+     "pass": false,
+     "value": 0.052599,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PWGTP",
+     "pass": true,
+     "value": 0.020964,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:PWGTP",
+     "pass": true,
+     "value": 0.020732,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:WGTP",
+     "pass": true,
+     "value": 0.03121,
+     "limit": 0.05,
+     "alpha": 0.000114
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:WGTP",
+     "pass": true,
+     "value": 0.014749,
+     "limit": 0.05,
+     "alpha": 0.000272
+    },
+    {
+     "id": "quality:js_distance:acs:WGTP",
+     "pass": true,
+     "value": 0.023884,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:acs",
+     "pass": true,
+     "value": 0.034637,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:acs",
+     "pass": false,
+     "value": 0.2617,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:acs",
+     "pass": false,
+     "value": 0.08418,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:acs",
+     "pass": true,
+     "value": 0.01136,
+     "limit": 0.1,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:beta_recall_gap:acs",
+     "pass": false,
+     "value": 0.15618,
+     "limit": 0.1,
+     "alpha": 0.001305
+    },
+    {
+     "id": "quality:tstr_gap:acs:SEX",
+     "pass": false,
+     "value": 0.084948,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:acs:SEX",
+     "pass": false,
+     "value": 0.110469,
+     "limit": 0.095837,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9355,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9355,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9355,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.084948,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.084948,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_univariate",
+     "pass": true,
+     "value": 0.006898,
+     "limit": 0.1,
+     "upper": 0.041775,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_univariate",
+     "pass": null,
+     "value": 0.006898,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_multivariate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.064075,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_multivariate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:linkage|nearest_neighbour_linkage",
+     "pass": true,
+     "value": 0.003312,
+     "limit": 0.1,
+     "upper": 0.014388,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_linkage_nearest_neighbour_linkage",
+     "pass": null,
+     "value": 0.003312,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:PINCP_DECILE",
+     "pass": false,
+     "value": 0.065691,
+     "limit": 0.1,
+     "upper": 0.116914,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE",
+     "pass": null,
+     "value": 0.065691,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DPHY",
+     "pass": false,
+     "value": 0.036253,
+     "limit": 0.1,
+     "upper": 0.249334,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DPHY",
+     "pass": null,
+     "value": 0.036253,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DREM",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.221991,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DREM",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:PINCP_DECILE",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.05,
+     "upper": 0.01879,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE",
+     "pass": null,
+     "value": 0.002,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DPHY",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.05,
+     "upper": 0.008202,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DPHY",
+     "pass": null,
+     "value": 0.001,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DREM",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.05,
+     "upper": 0.011495,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DREM",
+     "pass": null,
+     "value": 0.0065,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_auc",
+     "pass": true,
+     "value": 0.505973,
+     "limit": 0.65,
+     "upper": 0.518628,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_auc",
+     "pass": null,
+     "value": 0.505973,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_tpr_at_fpr_0.01",
+     "pass": true,
+     "value": 0.0175,
+     "limit": 0.1,
+     "upper": 0.024255,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_tpr_at_fpr_0.01",
+     "pass": null,
+     "value": 0.0175,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_auc",
+     "pass": false,
+     "value": 0.565163,
+     "limit": 0.65,
+     "upper": 0.654514,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_auc",
+     "pass": null,
+     "value": 0.565163,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_auc",
+     "pass": true,
+     "value": 0.54292,
+     "limit": 0.65,
+     "upper": 0.633811,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_auc",
+     "pass": null,
+     "value": 0.54292,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.8,
+     "limit": 0.85,
+     "upper": 1.0,
+     "status": "info"
+    },
+    {
+     "id": "metric:privacy_membership_most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.8,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_vulnerable_auc",
+     "pass": false,
+     "value": 0.580988,
+     "limit": 0.65,
+     "upper": 0.708159,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_vulnerable_auc",
+     "pass": null,
+     "value": 0.580988,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_vulnerable_auc",
+     "pass": false,
+     "value": 0.609756,
+     "limit": 0.65,
+     "upper": 0.73574,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_vulnerable_auc",
+     "pass": null,
+     "value": 0.609756,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:privacy_internal",
+     "pass": true,
+     "value": null,
+     "status": "review"
+    },
+    {
+     "id": "goal:privacy_partner_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "goal:privacy_public_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_syn",
+     "pass": null,
+     "value": 2.217388,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_real",
+     "pass": null,
+     "value": 1.58793,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_ratio",
+     "pass": null,
+     "value": 1.396402,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_internal",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_any",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_n",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_m",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "acs",
+   "seed": 5,
+   "pushdown": "auto",
+   "seconds": 157.7,
+   "cost": {
+    "cpu_seconds": 193.4,
+    "peak_mib": 895.8
+   },
+   "exit_code": 0,
+   "rows": {
+    "acs": 27253
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 56,
+    "total": 57
+   },
+   "quality": {
+    "seconds": 238.9,
+    "cpu_seconds": 721.2,
+    "peak_mib": 421.4
+   },
+   "privacy": {
+    "seconds": 434.3,
+    "cpu_seconds": 1394.9,
+    "peak_mib": 617.0
+   },
+   "checks": [
+    {
+     "id": "scorecard:acs.PUMA|marginal_tvd",
+     "pass": true,
+     "value": 0.0135,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PUMA|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.AGEP|marginal_ks",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.AGEP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.SEX|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.SEX|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.MSP|marginal_tvd",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.MSP|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HISP|marginal_tvd",
+     "pass": true,
+     "value": 0.0035,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HISP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.RAC1P|marginal_tvd",
+     "pass": true,
+     "value": 0.0081,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.RAC1P|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NOC|marginal_tvd",
+     "pass": true,
+     "value": 0.0162,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NOC|null_rate_diff",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.NPF|marginal_tvd",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.NPF|null_rate_diff",
+     "pass": true,
+     "value": 0.0024,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|marginal_tvd",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.HOUSING_TYPE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|marginal_tvd",
+     "pass": true,
+     "value": 0.0074,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.OWN_RENT|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DENSITY|marginal_ks",
+     "pass": true,
+     "value": 0.0033,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DENSITY|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP|marginal_ks",
+     "pass": true,
+     "value": 0.0178,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP|null_rate_diff",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|marginal_tvd",
+     "pass": true,
+     "value": 0.0191,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.INDP_CAT|null_rate_diff",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.EDU|marginal_tvd",
+     "pass": true,
+     "value": 0.0086,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.EDU|null_rate_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP|marginal_ks",
+     "pass": true,
+     "value": 0.0156,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|marginal_tvd",
+     "pass": true,
+     "value": 0.0087,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PINCP_DECILE|null_rate_diff",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.POVPIP|marginal_ks",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.POVPIP|null_rate_diff",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DVET|marginal_tvd",
+     "pass": true,
+     "value": 0.0362,
+     "limit": 0.1491
+    },
+    {
+     "id": "scorecard:acs.DVET|null_rate_diff",
+     "pass": true,
+     "value": 0.0021,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DREM|marginal_tvd",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DREM|null_rate_diff",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DPHY|marginal_tvd",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DPHY|null_rate_diff",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEYE|marginal_tvd",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEYE|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.DEAR|marginal_tvd",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.DEAR|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.PWGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0072,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.PWGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs.WGTP|marginal_ks",
+     "pass": true,
+     "value": 0.0095,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:acs.WGTP|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:acs|association_max_diff",
+     "pass": false,
+     "value": 0.2883,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:acs|discriminator_auc",
+     "pass": true,
+     "value": 0.5103,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:acs|dcr_ratio",
+     "pass": true,
+     "value": 1.3204,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:acs|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:acs: EDU < AGEP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: NOC < NPF|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: HOUSING_TYPE <= EDU|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000844
+    },
+    {
+     "id": "scorecard:acs: OWN_RENT <= WGTP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:acs: PINCP_DECILE <= POVPIP|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000514
+    },
+    {
+     "id": "domain:A1 industry and industry group missing together",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A2 industry group is the industry's group",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A3 income and income decile missing together",
+     "pass": false,
+     "value": 0.99956,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A4 income asked from age 15",
+     "pass": false,
+     "value": 0.998496,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A5 education asked from age 3",
+     "pass": false,
+     "value": 0.992441,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A6 cognitive difficulty asked from age 5",
+     "pass": false,
+     "value": 0.978021,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A7 no industry under age 16",
+     "pass": false,
+     "value": 0.944262,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A8 households own or rent, group quarters do not",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A9 housing weight zero exactly in group quarters",
+     "pass": false,
+     "value": 0.999119,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A10 density is the PUMA's density",
+     "pass": false,
+     "value": 0.861703,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A11 poverty ratio capped at 501",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A12 income median rises with the decile (share of steps)",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "domain:A13 mean age",
+     "pass": null,
+     "value": 41.043004,
+     "real": 41.098705
+    },
+    {
+     "id": "domain:A14 median income of earners",
+     "pass": null,
+     "value": 26933.0,
+     "real": 27800.0
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 7096.5,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 895.8,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:deterministic",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "quality:js_distance:acs:PUMA",
+     "pass": true,
+     "value": 0.01482,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:AGEP",
+     "pass": true,
+     "value": 0.01026,
+     "limit": 0.05,
+     "alpha": 0.000353
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:AGEP",
+     "pass": true,
+     "value": 0.013351,
+     "limit": 0.05,
+     "alpha": 0.000197
+    },
+    {
+     "id": "quality:js_distance:acs:AGEP",
+     "pass": true,
+     "value": 0.019111,
+     "limit": 0.05,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:SEX",
+     "pass": true,
+     "value": 0.002039,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:MSP",
+     "pass": true,
+     "value": 0.013679,
+     "limit": 0.05,
+     "alpha": 3.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:HISP",
+     "pass": true,
+     "value": 0.007894,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:js_distance:acs:RAC1P",
+     "pass": true,
+     "value": 0.016352,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:acs:NOC",
+     "pass": true,
+     "value": 0.02736,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:acs:NPF",
+     "pass": true,
+     "value": 0.009028,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:js_distance:acs:HOUSING_TYPE",
+     "pass": true,
+     "value": 0.003516,
+     "limit": 0.05,
+     "alpha": 0.001514
+    },
+    {
+     "id": "quality:js_distance:acs:OWN_RENT",
+     "pass": true,
+     "value": 0.002013,
+     "limit": 0.05,
+     "alpha": 0.00135
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:DENSITY",
+     "pass": true,
+     "value": 0.003526,
+     "limit": 0.05,
+     "alpha": 0.001299
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:DENSITY",
+     "pass": true,
+     "value": 0.005887,
+     "limit": 0.05,
+     "alpha": 0.000669
+    },
+    {
+     "id": "quality:js_distance:acs:DENSITY",
+     "pass": true,
+     "value": 0.01379,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:INDP",
+     "pass": true,
+     "value": 0.020283,
+     "limit": 0.05,
+     "alpha": 0.002412
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:INDP",
+     "pass": true,
+     "value": 0.025601,
+     "limit": 0.05,
+     "alpha": 0.000722
+    },
+    {
+     "id": "quality:js_distance:acs:INDP",
+     "pass": true,
+     "value": 0.018041,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:acs:INDP_CAT",
+     "pass": true,
+     "value": 0.019532,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:js_distance:acs:EDU",
+     "pass": true,
+     "value": 0.012633,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PINCP",
+     "pass": true,
+     "value": 0.017484,
+     "limit": 0.05,
+     "alpha": 0.003237
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PINCP",
+     "pass": true,
+     "value": 0.027026,
+     "limit": 0.05,
+     "alpha": 0.000199
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP",
+     "pass": false,
+     "value": 0.053421,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:PINCP_DECILE",
+     "pass": true,
+     "value": 0.012652,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:POVPIP",
+     "pass": true,
+     "value": 0.016886,
+     "limit": 0.05,
+     "alpha": 0.002764
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:POVPIP",
+     "pass": true,
+     "value": 0.023759,
+     "limit": 0.05,
+     "alpha": 0.002707
+    },
+    {
+     "id": "quality:js_distance:acs:POVPIP",
+     "pass": true,
+     "value": 0.0298,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:DVET",
+     "pass": true,
+     "value": 0.013776,
+     "limit": 0.05,
+     "alpha": 1.9e-05
+    },
+    {
+     "id": "quality:js_distance:acs:DREM",
+     "pass": true,
+     "value": 0.006154,
+     "limit": 0.05,
+     "alpha": 0.002193
+    },
+    {
+     "id": "quality:js_distance:acs:DPHY",
+     "pass": true,
+     "value": 0.006311,
+     "limit": 0.05,
+     "alpha": 0.001289
+    },
+    {
+     "id": "quality:js_distance:acs:DEYE",
+     "pass": true,
+     "value": 0.000267,
+     "limit": 0.05,
+     "alpha": 0.007764
+    },
+    {
+     "id": "quality:js_distance:acs:DEAR",
+     "pass": true,
+     "value": 0.001007,
+     "limit": 0.053106,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:PWGTP",
+     "pass": true,
+     "value": 0.028546,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:PWGTP",
+     "pass": true,
+     "value": 0.013913,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:js_distance:acs:PWGTP",
+     "pass": true,
+     "value": 0.018309,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:acs:WGTP",
+     "pass": true,
+     "value": 0.029249,
+     "limit": 0.05,
+     "alpha": 0.000114
+    },
+    {
+     "id": "quality:w1_rank_normal:acs:WGTP",
+     "pass": true,
+     "value": 0.017595,
+     "limit": 0.05,
+     "alpha": 0.000272
+    },
+    {
+     "id": "quality:js_distance:acs:WGTP",
+     "pass": true,
+     "value": 0.025606,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:acs",
+     "pass": true,
+     "value": 0.035011,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:acs",
+     "pass": false,
+     "value": 0.17325,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:acs",
+     "pass": false,
+     "value": 0.082382,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:acs",
+     "pass": true,
+     "value": 0.0096,
+     "limit": 0.1,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:beta_recall_gap:acs",
+     "pass": false,
+     "value": 0.1554,
+     "limit": 0.1,
+     "alpha": 0.001305
+    },
+    {
+     "id": "quality:tstr_gap:acs:SEX",
+     "pass": false,
+     "value": 0.090437,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:acs:SEX",
+     "pass": false,
+     "value": 0.115694,
+     "limit": 0.095837,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9462,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9462,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.090437,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.090437,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_univariate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.020283,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_univariate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:record_isolation|singling_out_multivariate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.033593,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_record_isolation_singling_out_multivariate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:linkage|nearest_neighbour_linkage",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1,
+     "upper": 0.007827,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_linkage_nearest_neighbour_linkage",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:PINCP_DECILE",
+     "pass": true,
+     "value": 0.037872,
+     "limit": 0.1,
+     "upper": 0.093417,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE",
+     "pass": null,
+     "value": 0.037872,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DPHY",
+     "pass": false,
+     "value": 0.10308,
+     "limit": 0.1,
+     "upper": 0.285716,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DPHY",
+     "pass": null,
+     "value": 0.10308,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|nearest_neighbour_inference:DREM",
+     "pass": false,
+     "value": 0.121285,
+     "limit": 0.1,
+     "upper": 0.326095,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_inference_nearest_neighbour_inference:DREM",
+     "pass": null,
+     "value": 0.121285,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:PINCP_DECILE",
+     "pass": true,
+     "value": -0.00675,
+     "limit": 0.05,
+     "upper": 0.009134,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE",
+     "pass": null,
+     "value": -0.00675,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DPHY",
+     "pass": true,
+     "value": 0.00025,
+     "limit": 0.05,
+     "upper": 0.007534,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DPHY",
+     "pass": null,
+     "value": 0.00025,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:inference|attribute_inference_vs_population:DREM",
+     "pass": true,
+     "value": 0.00125,
+     "limit": 0.05,
+     "upper": 0.005006,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_inference_attribute_inference_vs_population:DREM",
+     "pass": null,
+     "value": 0.00125,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_auc",
+     "pass": true,
+     "value": 0.505723,
+     "limit": 0.65,
+     "upper": 0.518376,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_auc",
+     "pass": null,
+     "value": 0.505723,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|domias_tpr_at_fpr_0.01",
+     "pass": true,
+     "value": 0.0115,
+     "limit": 0.1,
+     "upper": 0.017206,
+     "status": "pass"
+    },
+    {
+     "id": "metric:privacy_membership_domias_tpr_at_fpr_0.01",
+     "pass": null,
+     "value": 0.0115,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_auc",
+     "pass": false,
+     "value": 0.565557,
+     "limit": 0.65,
+     "upper": 0.655751,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_auc",
+     "pass": null,
+     "value": 0.565557,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_auc",
+     "pass": false,
+     "value": 0.571183,
+     "limit": 0.65,
+     "upper": 0.660507,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_auc",
+     "pass": null,
+     "value": 0.571183,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.866667,
+     "limit": 0.85,
+     "upper": 1.0,
+     "status": "info"
+    },
+    {
+     "id": "metric:privacy_membership_most_vulnerable_record_auc",
+     "pass": null,
+     "value": 0.866667,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_classifier_vulnerable_auc",
+     "pass": false,
+     "value": 0.613171,
+     "limit": 0.65,
+     "upper": 0.739232,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_classifier_vulnerable_auc",
+     "pass": null,
+     "value": 0.613171,
+     "direction": "lower"
+    },
+    {
+     "id": "privacy:membership|shadow_lira_vulnerable_auc",
+     "pass": false,
+     "value": 0.64578,
+     "limit": 0.65,
+     "upper": 0.77109,
+     "status": "review"
+    },
+    {
+     "id": "metric:privacy_membership_shadow_lira_vulnerable_auc",
+     "pass": null,
+     "value": 0.64578,
+     "direction": "lower"
+    },
+    {
+     "id": "goal:privacy_internal",
+     "pass": true,
+     "value": null,
+     "status": "review"
+    },
+    {
+     "id": "goal:privacy_partner_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "goal:privacy_public_needs_dp",
+     "pass": true,
+     "value": null,
+     "status": "blocked"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_syn",
+     "pass": null,
+     "value": 2.271039,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_p5_real",
+     "pass": null,
+     "value": 1.691876,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_dcr_ratio",
+     "pass": null,
+     "value": 1.34232,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_internal",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_exact_match_rate_real_any",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_n",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:privacy_guard_dcr_m",
+     "pass": null,
+     "value": 1500.0,
+     "direction": "higher"
+    }
+   ]
+  }
+ ],
+ "finished": "2026-10-31T05:51:11+00:00"
+}
