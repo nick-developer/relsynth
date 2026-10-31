@@ -13,6 +13,8 @@ On-premises first: the same image runs in docker compose for small installs, on 
 | Source credentials | file secrets | Kubernetes Secrets (`sourceSecrets`), Vault, or a cloud secret manager |
 | TLS | a reverse proxy in front of port 8080 | the ingress controller or OpenShift Route |
 
+Workers run on Linux in production: job memory and CPU limits, the job's own session and its death with the worker need Linux. On macOS the limits apply but a job may outlive a killed worker; on Windows (development only) jobs run without limits.
+
 ## docker compose (one machine)
 
 ```bash

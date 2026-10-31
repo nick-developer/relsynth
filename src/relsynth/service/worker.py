@@ -64,6 +64,17 @@ def _limits(mem_mb: int, cpu_s: int):
     return apply
 
 
+def _signal(p: subprocess.Popen, kill: bool) -> None:
+    """Stop a job process and, on POSIX, its whole session."""
+    with contextlib.suppress(ProcessLookupError, OSError):
+        if os.name != "nt":
+            os.killpg(p.pid, signal.SIGKILL if kill else signal.SIGTERM)
+        elif kill:
+            p.kill()
+        else:
+            p.terminate()
+
+
 class Worker:
     def __init__(self, settings: Settings, store: Store, artifacts: Artifacts, name: str | None = None):
         self.s, self.store, self.art = settings, store, artifacts
@@ -161,9 +172,11 @@ class Worker:
     def _spawn(self, job: dict, work: Path, env: dict) -> tuple[int, bool, bool, bool]:
         tid, rid = job["tenant_id"], job["id"]
         env["TMPDIR"] = str(work)
+        # POSIX: own session plus rlimits; Windows (development only): no limits, plain terminate/kill
+        extra: dict = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)} if os.name == "nt"
+                       else {"preexec_fn": _limits(self.s.job_memory_mb, self.s.job_cpu_s)})
         p = subprocess.Popen([sys.executable, "-m", "relsynth.service.runner", str(work / "job.json")],  # noqa: S603  # nosec B603
-                             cwd=work, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             preexec_fn=_limits(self.s.job_memory_mb, self.s.job_cpu_s))
+                             cwd=work, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **extra)
         deadline = time.time() + self.s.job_timeout_s
         cancelled = timed_out = lost = False
         next_beat = time.time() + self.s.heartbeat_s
@@ -181,13 +194,11 @@ class Worker:
             if time.time() > deadline:
                 timed_out = True
             if cancelled or timed_out or lost:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(p.pid, signal.SIGTERM)
+                _signal(p, kill=False)
                 try:
                     p.wait(10)
                 except subprocess.TimeoutExpired:
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(p.pid, signal.SIGKILL)
+                    _signal(p, kill=True)
                 break
         return (p.wait(), cancelled, timed_out, lost)
 
