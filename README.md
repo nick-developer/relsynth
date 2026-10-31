@@ -419,6 +419,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/datasets.md](docs/datasets.md) | Which datasets may be used, committed and where |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute: workflow, commits, sign-off, tests |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
+| [docs/assurance/](docs/assurance/README.md) | For privacy, legal and audit teams: the assurance case, the regulation mapping (GDPR and EDPB 02/2026, AI Act, HIPAA, NIST, ISO), a DPIA template, release guidance and the claim register |
 
 ## Licence
 
