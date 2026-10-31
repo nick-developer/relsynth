@@ -2580,7 +2580,8 @@ class Synthesizer:
                     from .timeseries.hooks import apply_sequence
                     out[t] = apply_sequence(self, t, out[t], out, index)
                 self._renumber_by_order(t, out, keys)
-        return {"out": out, "zs": zs, "keys": keys, "scale": sc, "t0": t0, "index": index}
+        return {"out": out, "zs": zs, "keys": keys, "scale": sc, "t0": t0, "index": index,
+                "prng": prng, "mode": mode}
 
     def _sample_end(self, ctx):
         """The last part of sample(): hidden columns dropped, aggregates, the
@@ -2598,7 +2599,7 @@ class Synthesizer:
         ext = self.plan.to_external(out, self.rng, getattr(self, "_mode", "draw"))
         if self.series_spec:
             from .timeseries.hooks import sample_series
-            ext = sample_series(self, ext, prng, index, mode)
+            ext = sample_series(self, ext, ctx["prng"], ctx["index"], ctx["mode"])
         return ext
 
     def _stratum_keys(self, e, z, out):

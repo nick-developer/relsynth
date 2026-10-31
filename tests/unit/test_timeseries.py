@@ -351,3 +351,23 @@ def test_ir_round_trip_keeps_sequence_and_series():
     assert lost == []
     assert back["tables"]["O"]["sequence"] == raw["tables"]["O"]["sequence"]
     assert back["tables"]["L"]["series"] == raw["tables"]["L"]["series"]
+
+
+def test_sequence_runs_in_the_partitioned_runtime(tmp_path):
+    """The T12 sequence hook also runs when the facts are drawn by relsynth.runtime
+    (T10): times are redrawn over the joined table, so the window rule holds and
+    the result does not depend on the number of workers."""
+    from relsynth.runtime import ProcessExecutor, sample_partitioned
+    spec, _ = shop_spec(tmp_path)
+    spec["tables"]["Orders"]["role"] = "fact"
+    syn = rs.fit(spec).synthesizer
+    assert "Orders" in syn.facts and "Orders" in syn.seq
+    ref, _ = sample_partitioned(syn, index=0, executor="local", partition_rows=150)
+    assert syn.sample_log["sequences"]["Orders"]["events"] == len(ref["Orders"])
+    o, c = ref["Orders"], ref["Customer"]
+    end = c.set_index("CustomerKey")["EndDT"].reindex(o["CustomerKey"]).to_numpy()
+    assert (pd.to_datetime(o["OrderDate"]).to_numpy() < pd.to_datetime(end)).all()
+    got, run = sample_partitioned(syn, index=0, executor=ProcessExecutor(2), partition_rows=150)
+    assert any(len(p.blocks) > 1 for p in run.facts)
+    for t in ref:
+        pd.testing.assert_frame_equal(ref[t], got[t])
