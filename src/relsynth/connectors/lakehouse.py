@@ -85,6 +85,13 @@ def _is_uri(path: str) -> bool:
     return "://" in str(path)
 
 
+def _warehouse(path: str) -> str:
+    """The warehouse location of a local folder: a file URI, except on Windows,
+    where PyIceberg reads 'file:///C:/...' as the path '/C:/...' and takes a
+    plain drive path as local instead."""
+    return str(Path(path)) if os.name == "nt" else Path(path).as_uri()
+
+
 def storage_options(storage: dict | None, storage_env: dict | None) -> dict[str, str]:
     """Storage options from the spec (no secrets) and from environment variables
     named in storage_env (option -> variable)."""
@@ -388,9 +395,9 @@ class IcebergConnector(LakeConnector):
                                  "for a SQL catalog kept in <path>/catalog.db")
             Path(self.path).mkdir(parents=True, exist_ok=True)
             props.update({"type": "sql", "uri": f"sqlite:///{Path(self.path) / 'catalog.db'}",
-                          "warehouse": Path(self.path).as_uri()})
+                          "warehouse": _warehouse(self.path)})
         elif self.path and "warehouse" not in props:
-            props["warehouse"] = Path(self.path).as_uri() if not _is_uri(self.path) else self.path
+            props["warehouse"] = _warehouse(self.path) if not _is_uri(self.path) else self.path
         self._props_catalog = props
         self._cat = None
 
