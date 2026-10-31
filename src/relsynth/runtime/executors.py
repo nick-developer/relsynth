@@ -14,7 +14,7 @@ model and the entities of the dataset), shipped once per map:
 
 The result never depends on the executor or its number of workers: partitions
 are fixed before the map and every task draws from its own counter-based
-stream (relsynth.runtime.streams, Prop. 900).  docs/adr/0001-executors.md
+stream (relsynth.runtime.streams, Prop. 950).  docs/adr/0001-executors.md
 records why these three and how they compare.
 """
 from __future__ import annotations

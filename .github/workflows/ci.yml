@@ -3,8 +3,8 @@ name: ci
 # Every pull request and every push to main runs the whole regression gate:
 # lint and security scans, the type ratchet, unit and end-to-end tests with
 # branch coverage, the live database servers, the statistical check suite
-# (C00-C78, in four balanced shards), and a wheel build with an SBOM and a
-# Sigstore signature. docs/development/ci.md explains each job; the job names
+# (C00-C82 and the 2.0 checks, in four balanced shards), the proofs build,
+# and a wheel build with an SBOM and a Sigstore signature. docs/development/ci.md explains each job; the job names
 # are the required status checks of the main branch ruleset.
 #
 # Actions are pinned to commit SHAs (the tag is in the comment); Dependabot
@@ -54,6 +54,28 @@ jobs:
         run: python tools/check_spdx.py
       - name: Dependency licences
         run: python tools/check_licenses.py --report licenses.md && cat licenses.md >> "$GITHUB_STEP_SUMMARY"
+      - name: One version everywhere (package, README, docs, examples, images, Helm chart)
+        run: python tools/release.py check
+
+  proofs:
+    # The proofs document must build, include every section, and give no two
+    # propositions the same fixed number (tools/check_proofs.py). The built PDF
+    # is an artifact; the release checklist copies it into docs/proofs/.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Structure and proposition numbers
+        run: python3 tools/check_proofs.py
+      - name: TeX Live
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends texlive-latex-extra texlive-science texlive-fonts-recommended lmodern cm-super latexmk
+      - name: Build relsynth-proofs.pdf
+        working-directory: docs/proofs
+        run: |
+          latexmk -pdf -interaction=nonstopmode -halt-on-error -outdir=/tmp/proofs relsynth-proofs.tex
+          ! grep -E "undefined references|Reference .* undefined|multiply defined" /tmp/proofs/relsynth-proofs.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: proofs-pdf, path: /tmp/proofs/relsynth-proofs.pdf }
 
   types:
     runs-on: ubuntu-latest
@@ -290,7 +312,7 @@ jobs:
       - run: pytest tests/integration -q
 
   science:
-    # The statistical check suite C00-C78 on every change, split into four shards
+    # The statistical check suite (C00-C82 and the 2.0 checks) on every change, split into four shards
     # of about equal run time (tests/science/durations.json)
     needs: lint
     strategy:
