@@ -104,6 +104,22 @@ service_accounts = sa.Table("service_accounts", md,
                             sa.Column("created_by", sa.String(200)), sa.Column("created_at", sa.Float),
                             sa.Column("revoked", sa.Boolean, default=False))
 
+agent_proposals = sa.Table("agent_proposals", md,          # T16: agent answers waiting for a person
+                            sa.Column("id", sa.String(40), primary_key=True), _tid("tenant_id"),
+                            sa.Column("spec_id", sa.String(40), nullable=False, index=True),
+                            sa.Column("job_id", sa.String(40)),
+                            sa.Column("task", sa.String(40), nullable=False),          # review
+                            sa.Column("item", sa.String(40), nullable=False),
+                            sa.Column("verdict", sa.String(20), nullable=False),
+                            sa.Column("attention", sa.String(10)),
+                            sa.Column("body", sa.Text, nullable=False),                # the guarded answer (JSON)
+                            sa.Column("status", sa.String(20), nullable=False, index=True),  # proposed accepted rejected
+                            sa.Column("created_by", sa.String(200)),                   # the agent identity
+                            sa.Column("on_behalf_of", sa.String(200)),
+                            sa.Column("decided_by", sa.String(200)), sa.Column("decided_at", sa.Float),
+                            sa.Column("reason", sa.Text),
+                            sa.Column("created_at", sa.Float))
+
 audit = sa.Table("audit", md,
                  sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
                  _tid("tenant_id"),
@@ -144,7 +160,7 @@ def _row(r) -> dict | None:
 
 def _dict(r) -> dict:
     d = dict(r._mapping)
-    for k in ("source", "labels", "review", "params", "summary", "detail", "roles"):
+    for k in ("source", "labels", "review", "params", "summary", "detail", "roles", "body"):
         if k in d and isinstance(d[k], str):
             try:
                 d[k] = json.loads(d[k])
@@ -344,6 +360,27 @@ class Store:
 
     def approvals(self, tid, run_id):
         return self._list(approvals, tid, run_id=run_id)
+
+    # agent proposals (T16) ---------------------------------------------------
+    def add_proposals(self, tid, spec_id, job_id, task, answers, agent, on_behalf_of) -> int:
+        n = 0
+        for a in answers:
+            self._insert(agent_proposals, tid, dict(id=new_id("prp"), spec_id=spec_id, job_id=job_id, task=task,
+                                                    item=a["item"], verdict=a["verdict"],
+                                                    attention=a.get("attention"), body=a, status="proposed",
+                                                    created_by=agent, on_behalf_of=on_behalf_of))
+            n += 1
+        return n
+
+    def proposals(self, tid, spec_id=None, status=None, limit=2000):
+        return self._list(agent_proposals, tid, limit, spec_id=spec_id, status=status)
+
+    def proposal(self, tid, pid):
+        return self._get(agent_proposals, tid, pid)
+
+    def decide_proposal(self, tid, pid, status, by, reason) -> bool:
+        return self._update(agent_proposals, tid, pid, where=agent_proposals.c.status == "proposed",
+                            status=status, decided_by=by, decided_at=time.time(), reason=reason or "")
 
     # service accounts --------------------------------------------------------
     def add_service_account(self, tid, name, roles, actor) -> tuple[dict, str]:

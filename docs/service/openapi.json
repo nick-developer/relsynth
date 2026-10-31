@@ -1,6 +1,27 @@
 {
  "components": {
   "schemas": {
+   "AgentReviewIn": {
+    "properties": {
+     "only": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "item kinds to answer (default: all)",
+      "title": "Only"
+     }
+    },
+    "title": "AgentReviewIn",
+    "type": "object"
+   },
    "ApprovalIn": {
     "properties": {
      "decision": {
@@ -72,6 +93,33 @@
      "source"
     ],
     "title": "ConnectionIn",
+    "type": "object"
+   },
+   "DecisionsIn": {
+    "properties": {
+     "decisions": {
+      "additionalProperties": {
+       "enum": [
+        "accept",
+        "reject"
+       ],
+       "type": "string"
+      },
+      "description": "proposal id -> accept or reject; accepted changes make a new spec version",
+      "title": "Decisions",
+      "type": "object"
+     },
+     "reason": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "required": [
+     "decisions"
+    ],
+    "title": "DecisionsIn",
     "type": "object"
    },
    "HTTPValidationError": {
@@ -263,12 +311,14 @@
       "type": "string"
      },
      "roles": {
+      "description": "'agent' makes an agent account: it may read and propose, never decide (docs/agents.md)",
       "items": {
        "enum": [
         "data_owner",
         "privacy_officer",
         "engineer",
-        "consumer"
+        "consumer",
+        "agent"
        ],
        "type": "string"
       },
@@ -1809,6 +1859,102 @@
     ]
    }
   },
+  "/api/v1/t/{tenant}/runs/{rid}/agent/explain": {
+   "post": {
+    "description": "A plain-language explanation of a run's report.  The explainer gets the\nreport the caller may read (privacy items removed without privacy:read).",
+    "operationId": "agent_explain_api_v1_t__tenant__runs__rid__agent_explain_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rid",
+      "required": true,
+      "schema": {
+       "title": "Rid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tenant",
+      "required": true,
+      "schema": {
+       "title": "Tenant",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "required": false,
+      "schema": {
+       "default": "quality",
+       "enum": [
+        "report",
+        "quality"
+       ],
+       "title": "Kind",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-relsynth-dev-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Relsynth-Dev-User"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agent Explain",
+    "tags": [
+     "agents"
+    ]
+   }
+  },
   "/api/v1/t/{tenant}/runs/{rid}/approvals": {
    "get": {
     "operationId": "list_approvals_api_v1_t__tenant__runs__rid__approvals_get",
@@ -2631,6 +2777,299 @@
     "summary": "Get Spec",
     "tags": [
      "specs"
+    ]
+   }
+  },
+  "/api/v1/t/{tenant}/specs/{sid}/agent/review": {
+   "post": {
+    "description": "Queue the review agent on a spec's `review:` items.  Its answers become\nproposals (GET .../proposals); nothing changes until a person decides.  The\nagent sees aggregates at most, never rows, and no more than the caller's\nrole allows (docs/agents.md).",
+    "operationId": "agent_review_api_v1_t__tenant__specs__sid__agent_review_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tenant",
+      "required": true,
+      "schema": {
+       "title": "Tenant",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-relsynth-dev-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Relsynth-Dev-User"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/AgentReviewIn"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agent Review",
+    "tags": [
+     "agents"
+    ]
+   }
+  },
+  "/api/v1/t/{tenant}/specs/{sid}/proposals": {
+   "get": {
+    "operationId": "list_proposals_api_v1_t__tenant__specs__sid__proposals_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tenant",
+      "required": true,
+      "schema": {
+       "title": "Tenant",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "status",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "proposed",
+          "accepted",
+          "rejected"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-relsynth-dev-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Relsynth-Dev-User"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Proposals",
+    "tags": [
+     "agents"
+    ]
+   }
+  },
+  "/api/v1/t/{tenant}/specs/{sid}/proposals/decisions": {
+   "post": {
+    "description": "A person's decisions on proposals.  Accepted changes are applied to the\nspec as a new version written by that person; rejected ones change nothing.",
+    "operationId": "decide_proposals_api_v1_t__tenant__specs__sid__proposals_decisions_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "tenant",
+      "required": true,
+      "schema": {
+       "title": "Tenant",
+       "type": "string"
+      }
+     },
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "in": "header",
+      "name": "x-relsynth-dev-user",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Relsynth-Dev-User"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DecisionsIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Decide Proposals",
+    "tags": [
+     "agents"
     ]
    }
   },
