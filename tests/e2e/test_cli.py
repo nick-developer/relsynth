@@ -270,3 +270,52 @@ def test_governed_run_records_manifest_and_releases(capsys, tmp_path, spec_file)
     assert [r["state"] for r in j["runs"]] == ["released"]
     code, j, _ = jcli(capsys, "gov", "budget", "--registry", reg)
     assert j["budget"]["customers"]["nondp_releases"] == [run]
+
+
+def test_governed_dp_run_charges_the_domain_and_releases_externally(capsys, tmp_path, spec_file):
+    """relsynth run --epsilon with a registry: the budget is reserved before the
+    read and settled after it, the manifest carries the DP charges and the DP
+    statement, and the partner context can be released after approval (T07)."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("opendp")
+    k = tmp_path / "keys"
+    for name in ("dpo", "ana"):
+        assert cli(capsys, "gov", "keys", "new", k / f"{name}.key", "--name", name)[0] == 0
+    reg = tmp_path / "reg"
+    assert cli(capsys, "gov", "init", reg, "--owner-key", k / "dpo.key")[0] == 0
+    pol = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), "..", "..", "docs", "governance", "examples",
+                                           "org-policy.yaml")))
+    pol["domains"]["customers"]["unit"]["entity"] = "customer"
+    pol["quality"]["min_pass_rate"] = 0.5      # a fixture of a few hundred rows at epsilon 1
+    pf = tmp_path / "policy.yaml"
+    pf.write_text(yaml.safe_dump(pol))
+    assert cli(capsys, "gov", "policy", "sign", pf, "--key", k / "dpo.key", "--registry", reg)[0] == 0
+    assert cli(capsys, "gov", "keys", "trust", k / "ana.pub.json", "--roles", "operator", "--owner-key", k / "dpo.key",
+               "--registry", reg)[0] == 0
+    s = yaml.safe_load(spec_file.read_text())
+    s["synthesis"].setdefault("privacy", {})["dp"] = {"public_tables": "all_unowned", "spec_is_public": True}
+    spec_file.write_text(yaml.safe_dump(s, sort_keys=False))
+    rep = {"schema": "relsynth.privacy-report/1", "contexts": {"partner": {"verdict": "pass", "checks": []}}}
+    rf = tmp_path / "privacy_report.json"
+    rf.write_text(json.dumps(rep))
+    common = ("--registry", reg, "--context", "partner", "--release-target", "partner-sftp", "--source-id", "dwh-prod",
+              "--key", k / "ana.key", "--privacy-report", rf, "--no-privacy")
+    # above the per-release cap (epsilon 2): refused before anything is read, nothing charged
+    code, j, _ = jcli(capsys, "run", spec_file, "--epsilon", "3", *common)
+    assert code == 2 and "per-release cap" in j["error"]
+    code, j, _ = jcli(capsys, "run", spec_file, "--epsilon", "1", "--dp-statement", tmp_path / "dp.json", *common)
+    assert code == 0, (j.get("error"), j.get("errors"))
+    assert j["dp"]["unit"] == "customer" and 0 < j["dp"]["epsilon"] <= 1 + 1e-9
+    st = json.loads((tmp_path / "dp.json").read_text())
+    assert st["schema"] == "relsynth.dp-statement/1" and st["domain"]["domain"] == "customers"
+    run = j["governance"]["run"]
+    assert any("approval" in r for r in j["governance"]["decision"]["reasons"])
+    code, j, _ = jcli(capsys, "gov", "budget", "--registry", reg)
+    b = j["budget"]["customers"]
+    assert b["runs"][run]["state"] == "settled" and 0 < b["epsilon"] <= 1 + 1e-6
+    assert cli(capsys, "gov", "approve", run, "--context", "partner", "--key", k / "dpo.key", "--registry", reg)[0] == 0
+    code, j, _ = jcli(capsys, "gov", "release", run, "--context", "partner", "--target", "partner-sftp",
+                      "--key", k / "ana.key", "--registry", reg, "--out", tmp_path / "pkg")
+    assert code == 0 and j["allow"], j
+    assert (tmp_path / "pkg").is_dir() and cli(capsys, "gov", "verify", tmp_path / "pkg")[0] == 0
+    assert cli(capsys, "gov", "verify", reg)[0] == 0

@@ -49,7 +49,8 @@ DEFAULT_SYNTHESIS = {
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
     "rules": {"max_rejection_rounds": 25},
-    "privacy": {"suppress_small_counts": 5},
+    # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
+    "privacy": {"suppress_small_counts": 5, "dp": None},
     # fit large fact tables from statistics computed in the database and a bounded
     # uniform sample (relsynth.pushdown); auto: facts with at least min_rows rows
     "pushdown": {"mode": "auto", "min_rows": 1_000_000, "sample_rows": 500_000},

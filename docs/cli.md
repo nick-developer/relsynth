@@ -142,7 +142,8 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
                     [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE]
                     [--registry REGISTRY] [--context CONTEXT] [--release-target RELEASE_TARGET]
                     [--source-id SOURCE_ID] [--key KEY] [--privacy-report PRIVACY_REPORT]
-                    [--assess] [--privacy-config PRIVACY_CONFIG] [--json]
+                    [--assess] [--privacy-config PRIVACY_CONFIG] [--dp] [--epsilon EPSILON]
+                    [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT] [--json]
                     [--log-level {debug,info,warning,error}]
                     spec
 ```
@@ -174,6 +175,10 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--scale SCALE] [--out OUT] [--target
 | `--privacy-report` PRIVACY_REPORT |  |  | privacy_report.json of `relsynth privacy` for this spec |
 | `--assess` |  |  | run the privacy assessment against the policy's contexts |
 | `--privacy-config` PRIVACY_CONFIG |  |  | privacy.yaml for --assess (its contexts are replaced by the policy's) |
+| `--dp` |  |  | differentially private run (the spec's synthesis.privacy.dp) |
+| `--epsilon` EPSILON |  |  | this run's epsilon (implies --dp; overrides the spec) |
+| `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's) |
+| `--dp-statement` DP_STATEMENT |  |  | also write the DP statement (JSON) here |
 
 ## verify
 

@@ -607,6 +607,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `text.max_retries` | `30` | Retries before a text value is replaced. |
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
 | `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle. |
+| `privacy.dp` | none | Differential privacy mode: `unit`, `epsilon` or `rho`, `delta`, `public_tables`, `public`, `max_degree`, `spec_is_public`, and tuning keys (`split`, `bins`, `clip`, `degree_quantile`, `degree_fallback`, `levels_delta_share`, `max_parent_attrs`, `max_degree_range`). See [dp.md](dp.md). |
 | `pushdown.mode` | `auto` | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | `1000000` | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | `500000` | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |

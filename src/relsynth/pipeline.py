@@ -139,6 +139,11 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
     errors, exceptions, written = [], [], []
     t0 = time.time()
     spec = _prepare_spec(spec_or_path, scale, datasets, mode, pushdown, seed)
+    from .dp.config import section
+    if section(spec) is not None:
+        from .errors import PrivacyError
+        raise PrivacyError("this spec is in differential privacy mode (synthesis.privacy.dp): run it with "
+                           "relsynth.dp.synthesize or `relsynth run`; the ordinary pipeline would read it without DP")
     pc = spec["synthesis"]["posterior"]
     syn = report = real = fake = None
     fit = fit_data
