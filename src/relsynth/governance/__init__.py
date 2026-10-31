@@ -105,7 +105,7 @@ def record_run(reg, spec: dict, outputs: dict, *, context: str, target: str, ope
                locator: str = "", command: str = "", started: str | None = None, privacy_report: dict | None = None,
                scorecard: dict | None = None, privacy: dict | None = None, seeds: dict | None = None,
                dp_statement: dict | None = None, public_facts_only: bool | None = None, accountant: str | None = None,
-               store_outputs: bool = True, pol: Policy | None = None) -> RecordedRun:
+               store_outputs: bool = True, pol: Policy | None = None, agents: list[dict] | None = None) -> RecordedRun:
     """Write the signed manifest of a finished run, record a non-DP release in the
     domain's ledger, evaluate the policy for the intended context and checkpoint
     the registry.  `privacy` is the DP engine's privacy section (mode dp, charges,
@@ -147,7 +147,7 @@ def record_run(reg, spec: dict, outputs: dict, *, context: str, target: str, ope
                         command=command or "relsynth (API)", source=src, spec_digest=sd, ir_digest=ird,
                         ir_version=IR_VERSION, privacy=priv, reports=reports, verdicts=verdicts, policy_info=pinfo,
                         release={"context": context, "target": target}, chain_prev=head, seeds=seeds,
-                        public_facts_only=public_facts_only, accountant=accountant)
+                        public_facts_only=public_facts_only, accountant=accountant, agents=agents)
     # the decision before approval: what the run still needs (it is final only at `release`)
     dec_ = decide(_policy_input(reg, pol, st, "", context, target), pol.engine, pol.doc.get("rego") or ())
     pinfo["engine"] = dec_["engine"]

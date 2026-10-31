@@ -21,6 +21,10 @@ from .registry import CHECKPOINT_TYPE, GENESIS, KEYS_TYPE, chain_hash
 from .sign import PublicKey, payload, verify_envelope
 
 
+def _roles_from(env) -> dict:
+    return {k["id"]: list(k.get("roles", [])) for k in payload(env)["predicate"]["keys"]}
+
+
 def _keys_from(env) -> dict:
     out = {}
     for k in payload(env)["predicate"]["keys"]:
@@ -46,6 +50,7 @@ def verify_registry(reg) -> list[str]:
     # checkpoints: the head they sign must be on the chain, so a truncation after one is caught
     root = {reg.config["root_key"]["id"]: reg.root_key()}
     keys_now: dict = {}
+    roles_now: dict = {}
     all_keys: dict = dict(root)
     for rec in log:
         if rec["entry"]["type"] == "keys":
@@ -73,7 +78,8 @@ def verify_registry(reg) -> list[str]:
         ent, seq = rec["entry"], rec["seq"]
         t = ent["type"]
         if t == "keys":
-            keys_now = _keys_from(reg.get_json(ent["envelope"]))
+            kenv = reg.get_json(ent["envelope"])
+            keys_now, roles_now = _keys_from(kenv), _roles_from(kenv)
             continue
         if "envelope" in ent:
             try:
@@ -110,6 +116,8 @@ def verify_registry(reg) -> list[str]:
                         pass
             elif t == "approval" and st["predicate"]["approver"]["key"] not in signed:
                 probs.append(f"log entry {seq}: the approval is not signed by the approver it names")
+            elif t == "approval" and "agent" in roles_now.get(st["predicate"]["approver"]["key"], ()):
+                probs.append(f"log entry {seq}: the approval is signed by an agent key; approvals are made by people")
         if t.startswith("ledger."):
             k = (ent["domain"], ent["run"])
             s = ledger.setdefault(k, {})
