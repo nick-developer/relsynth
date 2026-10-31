@@ -162,10 +162,6 @@ jobs:
         ports: ["3307:3306"]
         options: >-
           --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 5s --health-retries 30
-      # Azure Blob Storage / ADLS Gen2 emulator for the lakehouse connectors
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite:3.35.0
-        ports: ["10000:10000"]
     env:
       RELSYNTH_TEST_PG_URL: postgresql://relsynth:RelSynthTest1@localhost:5432/relsynth
       RELSYNTH_TEST_MSSQL_URL: "mssql://sa:RelSynth_Test1!@localhost:1433/master?TrustServerCertificate=yes&driver=ODBC+Driver+18+for+SQL+Server"
@@ -198,10 +194,15 @@ jobs:
           sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
           odbcinst -q -d -n "ODBC Driver 18 for SQL Server"
       - run: pip install -e ".[dev,fabric]"
-      - name: S3 endpoint (moto server) and storage clients
+      # Object stores for the lakehouse connectors. Azurite runs as a step, not a service,
+      # because it needs --skipApiVersionCheck: the current Azure SDKs send a newer
+      # storage API version than the emulator knows, and it answers 400 to every call.
+      - name: S3 endpoint (moto server), Azure Blob emulator (Azurite) and storage clients
         run: |
           pip install "moto[server]>=5" boto3 azure-storage-blob adlfs
           nohup moto_server -p 5555 > /tmp/moto.log 2>&1 &
+          docker run -d --name azurite -p 10000:10000 mcr.microsoft.com/azure-storage/azurite:3.35.0 \
+            azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck --loose
       - name: Wait for SQL Server
         run: |
           python - <<'EOF'
