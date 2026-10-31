@@ -187,3 +187,18 @@ def _values_at(d, path: str):
                 nxt.append(c[s])
         cur = nxt
     return cur
+
+
+def path_differences(a_prof: CollectionProfile, b_prof: CollectionProfile, top: int = 10) -> list[dict]:
+    """The paths whose presence or state mix differ most (for the report)."""
+    A, B = _paths(a_prof), _paths(b_prof)
+    rows = []
+    for k in sorted(set(A) | set(B)):
+        x, y = A.get(k), B.get(k)
+        ra = x.present / x.n if x is not None and x.n else 0.0
+        rb = y.present / y.n if y is not None and y.n else 0.0
+        sa, sb = (_state(x) if x is not None else Counter()), (_state(y) if y is not None else Counter())
+        rows.append({"path": k, "presence": [round(ra, 4), round(rb, 4)], "state_tvd": round(_tvd(sa, sb), 4),
+                     "states": [dict(sa), dict(sb)]})
+    rows.sort(key=lambda r: -max(abs(r["presence"][0] - r["presence"][1]), r["state_tvd"]))
+    return rows[:top]

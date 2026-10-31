@@ -461,3 +461,33 @@ def find_references(profiles: dict[str, CollectionProfile], declared: list[dict]
                 refs.append(r)
                 break
     return refs
+
+
+def find_sequences(collections: dict[str, list[dict]], references: list[dict]) -> list[dict]:
+    """Integer top-level fields numbered 1..n (or 0..n-1) within the documents
+    that share a reference (an order's line numbers): {collection, path, within, start}."""
+    out = []
+    for r in references:
+        if r.get("candidate") or "." in r["path"] or "[" in r["path"]:
+            continue
+        docs = collections.get(r["collection"], [])
+        if not docs:
+            continue
+        cands = [k for k, v in docs[0].items() if type_name(v) in ("int", "long") and k != r["path"]]
+        for f in cands:
+            groups: dict = {}
+            ok = True
+            for d in docs:
+                v = d.get(f)
+                if type_name(v) not in ("int", "long"):
+                    ok = False
+                    break
+                groups.setdefault(str(d.get(r["path"])), []).append(v)
+            if not ok:
+                continue
+            for start in (1, 0):
+                if all(sorted(g) == list(range(start, start + len(g))) for g in groups.values()) and \
+                        any(len(g) > 1 for g in groups.values()):
+                    out.append({"collection": r["collection"], "path": f, "within": r["path"], "start": start})
+                    break
+    return out

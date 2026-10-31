@@ -316,3 +316,46 @@ def object_id(*parts) -> ObjectId:
     are a function of the seed and the row, so a rerun writes the same ids)."""
     h = hashlib.sha256("\x1f".join(map(str, parts)).encode()).hexdigest()
     return ObjectId(h[:24])
+
+
+def to_bson(v: Any) -> Any:
+    """A plain value as the types pymongo writes (ObjectId, Int64, Decimal128)."""
+    t = type_name(v)
+    if t == "object":
+        return {k: to_bson(x) for k, x in v.items()}
+    if t == "array":
+        return [to_bson(x) for x in v]
+    try:
+        import bson
+    except ImportError:  # pragma: no cover
+        return v
+    if t == "objectId":
+        return bson.ObjectId(str(v))
+    if t == "long":
+        return bson.Int64(int(v))
+    if t == "decimal":
+        return bson.Decimal128(str(v))
+    if t == "binary":
+        return bson.Binary(bytes(v), getattr(v, "subtype", 0))
+    return v
+
+
+def to_plain_json(v: Any) -> Any:
+    """A plain value as JSON-native types (for Cosmos DB, DynamoDB, Couchbase):
+    ids and decimals as strings or numbers, dates as ISO 8601 strings."""
+    t = type_name(v)
+    if t == "object":
+        return {k: to_plain_json(x) for k, x in v.items()}
+    if t == "array":
+        return [to_plain_json(x) for x in v]
+    if t == "objectId":
+        return str(v)
+    if t == "decimal":
+        return float(v)
+    if t == "date":
+        return from_millis(to_millis(v)).strftime("%Y-%m-%dT%H:%M:%S.") + f"{to_millis(v) % 1000:03d}Z"
+    if t == "binary":
+        return base64.b64encode(bytes(v)).decode()
+    if t in ("int", "long"):
+        return int(v)
+    return v

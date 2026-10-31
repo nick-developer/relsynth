@@ -23,14 +23,14 @@ import pandas as pd
 
 from .shred import KEY, PARENT, POS, ROW_ID, Layout, _col
 
-_SQL_TYPE = {"int": "INTEGER", "long": "INTEGER", "double": "REAL", "decimal": "REAL", "bool": "INTEGER",
+_SQL_TYPE = {"num": "REAL", "int": "INTEGER", "long": "INTEGER", "double": "REAL", "decimal": "REAL", "bool": "INTEGER",
              "date": "DATETIME", "string": "TEXT", "objectId": "TEXT", "binary": "TEXT", None: "TEXT"}
 
 
 def target_column(lay: Layout, table: str, path: str) -> str:
     tl = lay.tables[table]
-    if path == "_id" and tl.id_column == "_id":
-        return "_id"
+    if path == tl.id_column:
+        return path
     return _col(path.split("."))
 
 
@@ -50,7 +50,7 @@ def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
                     ty = _SQL_TYPE.get(tl.id_type, "TEXT")
                 elif c == PARENT:
                     p = lay.tables[tl.parent]
-                    ty = _SQL_TYPE.get(p.id_type, "TEXT") if p.id_column == "_id" else "INTEGER"
+                    ty = _SQL_TYPE.get(p.id_type, "TEXT") if p.id_column != ROW_ID else "INTEGER"
                     fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{tl.parent}" ("{p.id_column}")')
                 elif col is not None and col.role == "ref":
                     ty = _SQL_TYPE.get(col.type, "TEXT")
@@ -103,7 +103,8 @@ def _structural(item) -> bool:
     return any(c in txt for c in (ROW_ID, KEY + "'"))
 
 
-def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sample_rows: int = 20000) -> dict:
+def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sample_rows: int = 20000,
+             sequences: list[dict] | None = None) -> dict:
     """The 1.0 spec of the shredded database (introspected, then completed from
     the layout)."""
     from ..api import introspect
@@ -151,6 +152,16 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                 if not t[k]:
                     t.pop(k)
         t["primary_key"] = tl.id_column
+    for sq in sequences or []:
+        t = tables.get(sq["collection"])
+        if t is not None and t.get("role") == "fact" and sq["path"] in t.get("columns", {}):
+            t["columns"][sq["path"]] = {"type": "sequence", "within": _col(sq["within"].split(".")),
+                                       "start": sq["start"]}
+            for k in ("group_effects", "link_affinity", "dimensions"):
+                if k in t:
+                    t[k] = [g for g in t[k] if sq["path"] not in repr(g)]
+                    if not t[k]:
+                        t.pop(k)
     raw.setdefault("synthesis", {})["seed"] = seed
     raw["source"] = {"kind": "sqlite", "path": str(db_path)}
     return raw

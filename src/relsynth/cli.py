@@ -947,6 +947,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_ir_parser(sub, _common)
     from .governance.cli import add_parser as _add_gov_parser
     _add_gov_parser(sub, _common)
+    from .documents.cli import add_parser as _add_docs_parser
+    _add_docs_parser(sub, _common)
 
     for sp in sub.choices.values():
         _common(sp)

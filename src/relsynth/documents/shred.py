@@ -36,7 +36,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from .infer import FULL_PRECISION, CollectionProfile, Node
-from .values import ObjectId, from_cell, object_id, to_cell, type_name
+from .values import NUMERIC, ObjectId, from_cell, object_id, to_cell, type_name
 
 SEP = "__"
 ROW_ID = "_rid"
@@ -53,19 +53,22 @@ class Column:
     type: str | None = None    # the document type of the value (value, typed, ref)
     decimals: int | None = None
     ref: dict | None = None    # {table, column} for role ref
+    fmt: str | None = None     # strings that are all dates in one format (written back in it)
 
 
 @dataclass
 class TableLayout:
     name: str
     collection: str
-    kind: str                         # root, array, map
+    kind: str                         # root, array, map, object (an optional sub-document)
     context: str                      # the path whose objects (or elements) are the rows
     parent: str | None = None
     holder: list[str] = field(default_factory=list)   # path of the array/map in the parent row
     columns: list[Column] = field(default_factory=list)
-    id_column: str = ROW_ID
+    id_column: str = ROW_ID           # _rid, _id, or a unique top-level field another collection references
     id_type: str = "int"
+    field_order: list[str] = field(default_factory=list)   # root: the source's top-level field order
+    fresh: dict = field(default_factory=dict)  # root fields that are fresh identifiers (path -> type)
     key_mode: str | None = None       # map keys: categorical, field (a field of the value) or generated
     key_format: dict | None = None
 
@@ -101,6 +104,25 @@ class Layout:
         return [self.tables[c] for c in self.order]
 
 
+_DATE_FORMATS = ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%SZ",
+                 "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M")
+
+
+def _date_format(f: Node) -> str | None:
+    """The format of a string field whose every (kept) value is a date in it."""
+    import datetime as dt
+    if f.overflow or not f.distinct or f.scalar_types != ["string"]:
+        return None
+    vals = [v for v in list(f.distinct)[:200] if isinstance(v, str)]
+    for fmt in _DATE_FORMATS:
+        try:
+            if all(dt.datetime.strptime(v, fmt).strftime(fmt) == v for v in vals):
+                return fmt
+        except ValueError:
+            continue
+    return None
+
+
 def _decimals(f: Node) -> int | None:
     return f.decimals if 0 < f.decimals < FULL_PRECISION else (0 if f.decimals == 0 else None)
 
@@ -131,10 +153,22 @@ def build_layout(profiles: dict[str, CollectionProfile], references: list[dict] 
     targets = {(r["to"], r["to_path"]) for r in refs}
     for cname, prof in profiles.items():
         root = prof.root
-        tl = TableLayout(cname, cname, "root", "")
+        tl = TableLayout(cname, cname, "root", "", field_order=list(root.fields))
+
+        def unique(nd):
+            return (nd is not None and not nd.optional and not nd.nullable and len(nd.scalar_types) == 1
+                    and not nd.overflow and len(nd.distinct) == prof.documents)
+
         idn = root.fields.get("_id")
-        if idn is not None and not idn.optional and not idn.nullable and len(idn.scalar_types) == 1 \
-                and not idn.overflow and len(idn.distinct) == prof.documents:
+        natural = next((r["to_path"] for r in refs if r["to"] == cname and r["to_path"] != "_id"
+                        and "." not in r["to_path"] and unique(root.fields.get(r["to_path"]))), None)
+        if natural is not None:
+            # referenced by a natural key: that key is the row id, so the engine
+            # draws the references among the synthetic keys
+            tl.id_column, tl.id_type = natural, root.fields[natural].scalar_types[0]
+            if unique(idn):
+                tl.fresh["_id"] = idn.scalar_types[0]
+        elif unique(idn):
             tl.id_column, tl.id_type = "_id", idn.scalar_types[0]
         else:
             tl.columns.append(Column(ROW_ID, [], "id", "int"))
@@ -151,7 +185,7 @@ def _walk_object(lay: Layout, prof: CollectionProfile, tl: TableLayout, nd: Node
     """Columns of the object `nd` (fields under `prefix` of the row context)."""
     shapes = lay.shapes.setdefault(tl.name, {})
     for name, f in nd.fields.items():
-        if not prefix and tl.kind == "root" and name == "_id" and tl.id_column == "_id":
+        if not prefix and tl.kind == "root" and (name == tl.id_column or name in tl.fresh):
             continue
         path = prefix + [name]
         _walk_value(lay, prof, tl, f, path, refs, targets)
@@ -181,7 +215,12 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
         tl.columns.append(Column(tag, path, "tag"))
         info["tag"] = tag
     scal = f.scalar_types
-    if f.is_object and not f.is_map:
+    if f.is_object and not f.is_map and f.value_types == ["object"] and (f.optional or f.nullable) and f.fields:
+        # an optional sub-document: a table of 0 or 1 row per holder, so the
+        # presence of its fields is modelled given that it is there
+        info["object"] = True
+        info["object_table"] = _child_table(lay, prof, tl, f, path, "object", refs, targets)
+    elif f.is_object and not f.is_map:
         info["object"] = True
         shapes[key] = info
         _walk_object(lay, prof, tl, f, path, refs, targets)
@@ -196,14 +235,25 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
         ref = _ref_of(refs, tl.collection, _abs_path(tl, path)) if len(scal) == 1 else None
         if len(scal) == 1 and len(f.value_types) == 1:
             c = Column(cname, path, "ref" if ref else "value", scal[0], _decimals(f))
+            if scal[0] == "string":
+                c.fmt = _date_format(f)
             if ref:
                 c.ref = {"table": ref["to"], "path": ref["to_path"]}
             tl.columns.append(c)
             info["column"] = cname
         else:
+            # a union: one column per type, the numeric types sharing one column
+            # (the tag says int or double, the value is modelled once)
             info["typed"] = {}
+            nums = [t for t in scal if t in NUMERIC]
             for t in scal:
-                c = Column(cname + SEP + t, path, "typed", t, _decimals(f))
+                if t in nums and len(nums) > 1:
+                    if t != nums[0]:
+                        info["typed"][t] = cname + SEP + "num"
+                        continue
+                    c = Column(cname + SEP + "num", path, "typed", "num", _decimals(f))
+                else:
+                    c = Column(cname + SEP + t, path, "typed", t, _decimals(f))
                 if ref and t == scal[0]:
                     c.role, c.ref = "ref", {"table": ref["to"], "path": ref["to_path"]}
                 tl.columns.append(c)
@@ -213,11 +263,12 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
 
 def _child_table(lay, prof, tl, f: Node, path, kind, refs, targets) -> str:
     name = tl.name + SEP + (_col(path) if path else "items")
-    ctx = _abs_path(tl, path) + ("{}" if kind == "map" else "[]")
+    ctx = _abs_path(tl, path) + {"map": "{}", "array": "[]", "object": ""}[kind]
     ct = TableLayout(name, tl.collection, kind, ctx, parent=tl.name, holder=list(path))
     ct.columns.append(Column(ROW_ID, [], "id", "int"))
     ct.columns.append(Column(PARENT, [], "parent", None))
-    ct.columns.append(Column(POS, [], "pos", "int"))
+    if kind != "object":
+        ct.columns.append(Column(POS, [], "pos", "int"))
     if kind == "map":
         entries = sum(k * c for k, c in f.lengths.items())
         sample = list(f.map_keys)
@@ -231,6 +282,10 @@ def _child_table(lay, prof, tl, f: Node, path, kind, refs, targets) -> str:
             ct.key_mode = "generated"
             ct.key_format = _key_format(sample[:50])
     lay.tables[name] = ct
+    if kind == "object":
+        lay.shapes.setdefault(name, {}).setdefault("", {})["object"] = True
+        _walk_object(lay, prof, ct, f, [], refs, targets)
+        return name
     it = f.items
     if it is not None:
         _walk_value(lay, prof, ct, it, [], refs, targets)
@@ -269,13 +324,13 @@ def shred(lay: Layout, collections: dict[str, Iterable[dict]]) -> dict[str, pd.D
         tl = lay.tables[cname]
         for doc in collections[cname]:
             row = {}
-            rid = doc.get("_id") if tl.id_column == "_id" else out.new_id(cname)
+            rid = doc.get(tl.id_column) if tl.id_column != ROW_ID else out.new_id(cname)
             row[tl.id_column] = to_cell(rid, tl.id_type)
             _fill(lay, tl, row, doc, [], out, rid if tl.id_column == ROW_ID else row[tl.id_column])
             out.add(cname, row)
     frames = {}
     for name, tl in lay.tables.items():
-        cols = [tl.id_column] if tl.id_column == "_id" else []
+        cols = [tl.id_column] if tl.id_column != ROW_ID else []
         cols += [c.name for c in tl.columns]
         frames[name] = pd.DataFrame(out.rows.get(name, []), columns=cols)
     del keymaps
@@ -315,8 +370,15 @@ def _fill(lay, tl: TableLayout, row: dict, ctx_value, prefix, out: _Rows, row_id
         elif c.role in ("value", "ref"):
             row[c.name] = to_cell(v, c.type) if st == c.type else None
         elif c.role == "typed":
-            row[c.name] = to_cell(v, c.type) if st == c.type else None
+            if c.type == "num":
+                row[c.name] = to_cell(v, "double") if st in NUMERIC else None
+            else:
+                row[c.name] = to_cell(v, c.type) if st == c.type else None
     for key, info in shapes.items():
+        if "object_table" in info:
+            v = _get(ctx_value, key.split(".") if key else [])
+            if isinstance(v, dict):
+                _child_row(lay, lay.tables[info["object_table"]], v, out, row_id)
         for kind in ("array", "map"):
             if kind not in info:
                 continue
@@ -332,7 +394,9 @@ def _fill(lay, tl: TableLayout, row: dict, ctx_value, prefix, out: _Rows, row_id
 
 def _child_row(lay, ct: TableLayout, x, out: _Rows, parent_id, pos=None, key=None):
     rid = out.new_id(ct.name)
-    row = {ROW_ID: rid, PARENT: parent_id, POS: pos}
+    row = {ROW_ID: rid, PARENT: parent_id}
+    if ct.kind != "object":
+        row[POS] = pos
     if ct.key_mode == "categorical":
         row[KEY] = key
     _fill(lay, ct, row, x, [], out, rid)
@@ -350,8 +414,8 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
     for cname in lay.order:
         tl = lay.tables[cname]
         df = frames[cname]
-        if tl.id_column == "_id" and tl.id_type == "objectId" and not keep_ids:
-            idmap[cname] = {k: object_id(seed, cname, k) for k in df["_id"].tolist()}
+        if tl.id_column != ROW_ID and tl.id_type == "objectId" and not keep_ids:
+            idmap[cname] = {k: object_id(seed, cname, k) for k in df[tl.id_column].tolist()}
     # elements of child tables, bottom-up: table -> parent id -> [(order, value)]
     built: dict[str, dict] = {}
     for name in _bottom_up(lay):
@@ -374,9 +438,15 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
         out = []
         for r in frames[cname].to_dict("records"):
             d = _build(lay, tl, r, built, idmap, frames, seed)
-            if tl.id_column == "_id":
-                rid = r["_id"]
-                d = {"_id": idmap[cname][rid] if cname in idmap else from_cell(rid, tl.id_type), **d}
+            if tl.id_column != ROW_ID:
+                rid = r[tl.id_column]
+                d[tl.id_column] = idmap[cname][rid] if cname in idmap else from_cell(rid, tl.id_type)
+                for fname, ftype in tl.fresh.items():
+                    d[fname] = (object_id(seed, cname, fname, rid) if ftype == "objectId"
+                                else from_cell(str(object_id(seed, cname, fname, rid)), ftype)
+                                if ftype == "string" else from_cell(len(out), ftype))
+                order = {k: i for i, k in enumerate(tl.field_order)}
+                d = dict(sorted(d.items(), key=lambda kv: order.get(kv[0], len(order))))
             out.append(d)
         docs[cname] = out
     return docs
@@ -410,6 +480,12 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
         info = shapes.get(key)
         if info is None:
             return _ABSENT
+        if "object_table" in info:
+            rows = built.get(info["object_table"], {}).get(rid)
+            if rows:
+                return rows[0][2]
+            st = r.get(info["tag"]) if "tag" in info else None
+            return None if st == "null" or (not info["optional"] and info["nullable"]) else _ABSENT
         state = None
         if "tag" in info:
             state = r.get(info["tag"])
@@ -440,7 +516,18 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
             c = cols[info["typed"][state]]
             v = r.get(c.name)
             if _isnull(v):
+                # the type's column is empty in this synthetic row: cast the
+                # value another type's column holds, when it converts
+                for other in dict.fromkeys(info["typed"].values()):
+                    w = r.get(other)
+                    if other != c.name and not _isnull(w):
+                        try:
+                            return from_cell(w, state, c.decimals)
+                        except (TypeError, ValueError, ArithmeticError):
+                            continue
                 return None
+            if c.type == "num":
+                return from_cell(v, state, c.decimals if state in ("double", "decimal") else None)
             return _restore(c, v, idmap, seed)
         return None
 
@@ -488,12 +575,17 @@ def _isnull(v) -> bool:
 
 
 def _restore(c: Column, v, idmap, seed):
-    if c.role == "ref" and c.ref and c.ref["table"] in idmap and c.ref["path"] == "_id":
+    if c.role == "ref" and c.ref and c.ref["table"] in idmap:
         m = idmap[c.ref["table"]]
         key = v
         if key not in m:
             key = next((k for k in m if str(k) == str(v)), None)
         return m.get(key, ObjectId(str(v)))
+    if c.fmt and c.type == "string":
+        try:
+            return pd.Timestamp(v).strftime(c.fmt)
+        except (TypeError, ValueError):
+            return str(v)
     return from_cell(v, c.type, c.decimals)
 
 

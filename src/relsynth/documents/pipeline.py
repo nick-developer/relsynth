@@ -26,7 +26,7 @@ from typing import Any
 import yaml
 
 from .conform import conform
-from .infer import CollectionProfile, find_references, profile_collection
+from .infer import CollectionProfile, find_references, find_sequences, profile_collection
 from .metrics import reference_integrity, shape_checks
 from .relational import spec_for, write_sqlite
 from .shred import Layout, build_layout, nest, shred
@@ -49,6 +49,7 @@ class DocumentSynthesizer:
         self.profiles: dict[str, CollectionProfile] = {}
         self.references: list[dict] = []
         self.layout: Layout | None = None
+        self.sequences: list[dict] = []
         self.spec: dict | None = None
         self.model = None
         self.repairs: dict = {}
@@ -64,6 +65,7 @@ class DocumentSynthesizer:
         self.profiles = {c: profile_collection(c, docs) for c, docs in self.collections.items()}
         self.references = find_references(self.profiles, self.declared)
         self.layout = build_layout(self.profiles, self.references)
+        self.sequences = find_sequences(self.collections, self.references)
         return self
 
     def schema_ir(self):
@@ -78,7 +80,7 @@ class DocumentSynthesizer:
             self.discover()
         frames = shred(self.layout, self.collections)
         db = write_sqlite(self.layout, frames, self.workdir / "shredded.db")
-        spec = spec_for(self.layout, db, name=self.name, seed=self.seed)
+        spec = spec_for(self.layout, db, name=self.name, seed=self.seed, sequences=self.sequences)
         _merge(spec, self.spec_overrides)
         self.spec = spec
         (self.workdir / "spec.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
