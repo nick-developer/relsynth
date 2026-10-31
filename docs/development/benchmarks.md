@@ -196,6 +196,12 @@ python -m bench baseline bench/history/<the new record>.json
 git add bench/baseline.json bench/history/<the new record>.json
 ```
 
+or let GitHub-hosted runners build it: dispatch `bench.yml` on the pull
+request's branch with `rebuild_baseline` (and, to reuse the records of a run
+that already finished, `records_from_run: <run id>`). Its `baseline` job copies
+the records to `bench/history/`, builds `bench/baseline.json` and pushes a
+signed-off commit to that branch; it never writes to main.
+
 The pull request says why the numbers moved. A baseline built on a different
 machine from the previous one says so in its description.
 
