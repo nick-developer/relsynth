@@ -200,6 +200,30 @@ def test_loop_finds_the_planted_fix_and_explains_the_rest(tmp_path, monkeypatch)
     assert len(calls) - n <= 80
 
 
+def _planted_trial(raw, base, seed, delta, patches, obj):
+    """A module-level (picklable) planted surface for the parallel runs: marginal_tvd
+    fails 2, 1, 0 times for max_levels 2, 4, >= 8; join_tvd once on seed 2."""
+    ml = delta.get("marginals.max_levels", raw["synthesis"]["marginals"]["max_levels"])
+    f = 2 if ml <= 2 else 1 if ml < 8 else 0
+    ch = [_c(f"scorecard:t.c{i}|marginal_tvd", i >= f, alpha=0.0001) for i in range(10)]
+    ch += [_c(f"scorecard:t{i}|join_tvd", not (seed == 2 and i == 0), alpha=0.02) for i in range(10)]
+    return TrialResult(seed=seed, checks=ch, seconds=0.0)
+
+
+def test_parallel_seeds_give_the_same_tuning(tmp_path, monkeypatch):
+    monkeypatch.setattr(L, "run_trial", _planted_trial)
+    obj = _obj(search=["marginals.max_levels"], halving=False)
+    one = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path / "one")
+    par = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path / "par", workers=3)
+    assert par.delta == one.delta and par.delta["marginals.max_levels"] >= 8 and par.met
+    assert par.runs == one.runs and par.trajectory == one.trajectory
+
+    def lines(d):
+        return [{k: v for k, v in json.loads(x).items() if k != "time"}
+                for x in (tmp_path / d / "history.jsonl").read_text().splitlines()]
+    assert lines("par") == lines("one")                     # the same records, in the same order
+
+
 def test_loop_reports_the_privacy_trade_off(tmp_path, monkeypatch):
     fn, _ = _surface(conflict=True)
     monkeypatch.setattr(L, "run_trial", fn)
@@ -264,3 +288,25 @@ def test_autotune_end_to_end_on_a_planted_misfit(tmp_path, star_csv):
     assert res.delta.get("marginals.dirichlet_prior", 1e4) < 1e4
     assert res.judgement["failures"] < base["failures"]
     assert (tmp_path / "history.jsonl").exists()
+
+
+# ------------------------------------------------- scorecard rules (hard constraint "rules")
+def test_rule_the_source_breaks_gets_a_sampling_allowance():
+    """A check rule the real data never breaks holds exactly; one it breaks at a
+    rate r0 > 0 passes within three standard errors of r0 (AdventureWorks: 9 of
+    60,855 reseller lines break 'order weekday == ship weekday', a synthetic run
+    with 12 is noise, not a violation)."""
+    from relsynth.evaluate import scorecard
+    n = 60855
+    rules = {"t: a == b": {"kind": "check", "violation_rate_real": 9 / n, "violation_rate_syn": 12 / n,
+                           "rows_real": n, "rows_syn": n},
+             "t: c == d": {"kind": "check", "violation_rate_real": 9 / n, "violation_rate_syn": 40 / n,
+                           "rows_real": n, "rows_syn": n},
+             "t: x > 0": {"kind": "check", "violation_rate_real": 0.0, "violation_rate_syn": 1 / n,
+                          "rows_real": n, "rows_syn": n}}
+    rep = {"tables": {}, "relations": {}, "trees": {}, "time": {}, "text": {}, "privacy": {}, "rules": rules}
+    it = {i["area"]: i for i in scorecard(rep)["items"]}
+    assert it["t: a == b"]["pass"] and 0 < it["t: a == b"]["alpha"] < 0.002
+    assert not it["t: c == d"]["pass"]                        # four times the source's rate is a violation
+    assert not it["t: x > 0"]["pass"] and "alpha" not in it["t: x > 0"]   # an exact rule stays exact
+    assert constraint_of("scorecard:t: a == b|rule_violation_rate") == "rules"

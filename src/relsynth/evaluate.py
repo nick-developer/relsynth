@@ -1082,7 +1082,8 @@ def rule_metrics(spec, real, syn, sampled=()):
                     else _rule_rate(spec, t, tabs, fn3)
             continue
         out[name] = {"kind": "check", "violation_rate_real": _rule_rate(spec, t, real, fn),
-                     "violation_rate_syn": _rule_rate(spec, t, syn, fn)}
+                     "violation_rate_syn": _rule_rate(spec, t, syn, fn),
+                     "rows_real": int(len(real[t])), "rows_syn": int(len(syn[t]))}
     for t, ts in spec["tables"].items():
         for c, cs in ts["columns"].items():
             if cs["type"] != "lookup":
@@ -1419,10 +1420,17 @@ def scorecard(rep, th=None):
             add(n, "soft_rule_rate_diff", round(abs(r1 - r0), 6) if r1 == r1 else nan, round(lim, 6),
                 abs(r1 - r0) <= lim, _z_alpha(lim, sd), real_ok=r0_ok)
             continue
-        # a rule the real data itself breaks is reported, not held against the synthetic data
+        # A rule the real data never breaks must hold exactly.  One the real data
+        # itself breaks (rate r0 > 0) may break as often as in the source: the
+        # synthetic rate is then a binomial estimate of r0, and the limit adds
+        # three standard errors of the real-minus-synthetic difference (one-sided).
         r0 = d.get("violation_rate_real")
-        lim = max(th["rule_violation"], r0 or 0.0)
-        add(n, "rule_violation_rate", d["violation_rate_syn"], round(lim, 6), d["violation_rate_syn"] <= lim,
+        lim, al = max(th["rule_violation"], r0 or 0.0), None
+        if r0 is not None and r0 == r0 and r0 > 0 and d.get("rows_real") and d.get("rows_syn"):
+            sd = float(np.sqrt(r0 * (1 - r0) * _eff(d["rows_real"], d["rows_syn"])))
+            lim = max(lim, r0 + 3 * sd)
+            al = _z_alpha(lim - r0, sd, two_sided=False)
+        add(n, "rule_violation_rate", d["violation_rate_syn"], round(lim, 6), d["violation_rate_syn"] <= lim, al,
             real_ok=r0 is not None and r0 == r0)
     for t, d in rep.get("removed", {}).items():
         add(t, "rows_removed_share", d["share"], th["rows_removed"], d["share"] <= th["rows_removed"])

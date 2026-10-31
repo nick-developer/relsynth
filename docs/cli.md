@@ -492,7 +492,7 @@ Tune engine settings toward your objectives over several seeds; write the tuned 
 ```
 usage: relsynth autotune [-h] [--set KEY=VALUE] [--settings FILE] [--objectives OBJECTIVES]
                          [--runs RUNS] [--seeds SEEDS] [--holdout HOLDOUT] [--history HISTORY]
-                         [--fresh] [--out OUT] [--report REPORT] [--json]
+                         [--workers WORKERS] [--fresh] [--out OUT] [--report REPORT] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -507,6 +507,7 @@ usage: relsynth autotune [-h] [--set KEY=VALUE] [--settings FILE] [--objectives 
 | `--seeds` SEEDS |  |  | search seeds, e.g. 1,2,3 (overrides the objectives) |
 | `--holdout` HOLDOUT |  |  | held-out seeds, e.g. 11,12 ('' for none) |
 | `--history` HISTORY |  |  | history folder (default: <spec>.tune) |
+| `--workers` WORKERS |  | `1` | run the seeds of a candidate in this many parallel processes (memory: one fit each) |
 | `--fresh` |  |  | forget this spec's earlier runs |
 | `--out` OUT |  |  | tuned spec (default: <spec>.tuned.yaml) |
 | `--report` REPORT |  |  | report file (default: <history>/report.md, plus report.json) |

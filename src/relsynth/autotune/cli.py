@@ -30,7 +30,7 @@ def cmd_autotune(a, out):
         from ..cli import _spec
         spec = _spec(a)                     # --set / --settings: the starting point of the search
     res = autotune(spec, obj, history_dir=hist, runs=a.runs, progress=out.line if not out.as_json else None,
-                   resume=not a.fresh)
+                   resume=not a.fresh, workers=max(1, int(a.workers or 1)))
     dest = Path(a.out or f"{stem}.tuned.yaml")
     dest.write_text(yaml.safe_dump(json.loads(json.dumps(res.spec, default=str)), sort_keys=False, width=110),
                     encoding="utf-8")
@@ -61,6 +61,8 @@ def add_parser(sub, common):
     s.add_argument("--seeds", help="search seeds, e.g. 1,2,3 (overrides the objectives)")
     s.add_argument("--holdout", help="held-out seeds, e.g. 11,12 ('' for none)")
     s.add_argument("--history", help="history folder (default: <spec>.tune)")
+    s.add_argument("--workers", type=int, default=1,
+                   help="run the seeds of a candidate in this many parallel processes (memory: one fit each)")
     s.add_argument("--fresh", action="store_true", help="forget this spec's earlier runs")
     s.add_argument("--out", help="tuned spec (default: <spec>.tuned.yaml)")
     s.add_argument("--report", help="report file (default: <history>/report.md, plus report.json)")

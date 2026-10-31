@@ -9,7 +9,7 @@ The background, the literature and the feasibility tests behind this design are 
 
 ```
 relsynth autotune spec.yaml [--objectives objectives.yaml] [--runs 40] [--seeds 1,2,3] [--holdout 11,12]
-                            [--set KEY=VALUE] [--settings FILE] [--history DIR] [--fresh]
+                            [--set KEY=VALUE] [--settings FILE] [--history DIR] [--fresh] [--workers N]
                             [--out spec.tuned.yaml] [--report DIR/report.md]
 ```
 
@@ -104,6 +104,22 @@ evidence and, when it is not met, the reason:
 | conflict | Fixing one objective breaks another on the same seeds. | Choose between the objectives; the report lists both. |
 | undecided | The privacy test cannot decide (status `review`). | More rows for the attack, or accept the limit. |
 | budget | The runs or hours ran out before the search was done. | Run `autotune` again: it continues from the history. |
+
+## Parallel seeds
+
+`--workers N` runs the seeds of one candidate in N processes at once (`autotune(..., workers=N)` in Python). The
+records are the same as with one worker, since each run depends only on its candidate and its seed, so the search
+takes the same path in less time. Each worker holds one fit in memory (about 2 GB on AdventureWorks). With several
+workers, turn successive halving off (`halving: false` in the objectives) so that every seed of a candidate runs at
+once.
+
+## On the bench databases (GitHub CI)
+
+`tools/autotune_bench.py --dataset adventureworks` builds the database, writes the objectives (the hard
+constraints, the dataset's domain identities from `bench/autotune_domain.py`, every scorecard family) and runs
+autotune. The workflow `autotune.yml` runs it on GitHub-hosted runners: start it by hand with the dataset, hours
+and seeds, or push a commit whose message contains `[autotune]`. It uploads the history, and `resume_from_run`
+goes on from an earlier run's history, since one job may run six hours.
 
 ## History and resuming
 

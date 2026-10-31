@@ -1,0 +1,85 @@
+name: autotune
+
+# `relsynth autotune` on a golden database of the bench (docs/autotune.md), on
+# GitHub-hosted runners: one fit takes 15-20 minutes on AdventureWorks, so a
+# search takes hours.  The history is uploaded; `resume_from_run` downloads the
+# history of an earlier run and goes on from its incumbent (a job may run 6 hours).
+# Started by hand (workflow_dispatch) or by a push whose commit message contains
+# [autotune] (the defaults below: AdventureWorks, plus the link-affinity experiment).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset: { description: "bench dataset", default: "adventureworks" }
+      hours: { description: "search hours (the job's limit is 6)", default: "5" }
+      runs: { description: "budget: runs (one candidate on one seed)", default: "42" }
+      seeds: { description: "search seeds", default: "1,2,3" }
+      holdout: { description: "held-out seeds", default: "11,12" }
+      sets: { description: "spec overrides, ';'-separated KEY=VALUE (a spec experiment)", default: "" }
+      resume_from_run: { description: "go on from the history of this earlier run id", default: "" }
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: autotune-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  autotune:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[autotune]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - { name: tune, sets: "" }
+          # spec experiment (push only): the reseller's sales territory and the employee's agree
+          - { name: affinity, push_only: true, runs: "3", holdout: "none",
+              sets: "tables.FactResellerSales.link_affinity=[{match: [SalesTerritoryKey, EmployeeKey.SalesTerritoryKey]}]" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev,bench]" datasketches
+        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        with:
+          path: bench/.cache
+          key: bench-data-${{ inputs.dataset || 'adventureworks' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ inputs.resume_from_run && matrix.part.name == 'tune' }}
+        with:
+          name: autotune-${{ matrix.part.name }}
+          path: tune-out
+          run-id: ${{ inputs.resume_from_run }}
+          github-token: ${{ github.token }}
+      - name: autotune (${{ matrix.part.name }})
+        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        env:
+          RELSYNTH_QUIET: "1"
+          DATASET: ${{ inputs.dataset || 'adventureworks' }}
+          HOURS: ${{ inputs.hours || '5' }}
+          RUNS: ${{ matrix.part.runs || inputs.runs || '42' }}
+          SEEDS: ${{ inputs.seeds || '1,2,3' }}
+          HOLDOUT: ${{ matrix.part.holdout || inputs.holdout || '11,12' }}
+          SETS: ${{ matrix.part.sets || inputs.sets }}
+        run: |
+          [ "$HOLDOUT" = none ] && HOLDOUT=""
+          args=()
+          IFS=';' read -ra kv <<< "$SETS"
+          for x in "${kv[@]}"; do [ -n "$x" ] && args+=(--set "$x"); done
+          python tools/autotune_bench.py --dataset "$DATASET" --out tune-out --hours "$HOURS" --runs "$RUNS" \
+            --seeds "$SEEDS" --holdout "$HOLDOUT" --workers 3 "${args[@]}" || echo "autotune exit $? (1: not every objective met)"
+          cat tune-out/report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() && !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        with: { name: "autotune-${{ matrix.part.name }}", path: tune-out/ }

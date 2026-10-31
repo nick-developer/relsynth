@@ -98,8 +98,10 @@ def _refuse_dp(raw):
 
 
 def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None, progress=None,
-             resume: bool = True) -> AutotuneResult:
-    """Tune the engine settings of a spec toward the objectives."""
+             resume: bool = True, workers: int = 1) -> AutotuneResult:
+    """Tune the engine settings of a spec toward the objectives.  workers > 1
+    runs the seeds of one candidate in parallel processes (the same records as
+    one worker: each run depends only on its candidate and seed)."""
     from ..spec import from_ir, read_yaml
     t0 = time.time()
     say = progress or (lambda m: log.info(m))
@@ -130,19 +132,27 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
         return made < cap and (deadline is None or confirming or time.time() < deadline)
 
     def run(c: Candidate, seeds) -> list:
+        """The candidate's records on these seeds, in order: reused from the
+        history or run (in parallel with workers > 1); stops at the first seed
+        the budget does not cover."""
         nonlocal made, reused0
-        out = []
+        plan: list = []                      # (seed, record or None)
         for s in seeds:
             rec = hist.get(c.key, s)
             if rec is None:
                 if not budget_left():
                     break
                 say(f"run {made + 1}/{budget}: seed {s}, {c.describe()}")
-                tr = run_trial(raw, str(base), s, c.delta, c.patches, obj)
                 made += 1
-                rec = hist.add(c.key, c.delta, c.patches, tr.to_dict(), origin=c.origin)
             else:
                 reused0 += 1
+            plan.append((s, rec))
+        todo = [s for s, rec in plan if rec is None]
+        done = dict(zip(todo, _trials(raw, str(base), todo, c, obj, workers), strict=True))
+        out = []
+        for s, rec in plan:
+            if rec is None:
+                rec = hist.add(c.key, c.delta, c.patches, done[s].to_dict(), origin=c.origin)
             out.append(rec)
         return out
 
@@ -294,6 +304,18 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
                          stopped=stopped, extra={"baseline": _summary(base_J, obj), "history": str(hist.path)})
     res.report_markdown = render(res)
     return res
+
+
+def _trials(raw: dict, base: str, seeds: list, c: Candidate, obj, workers: int) -> list:
+    """run_trial for each seed, in this process or in up to `workers` spawned
+    processes (spawn: the engine's native thread pools are not fork-safe)."""
+    if workers <= 1 or len(seeds) <= 1:
+        return [run_trial(raw, base, s, c.delta, c.patches, obj) for s in seeds]
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    with ProcessPoolExecutor(max_workers=min(workers, len(seeds)), mp_context=mp.get_context("spawn")) as ex:
+        futs = [ex.submit(run_trial, raw, base, s, c.delta, c.patches, obj) for s in seeds]
+        return [f.result() for f in futs]
 
 
 def _shrink(accel: dict, c: Candidate, inc: Candidate) -> None:
