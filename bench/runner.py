@@ -62,33 +62,77 @@ def _source_overrides(location: str) -> list[str]:
     return ["--set", f"source.kind={kind}", "--set", f"source.path={path}"]
 
 
-def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str, ...] = ()) -> dict:
+SUITES = ("scorecard", "quality", "privacy", "repro")
+
+
+def _run_child(cmd: list[str], env: dict) -> tuple[int, str, str, dict]:
+    """(exit code, stdout, stderr, cost) of a child process; cost is its own CPU
+    seconds and peak resident memory (os.wait4 reads them for this child only)."""
+    with tempfile.TemporaryFile() as fo, tempfile.TemporaryFile() as fe:
+        p = subprocess.Popen(cmd, stdout=fo, stderr=fe, env=env)  # noqa: S603
+        _, status, ru = os.wait4(p.pid, 0)
+        p.returncode = os.waitstatus_to_exitcode(status)
+        fo.seek(0)
+        fe.seek(0)
+        out, err = fo.read().decode("utf-8", "replace"), fe.read().decode("utf-8", "replace")
+    peak = ru.ru_maxrss / (1 << 20 if sys.platform == "darwin" else 1 << 10)
+    return p.returncode, out, err, {"cpu_seconds": round(ru.ru_utime + ru.ru_stime, 1), "peak_mib": round(peak, 1)}
+
+
+def _digest(folder: Path) -> str:
+    """SHA-256 over the synthetic files, in name order."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted(folder.glob("*")):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
+def _assess(suite: str, name: str, location: str, arg: str, overrides: list[str], tmp: str) -> tuple[list, dict]:
+    out = Path(tmp) / f"{suite}.json"
+    cmd = [sys.executable, "-m", "bench.assess", suite, name, location, arg, str(out),
+           *[x for o in overrides for x in ("--set", o)]]
+    rc, _o, err, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
+    if rc or not out.exists():
+        return [], {"error": f"{suite} assessment failed ({rc}): {err[-1500:]}"}
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    return doc["checks"], {"seconds": doc["seconds"], **cost}
+
+
+def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str, ...] = (),
+             suites: tuple[str, ...] = SUITES) -> dict:
     ds = DATASETS[name]
     location = ds.location()
+    overrides = (*ds.overrides, *overrides)
     rec = {"dataset": name, "seed": seed, "pushdown": pushdown}
     if overrides:
         rec["overrides"] = list(overrides)
     with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
         out = Path(tmp) / "synthetic"
-        cmd = [sys.executable, "-m", "relsynth", "run", str(ds.spec()), *_source_overrides(location),
-               "--target", f"csv:{out}", "--seed", str(seed), "--pushdown", pushdown, "--bundle", str(Path(tmp) / "bundle.json"),
-               "--json", *[x for o in overrides for x in ("--set", o)]]
-        t0 = time.time()
-        p = subprocess.run(cmd, capture_output=True, text=True, check=False,  # noqa: S603
-                           env={**os.environ, "RELSYNTH_QUIET": "1"})
-        rec["seconds"] = round(time.time() - t0, 1)
+
+        def synth(target: Path) -> tuple[int, str, str, dict, float]:
+            cmd = [sys.executable, "-m", "relsynth", "run", str(ds.spec()), *_source_overrides(location),
+                   "--target", f"csv:{target}", "--seed", str(seed), "--pushdown", pushdown, "--bundle",
+                   str(Path(tmp) / "bundle.json"), "--json", *[x for o in overrides for x in ("--set", o)]]
+            t0 = time.time()
+            rc, so, se, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1"})
+            return rc, so, se, cost, round(time.time() - t0, 1)
+
+        rc, stdout, stderr, cost, rec["seconds"] = synth(out)
+        rec["cost"] = cost
         try:
-            doc = json.loads(p.stdout)
+            doc = json.loads(stdout)
         except json.JSONDecodeError:
-            rec["error"] = (p.stderr or p.stdout)[-2000:]
+            rec["error"] = (stderr or stdout)[-2000:]
             return rec
         rec["exit_code"] = doc.get("exit_code")
         rec["rows"] = doc.get("rows")
         rec["pushed"] = sorted((doc.get("pushdown") or {}).get("pushed") or {})
         if doc.get("errors"):
             rec["error"] = json.dumps(doc["errors"])[-2000:]
-        elif p.returncode not in (0, 1):             # 1 is a quality gate, which the scorecard reports anyway
-            rec["error"] = f"relsynth exited with {p.returncode}: " + (p.stderr or "")[-2000:]
+        elif rc not in (0, 1):                   # 1 is a quality gate, which the scorecard reports anyway
+            rec["error"] = f"relsynth exited with {rc}: " + (stderr or "")[-2000:]
         sc = doc.get("scorecard") or {}
         rec["scorecard"] = {"passed": sc.get("passed"), "total": sc.get("total")}
         # every scorecard item is in the diagnostics bundle (aggregates only)
@@ -103,6 +147,29 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
                     checks.append(domain_item(k, real, syn))
             except Exception as e:  # noqa: BLE001 (a failing domain check is a result, not a crash)
                 rec["error"] = f"domain checks failed: {e!r}"
+        # generation cost (docs/acceptance-metrics.md, generation_cost): recorded, compared as a note only
+        n_rows = sum((rec.get("rows") or {}).values()) if isinstance(rec.get("rows"), dict) else None
+        if n_rows:
+            checks.append({"id": "metric:cpu_seconds_per_million_rows", "pass": None, "kind": "cost",
+                           "value": round(cost["cpu_seconds"] / n_rows * 1e6, 1), "direction": "lower"})
+            checks.append({"id": "metric:peak_memory_mib", "pass": None, "kind": "cost",
+                           "value": cost["peak_mib"], "direction": "lower"})
+        if "repro" in suites and ds.repro and out.exists() and not rec.get("error"):
+            again = Path(tmp) / "again"
+            synth(again)
+            same = again.exists() and _digest(again) == _digest(out)
+            checks.append({"id": "goal:deterministic", "pass": same, "value": float(same), "real": 1.0})
+        if "quality" in suites and ds.quality is not None and out.exists() and not rec.get("error"):
+            q, info = _assess("quality", name, location, str(out), list(overrides), tmp)
+            checks += q
+            rec["quality"] = info
+        if "privacy" in suites and ds.privacy is not None:
+            q, info = _assess("privacy", name, location, str(seed), list(overrides), tmp)
+            checks += q
+            rec["privacy"] = info
+        for k in ("quality", "privacy"):
+            if (rec.get(k) or {}).get("error") and not rec.get("error"):
+                rec["error"] = rec[k]["error"]
         rec["checks"] = checks
     return rec
 
@@ -168,10 +235,11 @@ def load_record(path: Path) -> dict:
 
 
 def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: str = "auto",
-        out_dir: Path | None = None, label: str = "", overrides: tuple[str, ...] = ()) -> Path:
+        out_dir: Path | None = None, label: str = "", overrides: tuple[str, ...] = (),
+        suites: tuple[str, ...] = SUITES) -> Path:
     record = {"schema": SCHEMA, "relsynth": relsynth_version(), "git": git(), "machine": machine(),
               "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "label": label,
-              "seeds": seeds, "runs": []}
+              "seeds": seeds, "suites": list(suites), "runs": []}
     if overrides:
         record["overrides"] = list(overrides)
     out_dir = Path(out_dir or ROOT / "bench" / "history")
@@ -212,11 +280,14 @@ def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: s
             continue
         for seed in seeds:
             say(f"{name} seed {seed} ...")
-            r = run_real(name, seed, pushdown, overrides) if overrides else run_real(name, seed, pushdown)
+            r = run_real(name, seed, pushdown, overrides, suites)
             sc = r.get("scorecard") or {}
-            say(f"{name} seed {seed}: scorecard {sc.get('passed')}/{sc.get('total')}, "
-                f"{sum(1 for c in r.get('checks', []) if c['id'].startswith('domain') and c['pass'] is False)} domain "
-                f"identities broken, {r.get('seconds')} s" + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
+            failed = lambda *p: sum(1 for c in r.get("checks", []) if c["id"].startswith(p) and c["pass"] is False)  # noqa: E731
+            say(f"{name} seed {seed}: scorecard {sc.get('passed')}/{sc.get('total')}, {failed('domain')} domain "
+                f"identities broken, {failed('quality', 'area')} quality, {failed('privacy')} privacy and "
+                f"{failed('goal')} goal checks failed, {r.get('seconds')} s (+{(r.get('quality') or {}).get('seconds', 0)} s "
+                f"quality, +{(r.get('privacy') or {}).get('seconds', 0)} s privacy)"
+                + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
             record["runs"].append(r)
             save()
     if fake:

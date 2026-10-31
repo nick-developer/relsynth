@@ -1,6 +1,6 @@
 name: bench
 
-# The full benchmark: every public golden database (Chinook, AdventureWorks DW,
+# The full benchmark: every public golden database (Chinook, AdventureWorks DW, Berka, ACS,
 # Contoso as SQLite and as Parquet) on five seeds and the statistical check
 # suite, compared with bench/baseline.json. bi/COREP is private and runs only
 # on the maintainer's machine (`python -m bench all` with RELSYNTH_BENCH_BI_DIR).
@@ -17,6 +17,13 @@ on:
       seeds:
         description: "Seeds"
         default: "1,2,3,4,5"
+      rebuild_baseline:
+        description: "Commit a baseline built from this run's records to the dispatched branch (never main)"
+        type: boolean
+        default: false
+      records_from_run:
+        description: "With rebuild_baseline: take the records of this earlier run id instead of running the bench"
+        default: ""
 
 permissions:
   contents: read
@@ -27,24 +34,92 @@ concurrency:
 
 jobs:
   bench:
+    # one job per database (in parallel); the fake suite runs in its own job
+    if: ${{ !inputs.records_from_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - { name: chinook, datasets: "chinook chinook_x2", fake: "--no-fake" }
+          # AdventureWorks takes about 50 minutes per seed with the quality suite: two jobs
+          - { name: adventureworks-a, datasets: "adventureworks", fake: "--no-fake", seeds: "1,2,3" }
+          - { name: adventureworks-b, datasets: "adventureworks", fake: "--no-fake", seeds: "4,5" }
+          - { name: contoso, datasets: "contoso_sqlite contoso_parquet", fake: "--no-fake" }
+          - { name: berka, datasets: "berka", fake: "--no-fake" }
+          - { name: acs, datasets: "acs", fake: "--no-fake" }
+          - { name: fake, datasets: "", fake: "--fake-only" }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[dev,bench]" datasketches
+      - run: pip install -e ".[dev,bench,benchmark]" datasketches
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bench/.cache
-          key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
-      - name: Golden databases and the statistical check suite
+          key: bench-data-${{ matrix.part.datasets || 'fake' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: ${{ matrix.part.name }}
         env:
-          SEEDS: ${{ inputs.seeds || '1,2,3,4,5' }}
-        run: python -m bench run --seeds "$SEEDS" --out-dir bench-out --label weekly
-      - name: Compare with the baseline (every dataset of the baseline must run)
-        run: python -m bench compare "$(ls bench-out/*.json)" --full
+          SEEDS: ${{ matrix.part.seeds || inputs.seeds || '1,2,3,4,5' }}
+          DATASETS: ${{ matrix.part.datasets }}
+          FAKE: ${{ matrix.part.fake }}
+        run: |
+          # shellcheck disable=SC2086
+          python -m bench run --datasets $DATASETS --seeds "$SEEDS" $FAKE --out-dir bench-out --label weekly
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
-        with: { name: bench-history, path: bench-out/ }
+        with: { name: "bench-history-${{ matrix.part.name }}", path: bench-out/ }
+
+  compare:
+    needs: bench
+    if: ${{ always() && !inputs.records_from_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        # one folder per job: parallel jobs can write records of the same name
+        with: { pattern: bench-history-*, path: bench-out }
+      - name: Compare with the baseline (every dataset of the baseline must run)
+        run: python -m bench compare bench-out/*/*.json --full
+
+  baseline:
+    # A baseline change on the dispatched branch: the records of this run (or of
+    # records_from_run) become bench/history/ files and bench/baseline.json, in a
+    # signed-off commit that the pull request then reviews with the rest.
+    needs: bench
+    if: ${{ always() && inputs.rebuild_baseline && github.ref != 'refs/heads/main' && needs.bench.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bench-history-*
+          path: bench-out
+          run-id: ${{ inputs.records_from_run || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Build the baseline and commit it
+        env:
+          RUN: ${{ inputs.records_from_run || github.run_id }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          # one folder per job (records of parallel jobs can share a name): prefix the job's part
+          for f in bench-out/*/*.json; do
+            part=$(basename "$(dirname "$f")"); cp "$f" "bench/history/${part#bench-history-}-$(basename "$f")"
+          done
+          python -m bench baseline bench-out/*/*.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bench/baseline.json bench/history/
+          git commit -s -m "chore(bench): baseline from bench run $RUN" \
+            -m "Built by bench.yml (rebuild_baseline) from the records of run $RUN on GitHub-hosted runners."
+          git push origin "HEAD:$BRANCH"
