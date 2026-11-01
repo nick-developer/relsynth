@@ -17,6 +17,12 @@ diagnose() {
   echo "::group::pods, events and logs of $ns (exit $rc)"
   kc get pods -o wide || true; kc get events --sort-by=.lastTimestamp | tail -60 || true
   for p in $(kc get pods -o name 2>/dev/null); do echo "--- $p"; kc logs "$p" --all-containers --tail=80 || true; done
+  # restarted containers: why the last one ended, and its own log
+  kc get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[*].lastState.terminated}{"\n"}{end}' || true
+  for p in $(kc get pods -o name 2>/dev/null); do
+    kc logs "$p" --all-containers --previous --tail=120 >/tmp/prev.log 2>/dev/null && { echo "--- previous $p"; cat /tmp/prev.log; }
+  done
+  kc top pods 2>/dev/null || true
   echo "::endgroup::"
 }
 trap diagnose EXIT
