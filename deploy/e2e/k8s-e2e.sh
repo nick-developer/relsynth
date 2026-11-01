@@ -20,9 +20,13 @@ diagnose() {
   echo "::endgroup::"
 }
 trap diagnose EXIT
-if command -v helm >/dev/null; then helm() { command helm "$@"; }
-else helm() { docker run --rm --network host -v "$KUBECONFIG:/kube:ro" -v "$root:/src:ro" -e KUBECONFIG=/kube alpine/helm:3.16.3 "$@"; }; fi
-chart=/src/deploy/helm/relsynth; command -v helm >/dev/null 2>&1 && [ "$(type -t helm)" = file ] && chart="$root/deploy/helm/relsynth"
+# helm from the PATH, or else the alpine/helm image with the repository mounted at /src
+if command -v helm >/dev/null; then
+  chart="$root/deploy/helm/relsynth"; values="$here/k8s/values-e2e.yaml"
+else
+  helm() { docker run --rm --network host -v "$KUBECONFIG:/kube:ro" -v "$root:/src:ro" -e KUBECONFIG=/kube alpine/helm:3.16.3 "$@"; }
+  chart=/src/deploy/helm/relsynth; values=/src/deploy/e2e/k8s/values-e2e.yaml
+fi
 rand() { python3 -c "import secrets;print(secrets.token_urlsafe(24))"; }
 v=$(python3 -c "exec(open('$root/src/relsynth/_version.py').read());print(__version__)")
 kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
@@ -35,7 +39,7 @@ kc create configmap shop-sql --from-file=shop.sql="$here/shop.sql" --dry-run=cli
 kc create configmap keycloak-realm --from-file=realm-relsynth.json="$root/deploy/compose/keycloak/realm-relsynth.json" --dry-run=client -o yaml | kc apply -f -
 kc apply -f "$here/k8s/deps.yaml"
 kc rollout status deploy/metadata deploy/sources deploy/keycloak --timeout=600s
-helm upgrade --install e2e "$chart" -n "$ns" -f "${chart}/../../e2e/k8s/values-e2e.yaml" --set image.tag="$v" --wait --timeout 10m
+helm upgrade --install e2e "$chart" -n "$ns" -f "$values" --set image.tag="$v" --wait --timeout 10m
 helm test e2e -n "$ns"
 python3 "$here/e2e_flow.py" --api http://localhost:30080 \
   --token-url http://localhost:30081/realms/relsynth/protocol/openid-connect/token \
