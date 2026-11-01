@@ -366,6 +366,41 @@ jobs:
         if: always()
         with: { name: bench, path: bench-out/ }
 
+  # Agent-assisted operations (T16): the review agent's answers against the declared catalogs of
+  # Chinook, AdventureWorks DW and Contoso, with the rules backend (a gate), then with a small local
+  # model under Ollama (measured, not a gate). docs/agents.md, section "Evaluation".
+  agents:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev,bench]"
+      - name: Cache the downloaded databases (pinned by SHA-256 in bench/datasets.py)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: "Review agent, rules backend (gate: accuracy >= 0.95, at most 1 wrong answer not flagged)"
+        run: python -m bench.agents --datasets chinook,adventureworks,contoso_sqlite --min-accuracy 0.95 --max-unflagged-wrong 1 --out-dir agents-out
+      - name: Start a local model (Ollama, CPU)
+        id: ollama
+        continue-on-error: true
+        run: |
+          docker run -d --name ollama -p 11434:11434 ollama/ollama:0.5.7
+          for i in $(seq 1 30); do curl -sf http://localhost:11434/api/version && break; sleep 2; done
+          docker exec ollama ollama pull qwen2.5:1.5b-instruct
+      - name: Review agent, local model (measured, not a gate)
+        if: steps.ollama.outcome == 'success'
+        continue-on-error: true
+        run: python -m bench.agents --datasets chinook,adventureworks,contoso_sqlite --backend openai --model qwen2.5:1.5b-instruct --out-dir agents-out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: agents, path: agents-out/ }
+
   # Databricks SQL through its real connector and dialect, against Spark with
   # Delta Lake behind a protocol proxy (tests/emulators/databricks)
   databricks-stand-in:
