@@ -12,6 +12,7 @@
 #             limitation  the claim states a limit of relsynth; the evidence shows the limit is enforced or measured
 #             scope       says what a source (a regulation, a paper) says, not what relsynth does
 #   evidence  list of {prop: label} {check: Cnnn} {test: file::name} {report: path} {code: file::symbol} {source: text}
+#             {claim: ID} (a summary of another registered claim; as strong as that claim)
 #   note      optional: what the evidence does not show
 
 scope:
@@ -19,6 +20,7 @@ scope:
   - docs/dp.md
   - docs/security.md
   - docs/governance/guide.md
+  - README.md
 
 claims:
 
@@ -715,7 +717,518 @@ claims:
       - test: tests/unit/governance/test_governance.py::test_nondp_runs_are_recorded
       - test: tests/unit/governance/test_governance.py::test_ledger_reserve_touch_settle_refund
 
+  # ------------------------------------------------------------------ README.md (summary of the guides; registered after 2.0.0)
+  # Where a README sentence sums up a guide's claim it cites that claim, so the evidence is kept in one place.
+
+  - id: RM-01
+    doc: README.md
+    area: structure
+    quote: "Every primary and foreign key resolves, every rule holds, and the statistics match the source."
+    status: partial
+    note: Keys and rules are exact on every row; statistics match within calibrated limits, and on real databases not every check passes (AdventureWorks 1229/1286 in memory).
+    evidence:
+      - prop: prop:rules
+      - prop: prop:unique
+      - check: C14
+      - check: C43
+      - test: tests/unit/core/test_evaluate.py::test_cardinality_and_fk_integrity
+      - report: docs/pushdown.md#real-databases-in-memory-against-pushdown
+
+  - id: RM-02
+    doc: README.md
+    area: scope
+    quote:
+      - "Each statement the engine relies on is a numbered proposition with a proof (docs/proofs/relsynth-proofs.pdf) and a test that checks it."
+      - "relsynth-proofs.pdf: 152 propositions with proofs, each tied to a numbered check."
+    status: partial
+    note: The count is checked (test below), and checks name their propositions, but no tool verifies that every proposition has a check of its own.
+    evidence:
+      - test: tests/unit/test_assurance.py::test_proposition_numbers_follow_latex_counters
+      - test: tests/unit/test_assurance.py::test_claim_register_traces_every_claim
+      - code: tools/check_proofs.py
+      - report: docs/proofs/relsynth-proofs.tex
+
+  - id: RM-03
+    doc: README.md
+    area: privacy-formal
+    quote:
+      - "Release 2.0 adds an optional differential privacy mode with a per-person guarantee"
+      - "Differential privacy (optional). relsynth run --epsilon 1 gives a user-level (ε, δ) guarantee for each person of the privacy unit and all their rows."
+      - "The organisation sets ε; there is no default."
+      - "Stage 1 bounds each person's contribution and releases noisy integer statistics with OpenDP's discrete Gaussian mechanism; stage 2 fits the ordinary engine to them."
+      - "The guarantee is user-level (ε, δ) for one person and all their rows; δ is at most 10⁻⁵ and ε has no default."
+      - "Every run writes a DP statement in the NIST SP 800-226 style."
+    status: supported
+    evidence:
+      - claim: DP-01
+      - claim: DP-03
+      - claim: DP-06
+      - claim: DP-07
+      - claim: DP-08
+
+  - id: RM-04
+    doc: README.md
+    area: structure
+    quote:
+      - "Primary keys are unique, foreign keys resolve, hierarchies have no cycles, and composite and unique keys hold."
+      - "In both modes, every key resolves, every unique key but one holds"
+    status: supported
+    evidence:
+      - prop: prop:unique
+      - prop: prop:gw
+      - check: C11
+      - check: C14
+      - check: C46
+      - test: tests/unit/core/test_evaluate.py::test_cardinality_and_fk_integrity
+      - test: tests/unit/test_runtime.py::test_keys_and_links_hold_across_partitions
+      - report: docs/pushdown.md#real-databases-in-memory-against-pushdown
+
+  - id: RM-05
+    doc: README.md
+    area: structure
+    quote:
+      - "lookups, running balances and aggregates (an order total equal to its lines) hold on every row."
+      - "and every declared or found rule holds on every row."
+      - "Rules are imposed by exact conditioning: rejection, a redraw instead of a deletion, or calibrated link draws."
+    status: supported
+    evidence:
+      - prop: prop:rules
+      - prop: prop:k3
+      - prop: prop:computed
+      - prop: prop:cumulative
+      - prop: prop:unique
+      - check: C15
+      - check: C20
+      - check: C23
+      - check: C39
+      - check: C51
+
+  - id: RM-06
+    doc: README.md
+    area: privacy-measured
+    quote: "Rows are drawn from a fitted model; only tables you declare mode: copy are copied."
+    status: supported
+    note: Rows are new draws; a few may agree with a real row by chance on low-cardinality columns, which the test bounds on high-cardinality attributes.
+    evidence:
+      - test: tests/unit/test_security.py::test_synthetic_rows_are_not_copies
+      - check: C04
+      - check: C66
+
+  - id: RM-07
+    doc: README.md
+    area: privacy-measured
+    quote:
+      - "Text cannot reproduce rare source content, and memorisation guards are on by default."
+      - "relsynth privacy attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context."
+    status: supported
+    evidence:
+      - prop: prop:lm
+      - prop: prop:guard
+      - check: C13
+      - test: tests/unit/test_security.py::test_privacy_checks_run_by_default
+      - claim: PRV-01
+
+  - id: RM-08
+    doc: README.md
+    area: governance
+    quote:
+      - "Releases outside the organisation are refused without it."
+      - "A run with --context partner or public is refused before reading data unless it is differentially private."
+    status: supported
+    evidence:
+      - claim: DP-02
+      - claim: GOV-05
+
+  - id: RM-09
+    doc: README.md
+    area: governance
+    quote:
+      - "Signed, hash-chained manifests of every run, a privacy budget ledger per domain, an organisation policy and human approvals before release"
+      - "A registry of signed (Ed25519, DSSE / in-toto) manifests in a hash-chained log; an organisation policy with ε caps; a privacy budget ledger per domain that reserves before any data is read; approvals with quorum and separation of duties; signed release packages."
+    status: supported
+    evidence:
+      - claim: GOV-01
+      - claim: GOV-02
+      - claim: GOV-04
+      - claim: GOV-07
+      - claim: GOV-08
+      - claim: GOV-09
+
+  - id: RM-10
+    doc: README.md
+    area: security
+    quote:
+      - "Facts larger than memory are fitted from statistics computed inside the database (GROUP BY, window functions) plus a uniform sample. Rows never leave the database as a whole."
+      - "Rows never leave the source database for pushed-down facts."
+    status: supported
+    evidence:
+      - prop: prop:pdsuff
+      - prop: prop:hashsample
+      - test: tests/unit/test_pushdown.py::test_sampled_pushdown_keeps_quality_and_memory_bound
+      - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+
+  - id: RM-11
+    doc: README.md
+    area: statistics
+    quote:
+      - "A scorecard compares synthetic with real data, check by check, with calibrated limits. --fail-under 0.98 makes a CI job fail when quality drops."
+      - "The scorecard checks marginals, dependence, joins, cardinalities, trees, time, text, rules and privacy, each against a limit calibrated to the sampling noise of a posterior predictive draw."
+      - "It holds hundreds of pass/fail checks"
+      - "Families of checks are Šidák-corrected, and each check reports its significance level, so the number of false failures to expect is known."
+    status: supported
+    evidence:
+      - prop: prop:ppnull
+      - prop: prop:sidak
+      - check: C41
+      - check: C76
+      - check: C79
+      - check: C80
+      - test: tests/e2e/test_cli.py::test_quality_gate_exit_code
+
+  - id: RM-12
+    doc: README.md
+    area: structure
+    quote: "The file lists every table and column with its role, every link and every rule found, and a review: list of questions only you can answer."
+    status: supported
+    evidence:
+      - check: C40
+      - check: C44
+      - test: tests/unit/test_api.py::test_introspect_draft_is_valid_and_runnable
+
+  - id: RM-13
+    doc: README.md
+    area: structure
+    quote: "From release 2.0, introspect writes an IR 2.0 document by default (--format v1 keeps the 1.0 spec); every command reads both."
+    status: supported
+    evidence:
+      - prop: prop:irround
+      - test: tests/unit/test_ir.py::test_introspect_format_follows_the_release
+      - test: tests/unit/test_ir.py::test_cli_runs_an_ir_file
+      - test: tests/e2e/test_cli.py::test_doctor_and_tune_write_ir_when_given_ir
+      - test: tests/unit/test_ir.py::test_ir_document_gives_identical_synthetic_data
+
+  - id: RM-14
+    doc: README.md
+    area: security
+    quote:
+      - "Passwords are never accepted on the command line; they come from password_env or url_env."
+      - "Passwords are masked in every message, log, saved spec, diagnostics bundle and exported model."
+      - "(saved specs never contain passwords)"
+    status: supported
+    evidence:
+      - claim: SEC-01
+      - claim: SEC-04
+      - test: tests/e2e/test_cli.py::test_locations_from_environment
+      - test: tests/unit/test_spec.py::test_save_masks_passwords
+
+  - id: RM-15
+    doc: README.md
+    area: scope
+    quote: "Every command takes --json for machine-readable output and returns an exit code for scripts."
+    status: partial
+    note: The tests cover the exit codes 1, 2 and 3 and --json on run, check and the governed run; no test walks every command.
+    evidence:
+      - test: tests/e2e/test_cli.py::test_quality_gate_exit_code
+      - test: tests/e2e/test_cli.py::test_spec_errors_exit_2
+      - test: tests/e2e/test_cli.py::test_connection_errors_exit_3_and_mask_passwords
+
+  - id: RM-16
+    doc: README.md
+    area: structure
+    quote: "and it is validated strictly: every option is documented in docs/spec-reference.md, and misspelt keys are refused with a suggestion."
+    status: supported
+    evidence:
+      - check: C67
+      - check: C68
+      - test: tests/unit/test_spec.py::test_invalid_settings_are_refused
+
+  - id: RM-17
+    doc: README.md
+    area: statistics
+    quote:
+      - "Every entity row (a customer, a product) gets a latent segment, fitted by Gibbs sampling over the whole schema."
+      - "Each table's columns follow a Bayesian Gaussian copula with exact marginals, per segment or pooled."
+      - "A dataset draws every parameter once from its posterior, then the rows, entities first and facts after."
+    status: supported
+    evidence:
+      - prop: prop:ident
+      - prop: prop:eta
+      - prop: prop:pit
+      - prop: prop:copula
+      - prop: prop:postpred
+      - check: C01
+      - check: C02
+      - check: C05
+      - check: C09
+      - check: C57
+
+  - id: RM-18
+    doc: README.md
+    area: statistics
+    quote: "Tune engine settings toward your objectives over several seeds; constraints report for what cannot be met"
+    status: supported
+    evidence:
+      - test: tests/unit/test_autotune.py::test_loop_finds_the_planted_fix_and_explains_the_rest
+      - test: tests/unit/test_autotune.py::test_loop_never_accepts_a_hard_violation
+
+  - id: RM-19
+    doc: README.md
+    area: scope
+    quote:
+      - "The full reference with every option is in docs/cli.md."
+      - "The full reference, with every parameter, is in docs/api.md."
+      - "| docs/cli.md | Every command and option |"
+      - "| docs/api.md | Every public class and function |"
+      - "| docs/spec-reference.md | Every specification option, with recipes (template) |"
+    status: partial
+    note: The references are generated from the parser, the public names and the spec schema (docs/make_*_reference.py), but unlike settings-reference.md and ir-reference.md no test fails when they are stale.
+    evidence:
+      - code: docs/make_cli_reference.py
+      - code: docs/make_api_reference.py
+      - code: docs/make_spec_reference.py
+      - check: C68
+      - test: tests/unit/test_api.py::test_public_names
+
+  - id: RM-20
+    doc: README.md
+    area: scope
+    quote: "| docs/ir-reference.md | Every IR field (generated from the model; JSON Schema in src/relsynth/ir/schema/) |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_ir.py::test_schema_and_reference_are_generated
+
+  - id: RM-21
+    doc: README.md
+    area: security
+    quote: "The package's own CI is in .github/workflows/ci.yml: lint, security and licence scans, types, unit tests on Python 3.10–3.13 and three operating systems"
+    status: supported
+    evidence:
+      - report: .github/workflows/ci.yml
+      - claim: SEC-13
+
+  - id: RM-22
+    doc: README.md
+    area: statistics
+    quote:
+      - "exact GROUP BY counts over the key tuples the model uses;"
+      - "Entities (dimensions) are always loaded, because each of their rows carries its own latent segment."
+      - "Proposition 100 proves it, and a run with a sample of every row gives exactly the in-memory result on all four databases."
+      - "The column models are an exact posterior given the sample (Proposition 104)."
+    status: supported
+    evidence:
+      - prop: prop:pdsuff
+      - prop: prop:pdexact
+      - prop: prop:pdsample
+      - prop: prop:pdeligible
+      - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+      - test: tests/unit/test_pushdown.py::test_ineligible_reasons
+      - test: tests/integration/test_servers.py::test_full_sample_pushdown_matches_sqlite_in_memory
+      - report: docs/pushdown.md#real-databases-in-memory-against-pushdown
+
+  - id: RM-23
+    doc: README.md
+    area: privacy-formal
+    quote: "On Contoso at ε = 1 the measured membership-inference rate stayed below the DP bound."
+    status: supported
+    evidence:
+      - claim: DP-14
+      - report: docs/assurance/evidence/T07/audit_contoso_eps1.jsonl
+
+  - id: RM-24
+    doc: README.md
+    area: statistics
+    quote:
+      - "With default settings the output is unchanged byte for byte."
+      - "relsynth autotune separates systematic failures from noise over several seeds"
+    status: supported
+    evidence:
+      - test: tests/unit/test_settings.py::test_promoted_constants_keep_the_1_0_values
+      - test: tests/unit/test_runtime.py::test_default_runtime_keeps_the_1_0_sampler
+      - test: tests/unit/test_generators.py::test_copula_is_the_default_and_naming_it_changes_nothing
+      - test: tests/unit/test_autotune.py::test_systematic_versus_sporadic
+      - code: tools/identity_check.py
+
+  - id: RM-25
+    doc: README.md
+    area: security
+    quote:
+      - "Every SQL statement is built with SQLAlchemy Core, with quoted identifiers and bound values."
+      - "Table and column names cannot inject SQL; tests use hostile names on every database."
+    status: supported
+    evidence:
+      - claim: SEC-03
+      - test: tests/unit/test_connectors.py::test_hostile_table_and_column_names_are_quoted
+      - test: tests/integration/test_servers.py::test_hostile_identifiers_on_server
+
+  - id: RM-26
+    doc: README.md
+    area: security
+    quote:
+      - "A spec is YAML read with a safe loader that also refuses aliases, so an alias bomb fails."
+      - "Regular expressions with catastrophic backtracking are refused."
+      - "Table names cannot leave the target folder (.., separators, absolute paths and symlinks are refused)."
+    status: supported
+    evidence:
+      - claim: SEC-05
+      - claim: SEC-06
+      - claim: SEC-07
+      - claim: SEC-09
+
+  - id: RM-27
+    doc: README.md
+    area: security
+    quote: "Bundles and profiles hold aggregates only, and profile --top must be asked for explicitly."
+    status: partial
+    note: As SEC-10, no test shows that a diagnostics bundle holds no rows.
+    evidence:
+      - claim: SEC-10
+
+  - id: RM-28
+    doc: README.md
+    area: statistics
+    quote: "Fits use exact vectorised kernels, with numba kernels as an option (relsynth[speed])."
+    status: supported
+    evidence:
+      - prop: prop:kernels
+      - check: C69
+
+  - id: RM-29
+    doc: README.md
+    area: scope
+    quote:
+      - "The statistical check suite now has C00–C82 plus the 2.0 checks C600–C606 (privacy attacks), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series), with the generator propositions 700–706 tested in tests/unit/test_generators.py: 113 science tests"
+      - "A benchmark harness (bench/) reruns the real databases"
+      - "and flags drift against a five-seed baseline."
+    status: supported
+    note: The test counts are those of the 2.0.0 tree (pytest --collect-only -m science gives 113).
+    evidence:
+      - check: C82
+      - check: C606
+      - test: tests/unit/test_generators.py::test_reference_generators_keep_keys_links_and_rules
+      - check: C803
+      - check: C906
+      - check: C1206
+      - report: .github/workflows/ci.yml
+      - report: bench/baseline.json
+      - test: tests/unit/test_bench_regress.py::test_r4_drift_of_a_tracked_value
+
+  - id: RM-30
+    doc: README.md
+    area: statistics
+    quote: "Draws for the same seed change on databases with link tables, because degree laws are now the default (synthesis.facts.link_degree: segment restores the 1.0 draws)"
+    status: limitation
+    evidence:
+      - prop: prop:linkdeg
+      - test: tests/unit/core/test_link_degree.py::test_link_degree_spec_values
+
+  - id: RM-31
+    doc: README.md
+    area: statistics
+    quote:
+      - "Every number below comes from the final code."
+      - "It then checks that each numbered proposition holds"
+      - "All 79 checks (C00–C78, more than 500 assertions) pass."
+      - "Four real databases, each from an unedited introspect draft, fitted in memory and with every eligible fact pushed down"
+    status: supported
+    note: These are the 1.0.0 measurements; on 2.0 the benchmark harness reruns the same databases.
+    evidence:
+      - check: C00
+      - check: C78
+      - report: docs/pushdown.md#real-databases-in-memory-against-pushdown
+      - report: bench/baseline.json
+
+  - id: RM-32
+    doc: README.md
+    area: structure
+    quote: "On every server, the same seed gives the same synthetic database as SQLite, value for value."
+    status: supported
+    evidence:
+      - test: tests/integration/test_servers.py::test_full_sample_pushdown_matches_sqlite_in_memory
+      - test: tests/integration/test_servers.py::test_introspect_fit_and_pushdown_run
+      - test: tests/integration/test_servers.py::test_statistics_match_the_in_memory_reference
+
+  - id: RM-33
+    doc: README.md
+    area: scope
+    quote:
+      - "the layer 1 algorithms, with complexity and proofs."
+      - "It covers the Bayesian Gaussian copula, latent segments from in-database sufficient statistics, the merge step and differential privacy on summaries."
+      - "gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full."
+    status: supported
+    evidence:
+      - check: C00
+      - report: docs/proofs/algorithms.pdf
+      - report: docs/theory.md
+
+  - id: RM-34
+    doc: README.md
+    area: scope
+    quote:
+      - "| Rules and keys | Rules by rejection; three-valued rules agree with the database; computed columns are exact; unique keys by exact conditioning; order headers (lossless split); running balances |"
+      - "| Evaluation | Calibrated limits under the posterior predictive null; Šidák over families; distances with an atom at zero |"
+      - "| In-database fitting (v1.0) | 100 sufficiency of the in-database statistics; 101 agreement with in-memory fitting; 102 Acklam's quantile bound; 103 hash sampling is Bernoulli; 104 the sample posterior is exact; 105 eligibility |"
+      - "| IR, generators and quality (v2.0) | 106 loss-free 1.0 conversion; 107–108 privacy-unit tracing; 109–113 calibrated quality report; 700–706 the skeleton is kept whatever the generator |"
+      - "| Privacy and governance (v2.0) | Per-person attack metrics; 800–803 the budget ledger bounds the domain's privacy loss, reserve before reading, tamper evidence; 900–906 discrete Gaussian, stable contribution bounding, exact partition selection, two-stage DP |"
+      - "| Time and scale (v2.0) | 1200–1206 time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; 950–954 worker independence, partitions keep the law, keys across partitions, drift tests |"
+    status: supported
+    note: The table names propositions; each label below is one of them, and the numbers are checked against the LaTeX counters.
+    evidence:
+      - prop: prop:rules
+      - prop: prop:k3
+      - prop: prop:computed
+      - prop: prop:unique
+      - prop: prop:header
+      - prop: prop:ppnull
+      - prop: prop:sidak
+      - prop: prop:dcr
+      - prop: prop:pdsuff
+      - prop: prop:pdeligible
+      - prop: prop:irround
+      - prop: prop:ratenorm
+      - prop: prop:genskeleton
+      - prop: prop:cartbb
+      - prop: prop:puctrl
+      - prop: prop:ledger
+      - prop: prop:govchain
+      - prop: prop:dgauss
+      - prop: prop:run
+      - prop: prop:tschange
+      - prop: prop:tsincr
+      - prop: prop:linkdeg
+      - prop: prop:rtdet
+      - prop: prop:rtdrift
+
+  - id: RM-35
+    doc: README.md
+    area: scope
+    quote: "Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly."
+    status: limitation
+    evidence:
+      - prop: prop:rules
+      - check: C58
+
+  - id: RM-36
+    doc: README.md
+    area: privacy-formal
+    quote: "Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε"
+    status: limitation
+    evidence:
+      - claim: DP-13
+      - claim: DP-15
+      - report: docs/assurance/evidence/T07/utility_vs_epsilon.jsonl
+
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
   - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
   - {doc: docs/security.md, quote: "Pass secrets as masked CI variables (see cicd.md), and use read-only database accounts for sources.", reason: "advice to the operator"}
+  - {doc: README.md, quote: "| A privacy officer or data protection officer |", reason: "reading guide: points to the documents"}
+  - {doc: README.md, quote: "| Reviewing the method |", reason: "reading guide: points to the documents"}
+  - {doc: README.md, quote: "- Privacy, differential privacy and governance", reason: "table of contents"}
+  - {doc: README.md, quote: "- Theory: propositions and proofs", reason: "table of contents"}
+  - {doc: README.md, quote: "Never put a password on the command line.", reason: "advice to the operator (the enforced part is RM-14)"}
+  - {doc: README.md, quote: "A job that refreshes a test database every night and fails when quality drops:", reason: "introduces an example pipeline"}
+  - {doc: README.md, quote: "Differential privacy (relsynth run --epsilon E, relsynth[dp], docs/dp.md).", reason: "bullet heading; the bullet's claims are RM-03 and RM-23"}
+  - {doc: README.md, quote: "| docs/dp.md | Differential privacy mode: guarantee, parameters, DP statement, limits |", reason: "documentation map: names a document's contents"}
+  - {doc: README.md, quote: "| docs/governance/guide.md | Registry, signed manifests, policy, budget ledger, approvals (design) |", reason: "documentation map: names a document's contents"}
+  - {doc: README.md, quote: "| docs/theory.md | The model in brief and the v1.0 propositions with proofs |", reason: "documentation map: names a document's contents"}
+  - {doc: README.md, quote: "| docs/proofs/ | The full proofs (PDF and LaTeX source) |", reason: "documentation map: names a document's contents"}

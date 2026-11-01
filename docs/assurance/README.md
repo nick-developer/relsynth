@@ -13,7 +13,7 @@ This folder is for the privacy, legal and audit teams who decide whether a synth
 
 ## The claim register
 
-Every sentence of the documents listed under `scope` in [claims.yaml](claims.yaml) that reads as a claim (it says *never*, *every*, *exact*, *guarantee*, *refused* and similar) has an entry. Each entry quotes the sentence and lists its evidence: a proposition of the [proofs](../proofs/relsynth-proofs.tex) by label, a numbered check (C902), a pytest test, a measured report in this repository, or the code that enforces it. A `status` says whether the evidence supports the claim fully, partly (with a note), or shows a limitation.
+Every sentence of the documents listed under `scope` in [claims.yaml](claims.yaml) that reads as a claim (it says *never*, *every*, *exact*, *guarantee*, *refused* and similar) has an entry. Each entry quotes the sentence and lists its evidence: a proposition of the [proofs](../proofs/relsynth-proofs.tex) by label, a numbered check (C902), a pytest test, a measured report in this repository, the code that enforces it, or, for a sentence that sums up another registered claim (the README does this), that claim's id. A `status` says whether the evidence supports the claim fully, partly (with a note), or shows a limitation.
 
 `python tools/claims_check.py` checks the register, and CI runs it on every pull request. It fails when:
 

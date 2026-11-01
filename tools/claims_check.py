@@ -217,6 +217,12 @@ def run(root: Path = ROOT) -> Result:
             docs[name] = norm(p.read_text(encoding="utf-8")) if p.is_file() else None
         return docs[name]
 
+    # A claim that repeats another (the README summing up a guide) cites it as {claim: ID}
+    # and is as strong as the claim it cites.
+    direct = {
+        c.get("id"): {k for ev in c.get("evidence") or [] if isinstance(ev, dict) for k in ev}
+        for c in reg.get("claims", [])
+    }
     seen: set[str] = set()
     quotes: dict[str, list[str]] = {}
     for c in reg.get("claims", []):
@@ -248,8 +254,17 @@ def run(root: Path = ROOT) -> Result:
                 continue
             (kind, value), = ev.items()
             value = str(value)
-            kinds.append(kind)
-            why = _resolve(kind, value, root, props, checks, sym_cache)
+            if kind == "claim":
+                if value not in direct:
+                    why = f"cites claim {value}, which the register does not have"
+                elif not direct[value] & set(STRONG_KINDS):
+                    why = f"cites claim {value}, which has no prop, check, test or report of its own"
+                else:
+                    why = None
+                    kinds.extend(direct[value])
+            else:
+                kinds.append(kind)
+                why = _resolve(kind, value, root, props, checks, sym_cache)
             if why:
                 res.problems.append(f"{where}: {why}")
             item = {"kind": kind, "ref": value}
