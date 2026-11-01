@@ -95,9 +95,43 @@ Share of scorecard checks that pass on three real databases (bench specs, unedit
 | Contoso (Customer, about 105,000) | 1.000 | 0.801 | 0.809 | 0.813 | 0.809 | 0.825 |
 | AdventureWorks DW (DimCustomer, 18,484) | 0.963 | | | 0.914 | | |
 
-The curve is nearly flat, so the loss comes from what stage 1 measures, not from the noise. Stage 1 measures one-dimensional marginals, degrees and one correlation matrix per table. Releasing selected two-way marginals is the planned next step.
+The curve is nearly flat, so the loss comes from what stage 1 measures, not from the noise. Stage 1 measures one-dimensional marginals, degrees and one correlation matrix per table. With `measure: copula` (the default) this is still the case; section 7 describes two-way marginals, which make the error fall with ε.
 
 An attack audit of Contoso at ε = 1 found the following. Membership-inference TPR at FPR 0.01 is 0.014, below the bound of 0.027. Shadow-model AUCs are 0.45 to 0.52, and attribute inference gains nothing over the population baseline.
+
+## 7. Two-way marginals (`measure: mst` or `aim`)
+
+```yaml
+synthesis:
+  privacy:
+    dp:
+      unit: Customer
+      epsilon: 4.0
+      delta: 1.0e-9
+      measure: aim          # copula (default) | mst | aim
+      pair_bins: 8          # cells per column in a two-way marginal (null included)
+```
+
+or `relsynth run spec.yaml --epsilon 4 --dp-measure aim`.
+
+With `mst` or `aim`, stage 1 releases two-way histograms chosen privately for each owned table, instead of the correlation matrix. The nodes of a table are its columns, its rows per parent row and, for a child table, the cells of its parent row, so the chosen pairs also carry the links between tables.
+
+- **mst** (McKenna, Miklau and Sheldon 2021) scores every pair by how badly the one-way model gets it wrong, picks a spanning tree pair by pair with the exponential mechanism, and measures the chosen pairs.
+- **aim** (McKenna et al. 2022) works in rounds. Each round picks the pair the current model gets most wrong, less the noise a measurement would add, measures it and refits. When a measurement changes little, the next rounds spend more. relsynth keeps the model a tree (a forest), so fitting and sampling are exact. AIM proper allows larger cliques.
+- Each column is compressed to `pair_bins` cells using its released one-way histogram, so a pair has at most 64 cells by default.
+- The selections use OpenDP's report noisy max and are charged to the same accountant as everything else. The guarantee, the unit and the contribution bounding are those of section 2. The seed rows are drawn from the fitted tree; stage 2 is unchanged.
+
+Propositions 1300 to 1306 in [docs/proofs](proofs/sec_v26_dpselect.tex) give the proofs, and checks C1300 to C1306 (`pytest -m science tests/science/test_dp_select_checks.py`) test them. C1301 removes one customer at a time and confirms that no selection score and no two-way histogram moves by more than the sensitivity it was charged for.
+
+**Results** (CI workflow `dp-eval`, 2026-11-01, three repetitions, 95 % intervals). Mean total variation distance over all 153 two-way marginals of the ACS excerpt (27,253 people, 18 columns, one row per person), against MST and AIM of smartnoise-synth 1.0.8 with the same public domain; lower is better:
+
+ACS_TABLE
+
+Share of scorecard checks that pass on the multi-table bench databases:
+
+CURVES_TABLE
+
+How to read it. On one table, two-way marginals cut the two-way error by about a quarter at every ε, and the error falls with ε until the bias of the tree (pairs it does not model, and detail inside the 8 cells) takes over at about ε = 4. On the multi-table databases the scorecard moves less, because most of its checks are one-way, key and link checks that the copula already passed; AdventureWorks rises from 0.911 to 0.930 with `aim` as ε goes from 0.5 to 8. On Chinook (59 customers) every category level is suppressed at these ε, and no method can recover them.
 
 ## API
 

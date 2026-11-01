@@ -312,6 +312,8 @@ def _dp_override(a) -> dict:
         o["epsilon"] = float(a.epsilon)
     if getattr(a, "dp_unit", None):
         o["unit"] = a.dp_unit
+    if getattr(a, "dp_measure", None):
+        o["measure"] = a.dp_measure
     return o
 
 
@@ -818,6 +820,9 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--dp", action="store_true", help="differentially private run (the spec's synthesis.privacy.dp)")
     d.add_argument("--epsilon", type=float, help="this run's epsilon (implies --dp; overrides the spec)")
     d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's)")
+    d.add_argument("--dp-measure", choices=["copula", "mst", "aim"],
+                   help="what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals "
+                        "chosen by MST or AIM (docs/dp.md sec. 7)")
     d.add_argument("--dp-statement", help="also write the DP statement (JSON) here")
     s.set_defaults(fn=cmd_run)
 

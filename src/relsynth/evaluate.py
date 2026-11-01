@@ -723,7 +723,10 @@ WORD = re.compile(r"\w+|[^\w\s]")
 
 
 def _nb_fit(texts, labels):
-    cls = sorted(set(labels))
+    try:
+        cls = sorted(set(labels))
+    except TypeError:                           # mixed strings and nulls (a DP seed's suppressed levels)
+        cls = sorted(set(labels), key=str)
     cnt = {c: Counter() for c in cls}
     prior = Counter(labels)
     for t, l in zip(texts, labels):

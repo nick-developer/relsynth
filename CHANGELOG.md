@@ -4,6 +4,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+- **Two-way marginals in DP mode** (`synthesis.privacy.dp.measure: mst | aim`, `relsynth run --dp-measure`; roadmap T07b, guide `docs/dp.md` sec. 7, Props. 1300-1306, checks C1300-C1306). Stage 1 can release privately chosen two-way histograms in place of the copula's correlation matrix: MST picks a maximum spanning tree with the exponential mechanism, AIM picks pairs over adaptive rounds with annealing (kept to a forest). The nodes of a table include its parent row's cells and its rows per parent row, so the chosen pairs carry the links between tables. Domains are compressed to `pair_bins` cells (default 8) from released marginals; the seed is drawn from the fitted forest. Same accountant, same per-person guarantee and contribution bounding. The default (`copula`) is unchanged. New tools `tools/dp_compare.py` (against smartnoise-synth MST and AIM on ACS), `tools/dp_curves.py` and `tools/dp_workload.py`, and the CI workflow `dp-eval`.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 

@@ -1,0 +1,151 @@
+name: dp-eval
+
+# Utility of DP mode against epsilon (roadmap T07b, docs/dp.md sec. 6-7):
+# - compare: relsynth (copula, mst, aim) and smartnoise-synth (MST, AIM) on the
+#   ACS excerpt, workload error over all two-way marginals (tools/dp_compare.py);
+#   smartnoise-synth pins its own OpenDP and PyTorch, so it gets its own job;
+# - curves: Chinook, Contoso and AdventureWorks DW at epsilon 0.5, 1, 4, 8 with
+#   three repetitions, scorecard share and two-way error (tools/dp_curves.py).
+# Long: AdventureWorks takes about 16 minutes per run.  Runs on demand, weekly,
+# and on pull requests that change the DP engine.  `summary` prints the tables.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reps:
+        description: "Repetitions per (database, measure, epsilon)"
+        default: "3"
+  schedule:
+    - cron: "0 6 * * 0"
+  pull_request:
+    paths:
+      - "src/relsynth/dp/**"
+      - "tools/dp_*.py"
+      - ".github/workflows/dp-eval.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dp-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare-smartnoise:
+    # AIM of smartnoise-synth takes about 15 minutes per run on ACS at epsilon 0.5 and longer above:
+    # one job per (measure, epsilon)
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        measure: [mst, aim]
+        eps: ["0.5", "1", "4", "8"]
+    name: compare-smartnoise (${{ matrix.measure }}, ${{ matrix.eps }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - name: relsynth for the bench data only
+        run: pip install -e ".[bench]"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-acs-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - run: python -m bench fetch --datasets acs
+      - name: smartnoise-synth in its own environment
+        run: |
+          python -m venv /tmp/sn
+          /tmp/sn/bin/pip install "smartnoise-synth==1.0.8" pandas
+      - name: MST and AIM
+        env:
+          REPS: ${{ inputs.reps || '3' }}
+          MEASURE: ${{ matrix.measure }}
+          EPS: ${{ matrix.eps }}
+        run: |
+          /tmp/sn/bin/python -I tools/dp_compare.py --engine smartnoise --measure "$MEASURE" --eps "$EPS" \
+            --reps "$REPS" --out "out/compare-smartnoise-$MEASURE-$EPS.jsonl"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: "dp-compare-smartnoise-${{ matrix.measure }}-${{ matrix.eps }}", path: out/ }
+
+  compare-relsynth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dp,bench]"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-acs-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - run: python -m bench fetch --datasets acs
+      - name: copula, mst, aim
+        env: { REPS: "${{ inputs.reps || '3' }}" }
+        run: python tools/dp_compare.py --engine relsynth --reps "$REPS" --out out/compare-relsynth.jsonl
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: dp-compare-relsynth, path: out/ }
+
+  curves:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        part:
+          - { name: chinook, db: chinook, eps: "0.5 1 4 8" }
+          - { name: contoso-low, db: contoso_sqlite, eps: "0.5 1" }
+          - { name: contoso-high, db: contoso_sqlite, eps: "4 8" }
+          - { name: aw-0.5, db: adventureworks, eps: "0.5" }
+          - { name: aw-1, db: adventureworks, eps: "1" }
+          - { name: aw-4, db: adventureworks, eps: "4" }
+          - { name: aw-8, db: adventureworks, eps: "8" }
+    name: curves (${{ matrix.part.name }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dp,bench,parquet]" datasketches
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-${{ matrix.part.db }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - run: python -m bench fetch --datasets ${{ matrix.part.db }}
+      - name: ${{ matrix.part.name }}
+        env:
+          DB: ${{ matrix.part.db }}
+          EPS: ${{ matrix.part.eps }}
+          REPS: ${{ inputs.reps || '3' }}
+        run: |
+          # shellcheck disable=SC2086
+          python tools/dp_curves.py --db "$DB" --eps $EPS --reps "$REPS" --out "out/curves-${{ matrix.part.name }}.jsonl"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: "dp-curves-${{ matrix.part.name }}", path: out/ }
+
+  summary:
+    needs: [compare-smartnoise, compare-relsynth, curves]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install scipy
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { path: in, pattern: "dp-*", merge-multiple: true }
+      - name: Tables
+        run: |
+          cat in/compare-*.jsonl > compare.jsonl || true
+          cat in/curves-*.jsonl > curves.jsonl || true
+          { echo "## Two-way error on ACS"; python tools/dp_compare.py --summary compare.jsonl
+            echo; echo "## Utility against epsilon"; python tools/dp_curves.py --summary curves.jsonl; } | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: dp-eval-summary, path: "*.jsonl" }
