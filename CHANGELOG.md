@@ -4,6 +4,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Fixed
+
+- **Helm chart: a fresh `helm install` no longer times out.** The pre-install migrate job ran as the release's ServiceAccount, which Helm only creates after the pre-install hooks; the job now runs as its own hook ServiceAccount (`<release>-migrate`, same annotations), created just before it. Found by the new kind-cluster end-to-end job.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 
