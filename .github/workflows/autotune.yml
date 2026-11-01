@@ -5,7 +5,9 @@ name: autotune
 # search takes hours.  The history is uploaded; `resume_from_run` downloads the
 # history of an earlier run and goes on from its incumbent (a job may run 6 hours).
 # Started by hand (workflow_dispatch) or by a push whose commit message contains
-# [autotune] (the defaults below: AdventureWorks, plus the link-affinity experiment).
+# [autotune] (the defaults below: AdventureWorks, plus the link-affinity experiment);
+# a push whose message contains [autotune-resume:<run id>] goes on from that run's history.
+# The report is printed to the log as well as to the job summary.
 
 on:
   workflow_dispatch:
@@ -30,7 +32,8 @@ concurrency:
 
 jobs:
   autotune:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[autotune]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[autotune]') ||
+            contains(github.event.head_commit.message, '[autotune-resume:') }}
     runs-on: ubuntu-latest
     timeout-minutes: 355
     strategy:
@@ -42,28 +45,46 @@ jobs:
           - { name: affinity, push_only: true, runs: "3", holdout: "none",
               sets: "tables.FactResellerSales.link_affinity=[{match: [SalesTerritoryKey, EmployeeKey.SalesTerritoryKey]}]" }
     steps:
+      - name: plan
+        id: plan
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+          RESUME_INPUT: ${{ inputs.resume_from_run }}
+          PART: ${{ matrix.part.name }}
+          PUSH_ONLY: ${{ matrix.part.push_only || false }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          resume="$RESUME_INPUT"
+          if [ "$EVENT" = push ]; then
+            resume=$(printf '%s' "$MSG" | sed -n 's/.*\[autotune-resume:\([0-9]*\)\].*/\1/p' | head -n1)
+          fi
+          run=true
+          if [ "$PUSH_ONLY" = true ] && [ "$EVENT" != push ]; then run=false; fi
+          echo "resume=$resume" >> "$GITHUB_OUTPUT"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "part $PART: run=$run resume=${resume:-none}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ steps.plan.outputs.run == 'true' }}
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ steps.plan.outputs.run == 'true' }}
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev,bench]" datasketches
-        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ steps.plan.outputs.run == 'true' }}
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ steps.plan.outputs.run == 'true' }}
         with:
           path: bench/.cache
           key: bench-data-${{ inputs.dataset || 'adventureworks' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: ${{ inputs.resume_from_run && matrix.part.name == 'tune' }}
+        if: ${{ steps.plan.outputs.resume && steps.plan.outputs.run == 'true' }}
         with:
           name: autotune-${{ matrix.part.name }}
           path: tune-out
-          run-id: ${{ inputs.resume_from_run }}
+          run-id: ${{ steps.plan.outputs.resume }}
           github-token: ${{ github.token }}
       - name: autotune (${{ matrix.part.name }})
-        if: ${{ !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ steps.plan.outputs.run == 'true' }}
         env:
           RELSYNTH_QUIET: "1"
           DATASET: ${{ inputs.dataset || 'adventureworks' }}
@@ -80,6 +101,8 @@ jobs:
           python tools/autotune_bench.py --dataset "$DATASET" --out tune-out --hours "$HOURS" --runs "$RUNS" \
             --seeds "$SEEDS" --holdout "$HOLDOUT" --workers 3 "${args[@]}" || echo "autotune exit $? (1: not every objective met)"
           cat tune-out/report.md >> "$GITHUB_STEP_SUMMARY" || true
+          echo "===== report.md ====="; cat tune-out/report.md || true
+          python tools/autotune_bench.py --summarise tune-out || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ always() && !(matrix.part.push_only && github.event_name == 'workflow_dispatch') }}
+        if: ${{ always() && steps.plan.outputs.run == 'true' }}
         with: { name: "autotune-${{ matrix.part.name }}", path: tune-out/ }
