@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Partition-aware statistics (relsynth.runtime.drift, Prop. 904), and the
+"""Partition-aware statistics (relsynth.runtime.drift, Prop. 954), and the
 source's ODCS contract on output generated in partitions."""
 from __future__ import annotations
 
@@ -78,8 +78,8 @@ def _frame(rng, n, shift=0.0, flip=0.0):
 
 
 @pytest.mark.science
-def test_prop_904_family_wise_error_and_power():
-    """Prop. 904: under one law across partitions, the chance of flagging any
+def test_prop_954_family_wise_error_and_power():
+    """Prop. 954: under one law across partitions, the chance of flagging any
     column is at most alpha (here: rejection rate of the Holm family below
     alpha plus three Monte Carlo standard errors); a shift is found."""
     rng = np.random.default_rng(904)

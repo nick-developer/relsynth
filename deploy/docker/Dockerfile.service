@@ -1,8 +1,8 @@
 # The relsynth service image: API, web UI and job worker in one image.
 #
-#   docker build -f deploy/docker/Dockerfile.service -t relsynth-service:1.0.1 .
-#   docker run --rm -p 8080:8080 -e RELSYNTH_SVC_... relsynth-service:1.0.1 serve
-#   docker run --rm -e RELSYNTH_SVC_... relsynth-service:1.0.1 worker
+#   docker build -f deploy/docker/Dockerfile.service -t relsynth-service:2.0.0 .
+#   docker run --rm -p 8080:8080 -e RELSYNTH_SVC_... relsynth-service:2.0.0 serve
+#   docker run --rm -e RELSYNTH_SVC_... relsynth-service:2.0.0 worker
 #
 # Offline (air-gapped) build: put every wheel in deploy/docker/wheelhouse/
 # (tools/make_airgap_bundle.py does it) and pass --build-arg OFFLINE=1; pip then

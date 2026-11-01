@@ -15,7 +15,7 @@ level counts of categories) and tests homogeneity:
 
 The p-values of all columns are adjusted with Holm's step-down procedure
 (Holm, Scand. J. Stat. 1979), so the chance of flagging any column of a table
-whose law does not change is at most `alpha` (Prop. 904).  With millions of
+whose law does not change is at most `alpha` (Prop. 954).  With millions of
 rows tiny differences are significant, so a column is flagged only when the
 adjusted p-value is below `alpha` *and* the effect size (eta squared for
 numbers, Cramér's V for categories) reaches `min_effect`.
