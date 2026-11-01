@@ -16,20 +16,23 @@ Tested with Keycloak 26 (realm in `deploy/compose/keycloak/realm-relsynth.json`)
 
 Roles are per tenant. The token carries them in the claim named by `ROLES_CLAIM` (default `relsynth_roles`; dotted paths such as `resource_access.relsynth.roles` work) as strings `"<tenant>:<role>"`. With `TENANT_CLAIM`, bare role names apply to the tenant in that claim. `"*:platform_admin"` marks a platform operator, who can create tenants but has no access to any tenant's data unless also given a role in it.
 
-| Permission | data_owner | privacy_officer | engineer | consumer | tenant_admin |
-|---|:-:|:-:|:-:|:-:|:-:|
-| see projects and runs | ✓ | ✓ | ✓ | ✓ | ✓ |
-| create projects, connections, specs | ✓ | | ✓ | | |
-| see connections and specs | ✓ | ✓ | ✓ | | |
-| start and cancel runs, introspect | ✓ | | ✓ | | |
-| read scorecards and quality reports | ✓ | ✓ | ✓ | ✓ | |
-| read privacy items of reports | ✓ | ✓ | | | |
-| approve, reject, revoke releases | ✓ | ✓ | | | |
-| download released synthetic data | ✓ | | ✓ | ✓ | |
-| read and verify the audit log | ✓ | ✓ | | | ✓ |
-| manage service accounts | | | | | ✓ |
+| Permission | data_owner | privacy_officer | engineer | consumer | tenant_admin | agent |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| see projects and runs | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| create projects, connections, specs | ✓ | | ✓ | | | |
+| see connections and specs | ✓ | ✓ | ✓ | | | specs only |
+| start and cancel runs, introspect | ✓ | | ✓ | | | |
+| read scorecards and quality reports | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| read privacy items of reports | ✓ | ✓ | | | | |
+| approve, reject, revoke releases | ✓ | ✓ | | | | |
+| download released synthetic data | ✓ | | ✓ | ✓ | | |
+| read and verify the audit log | ✓ | ✓ | | | ✓ | |
+| manage service accounts | | | | | ✓ | |
+| ask an agent for a review or an explanation | ✓ | ✓ | ✓ | | | ✓ |
+| see agent proposals | ✓ | ✓ | ✓ | | | ✓ |
+| accept or reject agent proposals (people only) | ✓ | | ✓ | | | |
 
-The table is `PERMISSIONS` in `src/relsynth/service/auth.py`; `test_rbac_table_is_consistent` keeps the two in step.
+The `agent` role is held only by agent accounts (see [Agent accounts](#agent-accounts)). The table is `PERMISSIONS` and `AGENT_PERMISSIONS` in `src/relsynth/service/auth.py`; `test_rbac_table_is_consistent` keeps the two in step.
 
 **Separation of duties.** Nobody approves a run they started, even when they hold both roles (`SEPARATION_OF_DUTIES=true`, governance decision D4). `APPROVAL_QUORUM` asks for more than one distinct approver. A rejection or revocation voids every earlier approval.
 
@@ -42,6 +45,10 @@ With `ABAC=true`, a connection may carry `labels.classification` in `public < in
 ## Service accounts
 
 For CI pipelines and schedulers. A tenant admin creates one with a set of roles (`tenant_admin` cannot be delegated); the API returns the token once (`rss_<id>_<256-bit secret>`) and stores only its SHA-256. Tokens are revoked with `DELETE /service-accounts/{id}` and every use is audited as `service:<id>`. Prefer workload identity federation (an OIDC token from the CI system, accepted like any user token) where the CI system supports it.
+
+## Agent accounts
+
+An agent account is a service account created with the role `agent`. It holds that role only, whatever other roles the request lists, and OIDC tokens cannot claim it. It may read projects, specs, runs, reports and proposals and ask for agent reviews and explanations; every other request is refused and the refusal is audited. Agent output becomes proposals, which only a person accepts; an accepted proposal makes a new spec version written by that person. See [docs/agents.md](../agents.md#in-the-service).
 
 ## Development sign-in
 

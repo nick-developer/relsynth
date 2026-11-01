@@ -11,7 +11,8 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 | `unit (os, python)` | `tests/unit` on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, with branch coverage; the Linux 3.12 job writes coverage per module to the job summary | 3–6 min |
 | `e2e` | every CLI command as a pipeline runs it (`tests/e2e`) | 2 min |
 | `integration` | live PostgreSQL 16, SQL Server 2022 and Oracle 23 Free in service containers (`tests/integration`) | 4 min |
-| `science (i/4)` | the statistical check suite (C00–C82, C700s, C800s, C900s, C1200s) in four shards of about equal run time | about 15 min each |
+| `science (i/4)` | the statistical check suite (C00–C82, C700s, C800s, C900s, C1200s, C1600s) in four shards of about equal run time | about 15 min each |
+| `agents` | the review agent on Chinook, AdventureWorks DW and Contoso with the catalog hidden: the rules backend must reach accuracy 0.95 against the declared catalog with at most one wrong answer not flagged for a person (`python -m bench.agents`); then a small local model under Ollama is measured, not gated ([agents](../agents.md#evaluation)) | 5 min |
 | `build` | sdist and wheel, `twine check`, a clean-environment install with every extra, and a CycloneDX SBOM of that install | 1 min |
 | `sign` | dry run of the release signature: the wheel, sdist and SBOM are signed with Sigstore under this workflow's identity and verified (pull requests from this repository and pushes; not on forks) | 1 min |
 

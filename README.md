@@ -37,6 +37,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - [Quality: the scorecard, the doctor and model checks](#quality-the-scorecard-the-doctor-and-model-checks)
 - [Privacy, differential privacy and governance](#privacy-differential-privacy-and-governance)
 - [Time series, generators, settings and scale](#time-series-generators-settings-and-scale)
+- [Agents: drafting and explaining, never deciding](#agents-drafting-and-explaining-never-deciding)
 - [Security](#security)
 - [Performance](#performance)
 - [Validation](#validation)
@@ -352,6 +353,16 @@ The relational part of the model is unchanged: Proposition 100 proves it, and a 
 - **Partitioned generation** ([docs/runtime.md](docs/runtime.md)). `synthesis.runtime` runs fact rows in partitions on the `local`, `process` or `spark` executor. Each partition draws from a Philox stream keyed by seed, dataset, fact and partition, so the output is the same for 1, 8 or 64 workers and for Spark (Prop. 950).
 - **IR 2.0** ([docs/ir-guide.md](docs/ir-guide.md)). One versioned document describes a data estate: entities with shapes (record, document, node, edge, event), nested arrays, keys, references, hierarchies, time and versioning, partitions, rules and the privacy unit. 1.0 specs convert without loss (same synthetic data); ODCS v3 data contracts and OpenLineage are exported and checked.
 
+## Agents: drafting and explaining, never deciding
+
+`relsynth agent` ([docs/agents.md](docs/agents.md)) saves people time on the checking that comes before a decision, and makes no decision itself.
+
+- **review** answers the `review:` items of an introspected draft (keys, links, lookups, rules, `ASK` questions) with evidence measured on every row, and proposes the change each answer implies. `relsynth agent apply --by <person>` applies the answers that person accepts.
+- **explain** words a quality, privacy or scorecard report in plain language; **doctor** turns doctor findings into proposals (privacy settings become advice for the privacy officer); **draft contract** and **draft policy** write an ODCS contract and an organisation policy with every budget left empty.
+- **Backends.** Deterministic rules by default; any OpenAI-compatible model server on the same machine (Ollama, vLLM, llama.cpp) for questions that need the meaning of a name. A remote server must be allowed explicitly, use https, and gets aggregates only.
+- **Safeguards.** Agents never see rows: they get names and whole-column aggregates, and single values only in the `values` scope when they occur at least 10 times. Untrusted text is marked as data; verdicts, parents and changes come from closed sets; a confirmation the evidence contradicts becomes a rejection; numbers in model text must occur in the evidence. In the service an agent account can read and propose only, and in the governance registry an agent key cannot approve. A prompt-injection suite runs 20 payloads against a model that obeys every instruction.
+- **Accuracy.** With the catalog hidden, the rules backend's answers about keys and links matched the ground truth on 122 of 124 answered items on Chinook, AdventureWorks DW, Contoso and bi/COREP; the CI job `agents` gates it and measures a small local model.
+
 ## Security
 
 - **Credentials.** Passwords are never accepted on the command line; they come from `password_env` or `url_env`. Passwords are masked in every message, log, saved spec, diagnostics bundle and exported model. The masking covers URL passwords, `password=`/`token=` query parameters and ODBC `PWD=`.
@@ -413,6 +424,7 @@ The method is described in two papers shipped with the package:
 | IR, generators and quality (v2.0) | **106** loss-free 1.0 conversion; **107–108** privacy-unit tracing; **109–113** calibrated quality report; **700–706** the skeleton is kept whatever the generator |
 | Privacy and governance (v2.0) | Per-person attack metrics; **800–803** the budget ledger bounds the domain's privacy loss, reserve before reading, tamper evidence; **900–906** discrete Gaussian, stable contribution bounding, exact partition selection, two-stage DP |
 | Time and scale (v2.0) | **1200–1206** time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; **950–954** worker independence, partitions keep the law, keys across partitions, drift tests |
+| Agents (next release) | **1600–1604** data minimisation, containment of any model output, evidence first, grounded wording, no authority without a person |
 
 [docs/theory.md](docs/theory.md) gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full.
 
@@ -469,6 +481,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/dp.md](docs/dp.md) | Differential privacy mode: guarantee, parameters, DP statement, limits |
 | [docs/governance/guide.md](docs/governance/guide.md) | Registry, signed manifests, policy, budget ledger, approvals ([design](docs/governance/design.md)) |
 | [docs/service/](docs/service/README.md) | The service: API, UI, SSO, tenancy, deployment, operations, security |
+| [docs/agents.md](docs/agents.md) | Agents: review answers, report explanations, doctor proposals, contract and policy drafts; safeguards and accuracy |
 | [docs/metrics.md](docs/metrics.md) | The quality report 2.0 and its metrics |
 | [docs/profiling.md](docs/profiling.md) | Where 1.0 spends time and memory, and which changes that justifies |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
