@@ -1,6 +1,6 @@
 # ADR 0002: Generator plug-ins behind a conditional contract
 
-- Status: proposed (roadmap thread T03, release 2.0)
+- Status: accepted (roadmap thread T03; merged and released in 2.0.0)
 - Date: 2026-10-27
 
 ## Context

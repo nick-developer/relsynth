@@ -1,6 +1,6 @@
 # ADR 0004: Time series and event sequences
 
-- Status: proposed (roadmap thread T12, release 3.2)
+- Status: accepted (roadmap thread T12; merged and released in 2.0.0)
 - Date: 2026-10-30
 
 ## Context

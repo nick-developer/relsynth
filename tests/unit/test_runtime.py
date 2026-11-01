@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """The partitioned runtime (relsynth.runtime): the same seed gives the same
-synthetic database whatever the executor and its number of workers (Prop. 900);
+synthetic database whatever the executor and its number of workers (Prop. 950);
 keys and links hold across partitions; facts are split only where their model
-allows it (Props. 901, 902); the 1.0 sampler is unchanged when no executor is set."""
+allows it (Props. 951, 952); the 1.0 sampler is unchanged when no executor is set."""
 from __future__ import annotations
 
 import copy
@@ -93,7 +93,7 @@ def test_partition_rules(shop, dw):
 
 @pytest.mark.parametrize("name", ["S9_small_shop", "S10_order_dw"])
 def test_same_output_with_any_number_of_workers(name):
-    """Prop. 900: local, 2, 8 and 64 worker processes give identical tables."""
+    """Prop. 950: local, 2, 8 and 64 worker processes give identical tables."""
     syn = _fit(name)
     ref, run = sample_partitioned(syn, index=0, executor="local", partition_rows=300)
     assert any(p.mode != WHOLE and len(p.blocks) > 1 for p in run.facts)
@@ -129,7 +129,7 @@ def test_keys_and_links_hold_across_partitions(dw):
 
 
 def test_partitioned_law_matches_the_whole_sampler(tmp_path):
-    """Prop. 901 checked: the scorecard of a partitioned dataset equals that of the
+    """Prop. 951 checked: the scorecard of a partitioned dataset equals that of the
     1.0 sampler (same checks pass) on a scenario with a partitioned fact."""
     s = write_scenario("S9_small_shop", {"kind": "sqlite", "path": str(tmp_path / "shop.db")})
     base = rs.fit(rs.Spec.from_dict(copy.deepcopy(s)), seed=5)

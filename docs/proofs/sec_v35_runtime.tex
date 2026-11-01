@@ -1,29 +1,32 @@
 %=====================================================================
-\section{Partitioned generation (release 3.5)}\label{sec:runtime}
+\section{Partitioned generation (v2.0)}\label{sec:runtime}
+% numbered 950--954 to match the docs and tests; the shared counter is restored at the end
+\newcounter{savedproprt}\setcounter{savedproprt}{\value{proposition}}
 \texttt{synthesis.runtime} generates the fact tables of a dataset in partitions (\texttt{relsynth.runtime}, docs/runtime.md). The driver draws the parameters, every entity, and per fact $f$ the \emph{state} $S_f$: the anchor rows' segments $z^1$, key columns and degree weights $w^1$ (after the eligibility mask), and the partner rows' $z^2,w^2$ and extra-dimension weights. The anchor rows $\{0,\dots,n_1-1\}$ are cut into consecutive blocks $A_0,\dots,A_{P-1}$. Partition $p$ draws the rows of $A_p$ with the generator $G_{f,p}=\mathrm{Philox}(\mathrm{SHA256}(s,d,f,p))$ ($s$ the seed, $d$ the dataset index). Rows are joined in partition order, surrogate keys numbered over the join and generated codes drawn over it from $\mathrm{Philox}(s,d,f,\texttt{codes},c)$; aggregates and the external form follow on the driver from $\mathrm{Philox}(s,d,\texttt{tail})$. A fact is split in one of three modes chosen by \texttt{partition\_rule}: \emph{partition} (all per partition), \emph{structure} (joins on the driver, Prop.~\ref{prop:rtstructure}) or \emph{whole} (one partition). Code: \texttt{runtime/partitioned.py}, \texttt{runtime/streams.py}, \texttt{Synthesizer.\_fact\_state}, \texttt{\_fact\_structure}, \texttt{\_fact\_attributes}.
 
-\begin{proposition}[Worker independence; Prop.~900]\label{prop:rtdet}
+\setcounter{proposition}{949}
+\begin{proposition}[Worker independence]\label{prop:rtdet}
 Let the blocks be a function of $(S_f, \texttt{partition\_rows})$, let every draw of partition $p$ come from $G_{f,p}$ or from a cache whose entries are drawn from streams keyed by their names, and let the executor return the partitions' results in partition order. Then the synthetic dataset is a function of $(s, d, \texttt{partition\_rows})$ and the fitted model only: it is the same for every executor, every number of workers and every order in which partitions run.
 \end{proposition}
 \begin{proof}
 The entity phase and $S_f$ are computed on the driver from streams keyed by $(s,d)$ and $(s,d,f,\texttt{state})$, the same in every run. The block boundaries depend on $S_f$ and \texttt{partition\_rows} only (\texttt{blocks\_for} on expected rows; \texttt{blocks\_by\_rows} on the driver's joins). A task reads $S_f$, the entities and its block, and draws only from $G_{f,p}$; the cached Bayesian-bootstrap weights are drawn, whenever first needed, from $\mathrm{Philox}(s,d,\texttt{bb},\text{name})$ (\texttt{KeyedRunCache}), so their value does not depend on which task needs them first. Hence each task's result is a function of $(S_f, p)$. The join in partition order, the numbering and the tail are deterministic functions of the ordered results and keyed streams. Distinct label tuples give distinct Philox keys except with probability $2^{-128}$ per pair (SHA-256 truncated to 128 bits), and Philox streams with distinct keys are the independent streams of Salmon et al.\ (2011).
 \end{proof}
 
-\begin{proposition}[Partition mode keeps the law; Prop.~901]\label{prop:rtlaw}
+\begin{proposition}[Partition mode keeps the law]\label{prop:rtlaw}
 Given $S_f$, suppose the rows of $f$ are generated as: (single) $N_i$ rows for anchor $i$, independent over $i$ with law $L_{z_i}(w_i)$ (Poisson, or the DP count law with its bootstrap weights fixed for the dataset); or (pairs, no degree law) for each block $(k,l)$, $N_{kl}\sim\mathrm{Poisson}(\eta^*_{kl}W^1_kW^2_l)$ rows, each with anchor drawn $\propto w^1$ in segment $k$ and partner $\propto w^2$ in segment $l$; and, given its anchor (and partner, block), each row's attributes, rule redraws and finishing are drawn independently of other anchors' rows. If every unique key, group effect, running balance and sequence of $f$ contains the anchor key, then the rows drawn per block $A_p$ and joined have the same law as the rows drawn for all anchors at once.
 \end{proposition}
 \begin{proof}
 (single) The $N_i$ are independent, so drawing them block by block changes nothing. (pairs) Mark each of the $N_{kl}$ rows by the block of its anchor. By the marking (thinning) theorem for Poisson processes, the counts $N^p_{kl}$ of rows marked $p$ are independent $\mathrm{Poisson}(\eta^*_{kl}W^{1,p}_kW^2_l)$ with $W^{1,p}_k=\sum_{i\in A_p,z_i=k}w^1_i$, and given $N^p_{kl}$ the anchors are i.i.d.\ $\propto w^1$ on $A_p\cap\{z=k\}$ and the partners i.i.d.\ $\propto w^2$ on segment $l$. This is exactly what partition $p$ draws (\texttt{\_sample\_poisson\_pairs} on the restricted state). Conversely, independent Poisson counts per block superpose to $\mathrm{Poisson}(\eta^*_{kl}W^1_kW^2_l)$ and the union of the per-block anchor draws is the global multinomial allocation. Rows given their anchors are then drawn by the same per-row kernels (\texttt{\_fact\_rows}: ``rows are independent given $(u,v,\mathrm{blk})$''; \texttt{\_refill}: rejection per row from $Q(\text{row}\mid\text{anchor},\text{valid})$). A unique key containing the anchor key compares only rows of one anchor, which lie in one partition; keeping the first of an exchangeable sequence of rows has the same law in any order. Group effects, running balances and sequences within the anchor key act on one anchor's rows. The weights $w^1,w^2$ are normalised once on the driver (in $S_f$), not per block.
 \end{proof}
 
-\begin{proposition}[Structure mode keeps the law; Prop.~902]\label{prop:rtstructure}
+\begin{proposition}[Structure mode keeps the law]\label{prop:rtstructure}
 For an occupancy fact or a pair fact with degree laws, let the joins $(u,v,\mathrm{blk})$ be drawn on the driver from $S_f$ by the single-process samplers (\texttt{\_fact\_structure}), and let partition $p$ draw the attributes of the rows with $u\in A_p$. Under the key conditions of Prop.~\ref{prop:rtlaw}, the joined rows have the law of the single-process sampler.
 \end{proposition}
 \begin{proof}
 The joins are drawn by the same function of $S_f$ (Props.~\ref{prop:linkdeg} and the occupancy model), so their law is unchanged. Given the joins the remaining steps are the per-row kernels of Prop.~\ref{prop:rtlaw}, and the occupancy key (anchor, partner) contains the anchor key.
 \end{proof}
 
-\begin{proposition}[Keys and links across partitions; Prop.~903]\label{prop:rtkeys}
+\begin{proposition}[Keys and links across partitions]\label{prop:rtkeys}
 In a partitioned dataset every primary key is unique, every foreign key resolves, and every unique key and check rule of a fact that the single-process sampler guarantees is guaranteed.
 \end{proposition}
 \begin{proof}
@@ -36,7 +39,7 @@ Entities are drawn on the driver as before. A fact's anchor, partner and extra k
 
 \subsection{Partition-aware statistics}
 
-\begin{proposition}[Drift tests across partitions; Prop.~904]\label{prop:rtdrift}
+\begin{proposition}[Drift tests across partitions]\label{prop:rtdrift}
 Let a table be split into $k$ partitions by its partition fields, and for each of $m$ columns let $p_j$ be the p-value of Welch's heteroscedastic ANOVA (numbers) or of Pearson's chi-square test of homogeneity after lumping levels until every expected count is at least 5 (categories), computed from the per-partition sufficient statistics (counts, means and sample variances; level counts). Flag column $j$ when its Holm-adjusted p-value is below $\alpha$ and its effect size ($\eta^2$, or Cramér's $V$) is at least a threshold $e_j\ge 0$. If every column has the same law in every partition, the probability that any column is flagged is at most $\alpha$ asymptotically (as the partition sizes grow).
 \end{proposition}
 \begin{proof}
@@ -44,3 +47,5 @@ Welch's statistic is a function of $(n_i,\bar x_i,s_i^2)$ only, and under equal 
 \end{proof}
 
 \paragraph{Check.} \texttt{tests/unit/test\_drift.py}: Welch's $F$ and the chi-square agree with direct and scipy computations; over 300 homogeneous tables of 1{,}200 rows in 12 monthly partitions (two numbers, two categories, $e_j=0$) the family-wise rejection rate is at most $\alpha+3\,\mathrm{SE}$; a shifted mean and a changed category share in the second half-year are flagged and the unchanged columns are not; the same on an Iceberg table partitioned by \texttt{month(day)} and an identity field, read through DuckDB.
+
+\setcounter{proposition}{\value{savedproprt}}

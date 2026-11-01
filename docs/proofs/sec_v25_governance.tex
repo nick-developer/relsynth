@@ -1,5 +1,5 @@
 %=====================================================================
-\section{Governance: privacy budget ledger and tamper evidence (v2.5)}\label{sec:v25gov}
+\section{Governance: privacy budget ledger and tamper evidence (v2.0)}\label{sec:v25gov}
 % numbered to match checks C800--C803; the shared counter is restored at the end
 \newcounter{savedpropgov}\setcounter{savedpropgov}{\value{proposition}}
 Release 2.5 records every run in a signed, append-only registry and charges every differentially private release to the privacy budget of the people it is about (design: \texttt{docs/governance/design.md}). The propositions of this section are numbered from 800 so that they do not collide with those of other work streams. Each is tested by a check in \texttt{tests/science/test\_governance\_checks.py} (C800--C803). In the design phase the checks test small reference implementations; the build phase keeps the checks and points them at \texttt{relsynth.governance}.

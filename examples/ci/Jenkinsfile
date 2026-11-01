@@ -1,7 +1,7 @@
 // Jenkinsfile: Oracle source, CSV extract for downstream jobs, using the relsynth image.
 // Credentials: 'oracle-readonly' (secret text: the password).
 pipeline {
-  agent { docker { image 'relsynth:1.0.0'; args '--entrypoint=' } }
+  agent { docker { image 'relsynth:2.0.0'; args '--entrypoint=' } }
   triggers { cron('H 3 * * *') }
   options { timeout(time: 2, unit: 'HOURS') }
   environment { ORA_PASSWORD = credentials('oracle-readonly') }

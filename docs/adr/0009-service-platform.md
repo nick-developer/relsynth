@@ -1,6 +1,6 @@
 # ADR 0009: Service platform stack
 
-- Status: proposed (T09), 2026-10-30
+- Status: accepted (roadmap thread T09, 2026-10-30; merged and released in 2.0.0)
 - Numbered after the roadmap thread to avoid clashes with ADRs of parallel threads.
 
 ## Context

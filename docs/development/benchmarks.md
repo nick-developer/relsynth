@@ -10,7 +10,7 @@ python -m bench all
 `all` runs ruff, the unit and end-to-end tests, the live-server tests when
 `RELSYNTH_TEST_PG_URL`, `RELSYNTH_TEST_MSSQL_URL` or `RELSYNTH_TEST_ORACLE_URL`
 is set ([testing](../testing.md)), the golden databases on seeds 1 to 5, and the
-statistical check suite C00–C78. It then compares the results with
+statistical check suite (C00–C82 and the 2.0 checks). It then compares the results with
 `bench/baseline.json` and exits with 1 on a regression. The first run downloads
 and builds the public databases (about 150 MB, 10 minutes); a full run takes
 about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed alone, 55 with five seeds in parallel; timings are in `bench/baseline.json`).

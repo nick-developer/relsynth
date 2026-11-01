@@ -105,6 +105,11 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `compute.preset` | str | `cpu` |  |  | cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
 | `compute.file` | str | `None` |  |  | A compute.yaml with more presets (relative to the spec). |
 | `compute.overrides` | map | `{}` |  |  | Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, batch_size, memory_limit, threads, fallback. |
+| `runtime.executor` | str | `none` |  |  | none | local | process | spark: none (default) samples in one process as relsynth 1.0; the others generate the facts in partitions (docs/runtime.md): local in this process, process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives the same data with any executor and number of workers. |
+| `runtime.workers` | any | `None` |  |  | Worker processes (process) or tasks at once (spark); default: the CPUs (process) or the Spark context's default parallelism. |
+| `runtime.partition_rows` | int | `1000000` |  |  | Fact rows per partition (about); part of the output's identity: change it and the draws change. |
+| `runtime.start` | any | `None` |  |  | process executor: fork (default on Linux), spawn or forkserver. |
+| `runtime.master` | any | `None` |  |  | spark executor: the master URL when no Spark session is active (default local[workers]). |
 
 ## `evaluation.thresholds`
 

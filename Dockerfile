@@ -1,7 +1,7 @@
 # relsynth with every database driver, for CI/CD jobs and scheduled runs.
 #
-#   docker build -t relsynth:1.0.0 .
-#   docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:1.0.0 run /work/spec.yaml --json
+#   docker build -t relsynth:2.0.0 .
+#   docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:2.0.0 run /work/spec.yaml --json
 #
 # The image runs as an unprivileged user; mount the folder with the spec (and any
 # CSV / Parquet files) at /work.  Credentials come from environment variables.
