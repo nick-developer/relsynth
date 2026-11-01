@@ -53,8 +53,10 @@ def _pools(node: Node, v: Any, pools: dict, cap: int = 200) -> None:
             _pools(node.items, x, pools, cap)
 
 
-def _donor(node, pools, rng):
+def _donor(node, pools, rng, non_null=False):
     p = pools.get(id(node)) or []
+    if non_null:
+        p = [x for x in p if x is not None]
     return p[int(rng.integers(len(p)))] if p else _MISSING
 
 
@@ -67,6 +69,10 @@ _MISSING = _Missing()
 
 def _fix(node: Node, v: Any, path: str, pools, rng, counts: Counter) -> Any:
     t = type_name(v)
+    if t == "missing":
+        d = _donor(node, pools, rng, non_null=True)
+        counts[("missing", path)] += 1
+        return None if d is _MISSING else d
     if node.types.get(t, 0) == 0:
         d = _donor(node, pools, rng)
         if d is _MISSING:

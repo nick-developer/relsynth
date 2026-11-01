@@ -127,6 +127,9 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                     cols[cn] = {kk: vv for kk, vv in cd.items() if kk not in (k, "ratio_same_as")}
                     if cols[cn].get("type") in (None, "lookup"):
                         cols[cn]["type"] = "float"
+        for name_, (lo, hi) in tl.length_bounds.items():
+            if name_ in cols:
+                cols[name_] = {"type": "integer", "min": lo, "max": hi}
         for c in tl.columns:
             if c.role == "tag" and c.name in cols:
                 cols[c.name] = {"type": "categorical"}
@@ -170,6 +173,16 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                     t[k] = [g for g in t[k] if sq["path"] not in repr(g)]
                     if not t[k]:
                         t.pop(k)
+    # a drafted count over an element table is the length column itself
+    # (structural, matched in nest): it must not overwrite the modelled length
+    lens = {(n, c) for n, tl in lay.tables.items() for c in tl.length_bounds}
+    raw["rules"] = [r for r in raw.get("rules", []) if not (r.get("type") == "aggregate" and r.get("agg") == "count"
+                                                          and (r.get("table"), r.get("column")) in lens)]
+    # elements summed into a holder's attribute by an aggregate rule stay with
+    # the holder the engine drew them for (moving them would break the rule)
+    for r in raw.get("rules", []):
+        if r.get("type") == "aggregate" and r.get("from") in lay.tables:
+            lay.tables[r["from"]].match_lengths = False
     raw.setdefault("synthesis", {})["seed"] = seed
     raw["source"] = {"kind": "sqlite", "path": str(db_path)}
     return raw

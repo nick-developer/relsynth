@@ -37,6 +37,18 @@ _EPOCH = _dt.datetime(1970, 1, 1, tzinfo=UTC)
 _INT32 = 2 ** 31
 
 
+class _MissingValue:
+    """A synthetic cell the tag says holds a value but the engine left empty:
+    `conform` supplies a value of the field (its own type, `missing`)."""
+    __slots__ = ()
+
+    def __repr__(self):
+        return "<missing value>"
+
+
+MISSING_VALUE = _MissingValue()
+
+
 class ObjectId(str):
     """A 24-hex-digit MongoDB ObjectId (kept as its hex string)."""
     __slots__ = ()
@@ -56,6 +68,8 @@ def type_name(v: Any) -> str:
     """The type name (one of `TYPES`) of a plain or driver value."""
     if v is None:
         return "null"
+    if v is MISSING_VALUE:
+        return "missing"
     if isinstance(v, bool):
         return "bool"
     if isinstance(v, ObjectId):

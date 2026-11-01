@@ -36,7 +36,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from .infer import FULL_PRECISION, CollectionProfile, Node
-from .values import NUMERIC, ObjectId, from_cell, object_id, to_cell, type_name
+from .values import MISSING_VALUE, NUMERIC, ObjectId, from_cell, object_id, to_cell, type_name
 
 SEP = "__"
 ROW_ID = "_rid"
@@ -69,6 +69,8 @@ class TableLayout:
     id_type: str = "int"
     field_order: list[str] = field(default_factory=list)   # root: the source's top-level field order
     fresh: dict = field(default_factory=dict)  # root fields that are fresh identifiers (path -> type)
+    length_bounds: dict = field(default_factory=dict)   # length column -> [min, max]
+    match_lengths: bool = True        # elements are matched to the holder's modelled length
     key_mode: str | None = None       # map keys: categorical, field (a field of the value) or generated
     key_format: dict | None = None
 
@@ -83,6 +85,7 @@ class Layout:
     shapes: dict[str, dict] = field(default_factory=dict)
     references: list[dict] = field(default_factory=list)
     order: list[str] = field(default_factory=list)       # collections in input order
+    stats: dict = field(default_factory=dict, compare=False)   # last nest: elements moved / copied / dropped
 
     def to_dict(self) -> dict:
         return {"tables": {k: asdict(v) for k, v in self.tables.items()}, "shapes": self.shapes,
@@ -137,10 +140,19 @@ def _states(nd: Node) -> list[str]:
     return st + nd.value_types
 
 
+PRESENCE_TAG_MIN = 0.01      # optional scalars present in [1%, 99%] of their objects get a presence tag
+
+
 def _needs_tag(nd: Node) -> bool:
     vt = nd.value_types
     if len(vt) == 1 and vt[0] not in ("object", "array"):
-        return nd.optional and nd.nullable          # absent and null both occur: NULL alone cannot tell
+        if nd.optional and nd.nullable:            # absent and null both occur: NULL alone cannot tell
+            return True
+        # an optional field's presence as a categorical of its own: the copula
+        # then correlates the presence of fields directly (which fields a
+        # document holds together), not through the lowest level of each value
+        rate = nd.present / nd.n if nd.n else 1.0
+        return nd.optional and PRESENCE_TAG_MIN <= rate <= 1 - PRESENCE_TAG_MIN
     return len(_states(nd)) > 1
 
 
@@ -184,11 +196,12 @@ def _ref_of(refs, cname, path):
 def _walk_object(lay: Layout, prof: CollectionProfile, tl: TableLayout, nd: Node, prefix: list[str], refs, targets):
     """Columns of the object `nd` (fields under `prefix` of the row context)."""
     shapes = lay.shapes.setdefault(tl.name, {})
+    decided = set(nd.variants["fields"]) if nd.variants else set()
     for name, f in nd.fields.items():
         if not prefix and tl.kind == "root" and (name == tl.id_column or name in tl.fresh):
             continue
         path = prefix + [name]
-        _walk_value(lay, prof, tl, f, path, refs, targets)
+        _walk_value(lay, prof, tl, f, path, refs, targets, in_variant=name in decided)
     if nd.variants:
         shapes.setdefault(".".join(prefix), {})["variants"] = nd.variants
 
@@ -200,17 +213,20 @@ def _abs_path(tl: TableLayout, path: list[str]) -> str:
     return tl.context + ("." + rel if rel else "")
 
 
-def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
+def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_variant: bool = False):
     shapes = lay.shapes.setdefault(tl.name, {})
     key = ".".join(path)
     info = {"types": f.value_types, "optional": f.optional, "nullable": f.nullable}
+    if in_variant:
+        # present exactly when the discriminator names its case: no presence tag
+        info["variant_field"] = True
     if f.length_of:
         info["length_of"] = f.length_of
         info["type"] = f.value_types[0]
         shapes[key] = info
         return
     cname = _col(path) if path else "value"
-    if _needs_tag(f):
+    if _needs_tag(f) and not (in_variant and not f.nullable and len(f.value_types) == 1):
         tag = (cname + SEP + "t") if path else "value__t"
         tl.columns.append(Column(tag, path, "tag"))
         info["tag"] = tag
@@ -227,9 +243,11 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
     elif f.is_object and f.is_map:
         info["object"] = True
         info["map"] = _child_table(lay, prof, tl, f, path, "map", refs, targets)
+        info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
     if f.is_array:
         info["array"] = _child_table(lay, prof, tl, f, path, "array", refs, targets)
+        info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
     if scal:
         ref = _ref_of(refs, tl.collection, _abs_path(tl, path)) if len(scal) == 1 else None
@@ -259,6 +277,17 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets):
                 tl.columns.append(c)
                 info["typed"][t] = c.name
     shapes[key] = info
+
+
+def _length_column(tl: TableLayout, f: Node, path, cname) -> str:
+    """The number of elements as an attribute of the holder (``<path>__n``): the
+    copula models it with the holder's other attributes, and the elements the
+    engine draws are then matched to it (`_match_lengths`)."""
+    name = cname + SEP + "n"
+    lo, hi = f.length_bounds()
+    tl.columns.append(Column(name, path, "length", "int", None))
+    tl.length_bounds = {**tl.length_bounds, name: [lo, hi]}
+    return name
 
 
 def _child_table(lay, prof, tl, f: Node, path, kind, refs, targets) -> str:
@@ -333,8 +362,28 @@ def shred(lay: Layout, collections: dict[str, Iterable[dict]]) -> dict[str, pd.D
         cols = [tl.id_column] if tl.id_column != ROW_ID else []
         cols += [c.name for c in tl.columns]
         frames[name] = pd.DataFrame(out.rows.get(name, []), columns=cols)
+        _impute_variant_fields(lay, name, frames[name])
     del keymaps
     return frames
+
+
+def _impute_variant_fields(lay, name, df) -> None:
+    """A field of a variant is absent from the documents of the other cases.
+    Those cells are filled with values of the field drawn at random from the
+    documents that hold it (seeded by table and column), so the engine models
+    the field's values without a structural null that a copula cannot tie to
+    the discriminator; the documents rebuilt from the tables drop the field
+    outside its case again, so the round trip is unchanged."""
+    import numpy as np
+    for key, info in lay.shapes.get(name, {}).items():
+        c = info.get("column")
+        if not info.get("variant_field") or c is None or c not in df.columns or info["nullable"]:
+            continue
+        miss = df[c].isna().to_numpy()
+        vals = df[c][~miss].to_numpy(dtype=object)
+        if miss.any() and len(vals):
+            rng = np.random.default_rng(int(str(object_id(name, c, "impute"))[:8], 16))
+            df.loc[miss, c] = vals[rng.integers(len(vals), size=int(miss.sum()))]
 
 
 def _get(d, path):
@@ -369,6 +418,8 @@ def _fill(lay, tl: TableLayout, row: dict, ctx_value, prefix, out: _Rows, row_id
             row[c.name] = st
         elif c.role in ("value", "ref"):
             row[c.name] = to_cell(v, c.type) if st == c.type else None
+        elif c.role == "length":
+            row[c.name] = len(v) if isinstance(v, (list, dict)) else None
         elif c.role == "typed":
             if c.type == "num":
                 row[c.name] = to_cell(v, "double") if st in NUMERIC else None
@@ -433,6 +484,8 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
             g.sort(key=lambda t: (_sort_key(t[0]), _sort_key(t[1])))
         if tl.kind == "object":
             groups = _match_presence(lay, tl, groups, frames, seed)
+        elif tl.match_lengths:
+            groups = _match_lengths(lay, tl, groups, frames, seed)
         built[name] = groups
     docs = {}
     for cname in lay.order:
@@ -452,6 +505,66 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
             out.append(d)
         docs[cname] = out
     return docs
+
+
+def _match_lengths(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
+    """Give every holder the number of elements its modelled length column says.
+
+    The engine draws the elements of each holder from the count law of its
+    segment; the holder's length column is drawn jointly with its other
+    attributes (an order with a large amount has many items).  A holder keeps
+    its own elements up to its length (in position order); the elements beyond
+    are spare, and holders that need more take spare elements in a seeded
+    random order, then copies of elements of other holders if none is left.
+    The element law within holders is the engine's; the length law is the
+    copula's, which follows the source marginal exactly in expectation."""
+    import copy as _copy
+
+    import numpy as np
+    parent = lay.tables[tl.parent]
+    info = lay.shapes.get(parent.name, {}).get(".".join(tl.holder), {})
+    col = info.get("length_col")
+    pf = frames[parent.name]
+    if col is None or col not in pf.columns:
+        return groups
+    lo, hi = parent.length_bounds.get(col, [0, 1 << 30])
+    ids = pf[parent.id_column].tolist() if parent.id_column in pf.columns else pf[ROW_ID].tolist()
+    want = {}
+    for i, n in zip(ids, pf[col].tolist()):
+        if not _isnull(n):
+            want[i] = int(min(max(round(float(n)), lo), hi))
+    rng = np.random.default_rng(int(str(object_id(seed, tl.name, "lengths"))[:8], 16))
+    out, spare, needy = {}, [], []
+    for i in ids:
+        own = groups.get(i, [])
+        if i not in want:
+            if own:
+                out[i] = own                  # no modelled length (array absent): the shape decides
+            continue
+        n = want[i]
+        out[i] = own[:n]
+        spare.extend(own[n:])
+        if len(own) < n:
+            needy.append(i)
+    for k, g in groups.items():
+        if k not in out and k not in want:
+            spare.extend(g)
+    order = list(rng.permutation(len(spare))) if spare else []
+    donors = [e for g in out.values() for e in g] or spare
+    st = lay.stats.setdefault(tl.name, {"moved": 0, "copied": 0, "dropped": 0})
+    for i in needy:
+        while len(out[i]) < want[i]:
+            if order:
+                out[i].append(spare[order.pop()])
+                st["moved"] += 1
+            elif donors:
+                e = donors[int(rng.integers(len(donors)))]
+                out[i].append((e[0], e[1], _copy.deepcopy(e[2])))
+                st["copied"] += 1
+            else:
+                break
+    st["dropped"] += len(order)
+    return out
 
 
 def _match_presence(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
@@ -544,6 +657,9 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
             c = cols[info["column"]]
             v = r.get(c.name)
             if _isnull(v):
+                if ("tag" in info and state not in (None, "null")) or (info.get("variant_field")
+                                                                        and not info["nullable"]):
+                    return MISSING_VALUE           # the tag (or the variant) says a value: conform supplies one
                 return _ABSENT if (info["optional"] and not info["nullable"]) else None
             return _restore(c, v, idmap, seed)
         if "typed" in info and state in info["typed"]:
@@ -559,7 +675,7 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
                             return from_cell(w, state, c.decimals)
                         except (TypeError, ValueError, ArithmeticError):
                             continue
-                return None
+                return MISSING_VALUE
             if c.type == "num":
                 return from_cell(v, state, c.decimals if state in ("double", "decimal") else None)
             return _restore(c, v, idmap, seed)
