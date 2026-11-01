@@ -167,7 +167,15 @@ class Worker:
         if con.get("secret_ref"):
             sec.check_ref(con["secret_ref"], tid)
             env["RELSYNTH_SVC_SOURCE_SECRET"] = sec.resolve(con["secret_ref"])
+        if job["kind"] == "agent_review":
+            from .app import _agent_cfg
+            cfg = _agent_cfg(self.s)
+            if isinstance(cfg, dict) and cfg.get("api_key_env") and os.environ.get(cfg["api_key_env"]):
+                env[cfg["api_key_env"]] = os.environ[cfg["api_key_env"]]
+        else:
+            cfg = None
         return {"kind": job["kind"], "source": con["source"], "has_secret": bool(con.get("secret_ref")),
+                "agent_backend": cfg,
                 "secret_is_url": bool((con.get("labels") or {}).get("secret_is_url")),
                 "spec": spec["body"] if spec else None, "params": job.get("params") or {},
                 "out_dir": str(work / "out")}
@@ -207,6 +215,16 @@ class Worker:
 
     def _store_outputs(self, job: dict, out: Path, result: dict) -> None:
         tid, rid = job["tenant_id"], job["id"]
+        if job["kind"] == "agent_review":
+            doc = json.loads((out / "answers.json").read_text(encoding="utf-8"))
+            p = job.get("params") or {}
+            n = self.store.add_proposals(tid, job["spec_id"], rid, "review", doc.get("answers") or [],
+                                         p.get("agent") or "agent:relsynth-agent", p.get("on_behalf_of"))
+            result["proposals"] = n
+            self._audit(job, "agent.review.proposed", "ok", {"spec": job["spec_id"], "proposals": n,
+                                                             "flags": len(doc.get("flags") or []),
+                                                             "scope": p.get("scope")})
+            return
         if job["kind"] == "introspect":
             body = (out / "spec.yaml").read_text(encoding="utf-8")
             raw = yaml.safe_load(body) or {}

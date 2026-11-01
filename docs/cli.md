@@ -55,6 +55,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`autotune`](#autotune) | tune engine settings toward your objectives over several seeds; write the tuned spec and a constraints report |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 | [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
+| [`agent`](#agent) | agents that draft and explain; people decide (docs/agents.md) |
 
 ## introspect
 
@@ -534,3 +535,16 @@ usage: relsynth gov [-h] [--json] [--log-level {debug,info,warning,error}] ACTIO
 | Option | Required | Default | Meaning |
 |---|---|---|---|
 | `gov_cmd` | yes |  |  |
+
+## agent
+
+Agents that draft and explain; people decide (docs/agents.md).
+
+```
+usage: relsynth agent [-h] [--json] [--log-level {debug,info,warning,error}]
+                      {review,apply,explain,doctor,draft,eval} ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `agent_cmd` | yes |  |  |

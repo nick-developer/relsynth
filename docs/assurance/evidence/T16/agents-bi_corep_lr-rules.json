@@ -1,0 +1,83 @@
+{
+ "judged_items": 16,
+ "correct": 15,
+ "wrong": 1,
+ "abstained": 0,
+ "coverage": 1.0,
+ "accuracy": 0.9375,
+ "accuracy_ci95": [
+  0.716712622018518,
+  0.9888806553587528
+ ],
+ "by_kind": {
+  "pk": {
+   "correct": 6
+  },
+  "fk": {
+   "wrong": 1,
+   "correct": 7
+  },
+  "unique": {
+   "correct": 2
+  }
+ },
+ "wrong_answers": [
+  {
+   "item": "e07fbf88edf0",
+   "kind": "fk",
+   "verdict": "confirm",
+   "parent": null,
+   "truth": false,
+   "outcome": "wrong",
+   "attention": "normal",
+   "confidence": 0.95
+  }
+ ],
+ "approval": {
+  "oracle_wrong_changes_applied": 0,
+  "wrong_flagged_for_attention": 0,
+  "wrong_unflagged": 1,
+  "hurried_reviewer_would_accept_wrong": 1,
+  "hurried_wrong_changes_applied": 0
+ },
+ "links_missed_by_draft": 0,
+ "verified_not_holding": [],
+ "verified": {
+  "constant:confirm": 6
+ },
+ "time": {
+  "agent_seconds": 0.9,
+  "items_verifiable": 22,
+  "attention_items": 0,
+  "assumed_minutes_manual_per_item": 2.0,
+  "assumed_minutes_read_per_item": 0.5,
+  "estimated_minutes_manual": 44.0,
+  "estimated_minutes_assisted": 11.0,
+  "note": "an estimate from the stated minutes per item, not a measurement of people"
+ },
+ "dataset": "bi_corep_lr",
+ "truth": "curated spec",
+ "draft_seconds": 4.9,
+ "backend": {
+  "name": "rules",
+  "model": "relsynth-rules-1"
+ },
+ "scope": "aggregates",
+ "summary": {
+  "items": 35,
+  "verdicts": {
+   "confirm": 22,
+   "explain": 13
+  },
+  "attention": 13,
+  "changes": 0,
+  "flags": 0,
+  "seconds": 0.9,
+  "scope": "aggregates",
+  "backend": {
+   "name": "rules",
+   "model": "relsynth-rules-1"
+  }
+ },
+ "model_calls": 0
+}

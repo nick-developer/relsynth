@@ -4,6 +4,14 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+- **Agents** (`relsynth.agents`, `relsynth agent review|apply|explain|doctor|draft|eval`, guide `docs/agents.md`; roadmap T16). Agents draft and explain; people decide. `review` answers the `review:` items of an introspected draft with evidence measured on every row and proposes the change each answer implies (add or remove a relationship, remove a rule); `apply --by` applies the answers a person accepts. `explain` words quality, privacy and scorecard reports; `doctor` turns findings into proposals (privacy settings only as advice to the privacy officer); `draft contract` and `draft policy` write an ODCS contract and an organisation policy with every budget empty. Backends: deterministic rules (default) or an OpenAI-compatible model server on the same machine (Ollama, vLLM); a remote server needs `allow_remote`, https, and gets aggregates only.
+- **Agent safeguards**: data scopes by role (`schema`, `aggregates`, `values` with k = 10) under a ceiling, untrusted text marked as data, closed verdicts and typed changes, evidence before any confirmation, grounded plain-text explanations, and no authority: only a person's decision applies a proposal. Props. 1600–1604 with checks C1600–C1604, and a prompt-injection suite (OWASP LLM01/02/05/06).
+- **Agent accounts in the service**: the `agent` role (service accounts only; OIDC tokens cannot claim it) can read and propose and nothing else; `POST /specs/{id}/agent/review`, `GET /specs/{id}/proposals`, `POST /specs/{id}/proposals/decisions` (people only; an accepted proposal makes a new spec version), `POST /runs/{id}/agent/explain`; settings `RELSYNTH_SVC_AGENT_*`; every agent action and refusal audited.
+- **Governance**: an agent action can be recorded as a signed `agent-action/1` statement in the registry; run manifests may list agent actions under `agents`; `approve` refuses keys trusted with the role `agent` and `gov verify` reports any such approval.
+- **Evaluation**: `python -m bench.agents` and the CI job `agents` measure the review agent against the catalogs of Chinook, AdventureWorks DW and Contoso (and the curated bi/COREP spec) with the draft made in benchmark mode: 122 of 124 answered items correct with the rules backend.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 

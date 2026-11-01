@@ -1,0 +1,21 @@
+{
+ "datasets": [
+  "chinook",
+  "adventureworks",
+  "contoso_sqlite",
+  "bi_corep_lr"
+ ],
+ "correct": 122,
+ "wrong": 2,
+ "abstained": 2,
+ "accuracy": 0.9838709677419355,
+ "accuracy_ci95": [
+  0.9430969942911672,
+  0.9955656355793431
+ ],
+ "coverage": 0.9841269841269841,
+ "wrong_unflagged": 1,
+ "oracle_wrong_changes_applied": 0,
+ "backend": "rules",
+ "model": null
+}

@@ -41,7 +41,19 @@ def main(argv: list[str]) -> int:
         import yaml
 
         import relsynth as rs
-        if job["kind"] == "introspect":
+        if job["kind"] == "agent_review":
+            from relsynth.agents.backends import make_backend
+            from relsynth.agents.review import review
+            from relsynth.agents.scope import Scope
+            p = job.get("params", {})
+            raw = yaml.safe_load(job["spec"]) or {}
+            raw.pop("source", None)
+            res = review(raw, source=src, backend=make_backend(job.get("agent_backend") or "rules"),
+                         scope=Scope(p.get("scope", "schema")), only=p.get("only"))
+            doc = res.to_dict()
+            (out / "answers.json").write_text(json.dumps(doc, default=str), encoding="utf-8")
+            result.update(agent=res.summary())
+        elif job["kind"] == "introspect":
             p = job.get("params", {})
             spec = rs.introspect(src, name=p.get("name", "draft"), sample_rows=int(p.get("sample_rows", 20000)),
                                  include=p.get("include"), exclude=p.get("exclude"))

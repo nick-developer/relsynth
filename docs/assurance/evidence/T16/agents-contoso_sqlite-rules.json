@@ -1,0 +1,81 @@
+{
+ "judged_items": 15,
+ "correct": 15,
+ "wrong": 0,
+ "abstained": 0,
+ "coverage": 1.0,
+ "accuracy": 1.0,
+ "accuracy_ci95": [
+  0.7961166964035129,
+  1.0
+ ],
+ "by_kind": {
+  "pk": {
+   "correct": 5
+  },
+  "fk": {
+   "correct": 8
+  },
+  "unique": {
+   "correct": 2
+  }
+ },
+ "wrong_answers": [],
+ "approval": {
+  "oracle_wrong_changes_applied": 0,
+  "wrong_flagged_for_attention": 0,
+  "wrong_unflagged": 0,
+  "hurried_reviewer_would_accept_wrong": [],
+  "hurried_wrong_changes_applied": 0
+ },
+ "links_missed_by_draft": [],
+ "verified_not_holding": [
+  {
+   "kind": "check",
+   "line": "Customer: check days(StartDT) < days(EndDT) (holds on 100.0% of 20,000 sampled rows, 99.6% by chance)",
+   "verdict": "reject"
+  }
+ ],
+ "verified": {
+  "check:confirm": 6,
+  "check:reject": 1,
+  "key_order:confirm": 1,
+  "lookup:confirm": 5
+ },
+ "time": {
+  "agent_seconds": 37.2,
+  "items_verifiable": 29,
+  "attention_items": 1,
+  "assumed_minutes_manual_per_item": 2.0,
+  "assumed_minutes_read_per_item": 0.5,
+  "estimated_minutes_manual": 58.0,
+  "estimated_minutes_assisted": 16.5,
+  "note": "an estimate from the stated minutes per item, not a measurement of people"
+ },
+ "dataset": "contoso_sqlite",
+ "truth": "declared catalog",
+ "draft_seconds": 32.9,
+ "backend": {
+  "name": "rules",
+  "model": "relsynth-rules-1"
+ },
+ "scope": "aggregates",
+ "summary": {
+  "items": 58,
+  "verdicts": {
+   "explain": 29,
+   "confirm": 28,
+   "reject": 1
+  },
+  "attention": 30,
+  "changes": 1,
+  "flags": 0,
+  "seconds": 37.25,
+  "scope": "aggregates",
+  "backend": {
+   "name": "rules",
+   "model": "relsynth-rules-1"
+  }
+ },
+ "model_calls": 0
+}
