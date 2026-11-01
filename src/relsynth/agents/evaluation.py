@@ -148,6 +148,9 @@ def evaluate(res: ReviewResult, truth: dict, *, minutes_manual: float = 2.0, min
                      "hurried_reviewer_would_accept_wrong": [r["item"] for r in slipped],
                      "hurried_wrong_changes_applied": _wrong_changes(log_hurried, truth)},
         "links_missed_by_draft": [list(m) for m in missed],
+        "verified_not_holding": [{"kind": it.kind, "line": it.text[:200], "verdict": a["verdict"]}
+                                 for it, a in zip(res.items, res.answers)
+                                 if it.kind in VERIFIED and a["verdict"] != "confirm"],
         "verified": {f"{k}:{v}": n for (k, v), n in sorted(ver.items())},
         "time": {"agent_seconds": round(res.seconds, 1), "items_verifiable": n_ver,
                  "attention_items": n_att,

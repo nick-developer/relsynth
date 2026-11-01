@@ -78,6 +78,7 @@ def plain_text(s, limit: int = 800) -> str:
     s = _MD.sub(lambda m: m.group(1), s)
     s = _HTML.sub("", s)
     s = _URL.sub("[link removed]", s)
+    s = s.replace("![", "[").replace("<", "‹").replace(">", "›")     # nothing left that renders as markup
     return s if len(s) <= limit else s[: limit - 1] + "…"
 
 
@@ -145,7 +146,7 @@ def check_answer(raw, item: ReviewItem, evidence: dict, spec: dict) -> tuple[dic
         return _unsure(item, "the answer was not a JSON object"), ["not a JSON object"]
     allowed = KIND_VERDICTS.get(item.kind, ("explain",))
     verdict = raw.get("verdict")
-    if verdict not in VERDICTS:
+    if not isinstance(verdict, str) or verdict not in VERDICTS:
         probs.append(f"unknown verdict {str(verdict)[:30]!r}")
         verdict = "unsure" if "unsure" in allowed else "explain"
     if verdict not in allowed:
@@ -157,7 +158,8 @@ def check_answer(raw, item: ReviewItem, evidence: dict, spec: dict) -> tuple[dic
     except (TypeError, ValueError):
         conf = 0.0
         probs.append("confidence is not a number")
-    cites = [str(e) for e in (raw.get("evidence") or []) if isinstance(e, (str, int))][:20]
+    ev_raw = raw.get("evidence")
+    cites = [str(e) for e in (ev_raw if isinstance(ev_raw, list) else []) if isinstance(e, (str, int))][:20]
     bad = [c for c in cites if c not in evidence]
     if bad:
         probs.append(f"cites evidence that does not exist: {bad[:3]}")
@@ -182,7 +184,7 @@ def check_answer(raw, item: ReviewItem, evidence: dict, spec: dict) -> tuple[dic
         if verdict == "unsure":
             parent = None
         cites = cites or list(evidence)
-    text = plain_text(raw.get("explanation", ""))
+    text = plain_text(raw["explanation"]) if isinstance(raw.get("explanation"), str) else ""
     if not text:
         text = template(item, verdict, parent, [evidence[c] for c in cites])
     else:
@@ -194,7 +196,7 @@ def check_answer(raw, item: ReviewItem, evidence: dict, spec: dict) -> tuple[dic
         elif suspicious(text):
             probs.append("the explanation reads like an instruction")
             text = template(item, verdict, parent, [evidence[c] for c in cites])
-    ans = {"item": item.id, "kind": item.kind, "verdict": verdict, "parent": parent, "confidence": round(conf, 3),
+    ans: dict = {"item": item.id, "kind": item.kind, "verdict": verdict, "parent": parent, "confidence": round(conf, 3),
            "evidence": cites, "explanation": text}
     ans["change"] = change_for(item, verdict, parent, spec)
     return ans, probs
@@ -264,28 +266,36 @@ def _unsure(item: ReviewItem, why: str) -> dict:
             "explanation": why, "change": None}
 
 
+def _describe(e) -> str:
+    r = e.result
+    if not r.get("available"):
+        return f"{e.tool}: not available ({r.get('reason', 'no data')})"
+    if e.tool == "unique":
+        return f"{r['duplicate_rows']} duplicate and {r['rows_with_null']} null rows in {r['rows']}"
+    if e.tool == "inclusion":
+        return (f"{e.args['parent']}: {r['share_rows_in_parent']:.1%} of {r['child_rows']} rows found in its key, "
+                f"coverage {r['parent_coverage']:.0%}, name affinity {r['name_affinity']:.2f}")
+    if e.tool == "rule":
+        v = r["violation_share"]
+        return "holds on all rows" if v == 0 else \
+            f"violated on {'less than 0.01%' if v < 1e-4 else f'{v:.2%}'} of all rows"
+    if e.tool == "distinct":
+        return f"{r['distinct']} distinct values in {r['rows']} rows"
+    if e.tool == "time_of_day":
+        return f"{r['share_at_midnight']:.1%} of {r['rows']} values at midnight"
+    if e.tool == "key_order":
+        return f"{r['share_non_decreasing']:.1%} of consecutive keys in order"
+    return f"{e.tool}: measured"
+
+
 def template(item: ReviewItem, verdict: str, parent, evs) -> str:
     """The guard's own wording of an answer, from the evidence only."""
     parts = []
     for e in evs:
-        r = e.result
-        if not r.get("available"):
-            parts.append(f"{e.tool}: not available ({r.get('reason', 'no data')})")
-        elif e.tool == "unique":
-            parts.append(f"{r['duplicate_rows']} duplicate and {r['rows_with_null']} null rows in {r['rows']}")
-        elif e.tool == "inclusion":
-            parts.append(f"{e.args['parent']}: {r['share_rows_in_parent']:.1%} of {r['child_rows']} rows found in "
-                         f"its key, coverage {r['parent_coverage']:.0%}, name affinity {r['name_affinity']:.2f}")
-        elif e.tool == "rule":
-            v = r["violation_share"]
-            parts.append("holds on all rows" if v == 0 else
-                         f"violated on {'less than 0.01%' if v < 1e-4 else f'{v:.2%}'} of all rows")
-        elif e.tool == "distinct":
-            parts.append(f"{r['distinct']} distinct values in {r['rows']} rows")
-        elif e.tool == "time_of_day":
-            parts.append(f"{r['share_at_midnight']:.1%} of {r['rows']} values at midnight")
-        elif e.tool == "key_order":
-            parts.append(f"{r['share_non_decreasing']:.1%} of consecutive keys in order")
+        try:
+            parts.append(_describe(e))
+        except (KeyError, TypeError, ValueError):
+            parts.append(f"{e.tool}: measured (see the evidence record {e.id})")
     head = {"confirm": "Confirmed on all rows", "reject": "Not supported on all rows",
             "answer": f"Proposed parent: {parent}" if parent else "Proposed: not a foreign key",
             "unsure": "Needs a person's judgement", "explain": "For a person to decide"}[verdict]

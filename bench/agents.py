@@ -50,7 +50,7 @@ def run_one(name: str, backend_cfg, scope: str = "aggregates") -> dict:
               summary=res.summary(), model_calls=getattr(backend, "calls", 0) if not isinstance(
                   getattr(backend, "calls", 0), list) else len(backend.calls))
     if is_private(name):
-        for w in ev["wrong_answers"]:
+        for w in ev["wrong_answers"] + ev["verified_not_holding"]:
             w.pop("line", None)
         ev["links_missed_by_draft"] = len(ev["links_missed_by_draft"])
         ev["approval"]["hurried_reviewer_would_accept_wrong"] = len(ev["approval"]["hurried_reviewer_would_accept_wrong"])
