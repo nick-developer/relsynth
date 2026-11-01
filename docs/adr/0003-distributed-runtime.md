@@ -1,6 +1,6 @@
 # ADR 0003: Partitioned generation with counter-based streams; local, process and Spark executors
 
-- Status: proposed (roadmap thread T10, release 3.5)
+- Status: accepted (roadmap thread T10; merged and released in 2.0.0)
 - Date: 2026-10-30
 
 ## Context

@@ -4,13 +4,14 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 
 | Job | What it proves | Time |
 |---|---|---|
-| `lint` | ruff (style, bugs and the `S` security rules), bandit, pip-audit on the installed dependency closure, SPDX header on every Python file, dependency licences (report in the job summary) | 1 min |
+| `lint` | ruff (style, bugs and the `S` security rules), bandit, pip-audit on the installed dependency closure, SPDX header on every Python file, dependency licences (report in the job summary), one version everywhere (`tools/release.py check`: package, README, docs, example pipelines, images, Helm chart, OpenAPI) | 1 min |
+| `proofs` | `tools/check_proofs.py` (every `sec_*.tex` included, no proposition number claimed twice), then the PDF built with latexmk and no undefined or duplicate references; the PDF is an artifact | 3 min |
 | `types` | mypy reports no error outside `tools/mypy-baseline.txt` (the ratchet below) | 1 min |
 | `dco` | every commit of the pull request is signed off by its author | seconds |
 | `unit (os, python)` | `tests/unit` on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, with branch coverage; the Linux 3.12 job writes coverage per module to the job summary | 3–6 min |
 | `e2e` | every CLI command as a pipeline runs it (`tests/e2e`) | 2 min |
 | `integration` | live PostgreSQL 16, SQL Server 2022 and Oracle 23 Free in service containers (`tests/integration`) | 4 min |
-| `science (i/4)` | the statistical check suite C00–C78 in four shards of about equal run time | about 15 min each |
+| `science (i/4)` | the statistical check suite (C00–C82, C700s, C800s, C900s, C1200s) in four shards of about equal run time | about 15 min each |
 | `build` | sdist and wheel, `twine check`, a clean-environment install with every extra, and a CycloneDX SBOM of that install | 1 min |
 | `sign` | dry run of the release signature: the wheel, sdist and SBOM are signed with Sigstore under this workflow's identity and verified (pull requests from this repository and pushes; not on forks) | 1 min |
 

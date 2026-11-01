@@ -45,7 +45,7 @@ helm test relsynth -n relsynth
 Minimal `my-values.yaml`:
 
 ```yaml
-image: {repository: registry.example.org/relsynth/relsynth-service, tag: "1.0.1"}
+image: {repository: registry.example.org/relsynth/relsynth-service, tag: "2.0.0"}
 config:
   oidc_issuer: https://sso.example.org/realms/relsynth
   allowed_hosts: "*.db.example.org"
