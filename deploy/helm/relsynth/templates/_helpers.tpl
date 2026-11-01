@@ -13,6 +13,11 @@ app.kubernetes.io/name: relsynth
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- define "relsynth.sa" -}}{{ include "relsynth.fullname" . }}{{- end -}}
+{{/* the migrate job runs as a pre-install hook, before the release's own
+     ServiceAccount exists, so it gets a hook ServiceAccount of its own */}}
+{{- define "relsynth.migrateSa" -}}
+{{- if .Values.serviceAccount.create -}}{{ include "relsynth.fullname" . }}-migrate{{- else -}}{{ include "relsynth.sa" . }}{{- end -}}
+{{- end -}}
 
 {{/* environment shared by every pod */}}
 {{- define "relsynth.env" -}}

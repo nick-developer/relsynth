@@ -1,0 +1,10 @@
+# kind cluster for deploy/e2e/k8s-e2e.sh: the API (NodePort 30080) and Keycloak
+# (30081) are reachable on localhost, as the e2e flow and the OIDC issuer expect.
+#   kind create cluster --name relsynth-e2e --config deploy/e2e/k8s/kind.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - {containerPort: 30080, hostPort: 30080, protocol: TCP}
+      - {containerPort: 30081, hostPort: 30081, protocol: TCP}
