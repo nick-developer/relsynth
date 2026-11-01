@@ -4,6 +4,16 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+- **Compliance evidence and assurance case** (`docs/assurance/`; roadmap T17): an assurance case for a release (claims, evidence, assumptions, defeaters), a mapping to EDPB Guidelines 02/2026 and *EDPS v SRB*, the AI Act (Art. 10 and the new Art. 4a), HIPAA expert determination, NIST SP 800-226 and SP 800-188 and ISO/IEC 27559 and 20889, a DPIA template for a synthetic release, and release guidance for internal, partner and public recipients.
+- **Claim register** (`docs/assurance/claims.yaml`, `tools/claims_check.py`, CI job `lint`): every claim of the README and of the privacy, DP, security and governance guides (96 claims) traced to a proposition, check, test or measured report; a README sentence that sums up a guide cites that guide's claim. CI fails when a claim changes, its evidence disappears, or a new claim is not registered.
+
+### Changed
+
+- README: "No row is copied" now reads "Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied"; "Privacy checks run by default" now says the copy guards run by default and are not a privacy check; the 2.0 science checks are C600–C606 (privacy attacks), not C700–C706, which do not exist (the generator propositions are tested in `tests/unit/test_generators.py`).
+- `docs/security.md` now describes 2.0: differential privacy is optional rather than absent, the distance guards are copy guards rather than privacy checks, seven core dependencies, four `subprocess` call sites, and the service's connections to the OIDC provider and Vault.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 
