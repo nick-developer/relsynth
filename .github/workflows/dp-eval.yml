@@ -32,8 +32,16 @@ concurrency:
 
 jobs:
   compare-smartnoise:
+    # AIM of smartnoise-synth takes about 15 minutes per run on ACS at epsilon 0.5 and longer above:
+    # one job per (measure, epsilon)
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        measure: [mst, aim]
+        eps: ["0.5", "1", "4", "8"]
+    name: compare-smartnoise (${{ matrix.measure }}, ${{ matrix.eps }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -51,11 +59,16 @@ jobs:
           python -m venv /tmp/sn
           /tmp/sn/bin/pip install "smartnoise-synth==1.0.8" pandas
       - name: MST and AIM
-        env: { REPS: "${{ inputs.reps || '3' }}" }
-        run: /tmp/sn/bin/python -I tools/dp_compare.py --engine smartnoise --reps "$REPS" --out out/compare-smartnoise.jsonl
+        env:
+          REPS: ${{ inputs.reps || '3' }}
+          MEASURE: ${{ matrix.measure }}
+          EPS: ${{ matrix.eps }}
+        run: |
+          /tmp/sn/bin/python -I tools/dp_compare.py --engine smartnoise --measure "$MEASURE" --eps "$EPS" \
+            --reps "$REPS" --out "out/compare-smartnoise-$MEASURE-$EPS.jsonl"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
-        with: { name: dp-compare-smartnoise, path: out/ }
+        with: { name: "dp-compare-smartnoise-${{ matrix.measure }}-${{ matrix.eps }}", path: out/ }
 
   compare-relsynth:
     runs-on: ubuntu-latest

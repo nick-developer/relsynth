@@ -824,7 +824,8 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
             ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
             keep = set(_key_list(res[r["parent"]], pk))
             df = res[t]
-            res[t] = df[[k in keep for k in _key_list(df, ck)]].reset_index(drop=True)
+            # a boolean array, not a list: an empty list would select no columns
+            res[t] = df[np.array([k in keep for k in _key_list(df, ck)], dtype=bool)].reset_index(drop=True)
         for rule in spec.get("rules") or []:
             if rule.get("table") != t or rule.get("type") != "check" or not len(res[t]):
                 continue
