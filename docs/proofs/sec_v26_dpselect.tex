@@ -34,7 +34,7 @@ Let $\rho_t$ be the share of $t$ for second-order statistics. (a) MST spends $\s
 \noindent Check C1302 runs both selections with nothing public at $\varepsilon=1$ and checks the spending, the statement and the links.
 
 \setcounter{proposition}{1302}
-\begin{proposition}[The forest estimate and its sampler]\label{prop:forest}
+\begin{proposition}[The forest estimate and its sampler]\label{prop:dpforest}
 Let $E$ be the chosen pairs, a forest on the nodes. The estimate sets each node marginal to the inverse-variance combination of its one-way measurement and the margins of its two-way measurements, projected onto the simplex, and each edge joint to the noisy histogram clipped at zero and fitted to both node marginals by iterative proportional fitting. Then (a) the model $p(x)=\prod_v p_v(x_v)\prod_{(a,b)\in E}p_{ab}(x_a,x_b)/(p_a(x_a)p_b(x_b))$ is a distribution whose node and edge marginals are the estimates; (b) the sampler draws from $p$, and given evidence on parent nodes from $p(\cdot\mid\text{evidence})$; (c) both are post-processing.
 \end{proposition}
 \begin{proof}
@@ -43,7 +43,7 @@ Let $E$ be the chosen pairs, a forest on the nodes. The estimate sets each node 
 \noindent Check C1303 builds a five-node tree with an evidence node, compares the model's pair of two non-adjacent nodes with the exact marginal, samples 200,000 rows with and without evidence against the exact laws, and checks the consistency of the estimate from noisy inputs.
 
 \setcounter{proposition}{1303}
-\begin{proposition}[Compression and refinement]\label{prop:compress}
+\begin{proposition}[Compression and refinement]\label{prop:dpcompress}
 If a coarse cell $G$ is drawn with probability $\sum_{g(i)=G}\hat p_i$ and a fine cell $i$ in it with probability $\hat p_i/\sum_{g(j)=G}\hat p_j$, then $i$ has law $\hat p$. The maps $g$ depend on released marginals only.
 \end{proposition}
 \begin{proof}
@@ -52,7 +52,7 @@ The product of the two probabilities is $\hat p_i$. The second claim holds by co
 \noindent Check C1304 checks both on 300,000 draws, ordered and unordered. In the seed, a value is drawn uniformly within its fine cell as in Section~\ref{sec:v25dp}; dependence within a coarse cell is not modelled.
 
 \setcounter{proposition}{1304}
-\begin{proposition}[Error falls with the budget]\label{prop:monotone}
+\begin{proposition}[Error falls with the budget]\label{prop:dpmonotone}
 For fixed nodes and chosen pairs, the expected squared error of each measured cell is $\sigma_r^2=c^2/(2\rho_r)$, which falls as $\rho_r$ grows; the bias of the forest (pairs not modelled, dependence within coarse cells) does not depend on $\rho$.
 \end{proposition}
 \begin{proof}
