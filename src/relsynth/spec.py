@@ -487,9 +487,18 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                 if g not in PII_GENERATORS:
                     errs.append(f"{tname}.{cname}: pii.generator must be one of {sorted(PII_GENERATORS)}")
             if c.get("type") == "text":
-                cond = (c.get("text") or {}).get("condition_on")
-                if cond and cond not in t["columns"]:
-                    errs.append(f"{tname}.{cname}: text.condition_on {cond} is not a column")
+                to = c.get("text") or {}
+                cond = to.get("condition_on")
+                for cc in ([cond] if isinstance(cond, str) else list(cond or [])):
+                    if cc not in t["columns"]:
+                        errs.append(f"{tname}.{cname}: text.condition_on {cc} is not a column")
+                if to.get("method", "ngram") not in ("ngram", "lm", "pe"):
+                    errs.append(f"{tname}.{cname}: text.method must be ngram, lm or pe")
+                dpc = (to.get("dp") or {}).get("unit_column")
+                if to.get("dp") and dpc not in t["columns"]:
+                    errs.append(f"{tname}.{cname}: text.dp.unit_column {dpc} is not a column")
+                if to.get("method") == "pe" and not to.get("dp"):
+                    errs.append(f"{tname}.{cname}: text.method pe needs text.dp")
             if c.get("type") == "lookup" and isinstance(c.get("lookup"), dict):
                 errs += _validate_keyed(spec, tname, cname, c["lookup"])
             elif c.get("type") == "lookup":

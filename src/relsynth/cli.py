@@ -939,6 +939,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("version", help="versions of relsynth and its main dependencies")
     s.set_defaults(fn=cmd_version)
 
+    from .textgen.cli import add_parser as _add_text_parser
+    _add_text_parser(sub, _common)
     from .settings_cli import add_parser as _add_settings_parser
     _add_settings_parser(sub, _common)
     from .autotune.cli import add_parser as _add_autotune_parser

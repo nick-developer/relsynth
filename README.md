@@ -40,6 +40,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - [Security](#security)
 - [Performance](#performance)
 - [Validation](#validation)
+- [Synthetic text](#synthetic-text)
 - [Theory: propositions and proofs](#theory-propositions-and-proofs)
 - [Testing the package](#testing-the-package)
 - [Limitations](#limitations)
@@ -88,6 +89,8 @@ pip install "relsynth[gov]"                # signed manifests, registry, policy 
 pip install "relsynth[ir]"                 # JSON Schema check of IR documents
 pip install "relsynth[service]"            # the REST API, workers and web UI (relsynth-service)
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
+pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
+pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
 ```
 
 From a checkout or a wheel file:
@@ -243,6 +246,7 @@ The target's structure comes in three forms:
 | `relsynth clone-schema --source LOC --target LOC` | Create the source's tables empty in a target database |
 | `relsynth profile --source LOC` | Row, null and distinct counts computed in the source (no rows read) |
 | `relsynth ping --source LOC` | Test a connection |
+| `relsynth text models\|pii-eval\|audit\|metrics` | Synthetic text: model licences, PII recall, leakage audit, text metrics |
 | `relsynth version` | Versions of relsynth and its dependencies |
 
 Shared options:
@@ -392,6 +396,29 @@ In both modes, every key resolves, every unique key but one holds (an AdventureW
 
 **Software tests** (`pytest`): 136 unit, end-to-end CLI and security tests, and 24 integration tests run live against PostgreSQL 16.15, SQL Server 2022 (16.0) and Oracle Database 26ai Free (23.26). On every server, the same seed gives the same synthetic database as SQLite, value for value. The wheel was installed and tested in clean environments on Python 3.11, 3.12 and 3.13. Python 3.10 is supported by the code and the CI matrix, but it was not available on the build machine.
 
+## Synthetic text
+
+A text column (`type: text`) is generated from its row: `condition_on: [category, priority]` makes a billing ticket talk about billing. Four methods, chosen per column in `text.method`:
+
+| Method | Runs on | Privacy |
+|---|---|---|
+| `ngram` (default, the 1.0 model) | CPU, no weights | memorisation guards per row (not DP) |
+| `ngram` + `dp` | CPU, no weights, air-gapped | user-level differential privacy (DP n-gram release) |
+| `lm` (+ `dp`) | a local model folder (`relsynth[text-lm]`), GPU optional | not DP; with `dp`, user-level DP-GD fine-tuning |
+| `pe` | a public generator (local model or public corpus) | user-level DP by Private Evolution |
+
+```yaml
+body:
+  type: text
+  text:
+    condition_on: [category, priority]
+    method: ngram
+    pii: {recognizers: [regex]}           # typed placeholders before training, surrogates after
+    dp: {epsilon: 2.0, delta: 1.0e-6, unit_column: customer_id}
+```
+
+relsynth ships no model weights; `relsynth text models` lists models with their licences. `relsynth text pii-eval` measures the recall of the PII recognizers, and `relsynth text audit` inserts canaries, measures their exposure against the DP bound and searches the output for copies of training texts. See [docs/text.md](docs/text.md).
+
 ## Theory: propositions and proofs
 
 The method is described in two papers shipped with the package:
@@ -441,7 +468,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 - Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly. Declare them in the spec.
 - Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). Selected two-way marginals are the next step.
 - Document databases (MongoDB, Cosmos DB, DynamoDB) and graph stores are planned. The IR already describes documents and graphs; data lakes on S3 and ADLS work through Iceberg and Delta.
-- Free text is synthesised by a word-level predictive model. It keeps vocabulary and length laws, not meaning.
+- Free text from the default word-level model keeps vocabulary, phrases and the link to the row, not meaning; a local language model (`text.method: lm`) gives fluent text. Text columns are still empty in DP mode (`--dp`); use `text.dp` on the column (its guarantee covers that column only).
 - BigQuery is tested with unit tests only; the other warehouses against stand-ins, not the live services.
 
 ## Documentation map
@@ -451,6 +478,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
 | [docs/settings.md](docs/settings.md) | Engine settings: settings files, presets, per-table overrides, editable attributes ([reference](docs/settings-reference.md)) |
+| [docs/text.md](docs/text.md) | Synthetic text: methods, DP, the PII layer, the leakage audit, model licences |
 | [docs/autotune.md](docs/autotune.md) | `relsynth autotune`: objectives, the search, the history and the constraints report |
 | [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
 | [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |

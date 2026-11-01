@@ -954,7 +954,9 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
                 tc = spec["synthesis"]["text"]
                 # privacy is judged against a fixed standard (k >= 3 rows, runs of <= 8
                 # tokens), never against looser generation settings in the spec
-                rep["text"][f"{t}.{c}"] = text_metrics(real[t], syn[t], c, o.get("condition_on"),
+                cond = o.get("condition_on")
+                cond = cond[0] if isinstance(cond, list) and cond else cond or None
+                rep["text"][f"{t}.{c}"] = text_metrics(real[t], syn[t], c, cond,
                                                        k=max(o.get("min_token_rows", tc["min_token_rows"]), 3),
                                                        L=min(o.get("max_copy_ngram", tc["max_copy_ngram"]), 8))
         if ts["role"] == "fact":

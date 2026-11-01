@@ -4,6 +4,18 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+- **Synthetic text** (`relsynth.textgen`, `columns.<c>.text.method | dp | pii | lm | pe`, guide `docs/text.md`, ADR 0010, Props. 1500–1507, checks C1500–C1507): free text conditioned on one or several row values, with three methods besides the 1.0 n-gram model (unchanged and byte-identical when none of the new keys is set):
+  - a **DP n-gram release** (`method: ngram` + `dp`): user-level, level-wise partition selection of n-grams with discrete Gaussian noise; no weights, no GPU;
+  - a **local language model** (`method: lm`, `relsynth[text-lm]`): fine-tuning of a local model folder (never downloaded), LoRA through peft, and user-level **DP-GD** with per-person clipping under `dp`; a tiny built-in `stub` model for offline tests;
+  - **Private Evolution** (`method: pe`, always DP): a public generator (local model or a public corpus) proposes texts and the private texts vote through noisy histograms in a data-independent embedding.
+  - `text.dp` charges zCDP to the DP-mode accountant and states its scope (the column only). Text inside `relsynth run --dp` is proposed in RFC-T14-01.
+- **PII layer** (`text.pii`, `relsynth[text-pii]`): regex recognizers with IBAN and Luhn checks, and optional Presidio, spaCy and GLiNER, combined by union; typed placeholders before training and format-valid surrogates from reserved ranges after generation. `relsynth text pii-eval` measures recall with Wilson intervals on a generated labelled set or your own.
+- **Leakage audit** (`relsynth text audit`): canary exposure against the DP bound, exact and near-duplicate copies (MinHash with exact check) and an extraction attack. **Text metrics** (`relsynth text metrics`): MAUVE on a data-independent embedding, consistency with the row, TSTR, copy rates.
+- **Model licence register** (`relsynth text models`, `src/relsynth/data/text_models.yaml`): licence and status of language, NER and embedding models; relsynth ships no weights.
+- **Text benchmark** (`benchmarks/text/run_text.py`): S6, S7 and PolyAI BANKING77 (CC BY 4.0, fetched at run time, aggregates only); CI job `text-lm` runs the language-model tests with EleutherAI/pythia-14m and checks the register against the hub.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 

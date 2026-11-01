@@ -368,6 +368,47 @@ jobs:
 
   # Databricks SQL through its real connector and dialect, against Spark with
   # Delta Lake behind a protocol proxy (tests/emulators/databricks)
+  text-lm:
+    # Synthetic text with a real (tiny) language model: unit tests, check C1502, the
+    # benchmark on S6 with EleutherAI/pythia-14m (Apache-2.0), PII recall of GLiNER and
+    # Presidio on the labelled set, and the licence register against the hub.  Weights
+    # are downloaded into the runner only; nothing is committed or bundled.
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env: { HF_HUB_DISABLE_TELEMETRY: "1" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[dev,text-lm,bench]" huggingface_hub datasketches
+      - name: Licence register against the hub
+        run: python tools/check_text_models.py
+      - name: Download the test model (pythia-14m)
+        run: python -c "from huggingface_hub import snapshot_download; print(snapshot_download('EleutherAI/pythia-14m', local_dir='models/pythia-14m'))"
+      - name: Text unit tests and check C1502 offline
+        env: { HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" }
+        run: |
+          pytest -q tests/unit/test_textgen.py
+          pytest -q -m science tests/science/test_text_checks.py
+      - name: Benchmark with the local model (S6, offline)
+        env: { HF_HUB_OFFLINE: "1", TRANSFORMERS_OFFLINE: "1" }
+        run: python benchmarks/text/run_text.py --corpus S6 --quick --lm models/pythia-14m --out bench-out/text-lm.json
+      - name: PII recall of GLiNER and Presidio (informational)
+        continue-on-error: true
+        run: |
+          pip install -e ".[text-pii]" && python -m spacy download en_core_web_lg
+          python -c "from huggingface_hub import snapshot_download; snapshot_download('urchade/gliner_multi_pii-v1', local_dir='models/gliner')"
+          relsynth text pii-eval --json > bench-out/pii-regex.json
+          relsynth text pii-eval --recognizer gliner=models/gliner --json > bench-out/pii-gliner.json
+          relsynth text pii-eval --recognizer presidio --json > bench-out/pii-presidio.json
+          relsynth text pii-eval --recognizer regex --recognizer gliner=models/gliner --recognizer presidio --json > bench-out/pii-union.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: text-lm, path: bench-out/ }
+
   databricks-stand-in:
     needs: lint
     runs-on: ubuntu-latest

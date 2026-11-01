@@ -54,6 +54,10 @@ service = ["fastapi>=0.110", "uvicorn>=0.29", "PyJWT[crypto]>=2.8", "cryptograph
 service-otel = ["relsynth[service]", "opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp-proto-http>=1.24"]
 gov = ["cryptography>=42", "jsonschema>=4.18"]   # signed manifests, registry, policy (relsynth gov)
 dp = ["opendp>=0.12,<0.17"]                         # differential privacy mode (relsynth run --dp; MIT)
+# synthetic text with local language models (docs/text.md); weights are never bundled
+text-lm = ["torch>=2.2", "transformers>=4.44", "peft>=0.12"]
+# PII recognizers beyond the built-in regex (Presidio and spaCy MIT, GLiNER Apache-2.0); models are local folders
+text-pii = ["presidio-analyzer>=2.2", "spacy>=3.7", "gliner>=0.2"]
 all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet,iceberg,delta]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
 bench = ["py7zr>=0.21"]
