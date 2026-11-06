@@ -1,6 +1,6 @@
 # ADR 0016: Agent-assisted operations
 
-- Status: proposed (T16), 2026-11-01
+- Status: accepted (T16), 2026-11-06
 - Numbered after the roadmap thread to avoid clashes with ADRs of parallel threads.
 
 ## Context
