@@ -16,6 +16,7 @@ second call reuses the runs already made and continues from the incumbent.
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import json
 import logging
@@ -77,12 +78,38 @@ class AutotuneResult:
         return d
 
 
-def fingerprint(raw: dict, obj: Objectives) -> str:
-    """Spec (without its seed) and the objectives that judge it: runs of one
-    fingerprint are comparable."""
+# libraries whose versions change the draws of a seeded run (pandas 2 -> 3 changed
+# AdventureWorks output at the same seed and settings)
+_RUNTIME_LIBS = ("numpy", "pandas", "scipy", "numba", "duckdb", "SQLAlchemy", "pyarrow")
+
+
+@functools.lru_cache(maxsize=1)
+def engine_signature() -> str:
+    """Hash of the relsynth source and the numeric libraries' versions: a run
+    made with another engine or library version is not comparable, even at the
+    same seed and settings."""
+    from importlib import metadata
+    h = hashlib.sha256()
+    root = Path(__file__).resolve().parents[1]
+    for f in sorted(root.rglob("*.py")):
+        h.update(f.relative_to(root).as_posix().encode())
+        h.update(f.read_bytes())
+    for lib in _RUNTIME_LIBS:
+        try:
+            v = metadata.version(lib)
+        except metadata.PackageNotFoundError:
+            v = "-"
+        h.update(f"{lib}={v};".encode())
+    return h.hexdigest()[:16]
+
+
+def fingerprint(raw: dict, obj: Objectives, engine: str | None = None) -> str:
+    """Spec (without its seed), the objectives that judge it and the engine
+    that runs it (engine_signature): runs of one fingerprint are comparable."""
     s = copy.deepcopy(raw)
     (s.get("synthesis") or {}).pop("seed", None)
-    blob = json.dumps({"spec": s, "obj": {k: v for k, v in obj.to_dict().items() if k not in ("budget", "seeds")}},
+    blob = json.dumps({"spec": s, "obj": {k: v for k, v in obj.to_dict().items() if k not in ("budget", "seeds")},
+                       "engine": engine_signature() if engine is None else engine},
                       sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -98,8 +125,10 @@ def _refuse_dp(raw):
 
 
 def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None, progress=None,
-             resume: bool = True) -> AutotuneResult:
-    """Tune the engine settings of a spec toward the objectives."""
+             resume: bool = True, workers: int = 1) -> AutotuneResult:
+    """Tune the engine settings of a spec toward the objectives.  workers > 1
+    runs the seeds of one candidate in parallel processes (the same records as
+    one worker: each run depends only on its candidate and seed)."""
     from ..spec import from_ir, read_yaml
     t0 = time.time()
     say = progress or (lambda m: log.info(m))
@@ -130,19 +159,27 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
         return made < cap and (deadline is None or confirming or time.time() < deadline)
 
     def run(c: Candidate, seeds) -> list:
+        """The candidate's records on these seeds, in order: reused from the
+        history or run (in parallel with workers > 1); stops at the first seed
+        the budget does not cover."""
         nonlocal made, reused0
-        out = []
+        plan: list = []                      # (seed, record or None)
         for s in seeds:
             rec = hist.get(c.key, s)
             if rec is None:
                 if not budget_left():
                     break
                 say(f"run {made + 1}/{budget}: seed {s}, {c.describe()}")
-                tr = run_trial(raw, str(base), s, c.delta, c.patches, obj)
                 made += 1
-                rec = hist.add(c.key, c.delta, c.patches, tr.to_dict(), origin=c.origin)
             else:
                 reused0 += 1
+            plan.append((s, rec))
+        todo = [s for s, rec in plan if rec is None]
+        done = dict(zip(todo, _trials(raw, str(base), todo, c, obj, workers), strict=True))
+        out = []
+        for s, rec in plan:
+            if rec is None:
+                rec = hist.add(c.key, c.delta, c.patches, done[s].to_dict(), origin=c.origin)
             out.append(rec)
         return out
 
@@ -197,7 +234,14 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
                 doc.update(t.get("doctor") or {})
             new = {k: v for k, v in doc.items() if inc.patches.get(k) != v}
             if new:
-                props.append(Candidate(dict(inc.delta), {**inc.patches, **new}, "doctor", inc.key))
+                whole = Candidate(dict(inc.delta), {**inc.patches, **new}, "doctor", inc.key)
+                props.append(whole)
+                if whole.key in tried and len(new) > 1:
+                    # the whole set was rejected: one part can break a constraint the others
+                    # would not (AdventureWorks: larger segments break privacy, the copula
+                    # fixes do not), so its parts are tried on their own, a group per block
+                    for part in _patch_groups(new):
+                        props.append(Candidate(dict(inc.delta), {**inc.patches, **part}, "doctor", inc.key))
         base_syn = raw.get("synthesis") or {}
         from .report import effects as _effects
         learned = _effects(hist, obj)[0]
@@ -294,6 +338,27 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
                          stopped=stopped, extra={"baseline": _summary(base_J, obj), "history": str(hist.path)})
     res.report_markdown = render(res)
     return res
+
+
+def _patch_groups(patches: dict) -> list:
+    """Doctor patches grouped by the block they change (the key without its last
+    part: every per-table segment count is one group), larger groups first."""
+    groups: dict = {}
+    for k, v in patches.items():
+        groups.setdefault(k.rsplit(".", 1)[0], {})[k] = v
+    return sorted(groups.values(), key=lambda g: (-len(g), sorted(g)))
+
+
+def _trials(raw: dict, base: str, seeds: list, c: Candidate, obj, workers: int) -> list:
+    """run_trial for each seed, in this process or in up to `workers` spawned
+    processes (spawn: the engine's native thread pools are not fork-safe)."""
+    if workers <= 1 or len(seeds) <= 1:
+        return [run_trial(raw, base, s, c.delta, c.patches, obj) for s in seeds]
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    with ProcessPoolExecutor(max_workers=min(workers, len(seeds)), mp_context=mp.get_context("spawn")) as ex:
+        futs = [ex.submit(run_trial, raw, base, s, c.delta, c.patches, obj) for s in seeds]
+        return [f.result() for f in futs]
 
 
 def _shrink(accel: dict, c: Candidate, inc: Candidate) -> None:

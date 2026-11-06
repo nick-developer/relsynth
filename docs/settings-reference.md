@@ -62,7 +62,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `facts.occupancy_z` | float | `-4.0` | -1000 … 0 |  | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
 | `facts.occupancy_min_expected` | float | `10.0` | 0 … 1e+09 |  | ... and at least this many repeats are expected under Poisson. |
 | `facts.dp_count_sweeps` | int | `30` | 1 … 100000 |  | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
-| `structure.structural_prior` | float | `0.9` | 0 … 1 | yes | Prior probability that an unseen combination is forbidden. |
+| `structure.structural_prior` | float | `0.9` | 0 … 0.999 | yes | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | float | `3.0` | 0 … 1e+06 | yes | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | float | `0.5` | 1e-06 … 1e+06 | yes (log) | Beta prior of link and occupancy rates. |
 | `structure.conditional_inclusion` | choice | `auto` | auto, none | yes | auto | none: links never point at excluded parent levels. |
