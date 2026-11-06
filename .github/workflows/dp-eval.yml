@@ -8,7 +8,7 @@ name: dp-eval
 #   three repetitions, scorecard share and two-way error (tools/dp_curves.py).
 # - audit: the attacks of `relsynth privacy` on Contoso at epsilon 1, against the bound.
 # Long: AdventureWorks takes about 16 minutes per run.  Runs on demand, weekly,
-# and on pull requests that change the DP engine.  `summary` prints the tables.
+# and when a pull request that changes the DP engine is opened or marked ready.  `summary` prints the tables.
 
 on:
   workflow_dispatch:
@@ -19,6 +19,8 @@ on:
   schedule:
     - cron: "0 6 * * 0"
   pull_request:
+    # not on every push: one run takes about four hours of runner time
+    types: [opened, reopened, ready_for_review]
     paths:
       - "src/relsynth/dp/**"
       - "tools/dp_*.py"
