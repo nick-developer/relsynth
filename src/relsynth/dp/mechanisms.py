@@ -134,3 +134,25 @@ def threshold_for(sensitivity: int, sigma: float, delta: float, k: int) -> float
         else:
             lo = mid
     return float(sensitivity + hi)
+
+
+def noisy_max(scores, sensitivity: float, rho: float, acct: Accountant, stage: str, mechanism: str) -> int:
+    """Index of the highest score, chosen by report noisy max with Gumbel noise
+    (the exponential mechanism; McKenna and Sheldon 2020), spending `rho`
+    zCDP.  `sensitivity` bounds how much any one score moves between
+    neighbours (L-infinity, scores may move in either direction).  The charge is
+    OpenDP's own privacy map, which uses the bounded-range bound eps^2 / 8
+    (Cesar and Rogers 2021; Prop. 1300)."""
+    s = np.asarray(scores, dtype=float).ravel()
+    if rho <= 0:
+        raise PrivacyError(f"{mechanism}: no budget left for this selection")
+    if s.size == 0:
+        raise PrivacyError(f"{mechanism}: nothing to select from")
+    d = float(sensitivity)
+    scale = d / math.sqrt(2 * rho)
+    dp = _dp()
+    m = dp.m.make_noisy_max(dp.vector_domain(dp.atom_domain(T="f64", nan=False)), dp.linf_distance(T="f64"),
+                            dp.zero_concentrated_divergence(), scale=float(scale))
+    spent = float(m.map(d))
+    acct.charge(Charge(stage, mechanism, spent))
+    return int(m([float(x) for x in s]))

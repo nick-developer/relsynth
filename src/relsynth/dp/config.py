@@ -12,6 +12,7 @@
           public: {Customer.Country: {levels: [GR, DE, FR]}, Invoice.Total: {min: 0, max: 50}}
           max_degree: {Invoice: auto, InvoiceLine: 30}
           spec_is_public: true           # the spec was written from public facts only
+          measure: aim                   # copula (default) | mst | aim: two-way marginals in stage 1
 
 relsynth ships no default epsilon: a DP run without `epsilon` or `rho` is
 refused.  Inside an organisation with a policy, the ledger may refuse it
@@ -25,7 +26,8 @@ from ..errors import PrivacyError
 
 KEYS = {"enabled", "unit", "epsilon", "delta", "rho", "public_tables", "public", "max_degree", "degree_quantile",
         "split", "bins", "clip", "max_parent_attrs", "drop_columns", "spec_is_public", "levels_delta_share",
-        "max_degree_range", "degree_fallback"}
+        "max_degree_range", "degree_fallback", "measure", "max_pair_cells", "select_share", "aim_rounds", "pair_bins"}
+MEASURES = ("copula", "mst", "aim")
 SPLIT = {"discovery": 0.15, "degrees": 0.2, "marginals": 0.35, "correlations": 0.3}
 
 
@@ -48,6 +50,11 @@ class DPConfig:
     levels_delta_share: float = 0.5
     max_degree_range: int = 10000
     degree_fallback: int = 8          # cap when no cell of the noisy degree histogram stands above the noise
+    measure: str = "copula"           # copula (T07) | mst | aim: what stage 1 measures beyond one-way histograms
+    max_pair_cells: int = 4096        # mst/aim: a pair with more cells is never measured
+    select_share: float = 0.5         # mst: share of the pairs budget spent on choosing the tree
+    pair_bins: int = 8                # mst/aim: cells per coordinate in a two-way marginal (null included)
+    aim_rounds: int | None = None     # aim: planned rounds (default 16 x nodes); annealing may use fewer
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -99,6 +106,15 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
     for k, v in pub.items():
         if "." not in k or not isinstance(v, dict) or not (set(v) <= {"levels", "min", "max"}) or not v:
             raise PrivacyError(f"synthesis.privacy.dp.public.{k}: TABLE.COLUMN: {{levels: [...]}} or {{min, max}}")
+    measure = str(raw.get("measure", "copula"))
+    if measure not in MEASURES:
+        raise PrivacyError(f"synthesis.privacy.dp.measure: one of {list(MEASURES)}")
+    if not 0 < float(raw.get("select_share", 0.5)) < 1:
+        raise PrivacyError("synthesis.privacy.dp.select_share: a share in (0, 1)")
+    if int(raw.get("max_pair_cells", 4096)) < 4:
+        raise PrivacyError("synthesis.privacy.dp.max_pair_cells: at least 4")
+    if int(raw.get("pair_bins", 8)) < 3:
+        raise PrivacyError("synthesis.privacy.dp.pair_bins: at least 3 (the null cell and two more)")
     pt = raw.get("public_tables", [])
     if pt != "all_unowned" and not isinstance(pt, list):
         raise PrivacyError("synthesis.privacy.dp.public_tables: a list of tables, or all_unowned")
@@ -108,4 +124,8 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
                     drop_columns=list(raw.get("drop_columns") or []), spec_is_public=bool(raw.get("spec_is_public")),
                     levels_delta_share=float(raw.get("levels_delta_share", 0.5)),
                     max_degree_range=int(raw.get("max_degree_range", 10000)),
-                    degree_fallback=int(raw.get("degree_fallback", 8)))
+                    degree_fallback=int(raw.get("degree_fallback", 8)), measure=measure,
+                    max_pair_cells=int(raw.get("max_pair_cells", 4096)),
+                    select_share=float(raw.get("select_share", 0.5)),
+                    pair_bins=int(raw.get("pair_bins", 8)),
+                    aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None)

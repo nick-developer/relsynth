@@ -1,0 +1,73 @@
+%=====================================================================
+\section{Two-way marginals in DP stage 1 (v2.6)}\label{sec:v26dpsel}
+% numbered from 1300 (wave D range of T07b); the shared counter is restored at the end
+\newcounter{savedpropdpsel}\setcounter{savedpropdpsel}{\value{proposition}}
+With \texttt{synthesis.privacy.dp.measure: mst} or \texttt{aim} (guide \texttt{docs/dp.md}, sec.~7; code \texttt{relsynth/dp/select.py}), stage~1 of Section~\ref{sec:v25dp} releases, for each owned table $t$, the one-way histograms of Prop.~\ref{prop:sens}(a) and a set of two-way histograms chosen privately, in place of the second-moment matrix of Prop.~\ref{prop:sens}(b). The setting, the adjacency, the truncation (Prop.~\ref{prop:bound}) and $c=c_t$ are those of Section~\ref{sec:v25dp}. Each proposition is tested by a check in \texttt{tests/science/test\_dp\_select\_checks.py} (C1300--C1306).
+
+\paragraph{Nodes and cells.} The nodes of $t$ are its attribute coordinates, its truncated degrees and, for a child table, the attribute coordinates of its parent row (\emph{parent nodes}). The fine cells of a node are those of its released one-way marginal $\hat p$ (cell~0 is null). Each node is compressed to at most $K$ (\texttt{pair\_bins}, default 8) coarse cells by a map $g$ computed from $\hat p$ alone: the null cell stays alone, ordered cells are cut into $K-1$ runs of about equal mass under $\hat p$, unordered levels keep the $K-2$ most frequent under $\hat p$ and pool the rest. A candidate pair is two nodes, not both parent nodes, with at most \texttt{max\_pair\_cells} coarse cells. For a pair $r=(a,b)$, $M_r(x)$ is the $K_a\times K_b$ histogram of the coarse cells of the truncated rows of $t$ (a parent node's cell is that of the row's parent row).
+
+\setcounter{proposition}{1299}
+\begin{proposition}[Report noisy max]\label{prop:noisymax}
+Let $s(x)\in\mathbb{R}^m$ be scores with $\|s(x)-s(x')\|_\infty\le\Delta$ for neighbours, in either direction. Returning $\arg\max_i s_i(x)+G_i$, with $G_i$ independent Gumbel of scale $b$, satisfies $\rho$-zCDP with $\rho=\Delta^2/(2b^2)$.
+\end{proposition}
+\begin{proof}
+With Gumbel noise the choice has law $\mathrm{softmax}(s/b)$, the exponential mechanism (McKenna and Sheldon \cite{mckenna2020pf}). It is $\varepsilon$-DP with $\varepsilon=2\Delta/b$ and has bounded range $\varepsilon$, so it is $\varepsilon^2/8$-zCDP (Cesar and Rogers \cite{cesar2021}, Lemma~3.2); $\varepsilon^2/8=\Delta^2/(2b^2)$.
+\end{proof}
+\noindent relsynth sets $b=\Delta/\sqrt{2\rho}$ and charges the figure that OpenDP's privacy map of \texttt{make\_noisy\_max} (zero-concentrated divergence, non-monotone $L_\infty$ distance) returns for $\Delta$, which is the same $\rho$. Check C1300 computes the R\'enyi divergence of orders 1.5 to 64 between the two softmax laws exactly for 900 random score vectors and shifts, and checks the charge.
+
+\setcounter{proposition}{1300}
+\begin{proposition}[Sensitivity of scores and pairs]\label{prop:pairsens}
+After the truncation of Prop.~\ref{prop:bound}, with the coarse maps and the model $\hat m$ fixed by earlier outputs: (a) $M_r$ has $L_2$ sensitivity at most $c$; (b) the score $q_r(x)=\|M_r(x)-\hat N\hat m_r\|_1-\kappa_r$, with $\hat N$ the released row count and $\kappa_r$ a constant, has sensitivity at most $c$, so a vector of such scores has $L_\infty$ sensitivity at most $c$.
+\end{proposition}
+\begin{proof}
+At most $c$ rows of $t$ belong to the removed unit, each in one cell of $M_r$; the cells of a parent node are those of the row's parent row, which belongs to the same unit, and the rows of other units and their parent rows are unchanged (Prop.~\ref{prop:bound}). So $M_r$ changes by at most $c$ in $L_1$, hence in $L_2$. (b) follows from the triangle inequality, since $\hat N\hat m_r$ and $\kappa_r$ do not depend on $x$ given earlier outputs.
+\end{proof}
+\noindent Check C1301 is the central check, in the style of C902. With public ranges, levels and cap, it removes nine customers of a star schema one at a time, including the busiest. Each time it replays the noisy outputs and the choices of the full run into the neighbour's run and compares the exact score vectors and histograms of every mechanism, for MST and for AIM. Every difference is within its charged sensitivity, and both bounds are approached within a factor of three.
+
+\setcounter{proposition}{1301}
+\begin{proposition}[The selections spend within the plan]\label{prop:selrun}
+Let $\rho_t$ be the share of $t$ for second-order statistics. (a) MST spends $\sigma_s\rho_t/(m-1)$ on each of at most $m-1$ choices, $m$ the number of nodes, and $(1-\sigma_s)\rho_t/k$ on each of the $k\le m-1$ chosen pairs. (b) AIM spends $\rho_r$ per round, split $0.1/0.9$ between the choice and the measurement; it multiplies $\rho_r$ by 4 when the model's estimate of the measured pair changed by at most $\sqrt{2/\pi}\,\sigma_r$ per cell, and the last round spends what is left. In both cases the total is at most $\rho_t$, and the run, with these replacing Prop.~\ref{prop:sens}(b), satisfies the guarantee of Prop.~\ref{prop:run}.
+\end{proposition}
+\begin{proof}
+(a) adds up to at most $\rho_t$. (b) Before each round the remaining budget $L$ is checked: if $L<2\rho_r$ the round spends $L$; otherwise it spends $\rho_r\le L$; so $L$ never becomes negative. Each choice is Prop.~\ref{prop:noisymax} and each measurement Prop.~\ref{prop:dgauss}, with the sensitivities of Prop.~\ref{prop:pairsens} given the earlier outputs. The candidate sets, the annealing and the coarse maps are functions of earlier outputs. Adaptive zCDP composition (\cite{bun2016}) and Prop.~\ref{prop:run} give the rest; the accountant refuses any charge beyond the plan in any case.
+\end{proof}
+\noindent Check C1302 runs both selections with nothing public at $\varepsilon=1$ and checks the spending, the statement and the links.
+
+\setcounter{proposition}{1302}
+\begin{proposition}[The forest estimate and its sampler]\label{prop:dpforest}
+Let $E$ be the chosen pairs, a forest on the nodes. The estimate sets each node marginal to the inverse-variance combination of its one-way measurement and the margins of its two-way measurements, projected onto the simplex, and each edge joint to the noisy histogram clipped at zero and fitted to both node marginals by iterative proportional fitting. Then (a) the model $p(x)=\prod_v p_v(x_v)\prod_{(a,b)\in E}p_{ab}(x_a,x_b)/(p_a(x_a)p_b(x_b))$ is a distribution whose node and edge marginals are the estimates; (b) the sampler draws from $p$, and given evidence on parent nodes from $p(\cdot\mid\text{evidence})$; (c) both are post-processing.
+\end{proposition}
+\begin{proof}
+(a) With consistent marginals on a tree the junction-tree factorisation is a distribution with those marginals (Wainwright and Jordan \cite{wainwright2008}, sec.~2.5.2); this is the maximum-entropy solution Private-PGM finds when the measured cliques form a tree (McKenna, Sheldon and Miklau \cite{mckenna2019pgm}). IPF converges to the margins when both have the same total and the support allows them; the clipped table plus a positive floor does. (b) The upward pass computes $\lambda_v(x_v)=e_v(x_v)\prod_{w\text{ child of }v}\sum_{x_w}p(x_w\mid x_v)\lambda_w(x_w)$, the likelihood of the evidence below $v$; drawing the root from $p_{\text{root}}\lambda_{\text{root}}$ and each node from $p(x_v\mid x_{\text{parent}})\lambda_v$ is ancestral sampling of $p(\cdot\mid e)$. (c) Both read only released statistics and fresh randomness.
+\end{proof}
+\noindent Check C1303 builds a five-node tree with an evidence node, compares the model's pair of two non-adjacent nodes with the exact marginal, samples 200,000 rows with and without evidence against the exact laws, and checks the consistency of the estimate from noisy inputs.
+
+\setcounter{proposition}{1303}
+\begin{proposition}[Compression and refinement]\label{prop:dpcompress}
+If a coarse cell $G$ is drawn with probability $\sum_{g(i)=G}\hat p_i$ and a fine cell $i$ in it with probability $\hat p_i/\sum_{g(j)=G}\hat p_j$, then $i$ has law $\hat p$. The maps $g$ depend on released marginals only.
+\end{proposition}
+\begin{proof}
+The product of the two probabilities is $\hat p_i$. The second claim holds by construction.
+\end{proof}
+\noindent Check C1304 checks both on 300,000 draws, ordered and unordered. In the seed, a value is drawn uniformly within its fine cell as in Section~\ref{sec:v25dp}; dependence within a coarse cell is not modelled.
+
+\setcounter{proposition}{1304}
+\begin{proposition}[Error falls with the budget]\label{prop:dpmonotone}
+For fixed nodes and chosen pairs, the expected squared error of each measured cell is $\sigma_r^2=c^2/(2\rho_r)$, which falls as $\rho_r$ grows; the bias of the forest (pairs not modelled, dependence within coarse cells) does not depend on $\rho$.
+\end{proposition}
+\begin{proof}
+Prop.~\ref{prop:dgauss}.
+\end{proof}
+\noindent This is the reason for the change: the copula of Section~\ref{sec:v25dp} has a bias that $\rho$ cannot remove, so its utility was flat in $\varepsilon$. Check C1305 is an empirical check on the star schema: for both selections, the mean two-way total variation distance of the synthetic sales at $\varepsilon=32$ is below three quarters of that at $\varepsilon=0.25$. The numbers on real databases are in the T07b report and the \texttt{dp-eval} workflow.
+
+\setcounter{proposition}{1305}
+\begin{proposition}[Scope]\label{prop:selscope}
+An unknown \texttt{measure}, \texttt{pair\_bins} below 3 and a \texttt{select\_share} outside $(0,1)$ are refused by the plan, before any read.
+\end{proposition}
+\begin{proof}
+\texttt{relsynth.dp.config.parse} raises before \texttt{make\_plan} returns; nothing is read and nothing is charged. Check C1306.
+\end{proof}
+
+\paragraph{Differences from MST and AIM.} MST (McKenna, Miklau and Sheldon \cite{mckenna2021mst}) and AIM (McKenna, Mullins, Sheldon and Miklau \cite{mckenna2022aim}) work on one table. Here the nodes include the parent row's cells and the truncated degrees, so the chosen pairs carry the links between tables, and each owned table has its own selection with the contribution bound $c_t$. AIM proper allows cliques of any shape within a model-size limit and estimates with Private-PGM's mirror descent; relsynth keeps the model a forest, so estimation and sampling are exact, at the cost of never modelling a cycle. PrivMRF (Cai et al.\ \cite{cai2021privmrf}) is a third way to choose the graph; it is not implemented.
+
+\setcounter{proposition}{\value{savedpropdpsel}}

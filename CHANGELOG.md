@@ -6,16 +6,19 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Added
 
-- `relsynth autotune --workers N`: the seeds of a candidate run in parallel processes, with the same records and search path as one worker.
-- `tools/autotune_bench.py` and the `autotune` workflow: autotune on a bench database (AdventureWorks with its G1-G14 identities as hard constraints) on GitHub runners; the report and a per-candidate summary go to the job log, and a later run resumes the search. First results: [docs/research/autotune-adventureworks.md](docs/research/autotune-adventureworks.md).
+- **Compliance evidence and assurance case** (`docs/assurance/`; roadmap T17): an assurance case for a release (claims, evidence, assumptions, defeaters), a mapping to EDPB Guidelines 02/2026 and *EDPS v SRB*, the AI Act (Art. 10 and the new Art. 4a), HIPAA expert determination, NIST SP 800-226 and SP 800-188 and ISO/IEC 27559 and 20889, a DPIA template for a synthetic release, and release guidance for internal, partner and public recipients.
+- **Claim register** (`docs/assurance/claims.yaml`, `tools/claims_check.py`, CI job `lint`): every claim of the README and of the privacy, DP, security and governance guides (96 claims) traced to a proposition, check, test or measured report; a README sentence that sums up a guide cites that guide's claim. CI fails when a claim changes, its evidence disappears, or a new claim is not registered.
+- **Two-way marginals in DP mode** (`synthesis.privacy.dp.measure: mst | aim`, `relsynth run --dp-measure`; roadmap T07b, guide `docs/dp.md` sec. 7, Props. 1300-1306, checks C1300-C1306). Stage 1 can release privately chosen two-way histograms in place of the copula's correlation matrix: MST picks a maximum spanning tree with the exponential mechanism, AIM picks pairs over adaptive rounds with annealing (kept to a forest). The nodes of a table include its parent row's cells and its rows per parent row, so the chosen pairs carry the links between tables. Domains are compressed to `pair_bins` cells (default 8) from released marginals; the seed is drawn from the fitted forest. Same accountant, same per-person guarantee and contribution bounding. The default (`copula`) is unchanged. New tools `tools/dp_compare.py` (against smartnoise-synth MST and AIM on ACS), `tools/dp_curves.py` and `tools/dp_workload.py`, the CI workflow `dp-eval` and `tools/dp_audit.py` (the attack audit against the ε bound, run in `dp-eval`).
+
+### Changed
+
+- README: "No row is copied" now reads "Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied"; "Privacy checks run by default" now says the copy guards run by default and are not a privacy check; the 2.0 science checks are C600–C606 (privacy attacks), not C700–C706, which do not exist (the generator propositions are tested in `tests/unit/test_generators.py`).
+- `docs/security.md` now describes 2.0: differential privacy is optional rather than absent, the distance guards are copy guards rather than privacy checks, seven core dependencies, four `subprocess` call sites, and the service's connections to the OIDC provider and Vault.
 
 ### Fixed
 
-- Scorecard: a check rule the source itself breaks (rate above 0) passes within three binomial standard errors of the source rate instead of at the source rate exactly; an exact rule stays exact.
-- `structure.structural_prior` is bounded by 0.999 in the settings registry (the spec refuses 1), so autotune no longer proposes a value every run fails on.
-- Autotune history: the fingerprint includes an engine signature (relsynth source hash and numpy/pandas/scipy/numba/duckdb/SQLAlchemy/pyarrow versions), so runs made under another engine or library version are not reused. On AdventureWorks a pandas 2.3 incumbent made every pandas 3.1 candidate look like a DimProduct privacy regression.
-- Autotune report: a trade-off is reported only when the change in failures is beyond seed noise (one check per seed and twice its paired standard error).
-- Autotune tries a rejected set of `relsynth doctor` fixes block by block, so one fix that breaks a constraint no longer blocks the others.
+- The text TSTR metric of the scorecard no longer builds a dense class x word table for a condition with very many levels (it needed 32 GB on a Contoso DP run); above 50 M cells it uses an inverted index with the same model. Smaller tables, and so every earlier result, are unchanged.
+- The scorecard's naive Bayes accepts labels that mix strings and nulls, and an empty seed table keeps its columns in check enforcement.
 
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).

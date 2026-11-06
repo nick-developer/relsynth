@@ -149,8 +149,9 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
                     [--seed SEED] [--fail-under SHARE] [--registry REGISTRY] [--context CONTEXT]
                     [--release-target RELEASE_TARGET] [--source-id SOURCE_ID] [--key KEY]
                     [--privacy-report PRIVACY_REPORT] [--assess] [--privacy-config PRIVACY_CONFIG]
-                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT]
-                    [--json] [--log-level {debug,info,warning,error}]
+                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
+                    [--dp-statement DP_STATEMENT] [--json]
+                    [--log-level {debug,info,warning,error}]
                     spec
 ```
 
@@ -185,6 +186,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
 | `--dp` |  |  | differentially private run (the spec's synthesis.privacy.dp) |
 | `--epsilon` EPSILON |  |  | this run's epsilon (implies --dp; overrides the spec) |
 | `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's) |
+| `--dp-measure` copula\|mst\|aim |  |  | what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals chosen by MST or AIM (docs/dp.md sec. 7) |
 | `--dp-statement` DP_STATEMENT |  |  | also write the DP statement (JSON) here |
 
 ## extend
