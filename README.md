@@ -466,7 +466,6 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/timeseries.md](docs/timeseries.md) | Event sequences, regular series, incremental runs, TimescaleDB |
 | [docs/generators.md](docs/generators.md) | Generator plug-ins and how to write one ([compute presets](docs/compute.md)) |
 | [docs/privacy.md](docs/privacy.md) | Privacy attacks per person and the report per release context |
-| [docs/dp.md](docs/dp.md) | Differential privacy mode: guarantee, parameters, DP statement, limits |
 | [docs/governance/guide.md](docs/governance/guide.md) | Registry, signed manifests, policy, budget ledger, approvals ([design](docs/governance/design.md)) |
 | [docs/service/](docs/service/README.md) | The service: API, UI, SSO, tenancy, deployment, operations, security |
 | [docs/metrics.md](docs/metrics.md) | The quality report 2.0 and its metrics |

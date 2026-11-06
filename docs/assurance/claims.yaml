@@ -403,6 +403,69 @@ claims:
       - report: docs/assurance/evidence/T07/utility_vs_epsilon.jsonl
     note: The cause (one-dimensional stage-1 statistics) is an inference from the flat curve; roadmap T07b tests it with two-way marginals.
 
+  - id: DP-16
+    doc: docs/dp.md
+    area: statistics
+    quote:
+      - "- mst (McKenna, Miklau and Sheldon 2021) scores every pair by how badly the one-way model gets it wrong, picks a spanning tree pair by pair with the exponential mechanism, and measures the chosen pairs."
+      - "When a measurement changes little, the next rounds spend more. relsynth keeps the model a tree (a forest), so fitting and sampling are exact."
+    status: supported
+    evidence:
+      - prop: prop:selrun
+      - prop: prop:dpforest
+      - check: C1303
+      - test: tests/science/test_dp_select_checks.py::test_c1302_the_run_spends_within_its_plan
+      - test: tests/science/test_dp_select_checks.py::test_c1303_forest_model_estimate_and_sampler_are_exact
+
+  - id: DP-17
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "The guarantee, the unit and the contribution bounding are those of section 2."
+      - "Propositions 1300 to 1306 in docs/proofs give the proofs, and checks C1300 to C1306 (pytest -m science tests/science/test_dp_select_checks.py) test them."
+    status: supported
+    evidence:
+      - prop: prop:noisymax
+      - prop: prop:pairsens
+      - prop: prop:selrun
+      - check: C1300
+      - check: C1301
+      - check: C1302
+      - test: tests/science/test_dp_select_checks.py::test_c1300_noisy_max_is_rho_zcdp_exactly
+      - test: tests/science/test_dp_select_checks.py::test_c1301_scores_and_pairs_respect_their_sensitivity
+      - test: tests/science/test_dp_select_checks.py::test_c1302_the_run_spends_within_its_plan
+
+  - id: DP-18
+    doc: docs/dp.md
+    area: statistics
+    quote:
+      - "On one table, two-way marginals cut the two-way error by about a quarter at every ε."
+      - "The error falls with ε until about ε = 4, where the bias of the tree takes over (pairs it does not model, and detail inside the 8 cells). relsynth's error is lower than smartnoise-synth MST at every ε, and lower than smartnoise-synth AIM at ε = 0.5; at ε = 1 the two are within each other's intervals."
+    status: supported
+    evidence:
+      - prop: prop:dpmonotone
+      - check: C1305
+      - test: tests/science/test_dp_select_checks.py::test_c1305_two_way_error_falls_with_epsilon
+      - report: docs/assurance/evidence/T07b/compare.jsonl
+    note: One table (ACS excerpt), three repetitions per cell; smartnoise-synth AIM did not finish at ε 4 and 8, so there is no comparison there.
+
+  - id: DP-19
+    doc: docs/dp.md
+    area: scope
+    quote: "On Chinook (59 customers) every category level is suppressed at these ε, and no method can recover them."
+    status: limitation
+    evidence:
+      - report: docs/assurance/evidence/T07b/curves.jsonl
+      - prop: prop:sens
+
+  - id: DP-20
+    doc: docs/dp.md
+    area: privacy-measured
+    quote: "An attack audit (tools/dp_audit.py, Contoso, ε = 1, 16 + 16 shadow databases) found the membership-inference true-positive rate at 1 % false positives to be 0.011 with mst and 0.012 with aim, below the bound e^ε · 0.01 + δ = 0.027."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/T07b/audit.jsonl
+
   # ------------------------------------------------------------------ docs/security.md
 
   - id: SEC-01
@@ -1228,7 +1291,7 @@ not_claims:
   - {doc: README.md, quote: "Never put a password on the command line.", reason: "advice to the operator (the enforced part is RM-14)"}
   - {doc: README.md, quote: "A job that refreshes a test database every night and fails when quality drops:", reason: "introduces an example pipeline"}
   - {doc: README.md, quote: "Differential privacy (relsynth run --epsilon E, relsynth[dp], docs/dp.md).", reason: "bullet heading; the bullet's claims are RM-03 and RM-23"}
-  - {doc: README.md, quote: "| docs/dp.md | Differential privacy mode: guarantee, parameters, DP statement, limits |", reason: "documentation map: names a document's contents"}
+  - {doc: README.md, quote: "| docs/dp.md | Differential privacy mode: the guarantee, the two stages, MST/AIM two-way marginals, utility against ε |", reason: "documentation map: names a document's contents"}
   - {doc: README.md, quote: "| docs/governance/guide.md | Registry, signed manifests, policy, budget ledger, approvals (design) |", reason: "documentation map: names a document's contents"}
   - {doc: README.md, quote: "| docs/theory.md | The model in brief and the v1.0 propositions with proofs |", reason: "documentation map: names a document's contents"}
   - {doc: README.md, quote: "| docs/proofs/ | The full proofs (PDF and LaTeX source) |", reason: "documentation map: names a document's contents"}
