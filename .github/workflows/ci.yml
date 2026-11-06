@@ -377,7 +377,9 @@ jobs:
     timeout-minutes: 150
     services:
       mongo:
-        image: mongo:8.0
+        # MongoDB 8.0 refuses to start on kernels 6.19-7.0.13 (SERVER-121912), which the
+        # GitHub runners now use; 7.0 starts and is still supported
+        image: mongo:7.0
         ports: ["27017:27017"]
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1})'" --health-interval 5s --health-retries 30

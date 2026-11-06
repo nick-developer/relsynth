@@ -447,7 +447,7 @@ export RELSYNTH_TEST_MSSQL_URL="mssql://sa:RelSynth_Test1!@localhost:1433/master
 export RELSYNTH_TEST_ORACLE_URL="oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1"
 export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynth
 export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
-export RELSYNTH_TEST_MONGO_URL=mongodb://localhost:27017   # a MongoDB 8 server: pytest -m mongodb
+export RELSYNTH_TEST_MONGO_URL=mongodb://localhost:27017   # a MongoDB 7 server: pytest -m mongodb
 pytest tests/integration                  # the same checks against live servers
 pytest -m science                         # the statistical check suite: C00–C82 and the 2.0 checks (about an hour and a half; CI runs it in four shards)
 pytest --cov=relsynth --cov-report=term   # coverage

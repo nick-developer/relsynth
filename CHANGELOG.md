@@ -15,7 +15,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **Shape metrics** (presence, presence_max, type_mix, array_length, signature, depth, size) with limits calibrated on real-versus-real splits (Prop. 1403), validity and reference integrity.
 - **DynamoDB single-table designs**: item types by discriminator or key prefix, key templates (`CUSTOMER#{customer_id}`) learned and rendered back exactly, GSI keys included (Prop. 1404); `examples/documents/dynamodb_shop.py`.
 - **MongoDB pushdown**: exact type and length counts from one `$group` pipeline and a `$sample` for the rest of the profile.
-- **Acceptance runner** `benchmarks/documents/run_documents.py` (MongoDB sample datasets and a StackExchange dump, downloaded with SHA-256 pins, never committed) and CI job `documents` with a MongoDB 8 service.
+- **Acceptance runner** `benchmarks/documents/run_documents.py` (MongoDB sample datasets and a StackExchange dump, downloaded with SHA-256 pins, never committed) and CI job `documents` with a MongoDB 7 service.
 - Research spike on a direct document generator (`docs/research/document-generator-spike.md`): no-go for now; parent-conditioned element columns proposed as the follow-up.
 
 ## 2.0.0 (2026-10-31)
