@@ -48,11 +48,11 @@ def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
                 col = tl.column(c)
                 if c == tl.id_column:
                     ty = _SQL_TYPE.get(tl.id_type, "TEXT")
-                elif c == PARENT:
+                elif c == PARENT and tl.parent is not None:
                     p = lay.tables[tl.parent]
                     ty = _SQL_TYPE.get(p.id_type, "TEXT") if p.id_column != ROW_ID else "INTEGER"
                     fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{tl.parent}" ("{p.id_column}")')
-                elif col is not None and col.role == "ref":
+                elif col is not None and col.role == "ref" and col.ref is not None:
                     ty = _SQL_TYPE.get(col.type, "TEXT")
                     tcol = target_column(lay, col.ref["table"], col.ref["path"])
                     fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{col.ref["table"]}" ("{tcol}")')
@@ -151,6 +151,9 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                 fact.setdefault("count_model", "dp")
                 if fact.get("partner") == tl.parent:
                     fact.pop("partner")
+                # copied dimensions of functional dependencies are an entity
+                # feature; in an element table the columns stay modelled jointly
+                t.pop("dimensions", None)
         if tl.kind != "root" and "unique" in t:
             # a drafted grain (_parent, value) would turn the element counts into
             # pair occupancies; set semantics are kept by conform instead

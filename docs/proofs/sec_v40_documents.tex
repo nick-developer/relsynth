@@ -1,0 +1,168 @@
+%=====================================================================
+\section{Document databases (v2.1)}\label{sec:v40docs}
+% numbered from 1400 (roadmap T13) so that the parallel wave D threads do not collide
+\newcounter{savedpropdoc}\setcounter{savedpropdoc}{\value{proposition}}
+\setcounter{proposition}{1399}
+Release 2.1 synthesises document collections (\texttt{relsynth/documents}, guide \texttt{docs/documents.md},
+design record \texttt{docs/adr/0010-document-databases.md}). A collection is described by an inferred schema with
+counts, shredded into relational tables (one per collection, array, map and optional sub-document), synthesised by
+the engine, nested back into documents and made to conform to the schema. The checks are
+\texttt{tests/unit/test\_documents.py} and C1400--C1405 in \texttt{tests/science/test\_documents\_checks.py};
+numbers on the MongoDB sample datasets and a StackExchange dump are in the T13 report.
+
+\paragraph{Notation.} A document is a finite tree whose inner nodes are objects (finite maps from names to values)
+or arrays (finite sequences), and whose leaves are typed scalars; $\tau(v)$ is the BSON type of a value (null
+included). A \emph{path} $p$ is a sequence of names, with the step \texttt{[]} for ``an element of the array'' and
+\texttt{\{\}} for ``a value of the map''. For a set $D$ of documents, $O_p(D)$ is the multiset of objects at the
+parent of $p$, $n_p=|O_p|$, $c_p$ the number of them that hold $p$'s last name, $T_p$ the multiset of types at
+$p$, $L_p$ the multiset of lengths of the arrays (and maps) at $p$.
+
+\paragraph{Inferred schema.} The schema $S(D)$ (\texttt{infer.profile\_collection}) holds for every path: $n_p$,
+$c_p$, $T_p$, $L_p$ with $[\min L_p,\max L_p]$; the paths of an object marked as a \emph{map} (merged values, keys as
+data); a \emph{discriminator} $d$ of an object path $o$ with, for each value $\delta$, the set $F_\delta$ of
+optional fields present exactly when $d=\delta$; \emph{length fields} $q$ with $v_q=|v_a|$; \emph{set arrays}
+whose elements never repeat; and \emph{references} $p\to(C,u)$ with $u$ unique in collection $C$. A document $x$
+\emph{validates} against $S$ (\texttt{validate.violations}) when (i) every type at every path of $x$ has a
+positive count in $T_p$; (ii) every field of an object is a path of $S$ (a map admits any key); (iii) a field with
+$c_p=n_p$ is present, and within a discriminated object exactly the fields of $F_{d(x)}$ among the decided ones
+are; (iv) every length at $p$ lies in $[\min L_p,\max L_p]$; (v) every length field equals its array's length.
+
+\begin{proposition}[The inferred schema admits its source]\label{prop:docschema}
+For every finite set $D$ of documents, every $x\in D$ validates against $S(D)$.
+\end{proposition}
+\begin{proof}
+Each condition is a statement about counts that include $x$. (i) $\tau(x_p)$ was counted in $T_p$ when $x$ was read,
+so its count is positive. (ii) every name of $x$ created or incremented a node of $S$; map detection only merges the
+nodes of an object into one value node, which keeps every value's counts. (iii) $c_p=n_p$ means every object at
+the parent of $p$, $x$'s included, held $p$; a discriminator is accepted only when for each value $\delta$ the
+presence rate of each decided field over the objects with $d=\delta$ is 0 or 1, so $x$ holds exactly $F_{d(x)}$.
+(iv) $|x_p|\in L_p$ by construction. (v) a length field is accepted only if $v_q=|v_a|$ held on every object read.
+Inclusion dependencies (references) are not part of validation, so their tolerance for dangling values does not
+matter here. C1400 checks it on 20 random document laws with every shape and on the fake shop.
+\end{proof}
+
+\paragraph{Shredding.} Fix $S$. The layout (\texttt{shred.build\_layout}) gives each collection a root table, and
+each array, map and optional sub-document path a child table with columns \texttt{\_rid} (row id),
+\texttt{\_parent} (the holder's row id), \texttt{\_pos} (position in the source) and, for a map with categorical
+keys, \texttt{\_key}. Inside a table, nested objects are flattened (\texttt{a.b} is column \texttt{a\_\_b}); a path
+whose state (absent, null or a type) varies gets a tag column \texttt{<p>\_\_t}; a union has one value column per
+non-numeric type and one shared numeric column; a length field is not stored; a holder stores each array's length
+\texttt{<p>\_\_n}. Value cells where the tag says there is no value (and decided variant fields outside their case)
+hold values imputed from the same column; the tag decides. \texttt{nest} is the inverse map.
+
+\begin{proposition}[Shredding is invertible]\label{prop:docshred}
+For every $D$ and $S=S(D)$, $\mathrm{nest}(\mathrm{shred}(D))=D$ document by document, up to (a) the order of the
+fields of an object, which follows the order in which $S$ first saw them, (b) row identifiers when
+\texttt{keep\_ids} is off (fresh ObjectIds that are a function of the seed and the row, mapped consistently in every
+reference), and (c) map keys that are generated identifiers. With \texttt{keep\_ids} on and maps whose keys are
+categorical or equal to a field of their value, the equality is exact.
+\end{proposition}
+\begin{proof}
+By induction on the depth of $S$. A scalar at a path with one type is stored in its column by \texttt{to\_cell},
+an injective map on each BSON type (ObjectIds with a prefix, dates to UTC milliseconds, decimals at their stored
+precision, whose text is written without trailing zeros as in the source), and read back by \texttt{from\_cell}, its
+left inverse. If the path's state varies, the tag stores the state, so absent and null are distinguished and the
+type is restored (for the shared numeric column, an int that was stored as a float is integral and
+\texttt{round} restores it). Imputed cells are read only when the tag (or the discriminator) says a value is there,
+which is never the case for them, so they do not change the result. An object at a flattened path is rebuilt from
+its fields; a discriminated object keeps exactly the fields of its case (Prop.~\ref{prop:docschema}, iii), which
+are the fields the source object held. An array is rebuilt from the child rows whose \texttt{\_parent} is the
+holder, sorted by \texttt{(\_pos, \_rid)}; row ids are given in document order, so this is the source order; each
+element is rebuilt by the induction hypothesis. For a map, the key is \texttt{\_key} or the value's key field. A
+length field is recomputed from its array, which equals the source value (Prop.~\ref{prop:docschema}, v). C1401
+checks the identity on 20 random laws, and the unit test on the fake shop and ten MongoDB sample collections (all
+documents identical).
+\end{proof}
+
+\paragraph{Synthesis and conformance.} The engine keeps every key, foreign key, sequence and declared rule of the
+shredded database exactly (Props.~1--40 and 700--706). Nest then matches elements to holders: an optional
+sub-document goes to the holders whose tag says \emph{object} (spare rows first, in a seeded random order), and
+elements go to holders so that each gets its modelled length \texttt{<p>\_\_n} (own elements first, then spare
+ones, then copies of synthetic elements). \texttt{conform} finally repairs what the table model does not state.
+
+\begin{proposition}[Conformance]\label{prop:docconform}
+For any list $Y$ of documents and a schema $S$ whose every path has at least one valid synthetic value in $Y$,
+$\mathrm{conform}(S,Y)$ validates against $S$ document by document, and every value it introduces is a value of
+$Y$ at the same path. Repairs are counted per kind (length, set, extra, missing, type) and path.
+\end{proposition}
+\begin{proof}
+\texttt{conform} rebuilds each document top-down. A value of a type not in $T_p$ (or a missing value) is replaced
+by a value from the pool of $p$: values of $Y$ at $p$ that validate against the node of $p$, so (i) holds below
+$p$. Fields not in $S$ or outside the variant's case are dropped, so (ii) and the second half of (iii) hold;
+required fields absent from the object are taken from the pool of their path, so (iii) holds. Arrays longer than
+$\max L_p$ are truncated and shorter than $\min L_p$ padded from the element pool, so (iv) holds; a repeated element
+of a set array is replaced by an element of the pool not yet held (or dropped when none is left and the length
+stays $\ge\min L_p$). Length fields are reset to their array's length, so (v) holds. Each step only removes values
+or inserts pool values, which are values of $Y$, so no source value is introduced. The recursion visits each node
+once. C1402 checks validity after random corruption and bounds the repair share on the engine's output; the unit
+test checks each kind.
+\end{proof}
+
+\paragraph{Shape metrics.} For two document sets $A,B$ of one collection (\texttt{metrics.shape\_distances}):
+\emph{presence} and \emph{presence\_max} are the mean and the largest $|c_p/n_p|_A-c_p/n_p|_B|$ over the paths of
+either; \emph{type\_mix} the mean total variation distance (TVD) of the state law of each path with more than one
+state; \emph{array\_length} the mean TVD of $L_p$; \emph{signature} the TVD of the top-level field sets;
+\emph{depth} and \emph{size} the TVDs of the nesting depth and of $\lfloor\log_2(1+\#\text{scalars})\rfloor$.
+
+\begin{proposition}[Calibrated shape limits]\label{prop:doclimits}
+Let the documents of a collection be exchangeable (i.i.d.\ given the law), and let a metric's limit be the
+one-sided level-$(1-\alpha)$ prediction bound of the metric between two random halves of the real documents,
+rescaled from the half sizes to the compared sizes by $\kappa$ of Proposition~109 (with the posterior predictive
+factor of Proposition~1204). Then a synthetic set drawn from the real law passes the metric with probability at
+least $1-\alpha$ up to the error of the normal (log-scale) approximation of the split distribution.
+\end{proposition}
+\begin{proof}
+Each metric is a function of the empirical laws of the two sets, built from whole documents, so a split of the real
+documents into halves is a draw of the metric under ``same law'' at the half sizes (the dependence inside a
+document stays inside one side). The metrics are smooth functionals of empirical frequencies, whose fluctuation is
+of order $\sqrt{1/|A|+1/|B|}$; Proposition~109 rescales the bound by
+$\kappa=\sqrt{(1/N+1/M)/(1/N_1+1/N_2)}$, and Proposition~1204 adds one sampling variance at the real size for a
+posterior predictive draw. The prediction bound of the log-normal fit to the split draws then has the stated level
+(\texttt{quality.calibrate.prediction\_limit}). TVDs of sparse laws (many signatures) are biased upward at small
+sizes; the split draws have the same bias at the half sizes, and the rescaling is conservative for a positive bias
+that decreases with size. C1403 checks the level: two independent draws of 20 random laws, 7 metrics each, fail at
+no more than the binomial 1\% rate.
+\end{proof}
+
+\paragraph{Single-table designs.} For one item type $E$ of a DynamoDB table and a key attribute $K$ (partition, sort
+or index key), a \emph{template} is a sequence of \texttt{\#}-separated parts, each a literal or an attribute name,
+such that rendering it on every item of $E$ gives the item's $K$ (\texttt{dynamo.split}).
+
+\begin{proposition}[Key templates]\label{prop:dockeys}
+If a template holds on every source item of $E$, then (a) removing $K$ and rebuilding it from the template
+(\texttt{dynamo.merge}) gives the source items exactly, and (b) on synthetic items, $K$ satisfies the template by
+construction, and the primary key $(PK, SK)$ is unique whenever the attributes of $E$'s templates include a key of
+$E$ that the engine keeps unique (a primary key, or a sequence within a foreign key). Every access pattern that
+reads by a key prefix (a customer's orders under \texttt{CUSTOMER\#<id>}, an order's items under the index key
+\texttt{ORDER\#<id>}) returns, in the synthetic table, exactly the synthetic items that reference that entity.
+\end{proposition}
+\begin{proof}
+(a) Rendering is a function of the remaining attributes, and the template held on every item, so the rebuilt value
+equals the removed one. (b) The rendered key is a function of the item's attributes, so it satisfies the template.
+Rendering is injective on the attributes it names when parts are separated by \texttt{\#} and no attribute value
+contains \texttt{\#} (checked on the source); so two items with the same $(PK,SK)$ agree on every attribute of
+both templates, including the unique key, a contradiction. For the access patterns: the prefix names the referenced
+entity's key, and the engine keeps references exact, so the items under a prefix are those whose reference equals
+that key. C1404 and the moto test check the round trip and uniqueness on the AWS-style example.
+\end{proof}
+
+\begin{proposition}[References and lengths]\label{prop:docrefs}
+In the synthetic documents every reference taken by discovery (or declared) resolves to a synthetic document of its
+target collection; every array length lies in the source's range; every length field equals its array's length;
+and the share of holders with an optional sub-document is the modelled share of the holder's tag.
+\end{proposition}
+\begin{proof}
+A reference is a foreign key of the shredded database, kept exact by the engine; nest maps every target id through
+one injective map (fresh ObjectIds) and applies the same map to every reference, so resolution is preserved. The
+length column is bounded to $[\min L_p,\max L_p]$ in the spec and matching gives each holder that many elements
+whenever spare or copied elements exist; \texttt{conform} enforces the bounds in any case
+(Prop.~\ref{prop:docconform}). Length fields are recomputed from the rebuilt array. Optional sub-documents follow
+the tag: matching moves rows to the holders whose tag says \emph{object}. C1405 checks the four statements on the
+fake shop and the length law against its calibrated limit.
+\end{proof}
+
+\paragraph{Limits.} Value dependence across nesting levels (an item's tags given the item's name) is modelled by the
+engine's latent segments and links, not by the copula of one table; the shape metrics do not measure it. Elements
+moved between holders by length matching keep their own values. A map with generated keys gets fresh keys. Field
+order inside an object follows the schema's first-seen order.
+\setcounter{proposition}{\value{savedpropdoc}}

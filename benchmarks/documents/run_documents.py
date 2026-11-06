@@ -26,6 +26,7 @@ import hashlib
 import json
 import sys
 import time
+import traceback
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -124,7 +125,7 @@ def stackexchange_set(cache: Path, sha256: str | None = None, max_questions: int
             "CommentCount", "FavoriteCount", "UserId", "PostId", "Reputation", "UpVotes", "DownVotes", "Views",
             "AccountId", "LastEditorUserId")
     drop = ("Body", "AboutMe", "Text", "WebsiteUrl", "ProfileImageUrl", "ContentLicense", "OwnerDisplayName",
-            "LastEditorDisplayName", "UserDisplayName", "Location")
+            "LastEditorDisplayName", "UserDisplayName", "Location", "DisplayName")
     users = []
     for r in _xml_rows(out / "Users.xml"):
         users.append({k: (_num(v) if k in ints else v) for k, v in r.items() if k not in drop})
@@ -211,7 +212,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="docs-out")
     ap.add_argument("--cache", default=".cache/documents")
-    ap.add_argument("--sets", default="supplies,analytics,mflix,training,weather,geospatial,stackexchange")
+    ap.add_argument("--sets", default="supplies,analytics,mflix,training,weather,geospatial,airbnb,stackexchange")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--splits", type=int, default=10)
     ap.add_argument("--mongo-url")
@@ -220,11 +221,17 @@ def main(argv=None) -> int:
     out, cache = Path(a.out), Path(a.cache)
     out.mkdir(parents=True, exist_ok=True)
     results = []
+    errors = {}
     for name in a.sets.split(","):
-        cols = stackexchange_set(cache, a.se_sha256) if name == "stackexchange" else mongo_set(name, cache)
-        results.append(run_set(name, cols, out, a.seed, a.splits, a.mongo_url if name != "stackexchange" else None))
+        try:
+            cols = stackexchange_set(cache, a.se_sha256) if name == "stackexchange" else mongo_set(name, cache)
+            results.append(run_set(name, cols, out, a.seed, a.splits,
+                                   a.mongo_url if name != "stackexchange" else None))
+        except Exception as e:  # noqa: BLE001 (one set's failure is reported, the others still run)
+            traceback.print_exc()
+            errors[name] = f"{type(e).__name__}: {e}"
     summary = {"sets": {r["set"]: {"pass": r["pass"], "shape_failures": r["shape_failures"], "metrics": r["metrics"]}
-                        for r in results}}
+                        for r in results}, "errors": errors}
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
     # acceptance: validity and references exact everywhere; shape metrics at
     # 99% each, so at most one false failure per 100 metrics is expected
@@ -232,8 +239,9 @@ def main(argv=None) -> int:
     fails = sum(r["shape_failures"] for r in results)
     exact = all(all(v["valid"] == 1.0 for v in r["collections"].values()) and
                 all(x["share"] == 1.0 for x in r["references"]) for r in results)
-    print(f"validity and references exact: {exact}; shape metrics over the limit: {fails} of {total}")
-    return 0 if exact and fails <= max(1, total // 100) else 1
+    print(f"validity and references exact: {exact}; shape metrics over the limit: {fails} of {total}"
+          + (f"; sets that failed to run: {', '.join(errors)}" if errors else ""))
+    return 0 if exact and not errors and fails <= max(1, total // 100) else 1
 
 
 if __name__ == "__main__":

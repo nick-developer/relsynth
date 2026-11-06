@@ -319,3 +319,16 @@ def test_document_synthesizer_end_to_end(tmp_path):
     assert len(bad) <= 1, bad                    # 14 metrics at 99%: one false failure is within chance
     again = DocumentSynthesizer(cols, seed=3, workdir=tmp_path / "b").synthesize()
     assert [canon(d) for d in again["orders"]] == [canon(d) for d in out["orders"]]
+
+
+def test_no_password_on_the_command_line_and_hostile_keyspaces():
+    from relsynth.documents.connectors import _cb_ident, parse_location
+    from relsynth.errors import SourceError
+    assert parse_location("mongodb://db.example:27017/shop")["url"].endswith("/shop")
+    for url in ("mongodb://app:secret@db.example/shop", "mongodb+srv://app:secret@cluster.example/shop"):
+        with pytest.raises(SourceError, match="password"):
+            parse_location(url)
+    assert _cb_ident("orders") == "`orders`"
+    for bad in ("a`b", "x`; DELETE FROM y; --", "", "a\nb"):
+        with pytest.raises(SourceError):
+            _cb_ident(bad)

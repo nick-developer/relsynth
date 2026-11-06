@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import decimal
 import os
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable, Iterator
@@ -34,10 +35,10 @@ from .values import from_extjson_value, plain, read_json_documents, write_json_d
 SYSTEM_FIELDS = {"cosmos": ("_rid", "_self", "_etag", "_attachments", "_ts", "_lsn"), "couchbase": ()}
 
 
-def connect_documents(sec: dict | str) -> "DocumentConnector":
+def connect_documents(sec: dict | str) -> DocumentConnector:
     if isinstance(sec, str):
         sec = parse_location(sec)
-    kind = sec.get("kind")
+    kind = str(sec.get("kind"))
     cls = {"jsonl": JsonFiles, "json": JsonFiles, "extjson": JsonFiles, "mongodb": MongoDB,
            "cosmos_mongodb": MongoDB, "documentdb": MongoDB, "cosmos": CosmosNoSQL, "dynamodb": DynamoDB,
            "couchbase": Couchbase}.get(kind)
@@ -49,6 +50,10 @@ def connect_documents(sec: dict | str) -> "DocumentConnector":
 def parse_location(s: str) -> dict:
     """'jsonl:folder', 'mongodb://host/db', 'mongodb+srv://...', 'dynamodb:table'."""
     if s.startswith(("mongodb://", "mongodb+srv://")):
+        if re.match(r"mongodb(\+srv)?://[^/@]*:[^/@]*@", s):
+            # like every relsynth command: no passwords on the command line
+            raise SourceError("a MongoDB URL with a password is refused on the command line; "
+                              "put it in an environment variable and use a YAML section with url_env")
         return {"kind": "mongodb", "url": s}
     k, _, rest = s.partition(":")
     if k in ("jsonl", "json", "extjson"):
@@ -300,7 +305,7 @@ class CosmosNoSQL(DocumentConnector):
         return sorted(c["id"] for c in self.db.list_containers())
 
     def read(self, collection, limit=None):
-        q = "SELECT * FROM c" if limit is None else f"SELECT TOP {int(limit)} * FROM c"
+        q = "SELECT * FROM c" if limit is None else f"SELECT TOP {int(limit)} * FROM c"  # noqa: S608  # nosec B608 - (an int)
         for d in self.db.get_container_client(collection).query_items(q, enable_cross_partition_query=True):
             yield {k: plain(v) for k, v in d.items() if k not in SYSTEM_FIELDS["cosmos"]}
 
@@ -412,6 +417,13 @@ class DynamoDB(DocumentConnector):
 
 
 # ---------------------------------------------------------------- Couchbase
+def _cb_ident(name: str) -> str:
+    """A SQL++ identifier in backticks; a name with a backtick or a control character is refused."""
+    if not name or "`" in name or any(ord(ch) < 32 for ch in name):
+        raise SourceError(f"refused Couchbase keyspace name {name!r}")
+    return f"`{name}`"
+
+
 class Couchbase(DocumentConnector):
     """Couchbase Server or Capella: collections of a bucket's scope, read with
     SQL++ (``SELECT META().id AS _id, c.* FROM bucket.scope.collection c``)."""
@@ -433,15 +445,15 @@ class Couchbase(DocumentConnector):
         self.scope = sec.get("scope", "_default")
 
     def _ks(self, c):
-        return f"`{self.bucket}`.`{self.scope}`.`{c}`"
+        return ".".join(_cb_ident(x) for x in (self.bucket, self.scope, c))
 
     def collections(self):
-        q = (f"SELECT RAW name FROM system:keyspaces WHERE `bucket` = '{self.bucket}' "
-             f"AND `scope` = '{self.scope}'")
-        return sorted(self.cluster.query(q))
+        from couchbase.options import QueryOptions
+        q = "SELECT RAW name FROM system:keyspaces WHERE `bucket` = $1 AND `scope` = $2"
+        return sorted(self.cluster.query(q, QueryOptions(positional_parameters=[self.bucket, self.scope])))
 
     def read(self, collection, limit=None):
-        q = f"SELECT META(c).id AS _id, c.* FROM {self._ks(collection)} c"
+        q = f"SELECT META(c).id AS _id, c.* FROM {self._ks(collection)} c"  # noqa: S608  # nosec B608 - (quoted identifiers)
         if limit is not None:
             q += f" LIMIT {int(limit)}"
         for r in self.cluster.query(q):
@@ -451,7 +463,7 @@ class Couchbase(DocumentConnector):
         from .values import to_plain_json
         coll = self.cluster.bucket(self.bucket).scope(self.scope).collection(collection)
         if if_exists in ("replace", "truncate"):
-            self.cluster.query(f"DELETE FROM {self._ks(collection)}").execute()
+            self.cluster.query(f"DELETE FROM {self._ks(collection)}").execute()  # noqa: S608  # nosec B608 - (quoted identifiers)
         n = 0
         for d in docs:
             d = to_plain_json(d)

@@ -18,6 +18,8 @@ relsynth reads from and writes to one *location* at a time: a schema of a SQL da
 | Apache Iceberg | `iceberg:./lake` | `{kind: iceberg, path: ./lake, schema: sales}` or `{kind: iceberg, catalog: {...}, schema: sales}` | PyIceberg (`relsynth[iceberg]`) | local disk; S3 (moto server) and Azure Blob (Azurite); see [lakehouse.md](lakehouse.md) |
 | Delta Lake | `delta:./lake/sales`, `delta:s3://bucket/sales` | `{kind: delta, path: ..., storage: {...}}` | deltalake (`relsynth[delta]`) | local disk; S3 (moto server) and Azure Blob (Azurite); see [lakehouse.md](lakehouse.md) |
 
+Document stores (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON collections) have their own locations and the `relsynth docs` command; see [documents.md](documents.md).
+
 The cloud warehouses take three more settings, `auth`, `guards` and `bulk`, described in [warehouses.md](warehouses.md).
 
 Relative paths in a spec are relative to the spec file's folder. Any other SQLAlchemy dialect can be tried with its full URL (`dialect+driver://...`), but only the kinds above are tested and supported.

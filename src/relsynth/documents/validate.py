@@ -36,12 +36,13 @@ def violations(node: Node, v: Any, path: str = "", out: list | None = None, limi
         lo, hi = node.length_bounds()
         if not lo <= len(v) <= hi:
             out.append(f"{path}: {len(v)} entries outside [{lo}, {hi}]")
-        for k, x in v.items():
-            violations(node.items, x, f"{path}.{k}", out, limit)
+        if node.items is not None:
+            for k, x in v.items():
+                violations(node.items, x, f"{path}.{k}", out, limit)
     elif t == "object":
         nobj = node.types["object"]
         var = node.variants
-        case = None
+        case: set = set()
         if var:
             case = set(var["cases"].get(v.get(var["discriminator"]), []))
             if v.get(var["discriminator"]) not in var["cases"]:
@@ -68,15 +69,16 @@ def violations(node: Node, v: Any, path: str = "", out: list | None = None, limi
         lo, hi = node.length_bounds()
         if not lo <= len(v) <= hi:
             out.append(f"{path}: length {len(v)} outside [{lo}, {hi}]")
-        for i, x in enumerate(v):
-            violations(node.items, x, f"{path}[{i}]", out, limit)
+        if node.items is not None:
+            for i, x in enumerate(v):
+                violations(node.items, x, f"{path}[{i}]", out, limit)
     return out
 
 
 def validate_collection(prof: CollectionProfile, docs, limit: int = 20) -> dict:
     """{documents, valid, share, examples} for documents against a collection's schema."""
     n = bad = 0
-    examples = []
+    examples: list = []
     for d in docs:
         n += 1
         v = violations(prof.root, d, "", None, 5)

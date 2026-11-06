@@ -55,6 +55,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`autotune`](#autotune) | tune engine settings toward your objectives over several seeds; write the tuned spec and a constraints report |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 | [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
+| [`docs`](#docs) | document collections (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON): discover, synthesise, check |
 
 ## introspect
 
@@ -534,3 +535,15 @@ usage: relsynth gov [-h] [--json] [--log-level {debug,info,warning,error}] ACTIO
 | Option | Required | Default | Meaning |
 |---|---|---|---|
 | `gov_cmd` | yes |  |  |
+
+## docs
+
+Document collections (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON): discover, synthesise, check.
+
+```
+usage: relsynth docs [-h] [--json] [--log-level {debug,info,warning,error}] DOCS_COMMAND ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `docs_cmd` | yes |  |  |

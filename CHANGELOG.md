@@ -4,6 +4,20 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+#### Document databases (roadmap T13)
+
+- **`relsynth docs discover|synth|check`** and **`relsynth.documents.DocumentSynthesizer`**: synthesise document collections from MongoDB (also Cosmos DB for MongoDB and Amazon DocumentDB), Azure Cosmos DB for NoSQL, Amazon DynamoDB, Couchbase and Extended JSON files, keeping their shape. Extras `relsynth[documents]` (pymongo, azure-cosmos, boto3) and `relsynth[couchbase]`. Guide `docs/documents.md`, ADR 0010, Props. 1400–1405, checks C1400–C1405.
+- **Schema inference with counts**: types, presence, array lengths, distinct values and field sets per path; maps keyed by identifiers (with the key rebuilt from a field of the value), variants with a discriminator, length fields, set arrays, references by `_id` or a natural key (partial matches reported as candidates with their coverage) and sequences 1..n within a parent. Exported as an IR 2.0 document with the counts in `x-relsynth-counts` (maps in `x-relsynth-map` until RFC-T13-01 is decided). Every source document validates against the inferred schema (Prop. 1400).
+- **Shred, synthesise, nest**: one table per collection, array, map and optional sub-document, with tag columns for absent, null and the type of union fields and length columns modelled with the parent; the relational engine synthesises them and the documents are nested again, with fresh deterministic ObjectIds and references to synthetic documents. `nest(shred(D)) = D` exactly (Prop. 1401).
+- **Conformance**: every synthetic document validates against the inferred schema; values that break it are replaced from other synthetic documents (never from the source) and every repair is counted by kind and path (Prop. 1402).
+- **Shape metrics** (presence, presence_max, type_mix, array_length, signature, depth, size) with limits calibrated on real-versus-real splits (Prop. 1403), validity and reference integrity.
+- **DynamoDB single-table designs**: item types by discriminator or key prefix, key templates (`CUSTOMER#{customer_id}`) learned and rendered back exactly, GSI keys included (Prop. 1404); `examples/documents/dynamodb_shop.py`.
+- **MongoDB pushdown**: exact type and length counts from one `$group` pipeline and a `$sample` for the rest of the profile.
+- **Acceptance runner** `benchmarks/documents/run_documents.py` (MongoDB sample datasets and a StackExchange dump, downloaded with SHA-256 pins, never committed) and CI job `documents` with a MongoDB 8 service.
+- Research spike on a direct document generator (`docs/research/document-generator-spike.md`): no-go for now; parent-conditioned element columns proposed as the follow-up.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 

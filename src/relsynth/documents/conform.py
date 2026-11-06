@@ -85,6 +85,7 @@ def _fix(node: Node, v: Any, path: str, pools, rng, counts: Counter) -> Any:
         if len(items) > hi:
             counts[("length", path)] += 1
             items = items[:hi]
+        assert node.items is not None
         out = {k: _fix(node.items, x, path + "{}", pools, rng, counts) for k, x in items}
         return out
     if t == "object":
@@ -128,7 +129,8 @@ def _fix(node: Node, v: Any, path: str, pools, rng, counts: Counter) -> Any:
                 if d is _MISSING:
                     break
                 items.append(d)
-        items = [_fix(node.items, x, path + "[]", pools, rng, counts) for x in items]
+        if node.items is not None:
+            items = [_fix(node.items, x, path + "[]", pools, rng, counts) for x in items]
         if node.distinct_items and node.items is not None and len(items) > 1 and _hashable(items):
             items = _distinct(node, items, path, pools, rng, counts)
         return items
@@ -167,7 +169,9 @@ def conform(prof: CollectionProfile, docs: list[dict], seed: int = 0) -> tuple[l
     pools: dict = {}
     for d in docs:
         _pools(prof.root, d, pools)
-    out, counts, touched = [], Counter(), 0
+    out: list = []
+    counts: Counter = Counter()
+    touched = 0
     for d in docs:
         before = sum(counts.values())
         idv = d.get("_id", _MISSING)
@@ -177,7 +181,7 @@ def conform(prof: CollectionProfile, docs: list[dict], seed: int = 0) -> tuple[l
             nd = {"_id": idv, **{k: x for k, x in nd.items() if k != "_id"}}
         touched += sum(counts.values()) > before
         out.append(nd)
-    by_kind = Counter()
+    by_kind: Counter = Counter()
     for (k, _), c in counts.items():
         by_kind[k] += c
     return out, {"repairs": int(sum(counts.values())), "documents_repaired": touched,

@@ -37,6 +37,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - [Quality: the scorecard, the doctor and model checks](#quality-the-scorecard-the-doctor-and-model-checks)
 - [Privacy, differential privacy and governance](#privacy-differential-privacy-and-governance)
 - [Time series, generators, settings and scale](#time-series-generators-settings-and-scale)
+- [Document databases](#document-databases)
 - [Security](#security)
 - [Performance](#performance)
 - [Validation](#validation)
@@ -58,6 +59,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - **Privacy.** No row is copied. Distance-to-closest-record checks compare synthetic rows with real ones, against the real data's own spacing. Text cannot reproduce rare source content, and memorisation guards are on by default. `relsynth privacy` attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context.
 - **Differential privacy (optional).** `relsynth run --epsilon 1` gives a user-level (ε, δ) guarantee for each person of the privacy unit and all their rows. The organisation sets ε; there is no default. Releases outside the organisation are refused without it.
 - **Governance.** Signed, hash-chained manifests of every run, a privacy budget ledger per domain, an organisation policy and human approvals before release (`relsynth gov`).
+- **Documents.** MongoDB, Cosmos DB, DynamoDB (single-table designs included), Couchbase and JSON collections keep their shape: optional fields, unions, nested arrays with their length laws, polymorphic sub-documents, maps and references between collections (`relsynth docs`).
 - **Time.** Event sequences (a customer's orders) keep their gaps, life times and calendar; meter-style series keep their seasonal profiles and autocorrelation; `relsynth extend` adds new days to a synthetic dataset.
 - **Large tables.** Facts larger than memory are fitted from statistics computed inside the database (`GROUP BY`, window functions) plus a uniform sample. Rows never leave the database as a whole. Generation can run in partitions on many processes or Spark, with the same output for any number of workers.
 - **Pluggable and adjustable.** Each table's columns come from a generator plug-in (`copula` by default, `independent`, `cart`, or third-party packages). 101 engine settings can be changed in a file, a preset or per table, and `relsynth autotune` tunes them toward your objectives.
@@ -352,6 +354,23 @@ The relational part of the model is unchanged: Proposition 100 proves it, and a 
 - **Partitioned generation** ([docs/runtime.md](docs/runtime.md)). `synthesis.runtime` runs fact rows in partitions on the `local`, `process` or `spark` executor. Each partition draws from a Philox stream keyed by seed, dataset, fact and partition, so the output is the same for 1, 8 or 64 workers and for Spark (Prop. 950).
 - **IR 2.0** ([docs/ir-guide.md](docs/ir-guide.md)). One versioned document describes a data estate: entities with shapes (record, document, node, edge, event), nested arrays, keys, references, hierarchies, time and versioning, partitions, rules and the privacy unit. 1.0 specs convert without loss (same synthetic data); ODCS v3 data contracts and OpenLineage are exported and checked.
 
+## Document databases
+
+`relsynth docs` ([docs/documents.md](docs/documents.md), `relsynth[documents]`) synthesises document collections from MongoDB, Cosmos DB for MongoDB, Cosmos DB for NoSQL, DynamoDB, Couchbase and JSON files.
+
+```bash
+relsynth docs discover jsonl:data/shop --out shop.ir.json          # the schema with counts, as IR 2.0
+relsynth docs synth source.yaml --to jsonl:synthetic/ --report report.json
+relsynth docs check jsonl:data/shop jsonl:synthetic/
+```
+
+- **Inference with counts.** Types, presence, array lengths and field sets per path; maps keyed by identifiers, variants with a discriminator, length fields, set arrays, references (by `_id` or a natural key) and sequences are found in the data.
+- **Through the engine.** Collections are shredded into tables (one per array, map and optional sub-document, with tag and length columns), synthesised by the relational engine and nested again; `nest(shred(D)) = D` exactly (Prop. 1401).
+- **Valid documents.** Every synthetic document validates against the inferred schema and references resolve; what had to be repaired is counted per kind and path.
+- **Shape metrics** (presence, type mix, array lengths, field sets, depth, size) with limits calibrated on real-versus-real splits.
+- **DynamoDB single-table designs**: item types are split by a discriminator and keys such as `CUSTOMER#{customer_id}` are rebuilt from learned templates, unique and with the same access patterns.
+- **In MongoDB**, exact counts come from one `$group` pipeline and the rest from a `$sample`.
+
 ## Security
 
 - **Credentials.** Passwords are never accepted on the command line; they come from `password_env` or `url_env`. Passwords are masked in every message, log, saved spec, diagnostics bundle and exported model. The masking covers URL passwords, `password=`/`token=` query parameters and ODBC `PWD=`.
@@ -397,7 +416,7 @@ In both modes, every key resolves, every unique key but one holds (an AdventureW
 The method is described in two papers shipped with the package:
 
 - [docs/proofs/algorithms.pdf](docs/proofs/algorithms.pdf): the layer 1 algorithms, with complexity and proofs. It covers the Bayesian Gaussian copula, latent segments from in-database sufficient statistics, the merge step and differential privacy on summaries.
-- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 152 propositions with proofs, each tied to a numbered check. They are grouped as follows:
+- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 158 propositions with proofs, each tied to a numbered check. They are grouped as follows:
 
 | Area | Propositions (examples) |
 |---|---|
@@ -412,6 +431,7 @@ The method is described in two papers shipped with the package:
 | In-database fitting (v1.0) | **100** sufficiency of the in-database statistics; **101** agreement with in-memory fitting; **102** Acklam's quantile bound; **103** hash sampling is Bernoulli; **104** the sample posterior is exact; **105** eligibility |
 | IR, generators and quality (v2.0) | **106** loss-free 1.0 conversion; **107–108** privacy-unit tracing; **109–113** calibrated quality report; **700–706** the skeleton is kept whatever the generator |
 | Privacy and governance (v2.0) | Per-person attack metrics; **800–803** the budget ledger bounds the domain's privacy loss, reserve before reading, tamper evidence; **900–906** discrete Gaussian, stable contribution bounding, exact partition selection, two-stage DP |
+| Documents (v2.1) | **1400–1405** the inferred schema admits its source; shredding is invertible; conformance; calibrated shape limits; key templates; references and lengths |
 | Time and scale (v2.0) | **1200–1206** time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; **950–954** worker independence, partitions keep the law, keys across partitions, drift tests |
 
 [docs/theory.md](docs/theory.md) gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full.
@@ -427,6 +447,7 @@ export RELSYNTH_TEST_MSSQL_URL="mssql://sa:RelSynth_Test1!@localhost:1433/master
 export RELSYNTH_TEST_ORACLE_URL="oracle://relsynth:RelSynthTest1@localhost:1521/?service_name=FREEPDB1"
 export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynth
 export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
+export RELSYNTH_TEST_MONGO_URL=mongodb://localhost:27017   # a MongoDB 8 server: pytest -m mongodb
 pytest tests/integration                  # the same checks against live servers
 pytest -m science                         # the statistical check suite: C00–C82 and the 2.0 checks (about an hour and a half; CI runs it in four shards)
 pytest --cov=relsynth --cov-report=term   # coverage
@@ -440,7 +461,8 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 - The scorecard on real data compares with the source, which is itself only one draw. A check can fail by chance, and each check's level is reported (`alpha`).
 - Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly. Declare them in the spec.
 - Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). Selected two-way marginals are the next step.
-- Document databases (MongoDB, Cosmos DB, DynamoDB) and graph stores are planned. The IR already describes documents and graphs; data lakes on S3 and ADLS work through Iceberg and Delta.
+- Graph stores are planned; the IR already describes graphs. Data lakes on S3 and ADLS work through Iceberg and Delta.
+- In document collections, a value deep in a document depends on its parent element only through the engine's latent segments: an item's tags keep about half of their dependence on the item's name in the sample data ([spike](docs/research/document-generator-spike.md)). The Cassandra and Gremlin APIs of Cosmos DB are not supported.
 - Free text is synthesised by a word-level predictive model. It keeps vocabulary and length laws, not meaning.
 - BigQuery is tested with unit tests only; the other warehouses against stand-ins, not the live services.
 
@@ -462,6 +484,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/connector-sdk.md](docs/connector-sdk.md) | Writing a connector for a new database or warehouse |
 | [docs/warehouses.md](docs/warehouses.md) | Databricks SQL, Microsoft Fabric, Snowflake and BigQuery: sign-in, cost guards, loading |
 | [docs/lakehouse.md](docs/lakehouse.md) | Apache Iceberg and Delta Lake on disk, S3 and ADLS; time travel; data contracts |
+| [docs/documents.md](docs/documents.md) | Document databases: MongoDB, Cosmos DB, DynamoDB single-table designs, Couchbase; inference, shredding, shape metrics |
 | [docs/runtime.md](docs/runtime.md) | Partitioned generation: executors, streams, partition modes, drift statistics |
 | [docs/timeseries.md](docs/timeseries.md) | Event sequences, regular series, incremental runs, TimescaleDB |
 | [docs/generators.md](docs/generators.md) | Generator plug-ins and how to write one ([compute presets](docs/compute.md)) |

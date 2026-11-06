@@ -49,7 +49,7 @@ def _template(items: list[dict], key: str, exclude: set[str]) -> str | None:
     vals = [it.get(key) for it in items]
     if any(not isinstance(v, str) for v in vals):
         return None
-    parts = [v.split(SEP) for v in vals]
+    parts = [str(v).split(SEP) for v in vals]
     if len({len(p) for p in parts}) != 1:
         return None
     out = []
@@ -81,7 +81,7 @@ def _fmt(v) -> str | None:
 def split(items: list[dict], *, partition_key: str = "PK", sort_key: str | None = "SK",
           indexes: list[dict] | None = None, discriminator: str | None = None) -> tuple[dict, dict]:
     """(collections {type: [documents]}, design) of the items of one table."""
-    key_attrs = [partition_key] + ([sort_key] if sort_key else [])
+    key_attrs: list[Any] = [partition_key] + ([sort_key] if sort_key else [])
     for g in indexes or []:
         key_attrs += [g.get("HASH") or g.get("partition_key"), g.get("RANGE") or g.get("sort_key")]
     key_attrs = [k for k in dict.fromkeys(key_attrs) if k]
@@ -90,7 +90,7 @@ def split(items: list[dict], *, partition_key: str = "PK", sort_key: str | None 
     for it in items:
         t = str(it.get(disc)) if disc else (_prefix(it.get(sort_key)) if sort_key else _prefix(it.get(partition_key)))
         groups.setdefault(t, []).append(it)
-    design = {"partition_key": partition_key, "sort_key": sort_key, "indexes": indexes or [],
+    design: dict[str, Any] = {"partition_key": partition_key, "sort_key": sort_key, "indexes": indexes or [],
               "discriminator": disc, "entities": {}}
     cols = {}
     for t, its in groups.items():

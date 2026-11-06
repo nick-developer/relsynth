@@ -18,7 +18,7 @@ from scipy.stats import binom
 
 from relsynth.documents import DocumentSynthesizer, dynamo
 from relsynth.documents.conform import conform
-from relsynth.documents.infer import find_references, profile_collection
+from relsynth.documents.infer import profile_collection
 from relsynth.documents.metrics import shape_checks
 from relsynth.documents.shred import build_layout, nest, shred
 from relsynth.documents.validate import validate_collection

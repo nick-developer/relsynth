@@ -57,14 +57,14 @@ class Node:
     present: int = 0
     types: Counter = field(default_factory=Counter)
     # objects
-    fields: dict[str, "Node"] = field(default_factory=dict)
+    fields: dict[str, Node] = field(default_factory=dict)
     signatures: Counter = field(default_factory=Counter)
     _cand: dict = field(default_factory=dict, repr=False)     # discriminator candidate -> Counter((value, sig))
     _leneq: dict = field(default_factory=dict, repr=False)    # (int field, array field) -> still equal
     _keyeq: dict = field(default_factory=dict, repr=False)    # field f -> every object value has v[f] == key
     # arrays
     lengths: Counter = field(default_factory=Counter)
-    items: "Node | None" = None
+    items: Node | None = None
     distinct_items: bool = True                 # no array repeats a scalar element (set semantics)
     # scalars
     distinct: set = field(default_factory=set, repr=False)
@@ -108,12 +108,12 @@ class Node:
     def is_array(self) -> bool:
         return "array" in self.types
 
-    def child(self, name: str) -> "Node":
+    def child(self, name: str) -> Node:
         if name not in self.fields:
             self.fields[name] = Node(f"{self.path}.{name}" if self.path else name)
         return self.fields[name]
 
-    def elements(self) -> "Node":
+    def elements(self) -> Node:
         if self.items is None:
             self.items = Node(self.path + "[]")
         return self.items
@@ -285,6 +285,7 @@ def merge(a: Node, b: Node) -> Node:
     for k in list(a.fields) + [k for k in b.fields if k not in a.fields]:
         fa, fb = a.fields.get(k), b.fields.get(k)
         f = merge(fa, fb) if fa is not None and fb is not None else (fa or fb)
+        assert f is not None
         if fa is None or fb is None:          # absent from the other side's objects
             other = b if fa is None else a
             f = _copy_with_n(f, f.n + other.types.get("object", 0))
@@ -330,8 +331,9 @@ def _find_maps(node: Node) -> None:
     for nd in node.fields.values():
         nd = _copy_with_n(nd, nd.present)
         vals = nd if vals is None else merge(vals, nd)
+    assert vals is not None
     _repath(vals, node.path + "{}")
-    sizes = Counter()
+    sizes: Counter = Counter()
     for sig, c in node.signatures.items():
         sizes[len(sig)] += c
     node.is_map, node.items, node.fields, node.lengths = True, vals, {}, sizes
@@ -359,7 +361,8 @@ def _find_variants(node: Node) -> None:
         if len(by_value) < 2 or min(sum(c.values()) for c in by_value.values()) < DISCRIMINATOR_MIN_SUPPORT:
             continue
         optional = [f for f, nd in node.fields.items() if f != name and nd.present < nobj]
-        decided, cases = [], {}
+        decided: list = []
+        cases: dict = {}
         for f in optional:
             rates = {}
             for val, sigs in by_value.items():

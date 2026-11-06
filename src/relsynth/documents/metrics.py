@@ -59,7 +59,8 @@ def _state(nd: Node) -> Counter:
 
 
 def _doc_stats(docs) -> tuple[Counter, Counter]:
-    depth, size = Counter(), Counter()
+    depth: Counter = Counter()
+    size: Counter = Counter()
     for d in docs:
         dd, ss = _walk(d)
         depth[dd] += 1
@@ -96,7 +97,9 @@ def shape_distances(a_docs: list, b_docs: list, name: str = "c", a_prof=None, b_
         rb = y.present / y.n if y is not None and y.n else 0.0
         if (x is None or x.n) and (y is None or y.n):
             pres.append(abs(ra - rb))
-        sa, sb = (_state(x) if x is not None else Counter()), (_state(y) if y is not None else Counter())
+        # a path one side never holds is absent from all of that side's objects
+        sa = _state(x) if x is not None else Counter({"absent": 1})
+        sb = _state(y) if y is not None else Counter({"absent": 1})
         if len(set(sa) | set(sb)) > 1:
             tm.append(_tvd(sa, sb))
         if (x is not None and x.lengths) or (y is not None and y.lengths):
@@ -192,12 +195,13 @@ def _values_at(d, path: str):
 def path_differences(a_prof: CollectionProfile, b_prof: CollectionProfile, top: int = 10) -> list[dict]:
     """The paths whose presence or state mix differ most (for the report)."""
     A, B = _paths(a_prof), _paths(b_prof)
-    rows = []
+    rows: list[dict] = []
     for k in sorted(set(A) | set(B)):
         x, y = A.get(k), B.get(k)
         ra = x.present / x.n if x is not None and x.n else 0.0
         rb = y.present / y.n if y is not None and y.n else 0.0
-        sa, sb = (_state(x) if x is not None else Counter()), (_state(y) if y is not None else Counter())
+        sa = _state(x) if x is not None else Counter({"absent": 1})
+        sb = _state(y) if y is not None else Counter({"absent": 1})
         rows.append({"path": k, "presence": [round(ra, 4), round(rb, 4)], "state_tvd": round(_tvd(sa, sb), 4),
                      "states": [dict(sa), dict(sb)]})
     rows.sort(key=lambda r: -max(abs(r["presence"][0] - r["presence"][1]), r["state_tvd"]))

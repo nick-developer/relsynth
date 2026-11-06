@@ -31,12 +31,12 @@ to the order of documents and the fresh identifiers of rows).
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
 from .infer import FULL_PRECISION, CollectionProfile, Node
-from .values import MISSING_VALUE, NUMERIC, ObjectId, from_cell, object_id, to_cell, type_name
+from .values import MISSING_VALUE, NUMERIC, from_cell, object_id, to_cell, type_name
 
 SEP = "__"
 ROW_ID = "_rid"
@@ -92,7 +92,7 @@ class Layout:
                 "references": self.references, "order": self.order}
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Layout":
+    def from_dict(cls, d: dict) -> Layout:
         tabs = {}
         for k, v in d["tables"].items():
             v = dict(v)
@@ -178,9 +178,9 @@ def build_layout(profiles: dict[str, CollectionProfile], references: list[dict] 
             # referenced by a natural key: that key is the row id, so the engine
             # draws the references among the synthetic keys
             tl.id_column, tl.id_type = natural, root.fields[natural].scalar_types[0]
-            if unique(idn):
+            if idn is not None and unique(idn):
                 tl.fresh["_id"] = idn.scalar_types[0]
-        elif unique(idn):
+        elif idn is not None and unique(idn):
             tl.id_column, tl.id_type = "_id", idn.scalar_types[0]
         else:
             tl.columns.append(Column(ROW_ID, [], "id", "int"))
@@ -262,12 +262,13 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         else:
             # a union: one column per type, the numeric types sharing one column
             # (the tag says int or double, the value is modelled once)
-            info["typed"] = {}
+            typed: dict[str, str] = {}
+            info["typed"] = typed
             nums = [t for t in scal if t in NUMERIC]
             for t in scal:
                 if t in nums and len(nums) > 1:
                     if t != nums[0]:
-                        info["typed"][t] = cname + SEP + "num"
+                        typed[t] = cname + SEP + "num"
                         continue
                     c = Column(cname + SEP + "num", path, "typed", "num", _decimals(f))
                 else:
@@ -275,7 +276,7 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
                 if ref and t == scal[0]:
                     c.role, c.ref = "ref", {"table": ref["to"], "path": ref["to_path"]}
                 tl.columns.append(c)
-                info["typed"][t] = c.name
+                typed[t] = c.name
     shapes[key] = info
 
 
@@ -345,7 +346,7 @@ class _Rows:
         return i
 
 
-def shred(lay: Layout, collections: dict[str, Iterable[dict]]) -> dict[str, pd.DataFrame]:
+def shred(lay: Layout, collections: Mapping[str, Iterable[dict]]) -> dict[str, pd.DataFrame]:
     """The tables of the documents (one DataFrame per table, columns in layout order)."""
     out = _Rows()
     keymaps: dict[tuple, dict] = {}
@@ -368,16 +369,20 @@ def shred(lay: Layout, collections: dict[str, Iterable[dict]]) -> dict[str, pd.D
 
 
 def _impute_variant_fields(lay, name, df) -> None:
-    """A field of a variant is absent from the documents of the other cases.
+    """A field of a variant is absent from the documents of the other cases, and
+    a field with a presence tag is absent (or null) where its tag says so.
     Those cells are filled with values of the field drawn at random from the
     documents that hold it (seeded by table and column), so the engine models
     the field's values without a structural null that a copula cannot tie to
     the discriminator; the documents rebuilt from the tables drop the field
     outside its case again, so the round trip is unchanged."""
     import numpy as np
-    for key, info in lay.shapes.get(name, {}).items():
+    for info in lay.shapes.get(name, {}).values():
         c = info.get("column")
-        if not info.get("variant_field") or c is None or c not in df.columns or info["nullable"]:
+        if c is None or c not in df.columns:
+            continue
+        tagged = "tag" in info                    # the tag says when there is a value
+        if not (tagged or (info.get("variant_field") and not info["nullable"])):
             continue
         miss = df[c].isna().to_numpy()
         vals = df[c][~miss].to_numpy(dtype=object)
@@ -490,7 +495,7 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
     docs = {}
     for cname in lay.order:
         tl = lay.tables[cname]
-        out = []
+        out: list[dict] = []
         for r in frames[cname].to_dict("records"):
             d = _build(lay, tl, r, built, idmap, frames, seed)
             if tl.id_column != ROW_ID:
@@ -549,7 +554,7 @@ def _match_lengths(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
     for k, g in groups.items():
         if k not in out and k not in want:
             spare.extend(g)
-    order = list(rng.permutation(len(spare))) if spare else []
+    order: list = list(rng.permutation(len(spare))) if spare else []
     donors = [e for g in out.values() for e in g] or spare
     st = lay.stats.setdefault(tl.name, {"moved": 0, "copied": 0, "dropped": 0})
     for i in needy:
@@ -587,7 +592,7 @@ def _match_presence(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
     spare = [g for k, g in groups.items() if k not in wset]
     out = {k: g for k, g in groups.items() if k in wset}
     rng = np.random.default_rng(int(str(object_id(seed, tl.name, "match"))[:8], 16))
-    order = rng.permutation(len(spare)) if spare else []
+    order: Any = rng.permutation(len(spare)) if spare else []
     j = 0
     for k in want:
         if k in out:
@@ -685,7 +690,7 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
         prefix = ".".join(path)
         names = [k for k in shapes if k and k != prefix and _parent_of(k) == prefix]
         var = shapes.get(prefix, {}).get("variants")
-        keep = None
+        keep: set = set()
         if var:
             disc = value_at(path + [var["discriminator"]])
             keep = set(var["cases"].get(disc, []))
@@ -736,7 +741,7 @@ def _restore(c: Column, v, idmap, seed):
             return pd.Timestamp(v).strftime(c.fmt)
         except (TypeError, ValueError):
             return str(v)
-    return from_cell(v, c.type, c.decimals)
+    return from_cell(v, c.type or "string", c.decimals)
 
 
 def _map_value(lay, table, built, rid, seed):

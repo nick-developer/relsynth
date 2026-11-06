@@ -158,7 +158,7 @@ def from_extjson_value(v: Any) -> Any:
             return decimal.Decimal(x)
         if k == "$date":
             if isinstance(x, dict):
-                x = int(x.get("$numberLong"))
+                x = int(x["$numberLong"])
             if isinstance(x, (int, float)):
                 return _EPOCH + _dt.timedelta(milliseconds=x)
             return _parse_iso(x)

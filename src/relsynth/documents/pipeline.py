@@ -51,17 +51,17 @@ class DocumentSynthesizer:
         self.layout: Layout | None = None
         self.sequences: list[dict] = []
         self.spec: dict | None = None
-        self.model = None
+        self.model: Any = None
         self.repairs: dict = {}
 
     @classmethod
-    def from_source(cls, source: dict, **kw) -> "DocumentSynthesizer":
+    def from_source(cls, source: dict, **kw) -> DocumentSynthesizer:
         from .connectors import connect_documents
         con = connect_documents(source)
         return cls(con.read_all(), **kw)
 
     # -------------------------------------------------------------- discovery
-    def discover(self) -> "DocumentSynthesizer":
+    def discover(self) -> DocumentSynthesizer:
         self.profiles = {c: profile_collection(c, docs) for c, docs in self.collections.items()}
         self.references = find_references(self.profiles, self.declared)
         self.layout = build_layout(self.profiles, self.references)
@@ -78,6 +78,7 @@ class DocumentSynthesizer:
     def build_spec(self) -> dict:
         if self.layout is None:
             self.discover()
+        assert self.layout is not None
         frames = shred(self.layout, self.collections)
         db = write_sqlite(self.layout, frames, self.workdir / "shredded.db")
         spec = spec_for(self.layout, db, name=self.name, seed=self.seed, sequences=self.sequences)
@@ -96,6 +97,7 @@ class DocumentSynthesizer:
     def synthesize(self, scale: Any = None, dataset: int = 0) -> dict[str, list[dict]]:
         if self.model is None:
             self.fit()
+        assert self.layout is not None
         syn = self.model.sample(scale=scale, dataset=dataset)
         docs = nest(self.layout, syn.to_dict(), seed=(self.seed, dataset))
         out = {}
@@ -106,7 +108,7 @@ class DocumentSynthesizer:
 
     # -------------------------------------------------------------- quality
     def report(self, synthetic: dict[str, list[dict]], splits: int = 10, predictive: bool = True) -> dict:
-        rep = {"collections": {}, "references": reference_integrity(synthetic, self.references)}
+        rep: dict[str, Any] = {"collections": {}, "references": reference_integrity(synthetic, self.references)}
         for c, docs in synthetic.items():
             real = self.collections[c]
             rep["collections"][c] = {

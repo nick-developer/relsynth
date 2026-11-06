@@ -12,6 +12,8 @@ extensions, which every IR reader carries along unchanged; a map's value schema 
 """
 from __future__ import annotations
 
+from typing import Any
+
 from .infer import CollectionProfile, Node
 
 _IR_TYPE = {"string": "string", "objectId": "string", "int": "integer", "long": "integer", "double": "number",
@@ -41,7 +43,7 @@ def _attr(nd: Node, *, key: bool = False) -> dict:
         # IR 2.0 gives `items` and `length` to arrays only (RFC-T13-01 proposes
         # them for maps): the value schema and entry counts go in an extension
         lo, hi = nd.length_bounds()
-        m = {"length": {"min": lo, "max": hi}}
+        m: dict[str, Any] = {"length": {"min": lo, "max": hi}}
         if nd.items is not None:
             m["values"] = _attr(nd.items)
         if nd.key_field:
@@ -79,13 +81,13 @@ def _attr(nd: Node, *, key: bool = False) -> dict:
 def to_ir_document(profiles: dict[str, CollectionProfile], references: list[dict], *, name: str = "documents",
                    system: str = "mongodb", database: str | None = None) -> dict:
     db = database or name
-    doc = {"ir_version": "2.0", "name": name,
+    doc: dict[str, Any] = {"ir_version": "2.0", "name": name,
            "description": "Inferred by relsynth.documents (parametric schema inference with counts).",
            "containers": {db: {"kind": "collection", "system": system, "name": db}},
            "entities": {}, "relationships": []}
     for cname, prof in profiles.items():
         attrs = {k: _attr(f, key=(k == "_id")) for k, f in prof.root.fields.items()}
-        ent = {"shape": "document", "attributes": attrs, "physical": {"container": db, "name": cname},
+        ent: dict[str, Any] = {"shape": "document", "attributes": attrs, "physical": {"container": db, "name": cname},
                "x-relsynth-counts": {"documents": prof.documents, "depth": prof.root.depth()}}
         if "_id" in prof.root.fields:
             ent["keys"] = [{"attributes": ["_id"], "primary": True, "kind": "surrogate"}]
