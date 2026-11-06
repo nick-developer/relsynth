@@ -13,6 +13,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 - Scorecard: a check rule the source itself breaks (rate above 0) passes within three binomial standard errors of the source rate instead of at the source rate exactly; an exact rule stays exact.
 - `structure.structural_prior` is bounded by 0.999 in the settings registry (the spec refuses 1), so autotune no longer proposes a value every run fails on.
+- Autotune history: the fingerprint includes an engine signature (relsynth source hash and numpy/pandas/scipy/numba/duckdb/SQLAlchemy/pyarrow versions), so runs made under another engine or library version are not reused. On AdventureWorks a pandas 2.3 incumbent made every pandas 3.1 candidate look like a DimProduct privacy regression.
 - Autotune report: a trade-off is reported only when the change in failures is beyond seed noise (one check per seed and twice its paired standard error).
 - Autotune tries a rejected set of `relsynth doctor` fixes block by block, so one fix that breaks a constraint no longer blocks the others.
 

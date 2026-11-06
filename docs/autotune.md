@@ -123,9 +123,12 @@ goes on from an earlier run's history, since one job may run six hours.
 
 ## History and resuming
 
-Runs are keyed by a fingerprint of the spec (without its seed) and the objectives. A second `autotune` with the
-same spec and objectives reuses every run it already has and starts from the last accepted settings; change the
-spec or the objectives and the old runs stay in the file but are not reused. `--fresh` forgets this fingerprint's
+Runs are keyed by a fingerprint of the spec (without its seed), the objectives and the engine: a hash of the
+relsynth source and of the numpy, pandas, scipy, numba, duckdb, SQLAlchemy and pyarrow versions. A second
+`autotune` with the same spec, objectives and engine reuses every run it already has and starts from the last
+accepted settings; change any of them and the old runs stay in the file but are not reused. (The same seed and
+settings give other draws under another library version: on AdventureWorks, pandas 2.3 to 3.1 moved the DimProduct
+DCR ratio enough that every candidate looked like a privacy regression against a pandas 2.3 incumbent.) `--fresh` forgets this fingerprint's
 runs.
 
 ## Example: Chinook from a bad setting

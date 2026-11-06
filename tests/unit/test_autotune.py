@@ -144,6 +144,17 @@ def test_history_persists_and_isolates_fingerprints(tmp_path):
     assert History(tmp_path, "fp1").get("k1", 1) is None and History(tmp_path, "fp2").get("k9", 1) is not None
 
 
+def test_runs_of_another_engine_or_library_version_are_not_reused():
+    from relsynth.autotune.loop import engine_signature, fingerprint
+    from relsynth.autotune.objectives import Objectives
+    raw, obj = {"synthesis": {"seed": 1, "marginals": {"max_levels": 4}}}, Objectives()
+    assert engine_signature() == engine_signature() and len(engine_signature()) == 16
+    assert fingerprint(raw, obj) == fingerprint(raw, obj, engine_signature())
+    assert fingerprint(raw, obj, "pandas2") != fingerprint(raw, obj, "pandas3")
+    other_seed = {"synthesis": {"seed": 7, "marginals": {"max_levels": 4}}}
+    assert fingerprint(other_seed, obj) == fingerprint(raw, obj)
+
+
 # ------------------------------------------------- the loop on planted surfaces
 def _surface(conflict=False, hard_break=False):
     """A fake trial: marginal_tvd fails 3, 2, 1, 0 times for max_levels 2, 4, 8, >=16;

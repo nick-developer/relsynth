@@ -16,6 +16,7 @@ second call reuses the runs already made and continues from the incumbent.
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import json
 import logging
@@ -77,12 +78,38 @@ class AutotuneResult:
         return d
 
 
-def fingerprint(raw: dict, obj: Objectives) -> str:
-    """Spec (without its seed) and the objectives that judge it: runs of one
-    fingerprint are comparable."""
+# libraries whose versions change the draws of a seeded run (pandas 2 -> 3 changed
+# AdventureWorks output at the same seed and settings)
+_RUNTIME_LIBS = ("numpy", "pandas", "scipy", "numba", "duckdb", "SQLAlchemy", "pyarrow")
+
+
+@functools.lru_cache(maxsize=1)
+def engine_signature() -> str:
+    """Hash of the relsynth source and the numeric libraries' versions: a run
+    made with another engine or library version is not comparable, even at the
+    same seed and settings."""
+    from importlib import metadata
+    h = hashlib.sha256()
+    root = Path(__file__).resolve().parents[1]
+    for f in sorted(root.rglob("*.py")):
+        h.update(f.relative_to(root).as_posix().encode())
+        h.update(f.read_bytes())
+    for lib in _RUNTIME_LIBS:
+        try:
+            v = metadata.version(lib)
+        except metadata.PackageNotFoundError:
+            v = "-"
+        h.update(f"{lib}={v};".encode())
+    return h.hexdigest()[:16]
+
+
+def fingerprint(raw: dict, obj: Objectives, engine: str | None = None) -> str:
+    """Spec (without its seed), the objectives that judge it and the engine
+    that runs it (engine_signature): runs of one fingerprint are comparable."""
     s = copy.deepcopy(raw)
     (s.get("synthesis") or {}).pop("seed", None)
-    blob = json.dumps({"spec": s, "obj": {k: v for k, v in obj.to_dict().items() if k not in ("budget", "seeds")}},
+    blob = json.dumps({"spec": s, "obj": {k: v for k, v in obj.to_dict().items() if k not in ("budget", "seeds")},
+                       "engine": engine_signature() if engine is None else engine},
                       sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
