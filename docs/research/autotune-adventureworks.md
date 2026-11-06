@@ -89,6 +89,17 @@ not as a real trade-off. A fourth run names the failing check and its values per
    (`tools/autotune_bench.py`, `autotune.yml`) print the report and a per-candidate summary to the job log, and a
    later run can resume a search past the 6-hour job limit.
 
+6. **History reused across library versions (runs 3 and 4).** Every candidate in runs 3 and 4 was rejected for
+   breaking the `DimProduct|dcr_ratio` privacy check (limit 0.5). Even candidates that do not touch DimProduct
+   (`facts.frailty`, `facts.link_degree_min_rows` 25 and 100, `FactResellerSales` pair occupancy) gave the identical
+   ratios 0.23, 0.66, 0.58 on seeds 1-3. The incumbent `segments.default_cap: 16` came from run 1's history, measured
+   under pandas 2.3.3. Runs 3 and 4 installed pandas 3.1.1, which gives other draws at the same seed and settings.
+   So every comparison set a pandas 3.1 candidate against a pandas 2.3 incumbent. The history fingerprint now includes
+   an engine signature (relsynth source hash plus numpy, pandas, scipy, numba, duckdb, SQLAlchemy and pyarrow
+   versions), and run 5 searches again from scratch under one environment. The DCR check itself stays a hard
+   constraint: DimProduct has 606 rows and its ratio varies a lot between seeds (0.11 to 1.24 across these runs),
+   so settings with more segments for DimProduct sit near the limit. That is the check working, not noise to remove.
+
 ## Not explained yet
 
 - One link-affinity run broke `G6 FIS Due = Order + 12d` on 1 of about 30,000 FactInternetSales rows (seed 2). The
@@ -98,8 +109,8 @@ not as a real trade-off. A fourth run names the failing check and its values per
 
 ## Next
 
-- Resume the search with fixes 3 and 4 (the doctor's parts alone, then `facts.count_model`, `facts.frailty` and
-  `facts.link_degree` for `cardinality_ks`).
+- Run 5 (fresh, pandas 3.1): baseline and `segments.default_cap: 16` on the same environment, then the doctor's parts
+  and the `facts.*` settings for `cardinality_ks`. This report is updated when it finishes.
 - Engine work, which the settings cannot replace: cross-parent support for hop pairs (`novel_combination_rate`), the
   rounding of derived amounts, and the opening level of cumulative rules.
 - Spec or introspect: type order-level codes such as CarrierTrackingNumber as identifiers.
