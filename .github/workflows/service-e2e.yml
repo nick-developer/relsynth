@@ -1,0 +1,83 @@
+name: service-e2e
+
+# End-to-end acceptance of the relsynth service on a real stack (roadmap T09):
+#   compose: docker compose with Keycloak SSO, a PostgreSQL source, the API and
+#            two workers (deploy/e2e/compose-e2e.sh), including a worker killed
+#            mid-run;
+#   kind:    the Helm chart on a real Kubernetes cluster (kind), with the same
+#            flow plus `helm test` and a worker pod deleted mid-run
+#            (deploy/e2e/k8s-e2e.sh).
+# It runs when the service, the chart, the images or this file change, weekly,
+# and by hand. docs/development/ci.md describes it.
+
+on:
+  pull_request:
+    paths:
+      - "src/relsynth/service/**"
+      - "deploy/**"
+      - "pyproject.toml"
+      - ".github/workflows/service-e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/relsynth/service/**"
+      - "deploy/**"
+      - "pyproject.toml"
+      - ".github/workflows/service-e2e.yml"
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: service-e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Compose end to end (SSO, run, approval, download, audit, tenant isolation, worker loss)
+        run: deploy/e2e/compose-e2e.sh
+
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      KIND_VERSION: v0.27.0
+      KUBECONFIG: /home/runner/.kube/config
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: kind, kubectl and helm
+        run: |
+          if ! command -v kind >/dev/null; then
+            go install "sigs.k8s.io/kind@${KIND_VERSION}" && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          fi
+          command -v helm >/dev/null || { echo "::error::helm missing on the runner"; exit 1; }
+      - name: Create the cluster (NodePorts 30080/30081 on localhost)
+        run: |
+          kind create cluster --name relsynth-e2e --config deploy/e2e/k8s/kind.yaml --wait 300s
+          kubectl version
+          kubectl get nodes -o wide
+      - name: Build and load the images
+        run: |
+          v=$(python3 -c "exec(open('src/relsynth/_version.py').read());print(__version__)")
+          docker build -f deploy/docker/Dockerfile.service -t "relsynth-service:$v" .
+          docker pull postgres:16-alpine
+          docker pull keycloak/keycloak:26.0.7
+          kind load docker-image --name relsynth-e2e "relsynth-service:$v" postgres:16-alpine keycloak/keycloak:26.0.7
+      - name: Helm lint and a server-side dry run under Pod Security "restricted"
+        run: |
+          helm lint deploy/helm/relsynth -f deploy/e2e/k8s/values-e2e.yaml
+          kubectl create namespace pss-check
+          kubectl label namespace pss-check pod-security.kubernetes.io/enforce=restricted
+          helm template pss deploy/helm/relsynth -n pss-check -f deploy/e2e/k8s/values-e2e.yaml \
+            | kubectl apply -n pss-check --dry-run=server -f -
+      - name: Kubernetes end to end (chart, helm test, flow, worker pod loss)
+        run: deploy/e2e/k8s-e2e.sh
