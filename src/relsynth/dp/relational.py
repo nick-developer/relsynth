@@ -203,7 +203,8 @@ class Marginal:
     def __init__(self, kind, cells, counts, *, edges=None, levels=None, integer=False, dtype=None):
         self.kind, self.edges, self.levels, self.integer, self.dtype = kind, edges, levels, integer, dtype
         c = np.clip(np.asarray(counts, dtype=float), 0, None)
-        self.total = float(np.asarray(counts, dtype=float).sum())
+        self.raw = np.asarray(counts, dtype=float)
+        self.total = float(self.raw.sum())
         if c.sum() <= 0:
             c = np.ones_like(c)
             c[0] = 0 if len(c) > 1 else 1
@@ -245,10 +246,18 @@ class Marginal:
         idx = np.clip(np.searchsorted(self.cum, u, side="right") - 1, 0, len(self.p) - 1)
         pos = np.where(self.p[idx] > 0, (u - self.cum[idx]) / np.where(self.p[idx] > 0, self.p[idx], 1), rng.random(len(u)))
         pos = np.clip(pos, 0, 1)
+        return self._values(idx, pos)
+
+    def draw_cells(self, idx, rng) -> np.ndarray:
+        """Values in the given cells, at uniform positions within each cell (mst/aim)."""
+        idx = np.clip(np.asarray(idx, dtype=int), 0, len(self.p) - 1)
+        return self._values(idx, rng.random(len(idx)))
+
+    def _values(self, idx, pos) -> np.ndarray:
         if self.kind == "cat":
             lv = np.array([None, *self.levels], dtype=object)
             return lv[idx]
-        out = np.full(len(z), np.nan)
+        out = np.full(len(idx), np.nan)
         ok = idx > 0
         b = idx[ok] - 1
         lo, hi = self.edges[b], self.edges[b + 1]
@@ -351,6 +360,7 @@ class TableModel:
     cap: int                     # rows per unit (c_t)
     degree_cap: dict = field(default_factory=dict)   # child -> D
     parent_coords: list = field(default_factory=list)
+    forest: object = None        # mst/aim: the fitted two-way model (select.Forest); corr is then None
 
 
 @dataclass
@@ -373,6 +383,8 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
     caps = {plan.unit: 1}
     models: dict = {}
     scores_of: dict = {}          # table -> DataFrame of attribute normal scores, aligned with rows[t]
+    tree = cfg.measure != "copula"
+    cells_of: dict = {}           # mst/aim: table -> {coordinate: cell of each row of rows[t]}
     report: dict = {"tables": {}}
     for t in owned:
         P = plan.tables[t]
@@ -391,6 +403,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
         tr: dict = {"rows_per_unit_cap": c_t, "rho": rho_t}
         # ---------------- discovery
         ranges, levels = {}, {}
+        var_of: dict = {}
         disc_num = [c for c in P.numeric if not _public_range(cfg, t, c)]
         disc_cat = [c for c in P.categorical if f"{t}.{c}" not in cfg.public]
         if need_disc:
@@ -412,6 +425,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 acct.charge(Charge("discovery", f"{t}.{c}: level selection (delta)", 0.0, d_c))
                 keep = noisy > tau
                 levels[c] = (list(vc.index[keep]), noisy[keep])
+                var_of[c] = sig ** 2
         # ---------------- marginals
         marg: dict = {}
         coords: list = []
@@ -450,6 +464,16 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
             s = df[ck].map(lambda x: 0 if _isnull(x) else look.get(str(_canon(x)), 0)).to_numpy(dtype=int)
             hist_parts.append(np.bincount(s, minlength=len(lv) + 1))
             makers.append((ck, lambda k, lv=lv: Marginal("cat", None, k, levels=lv)))
+        pc_tree: list = []
+        if tree and P.parent_rel is not None:
+            # the parent row's cells, counted over this table's rows (nodes of the two-way model)
+            par = P.parent_rel["parent"]
+            pc_tree = [c for k, c in models[par].coords if k == "attr"][:cfg.max_parent_attrs]
+            pidx = _parent_index(df, rows[par], _keys(P.parent_rel["child_key"]), _keys(P.parent_rel["parent_key"]))
+            for c in pc_tree:
+                kk = len(models[par].marg[c].p)
+                hist_parts.append(np.bincount(cells_of[par][c][pidx], minlength=kk))
+                makers.append((f"^{c}", lambda k: Marginal("cat", None, k, levels=[str(i) for i in range(len(k) - 1)])))
         null_counts = {c: v for c, v in marg.items()}
         marg = {}
         # the row count, released with the marginals (one more cell; a unit changes it by c_t)
@@ -459,6 +483,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
             q = len(hist_parts)
             vec = np.concatenate(hist_parts)
             noisy = gaussian(vec, c_t * math.sqrt(q), budget["marginals"], acct, "fit", f"{t}: marginals")
+            sig_m = sigma_for(c_t * math.sqrt(q), budget["marginals"])
             at = 0
             totals = []
             n_rows = None
@@ -467,6 +492,10 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 at += len(part)
                 if c == "#rows":
                     n_rows = float(k[0])
+                    continue
+                var_of[c] = sig_m ** 2
+                if c.startswith("^"):
+                    var_of[c + "#y"] = k
                     continue
                 marg[c] = mk(k)
                 totals.append(marg[c].total)
@@ -493,6 +522,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 b = np.clip(np.searchsorted(e, np.minimum(deg, dmax), side="right") - 1, 0, len(e) - 2)
                 cnt = np.bincount(b, minlength=len(e) - 1)
                 noisy = gaussian(cnt, c_t, share, acct, "fit", f"{ch}: rows per {t} row")
+                var_of[f"#{ch}"] = sigma_for(c_t, share) ** 2
                 want = cfg.max_degree.get(ch, "auto")
                 if want == "auto":
                     # post-processing: cells that do not stand above the noise are dropped when choosing
@@ -527,6 +557,43 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 caps[ch] = c_t * D
                 df[f"#{ch}"] = np.minimum(deg, D)
                 tr.setdefault("max_degree", {})[ch] = D
+        if tree:
+            # ---------------- two-way marginals (mst / aim; module select)
+            from .select import Node, grouping, select_and_measure
+            nodes: dict = {}
+            cells: dict = {}
+            groups: dict = {}
+
+            def coarse_node(name, m_, y, var, fine, evidence=False, deg=False):
+                g = grouping(m_.p, m_.kind != "cat", cfg.pair_bins)
+                K = int(g.max()) + 1
+                yc = np.bincount(g, weights=np.asarray(y, dtype=float), minlength=K)
+                zero = None
+                if deg:
+                    zero = np.zeros(K, dtype=bool)
+                    zero[0] = True
+                nodes[name] = Node(name, K, evidence=evidence, y=yc, var=var * max(np.bincount(g).max(), 1),
+                                   zero=zero)
+                cells[name] = g[fine]
+                groups[name] = g
+            for kind, c in coords:
+                m_ = marg[c]
+                fine = m_._cell(df[c].to_numpy() if kind == "deg" else _for_score(df[c], m_))[0]
+                coarse_node(c, m_, m_.raw, float(var_of.get(c, 1.0)), fine, deg=kind == "deg")
+                cells_of.setdefault(t, {})[c] = fine
+            for c in pc_tree:
+                coarse_node(f"^{c}", models[par].marg[c], var_of[f"^{c}#y"], float(var_of[f"^{c}"]),
+                            cells_of[par][c][pidx], evidence=True)
+            n_hat_f = float(max(n_rows or 0.0, 1.0))      # the noisy row count (never len(df))
+            forest = select_and_measure(cfg.measure, t, nodes, cells, n_hat_f, c_t, budget["correlations"], acct,
+                                        gaussian, max_cells=cfg.max_pair_cells, select_share=cfg.select_share,
+                                        rounds=cfg.aim_rounds, report=tr)
+            forest.groups = groups
+            n_hat = int(round(n_rows)) if n_rows is not None else 0
+            models[t] = TableModel(t, coords, marg, None, max(n_hat, 0), c_t, degree_cap, pc_tree, forest)
+            tr["coordinates"] = len(nodes)
+            report["tables"][t] = tr
+            continue
         # ---------------- correlations
         parent_coords = []
         Zcols = {}
@@ -640,6 +707,7 @@ def decode(spec: dict, model: DPModel) -> dict:
     plan = model.plan
     out: dict = {}
     zs: dict = {}
+    cells_out: dict = {}
     keys: dict = {}
     for t in plan.order:
         P, M = plan.tables[t], model.tables[t]
@@ -653,11 +721,21 @@ def decode(spec: dict, model: DPModel) -> dict:
             deg = out[par][f"#{t}"].to_numpy(dtype=int)
             parent_idx = np.repeat(np.arange(len(deg)), deg)
             n = len(parent_idx)
-            known = np.column_stack([zs[par][c][parent_idx] for c in M.parent_coords]) if M.parent_coords else None
+            known = np.column_stack([zs[par][c][parent_idx] for c in M.parent_coords]) \
+                if M.parent_coords and M.forest is None else None
         q = len(names)
         k = len(M.parent_coords)
         u = q - k
-        if M.corr is None or q < 2:
+        if M.forest is not None:
+            from .select import sample
+            from .select import refine
+            G = M.forest.groups
+            ev = {f"^{c}": G[f"^{c}"][cells_out[P.parent_rel["parent"]][c][parent_idx]] for c in M.parent_coords} \
+                if parent_idx is not None else {}
+            cl = sample(M.forest, n, ev, rng)
+            cells_out[t] = {c: refine(cl[c], G[c], M.marg[c].p, rng) for _, c in M.coords}
+            Z = None
+        elif M.corr is None or q < 2:
             Z = rng.standard_normal((n, u))
         elif known is None or k == 0:
             C = M.corr[:u, :u]
@@ -671,6 +749,9 @@ def decode(spec: dict, model: DPModel) -> dict:
         cols = {}
         zt = {}
         for j, (_kind, c) in enumerate(M.coords):
+            if Z is None:
+                cols[c] = M.marg[c].draw_cells(cells_out[t][c], rng)
+                continue
             zt[c] = Z[:, j]
             cols[c] = M.marg[c].draw(Z[:, j], rng)
         zs[t] = zt
@@ -688,7 +769,7 @@ def decode(spec: dict, model: DPModel) -> dict:
                 df[ck] = out[par][pkc].to_numpy()[parent_idx]
         for c, v in cols.items():
             if c.startswith("#"):
-                df[c] = v.astype(int) if len(v) else v
+                df[c] = np.nan_to_num(v, nan=0.0).astype(int) if len(v) else v
                 continue
             kind = T["columns"][c]["type"]
             if kind in ("date", "datetime"):
@@ -743,7 +824,8 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
             ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
             keep = set(_key_list(res[r["parent"]], pk))
             df = res[t]
-            res[t] = df[[k in keep for k in _key_list(df, ck)]].reset_index(drop=True)
+            # a boolean array, not a list: an empty list would select no columns
+            res[t] = df[np.array([k in keep for k in _key_list(df, ck)], dtype=bool)].reset_index(drop=True)
         for rule in spec.get("rules") or []:
             if rule.get("table") != t or rule.get("type") != "check" or not len(res[t]):
                 continue

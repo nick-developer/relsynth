@@ -9,6 +9,9 @@ Aggregate results that claims in the [claim register](../claims.yaml) cite as `r
 | `T06/guards_adult.json` | Which planted leaks (copied records, 1% to 20%) the distance guard, the exact-match rate, singling out and DOMIAS detect, on Adult | Roadmap T06, `benchmarks/privacy/calibrate_guards.py`, 2026-10-27 |
 | `T07/utility_vs_epsilon.jsonl` | Share of scorecard checks passing for DP runs at ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks DW | Roadmap T07, 2026-10-31 |
 | `T07/audit_contoso_eps1.jsonl` | The attack suite against the DP pipeline on Contoso at ε = 1, with the TPR bound ε implies | Roadmap T07, 2026-10-31 |
+| `T07b/compare.jsonl` | Mean two-way TVD on the ACS excerpt for relsynth copula, mst and aim and smartnoise-synth MST and AIM at ε = 0.5 to 8 | Roadmap T07b, `tools/dp_compare.py`, CI workflow `dp-eval`, 2026-11-06 |
+| `T07b/curves.jsonl` | Share of scorecard checks passing and per-table two-way TVD for copula, mst and aim at ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks DW | Roadmap T07b, `tools/dp_curves.py`, CI workflow `dp-eval`, 2026-11-06 |
+| `T07b/audit.jsonl` | The attack suite against the DP pipeline with mst and aim on Contoso at ε = 1, with the TPR bound ε implies | Roadmap T07b, `tools/dp_audit.py`, CI workflow `dp-eval`, 2026-11-06 |
 
 Datasets: UCI Adult (CC BY 4.0), Chinook (MIT), Contoso Data Generator V2 (MIT, SQLBI) and AdventureWorks DW (MIT, Microsoft sample code), all marked allowed in [docs/datasets.md](../../datasets.md).
 

@@ -439,7 +439,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 
 - The scorecard on real data compares with the source, which is itself only one draw. A check can fail by chance, and each check's level is reported (`alpha`).
 - Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly. Declare them in the spec.
-- Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). Selected two-way marginals are the next step.
+- Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). `measure: mst` or `aim` release privately chosen two-way marginals instead: on one table the two-way error drops by about a quarter and falls with ε up to about ε = 4, while on the multi-table databases the share of checks passing stays within the copula's intervals (docs/dp.md sec. 7).
 - Document databases (MongoDB, Cosmos DB, DynamoDB) and graph stores are planned. The IR already describes documents and graphs; data lakes on S3 and ADLS work through Iceberg and Delta.
 - Free text is synthesised by a word-level predictive model. It keeps vocabulary and length laws, not meaning.
 - BigQuery is tested with unit tests only; the other warehouses against stand-ins, not the live services.
@@ -466,13 +466,13 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/timeseries.md](docs/timeseries.md) | Event sequences, regular series, incremental runs, TimescaleDB |
 | [docs/generators.md](docs/generators.md) | Generator plug-ins and how to write one ([compute presets](docs/compute.md)) |
 | [docs/privacy.md](docs/privacy.md) | Privacy attacks per person and the report per release context |
-| [docs/dp.md](docs/dp.md) | Differential privacy mode: guarantee, parameters, DP statement, limits |
 | [docs/governance/guide.md](docs/governance/guide.md) | Registry, signed manifests, policy, budget ledger, approvals ([design](docs/governance/design.md)) |
 | [docs/service/](docs/service/README.md) | The service: API, UI, SSO, tenancy, deployment, operations, security |
 | [docs/metrics.md](docs/metrics.md) | The quality report 2.0 and its metrics |
 | [docs/profiling.md](docs/profiling.md) | Where 1.0 spends time and memory, and which changes that justifies |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
 | [docs/security.md](docs/security.md) | Threat model and protections |
+| [docs/dp.md](docs/dp.md) | Differential privacy mode: the guarantee, the two stages, MST/AIM two-way marginals, utility against ε |
 | [docs/theory.md](docs/theory.md) | The model in brief and the v1.0 propositions with proofs |
 | [docs/proofs/](docs/proofs/) | The full proofs (PDF and LaTeX source) |
 | [docs/testing.md](docs/testing.md) | The test suite |
