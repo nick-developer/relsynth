@@ -111,8 +111,8 @@ def test_steps_follow_scale_and_bounds():
     P = params()
     assert Sx.step(P["copula.sample_rows"], 1500, +1) == 3000
     assert Sx.step(P["copula.sample_rows"], 1500, -1) == 750
-    assert Sx.step(P["structure.structural_prior"], 0.9, +1) == 1.0
-    assert Sx.step(P["structure.structural_prior"], 1.0, +1) is None          # at the bound
+    assert Sx.step(P["structure.structural_prior"], 0.9, +1) == 0.999        # the spec refuses 1
+    assert Sx.step(P["structure.structural_prior"], 0.999, +1) is None        # at the bound
     assert Sx.step(P["gibbs.merge"], True, +1) is False
     assert Sx.step(P["text.order"], 3, +1) == 4
 
@@ -310,3 +310,55 @@ def test_rule_the_source_breaks_gets_a_sampling_allowance():
     assert not it["t: c == d"]["pass"]                        # four times the source's rate is a violation
     assert not it["t: x > 0"]["pass"] and "alpha" not in it["t: x > 0"]   # an exact rule stays exact
     assert constraint_of("scorecard:t: a == b|rule_violation_rate") == "rules"
+
+
+def test_every_tunable_bound_is_a_valid_spec_value():
+    """The search moves a setting up to its registry bounds; a bound the spec
+    refuses fails every run of the candidate (AdventureWorks: structure.
+    structural_prior = 1.0 with the spec's [0, 1))."""
+    import math
+
+    from relsynth.autotune.checks import _nest
+    from relsynth.settings import search_space
+    from relsynth.spec import normalise
+    base = {"version": 1, "name": "t", "source": {"kind": "csv", "path": "x"},
+            "tables": {"t": {"role": "entity", "columns": {"id": "id", "x": "categorical"}, "primary_key": "id"}}}
+    bad = []
+    for k, p in search_space().items():
+        if p.type in ("int", "float"):
+            vals = [v for v in (p.low, p.high) if v is not None and math.isfinite(v)]
+            vals = [int(v) for v in vals] if p.type == "int" else vals
+        elif p.type == "choice":
+            vals = [c for c in p.choices if c != "map"]
+        else:
+            vals = [True, False] if p.type == "bool" else []
+        for v in vals:
+            s = copy.deepcopy(base)
+            s["synthesis"] = _nest({k: v})
+            try:
+                normalise(s)
+            except Exception as e:  # noqa: BLE001 - every refusal is collected
+                bad.append(f"{k}={v}: {str(e)[:120]}")
+    assert not bad, bad
+
+
+def test_a_rejected_doctor_set_is_tried_part_by_part(tmp_path, monkeypatch):
+    """The doctor proposes two fixes at once: the copula fix removes the
+    marginal_tvd failures, the segment fix breaks the DCR privacy check.  The
+    whole set is rejected (a hard violation); its parts are then tried on their
+    own and the copula fix is kept without the segment fix."""
+    DOC = {"synthesis.copula.sample_rows": 3000, "synthesis.segments.tables.t": 32}
+
+    def run_trial(raw, base, seed, delta, patches, obj):
+        patches = patches or {}
+        good = patches.get("synthesis.copula.sample_rows") == 3000
+        leak = "synthesis.segments.tables.t" in patches
+        ch = [_c(f"scorecard:t.c{i}|marginal_tvd", good or i >= 3, alpha=0.0001) for i in range(10)]
+        ch.append(_c("scorecard:t|dcr_ratio", not leak))
+        return TrialResult(seed=seed, checks=ch, seconds=0.0, doctor=dict(DOC))
+    monkeypatch.setattr(L, "run_trial", run_trial)
+    obj = _obj(search=["marginals.max_levels"], spec_patches=True, budget={"runs": 60})
+    res = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path)
+    assert res.patches == {"synthesis.copula.sample_rows": 3000}
+    assert res.judgement["hard_violations"] == 0 and res.analysis["families"]["marginal_tvd"]["met"]
+    assert any(t["origin"] == "doctor" and not t["accepted"] and "hard" in t["why"] for t in res.trajectory)

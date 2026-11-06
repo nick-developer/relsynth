@@ -4,6 +4,18 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Added
+
+- `relsynth autotune --workers N`: the seeds of a candidate run in parallel processes, with the same records and search path as one worker.
+- `tools/autotune_bench.py` and the `autotune` workflow: autotune on a bench database (AdventureWorks with its G1-G14 identities as hard constraints) on GitHub runners; the report and a per-candidate summary go to the job log, and a later run resumes the search. First results: [docs/research/autotune-adventureworks.md](docs/research/autotune-adventureworks.md).
+
+### Fixed
+
+- Scorecard: a check rule the source itself breaks (rate above 0) passes within three binomial standard errors of the source rate instead of at the source rate exactly; an exact rule stays exact.
+- `structure.structural_prior` is bounded by 0.999 in the settings registry (the spec refuses 1), so autotune no longer proposes a value every run fails on.
+- Autotune report: a trade-off is reported only when the change in failures is beyond seed noise (one check per seed and twice its paired standard error).
+- Autotune tries a rejected set of `relsynth doctor` fixes block by block, so one fix that breaks a constraint no longer blocks the others.
+
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
 

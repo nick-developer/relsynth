@@ -75,7 +75,7 @@ def test_tunable_settings_have_a_search_range_and_affect_something():
     ({"copula": {"sample_rows": 10.5}}, "whole number"),
     ({"copula": {"mode": "magic"}}, "must be one of rank, bayes, fast"),
     ({"gibbs": {"merge": "yes"}}, "true or false"),
-    ({"structure": {"structural_prior": 1.5}}, "must be <= 1"),
+    ({"structure": {"structural_prior": 1.5}}, "must be <= 0.999"),
     ({"evaluation": {"thresholds": {"kss": 0.1}}}, "did you mean 'ks'"),
     ({"evaluation": {"thresholds": {"ks": -1}}}, "must be a number >= 0"),
     ({"per_table": {"sales": {"gibbs": {"iterations": 3}}}}, "cannot be set per table"),

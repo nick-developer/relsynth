@@ -207,7 +207,14 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
                 doc.update(t.get("doctor") or {})
             new = {k: v for k, v in doc.items() if inc.patches.get(k) != v}
             if new:
-                props.append(Candidate(dict(inc.delta), {**inc.patches, **new}, "doctor", inc.key))
+                whole = Candidate(dict(inc.delta), {**inc.patches, **new}, "doctor", inc.key)
+                props.append(whole)
+                if whole.key in tried and len(new) > 1:
+                    # the whole set was rejected: one part can break a constraint the others
+                    # would not (AdventureWorks: larger segments break privacy, the copula
+                    # fixes do not), so its parts are tried on their own, a group per block
+                    for part in _patch_groups(new):
+                        props.append(Candidate(dict(inc.delta), {**inc.patches, **part}, "doctor", inc.key))
         base_syn = raw.get("synthesis") or {}
         from .report import effects as _effects
         learned = _effects(hist, obj)[0]
@@ -304,6 +311,15 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
                          stopped=stopped, extra={"baseline": _summary(base_J, obj), "history": str(hist.path)})
     res.report_markdown = render(res)
     return res
+
+
+def _patch_groups(patches: dict) -> list:
+    """Doctor patches grouped by the block they change (the key without its last
+    part: every per-table segment count is one group), larger groups first."""
+    groups: dict = {}
+    for k, v in patches.items():
+        groups.setdefault(k.rsplit(".", 1)[0], {})[k] = v
+    return sorted(groups.values(), key=lambda g: (-len(g), sorted(g)))
 
 
 def _trials(raw: dict, base: str, seeds: list, c: Candidate, obj, workers: int) -> list:

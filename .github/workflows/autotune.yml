@@ -5,7 +5,7 @@ name: autotune
 # search takes hours.  The history is uploaded; `resume_from_run` downloads the
 # history of an earlier run and goes on from its incumbent (a job may run 6 hours).
 # Started by hand (workflow_dispatch) or by a push whose commit message contains
-# [autotune] (the defaults below: AdventureWorks, plus the link-affinity experiment);
+# [autotune] (the defaults below: AdventureWorks);
 # a push whose message contains [autotune-resume:<run id>] goes on from that run's history.
 # The report is printed to the log as well as to the job summary.
 
@@ -41,9 +41,8 @@ jobs:
       matrix:
         part:
           - { name: tune, sets: "" }
-          # spec experiment (push only): the reseller's sales territory and the employee's agree
-          - { name: affinity, push_only: true, runs: "3", holdout: "none",
-              sets: "tables.FactResellerSales.link_affinity=[{match: [SalesTerritoryKey, EmployeeKey.SalesTerritoryKey]}]" }
+          # a spec experiment runs beside it on push: an entry with push_only: true and its own sets,
+          # e.g. sets: "tables.T.link_affinity=[{match: [a, b.c]}]" (docs/research/autotune-adventureworks.md)
     steps:
       - name: plan
         id: plan
