@@ -51,10 +51,12 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`generators`](#generators) | installed generator plug-ins and their capabilities |
 | [`compute`](#compute) | GPUs found and the device each kind of generator would get |
 | [`version`](#version) | versions of relsynth and its main dependencies |
+| [`text`](#text) | synthetic text: model licences, PII recall, leakage audit, metrics |
 | [`settings`](#settings) | engine settings: show, explain, validate, template, reference |
 | [`autotune`](#autotune) | tune engine settings toward your objectives over several seeds; write the tuned spec and a constraints report |
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 | [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
+| [`docs`](#docs) | document collections (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON): discover, synthesise, check |
 | [`agent`](#agent) | agents that draft and explain; people decide (docs/agents.md) |
 
 ## introspect
@@ -150,8 +152,9 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
                     [--seed SEED] [--fail-under SHARE] [--registry REGISTRY] [--context CONTEXT]
                     [--release-target RELEASE_TARGET] [--source-id SOURCE_ID] [--key KEY]
                     [--privacy-report PRIVACY_REPORT] [--assess] [--privacy-config PRIVACY_CONFIG]
-                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-statement DP_STATEMENT]
-                    [--json] [--log-level {debug,info,warning,error}]
+                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
+                    [--dp-statement DP_STATEMENT] [--json]
+                    [--log-level {debug,info,warning,error}]
                     spec
 ```
 
@@ -186,6 +189,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
 | `--dp` |  |  | differentially private run (the spec's synthesis.privacy.dp) |
 | `--epsilon` EPSILON |  |  | this run's epsilon (implies --dp; overrides the spec) |
 | `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's) |
+| `--dp-measure` copula\|mst\|aim |  |  | what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals chosen by MST or AIM (docs/dp.md sec. 7) |
 | `--dp-statement` DP_STATEMENT |  |  | also write the DP statement (JSON) here |
 
 ## extend
@@ -469,6 +473,37 @@ usage: relsynth version [-h] [--json] [--log-level {debug,info,warning,error}]
 ```
 
 
+## text
+
+Synthetic text: model licences, PII recall, leakage audit, metrics.
+
+```
+usage: relsynth text [-h] [--use USE] [--labelled LABELLED] [--recognizer RECOGNIZER] [--n N]
+                     [--seed SEED] [--table TABLE] [--column COLUMN] [--owner OWNER]
+                     [--canaries CANARIES] [--repeats REPEATS] [--words WORDS] [--samples SAMPLES]
+                     [--condition CONDITION] [--json] [--log-level {debug,info,warning,error}]
+                     {models,pii-eval,audit,metrics} [target] [synthetic]
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `action` | yes |  |  |
+| `target` | yes |  | audit: spec; metrics: real CSV |
+| `synthetic` | yes |  | metrics: synthetic CSV |
+| `--use` USE |  |  | models: lm, pii, embedding or mauve-features |
+| `--labelled` LABELLED |  |  | pii-eval: JSON lines {text, spans: [[start, end, type]]} |
+| `--recognizer` RECOGNIZER |  |  | pii-eval: regex, presidio, spacy=<model>, gliner=<folder> |
+| `--n` N |  | `1000` | pii-eval: size of the generated labelled set |
+| `--seed` SEED |  | `1506` |  |
+| `--table` TABLE |  |  |  |
+| `--column` COLUMN |  |  |  |
+| `--owner` OWNER |  |  | audit: column of the person (default: text.dp.unit_column, else the row) |
+| `--canaries` CANARIES |  | `64` |  |
+| `--repeats` REPEATS |  | `4` |  |
+| `--words` WORDS |  | `16` |  |
+| `--samples` SAMPLES |  | `2000` |  |
+| `--condition` CONDITION |  |  | metrics: conditioning column (repeatable) |
+
 ## settings
 
 Engine settings: show, explain, validate, template, reference.
@@ -493,7 +528,7 @@ Tune engine settings toward your objectives over several seeds; write the tuned 
 ```
 usage: relsynth autotune [-h] [--set KEY=VALUE] [--settings FILE] [--objectives OBJECTIVES]
                          [--runs RUNS] [--seeds SEEDS] [--holdout HOLDOUT] [--history HISTORY]
-                         [--fresh] [--out OUT] [--report REPORT] [--json]
+                         [--workers WORKERS] [--fresh] [--out OUT] [--report REPORT] [--json]
                          [--log-level {debug,info,warning,error}]
                          spec
 ```
@@ -508,6 +543,7 @@ usage: relsynth autotune [-h] [--set KEY=VALUE] [--settings FILE] [--objectives 
 | `--seeds` SEEDS |  |  | search seeds, e.g. 1,2,3 (overrides the objectives) |
 | `--holdout` HOLDOUT |  |  | held-out seeds, e.g. 11,12 ('' for none) |
 | `--history` HISTORY |  |  | history folder (default: <spec>.tune) |
+| `--workers` WORKERS |  | `1` | run the seeds of a candidate in this many parallel processes (memory: one fit each) |
 | `--fresh` |  |  | forget this spec's earlier runs |
 | `--out` OUT |  |  | tuned spec (default: <spec>.tuned.yaml) |
 | `--report` REPORT |  |  | report file (default: <history>/report.md, plus report.json) |
@@ -535,6 +571,18 @@ usage: relsynth gov [-h] [--json] [--log-level {debug,info,warning,error}] ACTIO
 | Option | Required | Default | Meaning |
 |---|---|---|---|
 | `gov_cmd` | yes |  |  |
+
+## docs
+
+Document collections (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON): discover, synthesise, check.
+
+```
+usage: relsynth docs [-h] [--json] [--log-level {debug,info,warning,error}] DOCS_COMMAND ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `docs_cmd` | yes |  |  |
 
 ## agent
 

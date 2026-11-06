@@ -723,7 +723,10 @@ WORD = re.compile(r"\w+|[^\w\s]")
 
 
 def _nb_fit(texts, labels):
-    cls = sorted(set(labels))
+    try:
+        cls = sorted(set(labels))
+    except TypeError:                           # mixed strings and nulls (a DP seed's suppressed levels)
+        cls = sorted(set(labels), key=str)
     cnt = {c: Counter() for c in cls}
     prior = Counter(labels)
     for t, l in zip(texts, labels):
@@ -749,6 +752,8 @@ def _nb_predict(model, texts):
     for c in cls:
         for w in cnt[c]:
             vocab.setdefault(w, len(vocab))
+    if C * (len(vocab) + 1) > _NB_DENSE_CELLS:
+        return _nb_predict_sparse(cls, cnt, prior, V, tot, texts)
     # column len(vocab): a word no class has seen
     L = np.empty((C, len(vocab) + 1))
     for i, c in enumerate(cls):
@@ -765,6 +770,39 @@ def _nb_predict(model, texts):
         for x in WORD.findall(str(t).lower()):
             acc += L[:, vocab.get(x, oov)]
         out.append(cls[int(np.argmax(lp + acc))])
+    return out
+
+
+_NB_DENSE_CELLS = 50_000_000      # class x word table above this (400 MB) is not built
+
+
+def _nb_predict_sparse(cls, cnt, prior, V, tot, texts):
+    """The same model as `_nb_predict` without the class x word table, for a
+    condition with very many levels (a DP seed's near-unique placeholder values
+    gave 66,000 classes by 65,000 words, 32 GB).  A word a class has not seen
+    scores that class's default; the others are added from an inverted index.
+    Scores agree with the dense path up to floating-point rounding."""
+    n = sum(prior.values())
+    C = len(cls)
+    dflt = np.array([np.log(1 / (tot[c] + V + 1)) for c in cls])
+    inv: dict = {}
+    for i, c in enumerate(cls):
+        den = tot[c] + V + 1
+        for w, k in cnt[c].items():
+            inv.setdefault(w, ([], []))
+            inv[w][0].append(i)
+            inv[w][1].append(np.log((k + 1) / den) - dflt[i])
+    inv = {w: (np.array(ix), np.array(d)) for w, (ix, d) in inv.items()}
+    lp = np.array([np.log(prior[c] / n) for c in cls])
+    out = []
+    for t in texts:
+        words = WORD.findall(str(t).lower())
+        acc = lp + len(words) * dflt
+        for x in words:
+            hit = inv.get(x)
+            if hit is not None:
+                acc[hit[0]] += hit[1]
+        out.append(cls[int(np.argmax(acc))] if C else None)
     return out
 
 
@@ -954,7 +992,9 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
                 tc = spec["synthesis"]["text"]
                 # privacy is judged against a fixed standard (k >= 3 rows, runs of <= 8
                 # tokens), never against looser generation settings in the spec
-                rep["text"][f"{t}.{c}"] = text_metrics(real[t], syn[t], c, o.get("condition_on"),
+                cond = o.get("condition_on")
+                cond = cond[0] if isinstance(cond, list) and cond else cond or None
+                rep["text"][f"{t}.{c}"] = text_metrics(real[t], syn[t], c, cond,
                                                        k=max(o.get("min_token_rows", tc["min_token_rows"]), 3),
                                                        L=min(o.get("max_copy_ngram", tc["max_copy_ngram"]), 8))
         if ts["role"] == "fact":
@@ -1082,7 +1122,8 @@ def rule_metrics(spec, real, syn, sampled=()):
                     else _rule_rate(spec, t, tabs, fn3)
             continue
         out[name] = {"kind": "check", "violation_rate_real": _rule_rate(spec, t, real, fn),
-                     "violation_rate_syn": _rule_rate(spec, t, syn, fn)}
+                     "violation_rate_syn": _rule_rate(spec, t, syn, fn),
+                     "rows_real": int(len(real[t])), "rows_syn": int(len(syn[t]))}
     for t, ts in spec["tables"].items():
         for c, cs in ts["columns"].items():
             if cs["type"] != "lookup":
@@ -1419,10 +1460,17 @@ def scorecard(rep, th=None):
             add(n, "soft_rule_rate_diff", round(abs(r1 - r0), 6) if r1 == r1 else nan, round(lim, 6),
                 abs(r1 - r0) <= lim, _z_alpha(lim, sd), real_ok=r0_ok)
             continue
-        # a rule the real data itself breaks is reported, not held against the synthetic data
+        # A rule the real data never breaks must hold exactly.  One the real data
+        # itself breaks (rate r0 > 0) may break as often as in the source: the
+        # synthetic rate is then a binomial estimate of r0, and the limit adds
+        # three standard errors of the real-minus-synthetic difference (one-sided).
         r0 = d.get("violation_rate_real")
-        lim = max(th["rule_violation"], r0 or 0.0)
-        add(n, "rule_violation_rate", d["violation_rate_syn"], round(lim, 6), d["violation_rate_syn"] <= lim,
+        lim, al = max(th["rule_violation"], r0 or 0.0), None
+        if r0 is not None and r0 == r0 and r0 > 0 and d.get("rows_real") and d.get("rows_syn"):
+            sd = float(np.sqrt(r0 * (1 - r0) * _eff(d["rows_real"], d["rows_syn"])))
+            lim = max(lim, r0 + 3 * sd)
+            al = _z_alpha(lim - r0, sd, two_sided=False)
+        add(n, "rule_violation_rate", d["violation_rate_syn"], round(lim, 6), d["violation_rate_syn"] <= lim, al,
             real_ok=r0 is not None and r0 == r0)
     for t, d in rep.get("removed", {}).items():
         add(t, "rows_removed_share", d["share"], th["rows_removed"], d["share"] <= th["rows_removed"])

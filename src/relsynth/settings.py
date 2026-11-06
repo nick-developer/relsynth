@@ -206,7 +206,7 @@ META: dict[str, dict] = dict([
     _p("facts.occupancy_z", type="float", low=-1e3, high=0),
     _p("facts.occupancy_min_expected", type="float", low=0, high=1e9),
     _p("facts.dp_count_sweeps", type="int", low=1, high=1e5),
-    _p("structure.structural_prior", type="float", low=0, high=1, tunable=True, affects=_NOVEL + _FID_ASSOC,
+    _p("structure.structural_prior", type="float", low=0, high=0.999, tunable=True, affects=_NOVEL + _FID_ASSOC,
        direction={f: +1 for f in _NOVEL}),
     _p("structure.structural_pooling", type="float", low=0, high=1e6, tunable=True, affects=_NOVEL),
     _p("structure.beta_prior", type="float", low=1e-6, high=1e6, tunable=True, scale="log", affects=_NOVEL + _CARD),

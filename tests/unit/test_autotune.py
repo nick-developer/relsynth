@@ -111,8 +111,8 @@ def test_steps_follow_scale_and_bounds():
     P = params()
     assert Sx.step(P["copula.sample_rows"], 1500, +1) == 3000
     assert Sx.step(P["copula.sample_rows"], 1500, -1) == 750
-    assert Sx.step(P["structure.structural_prior"], 0.9, +1) == 1.0
-    assert Sx.step(P["structure.structural_prior"], 1.0, +1) is None          # at the bound
+    assert Sx.step(P["structure.structural_prior"], 0.9, +1) == 0.999        # the spec refuses 1
+    assert Sx.step(P["structure.structural_prior"], 0.999, +1) is None        # at the bound
     assert Sx.step(P["gibbs.merge"], True, +1) is False
     assert Sx.step(P["text.order"], 3, +1) == 4
 
@@ -142,6 +142,17 @@ def test_history_persists_and_isolates_fingerprints(tmp_path):
     h3.add("k9", {}, {}, {"seed": 1, "checks": []})
     History(tmp_path, "fp1").clear()
     assert History(tmp_path, "fp1").get("k1", 1) is None and History(tmp_path, "fp2").get("k9", 1) is not None
+
+
+def test_runs_of_another_engine_or_library_version_are_not_reused():
+    from relsynth.autotune.loop import engine_signature, fingerprint
+    from relsynth.autotune.objectives import Objectives
+    raw, obj = {"synthesis": {"seed": 1, "marginals": {"max_levels": 4}}}, Objectives()
+    assert engine_signature() == engine_signature() and len(engine_signature()) == 16
+    assert fingerprint(raw, obj) == fingerprint(raw, obj, engine_signature())
+    assert fingerprint(raw, obj, "pandas2") != fingerprint(raw, obj, "pandas3")
+    other_seed = {"synthesis": {"seed": 7, "marginals": {"max_levels": 4}}}
+    assert fingerprint(other_seed, obj) == fingerprint(raw, obj)
 
 
 # ------------------------------------------------- the loop on planted surfaces
@@ -198,6 +209,30 @@ def test_loop_finds_the_planted_fix_and_explains_the_rest(tmp_path, monkeypatch)
     assert res2.runs_reused >= 3 * 2                                       # incumbent and defaults, every search seed
     assert res2.judgement["excess_failures"] <= res.judgement["excess_failures"]
     assert len(calls) - n <= 80
+
+
+def _planted_trial(raw, base, seed, delta, patches, obj):
+    """A module-level (picklable) planted surface for the parallel runs: marginal_tvd
+    fails 2, 1, 0 times for max_levels 2, 4, >= 8; join_tvd once on seed 2."""
+    ml = delta.get("marginals.max_levels", raw["synthesis"]["marginals"]["max_levels"])
+    f = 2 if ml <= 2 else 1 if ml < 8 else 0
+    ch = [_c(f"scorecard:t.c{i}|marginal_tvd", i >= f, alpha=0.0001) for i in range(10)]
+    ch += [_c(f"scorecard:t{i}|join_tvd", not (seed == 2 and i == 0), alpha=0.02) for i in range(10)]
+    return TrialResult(seed=seed, checks=ch, seconds=0.0)
+
+
+def test_parallel_seeds_give_the_same_tuning(tmp_path, monkeypatch):
+    monkeypatch.setattr(L, "run_trial", _planted_trial)
+    obj = _obj(search=["marginals.max_levels"], halving=False)
+    one = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path / "one")
+    par = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path / "par", workers=3)
+    assert par.delta == one.delta and par.delta["marginals.max_levels"] >= 8 and par.met
+    assert par.runs == one.runs and par.trajectory == one.trajectory
+
+    def lines(d):
+        return [{k: v for k, v in json.loads(x).items() if k != "time"}
+                for x in (tmp_path / d / "history.jsonl").read_text().splitlines()]
+    assert lines("par") == lines("one")                     # the same records, in the same order
 
 
 def test_loop_reports_the_privacy_trade_off(tmp_path, monkeypatch):
@@ -264,3 +299,77 @@ def test_autotune_end_to_end_on_a_planted_misfit(tmp_path, star_csv):
     assert res.delta.get("marginals.dirichlet_prior", 1e4) < 1e4
     assert res.judgement["failures"] < base["failures"]
     assert (tmp_path / "history.jsonl").exists()
+
+
+# ------------------------------------------------- scorecard rules (hard constraint "rules")
+def test_rule_the_source_breaks_gets_a_sampling_allowance():
+    """A check rule the real data never breaks holds exactly; one it breaks at a
+    rate r0 > 0 passes within three standard errors of r0 (AdventureWorks: 9 of
+    60,855 reseller lines break 'order weekday == ship weekday', a synthetic run
+    with 12 is noise, not a violation)."""
+    from relsynth.evaluate import scorecard
+    n = 60855
+    rules = {"t: a == b": {"kind": "check", "violation_rate_real": 9 / n, "violation_rate_syn": 12 / n,
+                           "rows_real": n, "rows_syn": n},
+             "t: c == d": {"kind": "check", "violation_rate_real": 9 / n, "violation_rate_syn": 40 / n,
+                           "rows_real": n, "rows_syn": n},
+             "t: x > 0": {"kind": "check", "violation_rate_real": 0.0, "violation_rate_syn": 1 / n,
+                          "rows_real": n, "rows_syn": n}}
+    rep = {"tables": {}, "relations": {}, "trees": {}, "time": {}, "text": {}, "privacy": {}, "rules": rules}
+    it = {i["area"]: i for i in scorecard(rep)["items"]}
+    assert it["t: a == b"]["pass"] and 0 < it["t: a == b"]["alpha"] < 0.002
+    assert not it["t: c == d"]["pass"]                        # four times the source's rate is a violation
+    assert not it["t: x > 0"]["pass"] and "alpha" not in it["t: x > 0"]   # an exact rule stays exact
+    assert constraint_of("scorecard:t: a == b|rule_violation_rate") == "rules"
+
+
+def test_every_tunable_bound_is_a_valid_spec_value():
+    """The search moves a setting up to its registry bounds; a bound the spec
+    refuses fails every run of the candidate (AdventureWorks: structure.
+    structural_prior = 1.0 with the spec's [0, 1))."""
+    import math
+
+    from relsynth.autotune.checks import _nest
+    from relsynth.settings import search_space
+    from relsynth.spec import normalise
+    base = {"version": 1, "name": "t", "source": {"kind": "csv", "path": "x"},
+            "tables": {"t": {"role": "entity", "columns": {"id": "id", "x": "categorical"}, "primary_key": "id"}}}
+    bad = []
+    for k, p in search_space().items():
+        if p.type in ("int", "float"):
+            vals = [v for v in (p.low, p.high) if v is not None and math.isfinite(v)]
+            vals = [int(v) for v in vals] if p.type == "int" else vals
+        elif p.type == "choice":
+            vals = [c for c in p.choices if c != "map"]
+        else:
+            vals = [True, False] if p.type == "bool" else []
+        for v in vals:
+            s = copy.deepcopy(base)
+            s["synthesis"] = _nest({k: v})
+            try:
+                normalise(s)
+            except Exception as e:  # noqa: BLE001 - every refusal is collected
+                bad.append(f"{k}={v}: {str(e)[:120]}")
+    assert not bad, bad
+
+
+def test_a_rejected_doctor_set_is_tried_part_by_part(tmp_path, monkeypatch):
+    """The doctor proposes two fixes at once: the copula fix removes the
+    marginal_tvd failures, the segment fix breaks the DCR privacy check.  The
+    whole set is rejected (a hard violation); its parts are then tried on their
+    own and the copula fix is kept without the segment fix."""
+    DOC = {"synthesis.copula.sample_rows": 3000, "synthesis.segments.tables.t": 32}
+
+    def run_trial(raw, base, seed, delta, patches, obj):
+        patches = patches or {}
+        good = patches.get("synthesis.copula.sample_rows") == 3000
+        leak = "synthesis.segments.tables.t" in patches
+        ch = [_c(f"scorecard:t.c{i}|marginal_tvd", good or i >= 3, alpha=0.0001) for i in range(10)]
+        ch.append(_c("scorecard:t|dcr_ratio", not leak))
+        return TrialResult(seed=seed, checks=ch, seconds=0.0, doctor=dict(DOC))
+    monkeypatch.setattr(L, "run_trial", run_trial)
+    obj = _obj(search=["marginals.max_levels"], spec_patches=True, budget={"runs": 60})
+    res = L.autotune(copy.deepcopy(RAW), obj, history_dir=tmp_path)
+    assert res.patches == {"synthesis.copula.sample_rows": 3000}
+    assert res.judgement["hard_violations"] == 0 and res.analysis["families"]["marginal_tvd"]["met"]
+    assert any(t["origin"] == "doctor" and not t["accepted"] and "hard" in t["why"] for t in res.trajectory)

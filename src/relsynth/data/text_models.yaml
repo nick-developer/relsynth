@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: Apache-2.0
+# Licence register of models the text methods can use (relsynth text models;
+# docs/text.md#models).  relsynth ships no weights: download a model yourself,
+# under its own licence, into a local folder and give that folder in the spec.
+#
+# licence: the SPDX id, or the name of the model's own terms.
+# status:  preferred  - Apache-2.0 or MIT weights, no use restrictions
+#          allowed    - permissive, check attribution
+#          restricted - own terms with use or user-count restrictions: legal review first
+#          test-only  - for CI and smoke tests, not for synthetic data
+# checked: date the licence was recorded from the model card.  The CI job
+#          `text-models` compares every hub entry with the hub's licence tag.
+models:
+  - id: EleutherAI/pythia-14m
+    use: lm
+    licence: Apache-2.0
+    status: test-only
+    size: 14M parameters
+    note: CI smoke test of method lm (fine-tuning, DP-GD, scoring); too small for useful text
+    checked: 2026-10-31
+  - id: EleutherAI/pythia-160m
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 160M
+    checked: 2026-10-31
+  - id: HuggingFaceTB/SmolLM2-135M
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 135M
+    note: CPU-friendly default for method lm and the PE API
+    checked: 2026-10-31
+  - id: HuggingFaceTB/SmolLM2-360M
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 360M
+    checked: 2026-10-31
+  - id: HuggingFaceTB/SmolLM2-1.7B
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 1.7B
+    note: needs a GPU preset for fine-tuning
+    checked: 2026-10-31
+  - id: Qwen/Qwen2.5-0.5B
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 0.5B
+    checked: 2026-10-31
+  - id: Qwen/Qwen2.5-1.5B
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 1.5B
+    checked: 2026-10-31
+  - id: Qwen/Qwen2.5-3B
+    use: lm
+    licence: Qwen Research License
+    status: restricted
+    size: 3B
+    note: non-commercial research terms; not for production use without a separate licence
+    checked: 2026-10-31
+  - id: mistralai/Mistral-7B-v0.1
+    use: lm
+    licence: Apache-2.0
+    status: preferred
+    size: 7B
+    note: GPU preset
+    checked: 2026-10-31
+  - id: microsoft/Phi-3.5-mini-instruct
+    use: lm
+    licence: MIT
+    status: allowed
+    size: 3.8B
+    checked: 2026-10-31
+  - id: openai-community/gpt2
+    use: lm, mauve-features
+    licence: MIT
+    status: allowed
+    size: 124M
+    checked: 2026-10-31
+  - id: openai-community/gpt2-large
+    use: mauve-features
+    licence: MIT
+    status: allowed
+    size: 774M
+    note: the featurizer of the reference MAUVE numbers
+    checked: 2026-10-31
+  - id: meta-llama/Llama-3.2-1B
+    use: lm
+    licence: Llama 3.2 Community License
+    status: restricted
+    size: 1.2B
+    note: acceptable-use policy, 700M monthly active users cap, attribution; legal review first
+    checked: 2026-10-31
+  - id: google/gemma-2-2b
+    use: lm
+    licence: Gemma Terms of Use
+    status: restricted
+    size: 2.6B
+    note: prohibited-use policy passes to derivatives; legal review first
+    checked: 2026-10-31
+  - id: urchade/gliner_multi_pii-v1
+    use: pii
+    licence: Apache-2.0
+    status: preferred
+    note: GLiNER fine-tuned for personal data, multilingual
+    checked: 2026-10-31
+  - id: urchade/gliner_small-v2.1
+    use: pii
+    licence: Apache-2.0
+    status: preferred
+    checked: 2026-10-31
+  - id: spacy/en_core_web_lg
+    use: pii
+    licence: MIT
+    status: preferred
+    note: the NLP engine of Presidio (install with python -m spacy download, or the wheel offline)
+    checked: 2026-10-31
+  - id: sentence-transformers/all-MiniLM-L6-v2
+    use: embedding
+    licence: Apache-2.0
+    status: preferred
+    note: optional embedding of Private Evolution (default is the data-independent hash embedding)
+    checked: 2026-10-31
+  - id: BAAI/bge-small-en-v1.5
+    use: embedding
+    licence: MIT
+    status: allowed
+    checked: 2026-10-31
+libraries:
+  - {name: torch, licence: BSD-3-Clause, extra: text-lm}
+  - {name: transformers, licence: Apache-2.0, extra: text-lm}
+  - {name: peft, licence: Apache-2.0, extra: text-lm}
+  - {name: presidio-analyzer, licence: MIT, extra: text-pii}
+  - {name: spacy, licence: MIT, extra: text-pii}
+  - {name: gliner, licence: Apache-2.0, extra: text-pii}
+  - {name: sentence-transformers, licence: Apache-2.0, extra: optional}
+  - {name: mauve-text, licence: GPL-3.0, extra: none (never a dependency; optional for the reference MAUVE)}

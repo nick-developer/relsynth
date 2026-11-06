@@ -228,6 +228,10 @@ Under referential integrity, the composition of many-to-one and one-to-one refer
 
 If the reference graph is acyclic and no hierarchy or excluded reference points into an owned record, removing a set of units with all their owned records leaves every non-null reference resolvable. Otherwise the offending references are the cross-unit links that `trace` reports. ∎
 
+## Synthetic text (v5.0): Propositions 1500–1507
+
+A text column can be released with user-level differential privacy (guide [text.md](text.md), proofs in section v5.0 of [proofs/](proofs/)). The DP n-gram release counts, level by level, how many people use each n-gram in each class, with discrete Gaussian noise and a partition-selection threshold (Prop. 1501). DP-GD clips each person's gradient and adds Gaussian noise on full batches, so its zCDP cost is exactly T/(2σ²) (Prop. 1502). Private Evolution only lets private texts vote, with per-person L2-normalised votes (Prop. 1503). For any of them, a canary's exposure satisfies P(exposure ≥ t) ≤ e^ε 2^-t + δ and E[exposure] ≤ (ε+1)/ln 2 + δ log₂|R| (Props. 1500, 1504), which the leakage audit tests. Props. 1505–1507 cover the near-duplicate search, the PII placeholders and recall intervals, and the calibration of the consistency metric.
+
 ## 5. References
 
 - Bitol project (Linux Foundation AI & Data). Open Data Contract Standard v3.0–3.2.

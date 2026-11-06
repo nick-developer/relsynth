@@ -1,0 +1,54 @@
+{"engine": "relsynth", "measure": "copula", "eps": 0.5, "rep": 0, "secs": 28.1, "tvd2_seed": 0.0759, "tvd2_synth": 0.0779, "tvd1_seed": 0.011, "tvd1_synth": 0.0128}
+{"engine": "relsynth", "measure": "copula", "eps": 0.5, "rep": 1, "secs": 21.7, "tvd2_seed": 0.076, "tvd2_synth": 0.0781, "tvd1_seed": 0.0115, "tvd1_synth": 0.0139}
+{"engine": "relsynth", "measure": "copula", "eps": 0.5, "rep": 2, "secs": 24.5, "tvd2_seed": 0.0762, "tvd2_synth": 0.078, "tvd1_seed": 0.0117, "tvd1_synth": 0.0129}
+{"engine": "relsynth", "measure": "mst", "eps": 0.5, "rep": 0, "secs": 61.0, "tvd2_seed": 0.0568, "tvd2_synth": 0.0613, "tvd1_seed": 0.0122, "tvd1_synth": 0.0142, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 0.5, "rep": 1, "secs": 62.1, "tvd2_seed": 0.0595, "tvd2_synth": 0.0643, "tvd1_seed": 0.0119, "tvd1_synth": 0.0145, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 0.5, "rep": 2, "secs": 59.7, "tvd2_seed": 0.0596, "tvd2_synth": 0.0624, "tvd1_seed": 0.0121, "tvd1_synth": 0.013, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 0.5, "rep": 0, "secs": 43.9, "tvd2_seed": 0.0567, "tvd2_synth": 0.0605, "tvd1_seed": 0.011, "tvd1_synth": 0.0122, "pairs": 16}
+{"engine": "relsynth", "measure": "aim", "eps": 0.5, "rep": 1, "secs": 52.3, "tvd2_seed": 0.0601, "tvd2_synth": 0.0648, "tvd1_seed": 0.0109, "tvd1_synth": 0.0126, "pairs": 16}
+{"engine": "relsynth", "measure": "aim", "eps": 0.5, "rep": 2, "secs": 54.5, "tvd2_seed": 0.058, "tvd2_synth": 0.0617, "tvd1_seed": 0.0115, "tvd1_synth": 0.0125, "pairs": 14}
+{"engine": "relsynth", "measure": "copula", "eps": 1, "rep": 0, "secs": 19.5, "tvd2_seed": 0.0725, "tvd2_synth": 0.0744, "tvd1_seed": 0.0082, "tvd1_synth": 0.0101}
+{"engine": "relsynth", "measure": "copula", "eps": 1, "rep": 1, "secs": 24.6, "tvd2_seed": 0.0711, "tvd2_synth": 0.0727, "tvd1_seed": 0.0069, "tvd1_synth": 0.0091}
+{"engine": "relsynth", "measure": "copula", "eps": 1, "rep": 2, "secs": 29.0, "tvd2_seed": 0.0716, "tvd2_synth": 0.0741, "tvd1_seed": 0.0071, "tvd1_synth": 0.0097}
+{"engine": "relsynth", "measure": "mst", "eps": 1, "rep": 0, "secs": 48.8, "tvd2_seed": 0.0497, "tvd2_synth": 0.0546, "tvd1_seed": 0.0077, "tvd1_synth": 0.0103, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 1, "rep": 1, "secs": 52.3, "tvd2_seed": 0.0519, "tvd2_synth": 0.058, "tvd1_seed": 0.0081, "tvd1_synth": 0.0112, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 1, "rep": 2, "secs": 45.7, "tvd2_seed": 0.0505, "tvd2_synth": 0.0551, "tvd1_seed": 0.0072, "tvd1_synth": 0.0099, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 1, "rep": 0, "secs": 47.5, "tvd2_seed": 0.0523, "tvd2_synth": 0.0584, "tvd1_seed": 0.0067, "tvd1_synth": 0.0087, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 1, "rep": 1, "secs": 61.5, "tvd2_seed": 0.0506, "tvd2_synth": 0.0547, "tvd1_seed": 0.0074, "tvd1_synth": 0.0093, "pairs": 16}
+{"engine": "relsynth", "measure": "aim", "eps": 1, "rep": 2, "secs": 37.0, "tvd2_seed": 0.0497, "tvd2_synth": 0.0553, "tvd1_seed": 0.0071, "tvd1_synth": 0.0097, "pairs": 16}
+{"engine": "relsynth", "measure": "copula", "eps": 4, "rep": 0, "secs": 25.8, "tvd2_seed": 0.0694, "tvd2_synth": 0.0729, "tvd1_seed": 0.0051, "tvd1_synth": 0.0081}
+{"engine": "relsynth", "measure": "copula", "eps": 4, "rep": 1, "secs": 20.0, "tvd2_seed": 0.0695, "tvd2_synth": 0.0724, "tvd1_seed": 0.005, "tvd1_synth": 0.0085}
+{"engine": "relsynth", "measure": "copula", "eps": 4, "rep": 2, "secs": 30.8, "tvd2_seed": 0.069, "tvd2_synth": 0.0714, "tvd1_seed": 0.0049, "tvd1_synth": 0.0084}
+{"engine": "relsynth", "measure": "mst", "eps": 4, "rep": 0, "secs": 43.6, "tvd2_seed": 0.048, "tvd2_synth": 0.0554, "tvd1_seed": 0.0045, "tvd1_synth": 0.0076, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 4, "rep": 1, "secs": 52.2, "tvd2_seed": 0.0464, "tvd2_synth": 0.0537, "tvd1_seed": 0.0049, "tvd1_synth": 0.0081, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 4, "rep": 2, "secs": 45.3, "tvd2_seed": 0.0476, "tvd2_synth": 0.0543, "tvd1_seed": 0.0049, "tvd1_synth": 0.008, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 4, "rep": 0, "secs": 53.7, "tvd2_seed": 0.0478, "tvd2_synth": 0.0554, "tvd1_seed": 0.0044, "tvd1_synth": 0.0074, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 4, "rep": 1, "secs": 47.9, "tvd2_seed": 0.0463, "tvd2_synth": 0.0523, "tvd1_seed": 0.0048, "tvd1_synth": 0.0071, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 4, "rep": 2, "secs": 47.3, "tvd2_seed": 0.0486, "tvd2_synth": 0.0544, "tvd1_seed": 0.0045, "tvd1_synth": 0.0065, "pairs": 17}
+{"engine": "relsynth", "measure": "copula", "eps": 8, "rep": 0, "secs": 26.7, "tvd2_seed": 0.0686, "tvd2_synth": 0.07, "tvd1_seed": 0.0046, "tvd1_synth": 0.007}
+{"engine": "relsynth", "measure": "copula", "eps": 8, "rep": 1, "secs": 27.4, "tvd2_seed": 0.0693, "tvd2_synth": 0.07, "tvd1_seed": 0.0046, "tvd1_synth": 0.0071}
+{"engine": "relsynth", "measure": "copula", "eps": 8, "rep": 2, "secs": 24.8, "tvd2_seed": 0.0692, "tvd2_synth": 0.071, "tvd1_seed": 0.0045, "tvd1_synth": 0.0074}
+{"engine": "relsynth", "measure": "mst", "eps": 8, "rep": 0, "secs": 65.8, "tvd2_seed": 0.0475, "tvd2_synth": 0.0551, "tvd1_seed": 0.0044, "tvd1_synth": 0.0078, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 8, "rep": 1, "secs": 61.7, "tvd2_seed": 0.0475, "tvd2_synth": 0.0553, "tvd1_seed": 0.0044, "tvd1_synth": 0.0081, "pairs": 17}
+{"engine": "relsynth", "measure": "mst", "eps": 8, "rep": 2, "secs": 63.2, "tvd2_seed": 0.0475, "tvd2_synth": 0.0533, "tvd1_seed": 0.0045, "tvd1_synth": 0.0067, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 8, "rep": 0, "secs": 48.4, "tvd2_seed": 0.045, "tvd2_synth": 0.0518, "tvd1_seed": 0.0039, "tvd1_synth": 0.0071, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 8, "rep": 1, "secs": 43.6, "tvd2_seed": 0.0477, "tvd2_synth": 0.0532, "tvd1_seed": 0.0047, "tvd1_synth": 0.0068, "pairs": 17}
+{"engine": "relsynth", "measure": "aim", "eps": 8, "rep": 2, "secs": 54.6, "tvd2_seed": 0.0453, "tvd2_synth": 0.0526, "tvd1_seed": 0.004, "tvd1_synth": 0.0072, "pairs": 17}
+{"engine": "smartnoise", "measure": "mst", "eps": 0.5, "rep": 0, "secs": 46.7, "tvd2_synth": 0.1069, "tvd1_synth": 0.0076}
+{"engine": "smartnoise", "measure": "mst", "eps": 0.5, "rep": 1, "secs": 26.0, "tvd2_synth": 0.1072, "tvd1_synth": 0.0094}
+{"engine": "smartnoise", "measure": "mst", "eps": 0.5, "rep": 2, "secs": 22.5, "tvd2_synth": 0.1105, "tvd1_synth": 0.0096}
+{"engine": "smartnoise", "measure": "aim", "eps": 0.5, "rep": 0, "secs": 574.9, "tvd2_synth": 0.0715, "tvd1_synth": 0.0139}
+{"engine": "smartnoise", "measure": "aim", "eps": 0.5, "rep": 1, "secs": 457.2, "tvd2_synth": 0.0686, "tvd1_synth": 0.0103}
+{"engine": "smartnoise", "measure": "aim", "eps": 0.5, "rep": 2, "secs": 515.5, "tvd2_synth": 0.0814, "tvd1_synth": 0.0156}
+{"engine": "smartnoise", "measure": "mst", "eps": 1.0, "rep": 0, "secs": 39.1, "tvd2_synth": 0.089, "tvd1_synth": 0.0042}
+{"engine": "smartnoise", "measure": "mst", "eps": 1.0, "rep": 1, "secs": 19.5, "tvd2_synth": 0.0871, "tvd1_synth": 0.004}
+{"engine": "smartnoise", "measure": "mst", "eps": 1.0, "rep": 2, "secs": 13.6, "tvd2_synth": 0.0976, "tvd1_synth": 0.0044}
+{"engine": "smartnoise", "measure": "mst", "eps": 8.0, "rep": 0, "secs": 46.5, "tvd2_synth": 0.0899, "tvd1_synth": 0.0008}
+{"engine": "smartnoise", "measure": "mst", "eps": 8.0, "rep": 1, "secs": 17.8, "tvd2_synth": 0.0902, "tvd1_synth": 0.0008}
+{"engine": "smartnoise", "measure": "mst", "eps": 8.0, "rep": 2, "secs": 15.2, "tvd2_synth": 0.0905, "tvd1_synth": 0.0006}
+{"engine": "smartnoise", "measure": "mst", "eps": 4.0, "rep": 0, "secs": 30.2, "tvd2_synth": 0.0904, "tvd1_synth": 0.0013}
+{"engine": "smartnoise", "measure": "mst", "eps": 4.0, "rep": 1, "secs": 18.9, "tvd2_synth": 0.0897, "tvd1_synth": 0.001}
+{"engine": "smartnoise", "measure": "mst", "eps": 4.0, "rep": 2, "secs": 17.2, "tvd2_synth": 0.09, "tvd1_synth": 0.0012}
+{"engine": "smartnoise", "measure": "aim", "eps": 1.0, "rep": 0, "secs": 613.0, "tvd2_synth": 0.055, "tvd1_synth": 0.0083}
+{"engine": "smartnoise", "measure": "aim", "eps": 1.0, "rep": 1, "secs": 726.5, "tvd2_synth": 0.05, "tvd1_synth": 0.0065}
+{"engine": "smartnoise", "measure": "aim", "eps": 1.0, "rep": 2, "secs": 672.6, "tvd2_synth": 0.0564, "tvd1_synth": 0.0096}

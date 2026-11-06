@@ -469,11 +469,63 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `condition_on` | column |  | Column the text depends on (category of a product title). |
+| `condition_on` | column | list of columns |  | Column(s) the text depends on (category of a product title; category and priority of a ticket). |
+| `method` | ngram | lm | pe | `ngram` | Text method: the n-gram model (1.0; DP n-gram release with dp), a local language model, or Private Evolution (always DP). See docs/text.md. |
+| `pii` | text_pii |  | Redact personal data before training; generated texts get typed surrogates. |
+| `dp` | text_dp |  | Differential privacy for the people of unit_column in this column only. |
+| `lm` | text_lm |  | Options of method lm. |
+| `pe` | text_pe |  | Options of method pe. |
 | `order` | int | `3` | n-gram order. |
 | `min_token_rows` | int | `3` | A token must appear in at least this many rows. |
 | `max_copy_ngram` | int | `8` | No rare source n-gram of this length is copied. |
 | `whole_values` | bool | `False` | Generate whole labels seen in the source (nested labels). |
+
+### `text.pii`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `recognizers` | list | `['regex']` | regex (built in), {name: presidio | spacy, model}, {name: gliner, model: <local folder>, threshold}; combined by union. |
+
+### `text.dp`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `epsilon` | float |  | Budget of this column at delta (no default). |
+| `rho` | float |  | Budget as zCDP rho instead of epsilon. |
+| `delta` | float |  | delta in (0, 1e-5]. |
+| `unit_column` | column |  | Column holding the person each text belongs to. |
+| `max_texts` | int | `4` | Texts kept per person (contribution bound). |
+| `max_tokens` | int | `40` | ngram: tokens kept per text. |
+| `max_keys` | int | `64` | ngram: n-grams counted per person and level. |
+| `clip` | float | `1.0` | lm: per-person gradient clip norm. |
+| `selection_delta_share` | float | `0.5` | Share of delta for partition selection. |
+
+### `text.lm`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `model` | str | `stub` | Local model folder (never downloaded), or stub (random tiny byte model). |
+| `lora` | map |  | LoRA adapters {r, alpha, targets} (needs peft). |
+| `steps` | int | `200` | Optimiser steps. |
+| `batch_size` | int | `32` | Batch size without DP (DP uses every person each step). |
+| `lr` | float | `0.001` | Adam learning rate. |
+| `max_tokens` | int | `64` | Model tokens kept per text. |
+| `max_new_tokens` | int | `64` | Longest generated text in model tokens. |
+| `temperature` | float | `1.0` | Sampling temperature. |
+| `top_p` | float | `0.95` | Nucleus sampling share. |
+| `device` | str |  | cpu, cuda, cuda:1 (default: a GPU when present). |
+| `seed` | int | `0` | Seed of the initialisation and the non-DP batches. |
+| `stub_size` | map |  | stub: {n_embd, n_layer, n_head}. |
+
+### `text.pe`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `api` | map |  | {kind: lm, model: <folder>} or {kind: ngram, corpus: <public CSV>, column, class_column}. |
+| `iterations` | int | `4` | Voting rounds. |
+| `pool` | int | `64` | Proposals per class. |
+| `threshold` | float | `2.0` | Votes below this many noise sd are dropped. |
+| `embed` | map |  | hash (default, data-independent) or {name: sentence-transformers, model: <folder>}. |
 
 ### `columns.<name>.pii`
 

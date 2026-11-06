@@ -714,7 +714,22 @@
           "additionalProperties": false,
           "properties": {
             "condition_on": {
-              "description": "Column the text depends on (category of a product title)."
+              "description": "Column(s) the text depends on (category of a product title; category and priority of a ticket)."
+            },
+            "method": {
+              "description": "Text method: the n-gram model (1.0; DP n-gram release with dp), a local language model, or Private Evolution (always DP). See docs/text.md."
+            },
+            "pii": {
+              "description": "Redact personal data before training; generated texts get typed surrogates."
+            },
+            "dp": {
+              "description": "Differential privacy for the people of unit_column in this column only."
+            },
+            "lm": {
+              "description": "Options of method lm."
+            },
+            "pe": {
+              "description": "Options of method pe."
             },
             "order": {
               "description": "n-gram order."

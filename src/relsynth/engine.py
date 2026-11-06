@@ -37,6 +37,7 @@ from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, Tr
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
 from .settings import table_config
 from .table_model import TableModel
+from . import textgen as _textgen
 from .text import TextModel
 from .transform import Plan, offset_keys
 
@@ -2400,7 +2401,12 @@ class Synthesizer:
         tcfg = self.cfg["text"]
         for t, ts in self.spec["tables"].items():
             for c, cs in ts["columns"].items():
-                if cs["type"] == "text":
+                if cs["type"] == "text" and _textgen.is_extended(cs.get("text") or {}):
+                    o = cs.get("text") or {}
+                    seg = None if _textgen.condition_cols(o) else self._row_segments(t, tables[t])
+                    self.text[(t, c)] = _textgen.TextColumn(t, c, o, tcfg).fit(tables[t], seg)
+                    self.log["decisions"].setdefault(t, {})[f"{c} text"] = self.text[(t, c)].info
+                elif cs["type"] == "text":
                     o = cs.get("text") or {}
                     cond = o.get("condition_on")
                     classes = tables[t][cond].astype(str).tolist() if cond else self._row_segments(t, tables[t])
@@ -4351,6 +4357,10 @@ class Synthesizer:
                 df[c] = _unique_codes(self.pii[(t, c)], n, rng, rounds=int(_setting(self, "repair", "unique_code_rounds", 50)))
             elif cs["type"] == "id":
                 df[c] = np.arange(1, n + 1)
+            elif cs["type"] == "text" and isinstance(self.text[(t, c)], _textgen.TextColumn):
+                tcol = self.text[(t, c)]
+                df[c] = tcol.generate(df, None if tcol.cols else seg, rng)
+                self.sample_log["text_rejections"][f"{t}.{c}"] = tcol.last_rejected
             elif cs["type"] == "text":
                 tmod = self.text[(t, c)]
                 o = cs.get("text") or {}
