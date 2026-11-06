@@ -90,10 +90,15 @@ def summarise(out: Path) -> int:
             J = A.judge(rs, obj)
             bad = sorted(f for f, o in J.families().items() if not o["met"])
             hard = sorted({c for v in J.views for c in v.hard})
+            hard_ids = sorted({i for v in J.views for ids in v.hard.values() for i in ids})
             secs = round(sum(r.get("seconds") or 0 for r in rs) / max(len(rs), 1))
             print(f"- {rs[0].get('origin')}: {rs[0]['delta'] or 'defaults'} {rs[0]['patches'] or ''} | seeds "
                   f"{J.seeds} | hard {J.hard_violations} {hard} | excess {J.excess:.2f} | failures {J.failures:.1f}"
                   f" | {secs}s/run | not met: {bad}")
+            for i in hard_ids:
+                vals = [(r["seed"], c.get("value"), c.get("limit")) for r in rs for c in r.get("checks", [])
+                        if c["id"] == i]
+                print(f"    hard {i}: (seed, value, limit) {vals}")
         base = [r for r in h.records if not r["delta"] and not r["patches"] and r["seed"] in obj.seeds_search]
         if base:
             J = A.judge(base, obj)
