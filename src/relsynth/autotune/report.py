@@ -57,12 +57,31 @@ def effects(hist, obj):
             k = diff[0]
             f1, f0 = j1.families(), j0.families()
             delta_f = {f: _mean(f1[f]["failed"]) - _mean(f0[f]["failed"]) for f in f1 if f in f0}
+            sig = {f: _clear(f1[f]["failed"], f0[f]["failed"]) for f in delta_f}
             c1, c0 = j1.constraints(obj.hard), j0.constraints(obj.hard)
             delta_c = {c: c1[c]["n_checks"] - c0.get(c, {"n_checks": 0})["n_checks"] for c in c1}
-            pairs.append((k, d0.get(k), d1.get(k), delta_f, delta_c))
+            pairs.append((k, d0.get(k), d1.get(k), {f: v for f, v in delta_f.items() if sig[f]}, delta_c))
             for f, dv in delta_f.items():
                 eff.setdefault(f, {}).setdefault(k, []).append(round(dv, 2))
     return eff, pairs, full
+
+
+def _clear(new: list, old: list) -> bool:
+    """Is a change in a family's failures beyond seed noise?  Paired per-seed
+    differences: a mean of at least one check per seed and, with two or more
+    seeds, a mean at least twice its standard error (on AdventureWorks join_tvd
+    fails 7, 11, 8 times on three seeds of one candidate, so a one-check mean
+    change on its own is noise, and a trade-off read from it is not real)."""
+    d = [a - b for a, b in zip(new, old, strict=False)]
+    if not d:
+        return False
+    m = sum(d) / len(d)
+    if abs(m) < 1:
+        return False
+    if len(d) < 2:
+        return True
+    sd = (sum((x - m) ** 2 for x in d) / (len(d) - 1)) ** 0.5
+    return abs(m) >= 2 * sd / len(d) ** 0.5
 
 
 def analyse(hist, obj, inc, J, base_J, trials, space) -> dict:
