@@ -19,9 +19,9 @@ Two phases (docs/runtime.md):
    tables follow on the driver, from the stream (seed, dataset, "tail").
 
 The blocks depend only on the model, the dataset and `partition_rows`, never on
-the executor, so the output is identical for any number of workers (Prop. 900).
+the executor, so the output is identical for any number of workers (Prop. 950).
 Given phase 1, the rows of different anchor rows are independent in the fact
-models that qualify (Poisson rows per anchor, Poisson pairs; Prop. 901), so the
+models that qualify (Poisson rows per anchor, Poisson pairs; Prop. 951), so the
 partitioned dataset has the same law as an unpartitioned one; facts whose
 model couples rows across anchors (occupancy, degree laws over the whole
 table, link affinity, keys or groups not containing the anchor key) are drawn
@@ -72,7 +72,7 @@ PARTITION, STRUCTURE, WHOLE = "partition", "structure", "whole"
 
 
 def partition_rule(syn, f) -> tuple[str, str]:
-    """How fact f is split (Props. 901, 902):
+    """How fact f is split (Props. 951, 952):
 
     * partition: rows per anchor row, or Poisson pairs, are independent across
       anchor rows given the state, so each partition draws its own;

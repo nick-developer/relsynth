@@ -7,7 +7,7 @@ pip install -e ".[dev]"
 pytest                                   # unit, end-to-end and security tests: SQLite, CSV, Parquet (a few minutes)
 pytest -m "not slow"                     # skip the longer end-to-end runs
 pytest tests/integration                 # live PostgreSQL, SQL Server, Oracle, MySQL and MariaDB (skipped unless configured)
-pytest -m science                        # the statistical check suite C00–C78 (about an hour on 4 cores)
+pytest -m science                        # the statistical check suite: C00–C82 and the 2.0 checks (about 90 minutes on 4 cores)
 RELSYNTH_SCIENCE_SHARD=2/4 pytest -m science   # one of four shards of about equal run time (as CI runs it)
 pytest tests/unit/core                   # the fast core-engine tests (about 15 s; mutation testing uses them)
 pytest tests/unit --cov=relsynth --cov-branch --cov-report=term
@@ -29,9 +29,9 @@ CI runs every layer on every pull request; [development/ci.md](development/ci.md
 | `tests/unit/test_security.py` | URL masking, scrubbed messages, masked bundles and specs, the expression sandbox, regex vetting, path confinement, privacy defaults, no copied rows | |
 | `tests/unit/test_ir.py` | The IR: 1.0 round trips of the golden and fake specs (Prop. 106), identical synthetic data from an IR document, the five examples against the model and the JSON Schema, refusals, schema and reference drift, privacy paths of the four real databases, ownership and unit removal on S9 (Props. 107–108), ODCS and OpenLineage against their official schemas, migration and the `ir` commands | `relsynth[ir]` for the schema checks |
 | `tests/unit/test_lakehouse.py` | Iceberg and Delta on a local disk: the connector contract, statistics equal to the in-memory ones, samples, versions and time travel, every write mode, partitioned targets, keys recorded for `introspect`, hostile names, the same synthetic database as SQLite (off and on pushdown) | `relsynth[iceberg,delta]` |
-| `tests/unit/test_runtime.py` | The partitioned runtime: streams, the keyed cache, block boundaries, partition modes, identical tables with local, 2, 8 and 64 processes (Prop. 900) and Spark (slow), keys and links across partitions (Prop. 903), the scorecard against the 1.0 sampler (Props. 901–902), the default unchanged | `pyspark` and Java for the Spark test |
+| `tests/unit/test_runtime.py` | The partitioned runtime: streams, the keyed cache, block boundaries, partition modes, identical tables with local, 2, 8 and 64 processes (Prop. 950) and Spark (slow), keys and links across partitions (Prop. 953), the scorecard against the 1.0 sampler (Props. 951–952), the default unchanged | `pyspark` and Java for the Spark test |
 | `tests/unit/test_contract_check.py` | ODCS contract checks on synthetic output and on planted violations, the `ir check-contract` command | |
-| `tests/unit/test_drift.py` | Partition drift tests against reference computations, their family-wise error and power (Prop. 904, `science`), drift on a partitioned Iceberg table; the source's contract on output generated in partitions | |
+| `tests/unit/test_drift.py` | Partition drift tests against reference computations, their family-wise error and power (Prop. 954, `science`), drift on a partitioned Iceberg table; the source's contract on output generated in partitions | |
 | `tests/integration/test_lakehouse_stores.py` | Iceberg and Delta on object storage: contract and equivalence on S3 and Azure Blob / ADLS Gen2 | `RELSYNTH_TEST_S3_ENDPOINT` (moto server or MinIO), `RELSYNTH_TEST_AZURITE_ENDPOINT` (Azurite) |
 | `tests/e2e/test_cli.py` | Every CLI command as a CI job runs it: JSON output, exit codes 0–4, `--set`, reports, bundles | |
 | `tests/integration/test_servers.py` | On each live server: write and read, catalog, introspect, pushdown fit, identical output to SQLite, every write mode, cloning both ways, statistics parity, seeded samples, hostile identifiers, masked errors | `RELSYNTH_TEST_*_URL` |

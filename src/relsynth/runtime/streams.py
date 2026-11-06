@@ -6,7 +6,7 @@ random numbers: as easy as 1, 2, 3", SC 2011) whose 128-bit key is the first
 16 bytes of SHA-256 over the stream's labels, e.g. (seed, dataset, table,
 partition).  Its draws are a function of those labels alone: not of the order
 in which partitions run, the worker that runs them or how many workers there
-are (Prop. 900).  Philox passes BigCrush with distinct keys giving
+are (Prop. 950).  Philox passes BigCrush with distinct keys giving
 statistically independent streams; SHA-256 makes two label tuples share a key
 with probability 2^-128 per pair.
 """

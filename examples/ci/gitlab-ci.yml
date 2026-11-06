@@ -5,7 +5,7 @@ stages: [check, synthesise]
 default:
   image: python:3.12-slim
   before_script:
-    - pip install --quiet "relsynth[postgres]==1.0.0"
+    - pip install --quiet "relsynth[postgres]==2.0.0"
 
 check-spec:
   stage: check

@@ -1,9 +1,9 @@
 %=====================================================================
-\section{Time series and event sequences (v3.2)}\label{sec:v32ts}
+\section{Time series and event sequences (v2.0)}\label{sec:v32ts}
 % numbered from 1200 so that the parallel 2.x/3.x threads (600 privacy, 700 generators, 800 governance) do not collide
 \newcounter{savedpropts}\setcounter{savedpropts}{\value{proposition}}
 \setcounter{proposition}{1199}
-Version 3.2 adds two models of time (\texttt{relsynth/timeseries}, guide \texttt{docs/timeseries.md}, design record
+Release 2.0 adds two models of time (\texttt{relsynth/timeseries}, guide \texttt{docs/timeseries.md}, design record
 \texttt{docs/adr/0004-time-series.md}). An \emph{event-sequence} table (\texttt{sequence:} in the spec) holds the
 events of a parent entity, such as a customer's orders: the engine still decides how many events $n_i$ entity $i$
 has and what each holds, and the sequence model redraws their times jointly. A \emph{series} table

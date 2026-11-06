@@ -70,15 +70,15 @@ Read it with `jq`, for example `jq -r '.scorecard.score' run.json`.
 - `synthesis.seed` fixes everything. The same spec, data, seed and relsynth version give the same synthetic database, on any of the supported databases (rows are put in a canonical order on load).
 - `--datasets N` writes N independent posterior draws. Dataset 0 goes to the target; dataset *i* goes to `<path>_<i+1>` for folders and SQLite files, or to schema `<schema>_<i+1>` for servers. Dataset *m* is the same in every run with the same seed.
 - `--set synthesis.posterior.mode=mean` uses posterior means instead of a draw. The output is then stable across small changes to the source, which suits fixtures for integration tests.
-- Pin the version in CI (`relsynth==1.0.1`), because a new version may change draws even when the model is the same.
+- Pin the version in CI (`relsynth==2.0.0`), because a new version may change draws even when the model is the same.
 
 ## Containers
 
 The [Dockerfile](../Dockerfile) builds an image with every driver, including ODBC Driver 18. It runs as an unprivileged user, with the working folder at `/work`:
 
 ```bash
-docker build -t relsynth:1.0.1 .
-docker run --rm -v "$PWD:/work" -e PGPASSWORD -e TEST_DB_URL relsynth:1.0.1 \
+docker build -t relsynth:2.0.0 .
+docker run --rm -v "$PWD:/work" -e PGPASSWORD -e TEST_DB_URL relsynth:2.0.0 \
   run /work/spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98 --json
 ```
 
