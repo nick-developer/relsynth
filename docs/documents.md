@@ -101,7 +101,7 @@ validates against the inferred schema (Prop. 1400).
    fresh `_id`s (deterministic ObjectIds from the seed); references point to synthetic documents.
 4. **Conform.** Every synthetic document is made to validate against the schema (Prop. 1402). A value that breaks it
    (an array outside the source's length range, a repeated element in a set, a field outside its variant, a missing
-   required field) is replaced by a value of another *synthetic* document at the same path, never by a source value.
+   required field) is replaced by a value of another *synthetic* document at the same path, never by a source value. An optional field that no synthetic value can repair is dropped.
    Every repair is counted by kind and path in the report (`repairs`); many repairs of one kind say the model misses
    a dependence. Set arrays with a small vocabulary are the common case: duplicates the engine draws are resampled
    without replacement and counted as `set` repairs.

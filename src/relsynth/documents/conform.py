@@ -15,7 +15,8 @@ document validates (Proposition 1402):
   never took: the value is taken from another *synthetic* document that has a
   valid value at the same path (a hot deck within the synthetic data, so no
   source value is copied);
-* a field that is not part of the document's variant: dropped.
+* a field that is not part of the document's variant: dropped;
+* an optional field that no synthetic value can repair: dropped.
 
 Repairs are counted per kind and path and reported with the quality metrics;
 a large count says the model misses a structural dependence (declare it).
@@ -98,7 +99,13 @@ def _fix(node: Node, v: Any, path: str, pools, rng, counts: Counter) -> Any:
             if f is None or (var and k in var["fields"] and k not in case):
                 counts[("extra", f"{path}.{k}" if path else k)] += 1
                 continue
-            out[k] = _fix(f, x, f"{path}.{k}" if path else k, pools, rng, counts)
+            fx = _fix(f, x, f"{path}.{k}" if path else k, pools, rng, counts)
+            if f.present < nobj and not (var and k in case) and violations(f, fx, "", None, 1):
+                # an optional field that no synthetic value can repair (a rare
+                # path the model left without valid elements) is dropped
+                counts[("dropped", f"{path}.{k}" if path else k)] += 1
+                continue
+            out[k] = fx
         for k, f in node.fields.items():
             if k in out:
                 continue
@@ -124,9 +131,17 @@ def _fix(node: Node, v: Any, path: str, pools, rng, counts: Counter) -> Any:
             items = items[:hi]
         if len(items) < lo:
             counts[("length", path)] += 1
+            raw = pools.get(("elements", id(node))) or []
             while len(items) < lo:
                 d = _donor(node.items, pools, rng)
+                if d is _MISSING and raw:
+                    # no element validates on its own: take any synthetic
+                    # element of this path, repaired below like the others
+                    d = raw[int(rng.integers(len(raw)))]
                 if d is _MISSING:
+                    whole = _donor(node, pools, rng)
+                    if whole is not _MISSING:
+                        return whole
                     break
                 items.append(d)
         if node.items is not None:
