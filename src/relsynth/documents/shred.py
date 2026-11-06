@@ -385,7 +385,7 @@ def _impute_variant_fields(lay, name, df) -> None:
         if not (tagged or (info.get("variant_field") and not info["nullable"])):
             continue
         miss = df[c].isna().to_numpy()
-        vals = df[c][~miss].to_numpy(dtype=object)
+        vals = df[c][~miss].to_numpy()            # the column's own dtype (pandas 3 refuses object into float64)
         if miss.any() and len(vals):
             rng = np.random.default_rng(int(str(object_id(name, c, "impute"))[:8], 16))
             df.loc[miss, c] = vals[rng.integers(len(vals), size=int(miss.sum()))]
