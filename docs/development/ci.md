@@ -17,7 +17,8 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 
 The suite also runs weekly, so that new dependency releases and new advisories in pip-audit are caught when nothing changed in the repository. Actions are pinned to commit SHAs, and Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) proposes updates weekly. Repository CodeQL (default setup) adds code scanning for Python and Actions.
 
-Two more workflows run outside the pull-request gate:
+More workflows run outside the required gate:
+- [`service-e2e.yml`](../../.github/workflows/service-e2e.yml), when the service, the Helm chart or the images change, weekly and by hand: the service end to end on docker compose and on a real Kubernetes cluster (kind), with SSO, a run, approval, download, audit, tenant isolation, `helm test`, Pod Security `restricted`, and a worker lost mid-run ([deployment](../service/deployment.md)).
 - [`mutation.yml`](../../.github/workflows/mutation.yml), weekly: the sampled mutation score of the core engine ([testing](../testing.md#mutation-testing)).
 - [`pypi_upload.yml`](../../.github/workflows/pypi_upload.yml), on a published release: the whole gate, then build, SBOM, signatures, provenance and the upload ([supply chain](supply-chain.md)).
 
