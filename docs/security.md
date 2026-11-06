@@ -7,7 +7,7 @@ relsynth reads production databases and writes data that is meant to be shared. 
 | Asset | Threat | Protection |
 |---|---|---|
 | Database credentials | Leaked through spec files, logs, error messages, CI output, diagnostics bundles, process lists | Credentials come from the environment, and every output masks them (see below) |
-| Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows | Bayesian synthesis (no row is copied), memorisation guards for text, privacy checks, and aggregate-only bundles |
+| Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows | Bayesian synthesis (no row is copied), memorisation guards for text, privacy attacks per person ([privacy.md](privacy.md)), optional differential privacy ([dp.md](dp.md)), and aggregate-only bundles |
 | The machine running relsynth | A malicious spec (YAML tricks, rule expressions, regexes) or a malicious file name | Safe YAML loading, a sandboxed expression language, regex vetting, and confined paths |
 | The target database | SQL injection through table or column names or values | SQLAlchemy Core with quoted identifiers and bound values everywhere |
 | The source database | Accidental writes, or heavy load | Only `SELECT` is issued against a source; pushdown statistics are plain aggregate queries |
@@ -59,7 +59,7 @@ Tests: `test_inside_refuses_non_plain_names`, `test_symlinked_table_cannot_escap
 ## Data protection
 
 - **Nothing is copied.** Synthetic rows are drawn from a fitted model; only tables declared `mode: copy` (a calendar, a code list) are copied. Key values are generated in the source's format, so a synthetic key that equals a real key does not carry that real row's data. `test_synthetic_rows_are_not_copies` checks that fewer than 5% of synthetic rows match a real row on their high-cardinality attributes.
-- **Privacy checks run by default.**
+- **Copy guards run by default.** They catch gross copying; they are not a privacy measurement (see [privacy.md](privacy.md#relation-to-the-existing-guards)).
   - For each table, the distance from synthetic rows to their closest real row (in rank-normal-score and one-hot space) is compared with the distance from real rows to their closest other real row (leave-one-out). The check fails when the 5th percentile of the first is below half that of the second, or when synthetic rows equal real rows more often than real rows equal each other.
   - Text outputs that reproduce rare source content are rejected (below).
   - `--no-privacy` turns the checks off, and the bundle records that.
@@ -73,19 +73,19 @@ Tests: `test_inside_refuses_non_plain_names`, `test_symlinked_table_cannot_escap
   - Frequent values appear only with an explicit `profile --top N`.
   - Counts below 5 are suppressed in what a bundle reports about category levels.
 - **Pushdown.** Rows of pushed facts never leave the source as a whole; only aggregates and a sample do.
-- **Formal differential privacy is not part of v1.0.** The privacy guarantees are empirical. For a release outside your organisation, review the privacy section of the scorecard, and consider `mode: copy` only for tables that are public anyway.
+- **Differential privacy is optional.** Without it, protection is measured, not guaranteed: `relsynth privacy` attacks the release per person ([privacy.md](privacy.md)). With `--epsilon`, a run has a user-level (ε, δ) guarantee ([dp.md](dp.md)). Under the governance policy, a release outside the organisation is refused without DP ([governance/guide.md](governance/guide.md)). Use `mode: copy` only for tables that are public anyway.
 
 ## Supply chain and code
 
-- The package depends on five well-known libraries (numpy, pandas, scipy, SQLAlchemy, PyYAML) and the database driver you choose. Versions have lower bounds only, so you can patch them yourself.
+- The core package depends on seven well-known libraries (numpy, pandas, scipy, SQLAlchemy, PyYAML, DuckDB and its SQLAlchemy dialect) and the database driver you choose; every other dependency comes with an extra you install. Versions have lower bounds only, so you can patch them yourself.
 - CI runs on every change:
   - `ruff` with the `S` rule set (the flake8-bandit security rules);
   - `bandit` over `src/`;
   - `pip-audit` over the installed dependencies.
 
   Every suppressed finding is annotated in the code with its test ID and a reason, for example `# nosec B608` where a query is built with SQLAlchemy and not by string formatting.
-- No network access other than to the databases you name, and no telemetry.
-- `subprocess` is used once: to run `pdflatex` (when present) for the exported model's PDF, with a fixed argument list and no shell.
+- The package and the CLI connect only to the databases, warehouses and storage you name, and send no telemetry. The service also contacts the OIDC identity provider and the Vault server you configure, and exports traces only when you turn on OpenTelemetry (`relsynth[service-otel]`) and give it an endpoint.
+- `subprocess` runs fixed argument lists, never a shell, in four places: `pdflatex` (when present) for the exported model's PDF, the OPA binary when the policy engine is `opa`, the GPU listing commands of `relsynth compute`, and the service worker's job runner.
 
 ## Reporting a vulnerability
 

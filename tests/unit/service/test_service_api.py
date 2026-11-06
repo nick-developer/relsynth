@@ -116,7 +116,8 @@ def test_no_source_row_is_persisted(client, flow, settings, store):
     for a in store.artifacts("acme", flow["run"]["id"]):
         assert SECRET_MARK.encode() not in arts.read_bytes("acme", a), a["name"]
     for f in Path(settings.data_dir).rglob("*"):
-        if f.is_file():
+        # Ciphertext is checked decrypted above: random bytes contain a short marker by chance
+        if f.is_file() and f.suffix != ".enc":
             assert SECRET_MARK.encode() not in f.read_bytes(), f
     assert not list((Path(settings.data_dir) / "work").rglob("*.csv"))       # plaintext work files are gone
     dump = "\n".join(store.engine.raw_connection().driver_connection.iterdump())
