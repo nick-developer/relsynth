@@ -13,6 +13,7 @@ copied across engines.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -119,7 +120,7 @@ def clone_metadata(source, names: list[str], dialect: str, schema: str | None) -
         cols = []
         for c in st.columns:
             ty = c.type if same else _generic(c.type, dialect)
-            kw = {"nullable": c.nullable, "primary_key": c.primary_key, "autoincrement": False}
+            kw: dict[str, Any] = {"nullable": c.nullable, "primary_key": c.primary_key, "autoincrement": False}
             args = []
             if c.identity is not None:
                 ident = c.identity
