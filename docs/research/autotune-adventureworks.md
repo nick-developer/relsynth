@@ -54,6 +54,24 @@ they broke a scorecard privacy check on 3 of 3 seeds, and once a G1-G14 identity
 segment counts (more segments copy smaller groups). Autotune tried only the whole set; this PR now tries its parts
 when the whole set is rejected.
 
+**Third run (2026-11-06, run 42142808423, block by block).** Each block was tried alone over
+`segments.default_cap: 16`, on seeds 1-3:
+
+| Block | Excess per seed (incumbent 42.0) | Hard checks broken |
+|---|---|---|
+| segment counts 32 for DimCustomer, DimEmployee, DimProduct and DimReseller | 41.3 | privacy 1 |
+| marginals (`dirichlet_prior 0.125`, `max_levels 400`, `tail_trim 0`) | 43.3 | privacy 2 |
+| copula (`sample_rows 3000`, `grid 128`) | 40.7 | privacy 1 |
+| `facts.frailty: true` | 47.0 | privacy 1 |
+| `segments.stratify_max_levels 40` | 38.0 | privacy 3 |
+| FactFinance `fact.pairs: occupancy` | 45.3 | privacy 1, rules 1 |
+| FactResellerSales `fact.pairs: occupancy` | 47.0 | privacy 1 |
+
+Every block, even ones that cannot plausibly change disclosure (`facts.frailty`), breaks a privacy check on at least
+one of three seeds, and so do `structure.beta_prior: 1` and `segments.default_cap: 32`. The incumbent passes privacy
+narrowly, and any change to the draws can flip it. So the privacy constraint acts as a noisy check held literally,
+not as a real trade-off. A fourth run names the failing check and its values per seed to settle this.
+
 ## Autotune and engine issues found, and fixed in this PR
 
 1. **A rule the source data itself breaks was treated as exact.** The FactResellerSales weekday rule is broken by 9
