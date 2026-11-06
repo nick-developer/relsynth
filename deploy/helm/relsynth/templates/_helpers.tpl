@@ -59,6 +59,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- define "relsynth.mounts" -}}
 - {name: master-key, mountPath: /run/secrets/relsynth-master, readOnly: true}
-- {name: data, mountPath: /var/lib/relsynth}
+{{- /* the PVC root is <data_dir>/tenants: the only directory the service writes
+     there. Mounting it higher up made the container runtime create the
+     parents of the work and tenant mounts as root, so the non-root service
+     could not create <data_dir>/tenants (Permission denied) */}}
+- {name: data, mountPath: /var/lib/relsynth/data/tenants}
 - {name: tmp, mountPath: /tmp}
 {{- end -}}
