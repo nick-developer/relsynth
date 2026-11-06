@@ -381,8 +381,10 @@ jobs:
         # GitHub runners now use; 7.0 starts and is still supported
         image: mongo:7.0
         ports: ["27017:27017"]
+        # the server logs every connection; cap them so the job log keeps the runner's output
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ping: 1})'" --health-interval 5s --health-retries 30
+          --log-opt max-size=200k --log-opt max-file=1
     env:
       RELSYNTH_TEST_MONGO_URL: "mongodb://localhost:27017"
     steps:
@@ -403,6 +405,11 @@ jobs:
           python benchmarks/documents/run_documents.py --out docs-out --cache .cache/documents
           --mongo-url "$RELSYNTH_TEST_MONGO_URL"
           --sets supplies,analytics,mflix,training,weather,geospatial,airbnb,stackexchange
+      - name: Acceptance summary
+        if: always()
+        run: |
+          for f in docs-out/*.json; do [ -f "$f" ] && { echo "== $f"; head -c 4000 "$f"; echo; }; done
+          { echo "## Document acceptance"; echo '```json'; cat docs-out/summary.json 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: { name: documents-acceptance, path: docs-out/*.json }
