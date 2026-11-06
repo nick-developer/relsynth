@@ -1280,6 +1280,47 @@ claims:
       - claim: DP-15
       - report: docs/assurance/evidence/T07/utility_vs_epsilon.jsonl
 
+  # ------------------------------------------------------------------ README.md: synthetic text (T14, docs/text.md)
+
+  - id: RM-37
+    doc: README.md
+    area: privacy-formal
+    quote: "| ngram + dp | CPU, no weights, air-gapped | user-level differential privacy (DP n-gram release) |"
+    status: supported
+    evidence:
+      - prop: prop:txngram
+      - check: C1501
+      - check: C1500
+      - test: tests/unit/test_textgen.py::test_dp_ngram_charges_stay_in_budget
+      - test: tests/unit/test_textgen.py::test_dp_ngram_drops_one_persons_words
+
+  - id: RM-38
+    doc: README.md
+    area: privacy-measured
+    quote: "relsynth ships no model weights; relsynth text models lists models with their licences. relsynth text pii-eval measures the recall of the PII recognizers, and relsynth text audit inserts canaries, measures their exposure against the DP bound and searches the output for copies of training texts."
+    status: partial
+    note: The audit, PII recall and licence register are tested; that the wheel holds no weights follows from the package data (text_models.yaml lists models, it does not contain them) and is not checked by a test of the built wheel. Licences are recorded from model cards and compared with the hub by tools/check_text_models.py in the text-lm CI job.
+    evidence:
+      - prop: prop:txexposure
+      - prop: prop:txminhash
+      - check: C1500
+      - check: C1505
+      - check: C1506
+      - test: tests/unit/test_textgen.py::test_labelled_offsets_and_regex_recall_floor
+      - test: tests/unit/test_textgen.py::test_audit_of_dp_configuration_is_consistent
+      - test: tests/unit/test_textgen.py::test_near_duplicates_finds_copies_and_edits
+      - code: tools/check_text_models.py::main
+      - report: docs/text.md
+
+  - id: RM-39
+    doc: README.md
+    area: scope
+    quote: "Text columns are still empty in DP mode (--dp); use text.dp on the column (its guarantee covers that column only)."
+    status: limitation
+    evidence:
+      - code: src/relsynth/dp/relational.py::PLACEHOLDER
+      - report: docs/adr/0010-synthetic-text.md
+
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
   - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
