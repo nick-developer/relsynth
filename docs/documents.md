@@ -4,7 +4,7 @@ relsynth synthesises document collections from MongoDB (and Cosmos DB for MongoD
 DB for NoSQL, Amazon DynamoDB (including single-table designs), Couchbase and JSON files. The synthetic documents keep
 the shape of the source: optional fields, fields of several types, nested objects, arrays with their length law,
 polymorphic sub-documents, maps keyed by identifiers, and references between collections. Release 2.1; design in
-[ADR 0010](adr/0010-document-databases.md), propositions 1400–1405 in the [proofs](proofs/).
+[ADR 0011](adr/0011-document-databases.md), propositions 1400–1405 in the [proofs](proofs/).
 
 ## Install
 

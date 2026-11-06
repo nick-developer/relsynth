@@ -1,4 +1,4 @@
-# ADR 0010: Document databases
+# ADR 0011: Document databases
 
 - Status: proposed (roadmap thread T13; release 2.1.0)
 - Date: 2026-11-01

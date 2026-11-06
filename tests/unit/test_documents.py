@@ -332,3 +332,18 @@ def test_no_password_on_the_command_line_and_hostile_keyspaces():
     for bad in ("a`b", "x`; DELETE FROM y; --", "", "a\nb"):
         with pytest.raises(SourceError):
             _cb_ident(bad)
+
+
+def test_docs_check_gates_on_invalid_documents(tmp_path, shop):
+    """relsynth docs check exits 0 when the documents validate and 1 (the quality gate) when one does not."""
+    from relsynth.cli import main
+    from relsynth.documents.values import write_json_documents
+    real, good, bad = tmp_path / "real", tmp_path / "good", tmp_path / "bad"
+    for d in (real, good, bad):
+        d.mkdir()
+    docs = shop[0]["customers"]
+    write_json_documents(docs, real / "customers.jsonl")
+    write_json_documents(docs, good / "customers.jsonl")
+    write_json_documents([{**docs[0], "unexpected_field": 1}] + docs[1:], bad / "customers.jsonl")
+    assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{good}", "--splits", "2"]) == 0
+    assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{bad}", "--splits", "2"]) == 1

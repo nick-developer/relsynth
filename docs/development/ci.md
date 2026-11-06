@@ -11,13 +11,14 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 | `unit (os, python)` | `tests/unit` on Python 3.10–3.13 (Linux) and 3.12 on Windows and macOS, with branch coverage; the Linux 3.12 job writes coverage per module to the job summary | 3–6 min |
 | `e2e` | every CLI command as a pipeline runs it (`tests/e2e`) | 2 min |
 | `integration` | live PostgreSQL 16, SQL Server 2022 and Oracle 23 Free in service containers (`tests/integration`) | 4 min |
-| `science (i/4)` | the statistical check suite (C00–C82, C700s, C800s, C900s, C1200s) in four shards of about equal run time | about 15 min each |
+| `science (i/4)` | the statistical check suite (C00–C82, C600s, C800s, C900s, C1200s) in four shards of about equal run time | about 15 min each |
 | `build` | sdist and wheel, `twine check`, a clean-environment install with every extra, and a CycloneDX SBOM of that install | 1 min |
 | `sign` | dry run of the release signature: the wheel, sdist and SBOM are signed with Sigstore under this workflow's identity and verified (pull requests from this repository and pushes; not on forks) | 1 min |
 
 The suite also runs weekly, so that new dependency releases and new advisories in pip-audit are caught when nothing changed in the repository. Actions are pinned to commit SHAs, and Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) proposes updates weekly. Repository CodeQL (default setup) adds code scanning for Python and Actions.
 
-Two more workflows run outside the pull-request gate:
+More workflows run outside the required gate:
+- [`service-e2e.yml`](../../.github/workflows/service-e2e.yml), when the service, the Helm chart or the images change, weekly and by hand: the service end to end on docker compose and on a real Kubernetes cluster (kind), with SSO, a run, approval, download, audit, tenant isolation, `helm test`, Pod Security `restricted`, and a worker lost mid-run ([deployment](../service/deployment.md)).
 - [`mutation.yml`](../../.github/workflows/mutation.yml), weekly: the sampled mutation score of the core engine ([testing](../testing.md#mutation-testing)).
 - [`pypi_upload.yml`](../../.github/workflows/pypi_upload.yml), on a published release: the whole gate, then build, SBOM, signatures, provenance and the upload ([supply chain](supply-chain.md)).
 

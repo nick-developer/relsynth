@@ -7,7 +7,7 @@
 ## Question
 
 Should relsynth draw documents directly as trees (a model over the inferred schema, top-down) instead of shredding
-them to tables, synthesising the tables with the relational engine and nesting them again (ADR 0010)?
+them to tables, synthesising the tables with the relational engine and nesting them again (ADR 0011)?
 
 ## Candidates
 

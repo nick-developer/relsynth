@@ -41,6 +41,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - [Security](#security)
 - [Performance](#performance)
 - [Validation](#validation)
+- [Synthetic text](#synthetic-text)
 - [Theory: propositions and proofs](#theory-propositions-and-proofs)
 - [Testing the package](#testing-the-package)
 - [Limitations](#limitations)
@@ -56,7 +57,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - **Statistics.** Each table's marginals and dependence come from a Bayesian Gaussian copula over mixed types. Links between tables come from latent segments, so customers who buy more of one product kind keep doing so. Counts, participation and multiplicities follow fitted laws.
 - **Bayesian.** Each synthetic dataset is one draw from the posterior predictive distribution. Several datasets show the model's own uncertainty, and `posterior.mode: mean` gives stable test data.
 - **Scale.** You set the size per table: `--scale 0.1` for a small test database, or `--scale 10` for load tests. Facts follow the tables they hang from by the fitted rates.
-- **Privacy.** No row is copied. Distance-to-closest-record checks compare synthetic rows with real ones, against the real data's own spacing. Text cannot reproduce rare source content, and memorisation guards are on by default. `relsynth privacy` attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context.
+- **Privacy.** Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied. Distance-to-closest-record checks compare synthetic rows with real ones, against the real data's own spacing. Text cannot reproduce rare source content, and memorisation guards are on by default. `relsynth privacy` attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context.
 - **Differential privacy (optional).** `relsynth run --epsilon 1` gives a user-level (ε, δ) guarantee for each person of the privacy unit and all their rows. The organisation sets ε; there is no default. Releases outside the organisation are refused without it.
 - **Governance.** Signed, hash-chained manifests of every run, a privacy budget ledger per domain, an organisation policy and human approvals before release (`relsynth gov`).
 - **Documents.** MongoDB, Cosmos DB, DynamoDB (single-table designs included), Couchbase and JSON collections keep their shape: optional fields, unions, nested arrays with their length laws, polymorphic sub-documents, maps and references between collections (`relsynth docs`).
@@ -90,6 +91,8 @@ pip install "relsynth[gov]"                # signed manifests, registry, policy 
 pip install "relsynth[ir]"                 # JSON Schema check of IR documents
 pip install "relsynth[service]"            # the REST API, workers and web UI (relsynth-service)
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
+pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
+pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
 ```
 
 From a checkout or a wheel file:
@@ -245,6 +248,7 @@ The target's structure comes in three forms:
 | `relsynth clone-schema --source LOC --target LOC` | Create the source's tables empty in a target database |
 | `relsynth profile --source LOC` | Row, null and distinct counts computed in the source (no rows read) |
 | `relsynth ping --source LOC` | Test a connection |
+| `relsynth text models\|pii-eval\|audit\|metrics` | Synthetic text: model licences, PII recall, leakage audit, text metrics |
 | `relsynth version` | Versions of relsynth and its dependencies |
 
 Shared options:
@@ -377,7 +381,7 @@ relsynth docs check jsonl:data/shop jsonl:synthetic/
 - **SQL.** Every SQL statement is built with SQLAlchemy Core, with quoted identifiers and bound values. Table and column names cannot inject SQL; tests use hostile names on every database.
 - **Specs.** A spec is YAML read with a safe loader that also refuses aliases, so an alias bomb fails. Rule expressions run in a sandboxed evaluator: no attribute access, calls only to a fixed list of functions, and size and depth limits. Regular expressions with catastrophic backtracking are refused.
 - **Files.** Table names cannot leave the target folder (`..`, separators, absolute paths and symlinks are refused).
-- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Privacy checks run by default.
+- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Copy guards run by default; they are not a privacy check ([docs/privacy.md](docs/privacy.md) measures privacy).
 - **Supply chain.** The code is scanned with bandit and ruff's security rules, and dependencies with pip-audit, in CI.
 
 Details and the threat model: [docs/security.md](docs/security.md).
@@ -392,7 +396,7 @@ Tuning knobs and measurements: [docs/pushdown.md](docs/pushdown.md#performance).
 
 ## Validation
 
-**Release 2.0.** The statistical check suite now has C00–C82 plus the 2.0 checks C700–C706 (generators), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series): 113 science tests, all run in CI on every pull request in four shards, next to 775 unit, end-to-end, security and live-server integration tests. A benchmark harness (`bench/`) reruns the real databases (bi/COREP, Chinook, AdventureWorks DW, Contoso, plus Berka, ACS PUMS and a doubled Chinook) on every change and flags drift against a five-seed baseline. Draws for the same seed change on databases with link tables, because degree laws are now the default (`synthesis.facts.link_degree: segment` restores the 1.0 draws); the [changelog](CHANGELOG.md) lists every change.
+**Release 2.0.** The statistical check suite now has C00–C82 plus the 2.0 checks C600–C606 (privacy attacks), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series), with the generator propositions 700–706 tested in tests/unit/test_generators.py: 113 science tests, all run in CI on every pull request in four shards, next to about 800 unit, end-to-end, security and live-server integration tests. A benchmark harness (`bench/`) reruns the real databases (bi/COREP, Chinook, AdventureWorks DW, Contoso, plus Berka, ACS PUMS and a doubled Chinook) on every change and flags drift against a five-seed baseline. Draws for the same seed change on databases with link tables, because degree laws are now the default (`synthesis.facts.link_degree: segment` restores the 1.0 draws); the [changelog](CHANGELOG.md) lists every change.
 
 relsynth 1.0.0 was checked at three levels. Every number below comes from the final code.
 
@@ -411,12 +415,35 @@ In both modes, every key resolves, every unique key but one holds (an AdventureW
 
 **Software tests** (`pytest`): 136 unit, end-to-end CLI and security tests, and 24 integration tests run live against PostgreSQL 16.15, SQL Server 2022 (16.0) and Oracle Database 26ai Free (23.26). On every server, the same seed gives the same synthetic database as SQLite, value for value. The wheel was installed and tested in clean environments on Python 3.11, 3.12 and 3.13. Python 3.10 is supported by the code and the CI matrix, but it was not available on the build machine.
 
+## Synthetic text
+
+A text column (`type: text`) is generated from its row: `condition_on: [category, priority]` makes a billing ticket talk about billing. Four methods, chosen per column in `text.method`:
+
+| Method | Runs on | Privacy |
+|---|---|---|
+| `ngram` (default, the 1.0 model) | CPU, no weights | memorisation guards per row (not DP) |
+| `ngram` + `dp` | CPU, no weights, air-gapped | user-level differential privacy (DP n-gram release) |
+| `lm` (+ `dp`) | a local model folder (`relsynth[text-lm]`), GPU optional | not DP; with `dp`, user-level DP-GD fine-tuning |
+| `pe` | a public generator (local model or public corpus) | user-level DP by Private Evolution |
+
+```yaml
+body:
+  type: text
+  text:
+    condition_on: [category, priority]
+    method: ngram
+    pii: {recognizers: [regex]}           # typed placeholders before training, surrogates after
+    dp: {epsilon: 2.0, delta: 1.0e-6, unit_column: customer_id}
+```
+
+relsynth ships no model weights; `relsynth text models` lists models with their licences. `relsynth text pii-eval` measures the recall of the PII recognizers, and `relsynth text audit` inserts canaries, measures their exposure against the DP bound and searches the output for copies of training texts. See [docs/text.md](docs/text.md).
+
 ## Theory: propositions and proofs
 
 The method is described in two papers shipped with the package:
 
 - [docs/proofs/algorithms.pdf](docs/proofs/algorithms.pdf): the layer 1 algorithms, with complexity and proofs. It covers the Bayesian Gaussian copula, latent segments from in-database sufficient statistics, the merge step and differential privacy on summaries.
-- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 158 propositions with proofs, each tied to a numbered check. They are grouped as follows:
+- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 173 propositions with proofs, each tied to a numbered check. They are grouped as follows:
 
 | Area | Propositions (examples) |
 |---|---|
@@ -460,10 +487,10 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 
 - The scorecard on real data compares with the source, which is itself only one draw. A check can fail by chance, and each check's level is reported (`alpha`).
 - Rules that hold on every source row but are not declared or found are reproduced statistically, not exactly. Declare them in the spec.
-- Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). Selected two-way marginals are the next step.
+- Differential privacy mode releases one-way statistics, degrees and one correlation matrix per table, so its utility is nearly flat in ε (0.80–0.91 of the checks pass from ε = 0.5 to 8 on Chinook, Contoso and AdventureWorks). It has one privacy unit, no in-database pushdown, and placeholders for pii, text and binary columns ([docs/dp.md](docs/dp.md)). `measure: mst` or `aim` release privately chosen two-way marginals instead: on one table the two-way error drops by about a quarter and falls with ε up to about ε = 4, while on the multi-table databases the share of checks passing stays within the copula's intervals (docs/dp.md sec. 7).
 - Graph stores are planned; the IR already describes graphs. Data lakes on S3 and ADLS work through Iceberg and Delta.
 - In document collections, a value deep in a document depends on its parent element only through the engine's latent segments: an item's tags keep about half of their dependence on the item's name in the sample data ([spike](docs/research/document-generator-spike.md)). The Cassandra and Gremlin APIs of Cosmos DB are not supported.
-- Free text is synthesised by a word-level predictive model. It keeps vocabulary and length laws, not meaning.
+- Free text from the default word-level model keeps vocabulary, phrases and the link to the row, not meaning; a local language model (`text.method: lm`) gives fluent text. Text columns are still empty in DP mode (`--dp`); use `text.dp` on the column (its guarantee covers that column only).
 - BigQuery is tested with unit tests only; the other warehouses against stand-ins, not the live services.
 
 ## Documentation map
@@ -473,6 +500,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/user-guide.md](docs/user-guide.md) | The workflow step by step, with a worked example |
 | [docs/spec-reference.md](docs/spec-reference.md) | Every specification option, with recipes ([template](docs/spec-template.yaml)) |
 | [docs/settings.md](docs/settings.md) | Engine settings: settings files, presets, per-table overrides, editable attributes ([reference](docs/settings-reference.md)) |
+| [docs/text.md](docs/text.md) | Synthetic text: methods, DP, the PII layer, the leakage audit, model licences |
 | [docs/autotune.md](docs/autotune.md) | `relsynth autotune`: objectives, the search, the history and the constraints report |
 | [docs/ir-guide.md](docs/ir-guide.md) | The IR 2.0 document: migration from 1.0 specs, documents, graphs, streams, the privacy unit, ODCS and OpenLineage, deprecation policy |
 | [docs/ir-reference.md](docs/ir-reference.md) | Every IR field (generated from the model; JSON Schema in `src/relsynth/ir/schema/`) |
@@ -489,13 +517,13 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/timeseries.md](docs/timeseries.md) | Event sequences, regular series, incremental runs, TimescaleDB |
 | [docs/generators.md](docs/generators.md) | Generator plug-ins and how to write one ([compute presets](docs/compute.md)) |
 | [docs/privacy.md](docs/privacy.md) | Privacy attacks per person and the report per release context |
-| [docs/dp.md](docs/dp.md) | Differential privacy mode: guarantee, parameters, DP statement, limits |
 | [docs/governance/guide.md](docs/governance/guide.md) | Registry, signed manifests, policy, budget ledger, approvals ([design](docs/governance/design.md)) |
 | [docs/service/](docs/service/README.md) | The service: API, UI, SSO, tenancy, deployment, operations, security |
 | [docs/metrics.md](docs/metrics.md) | The quality report 2.0 and its metrics |
 | [docs/profiling.md](docs/profiling.md) | Where 1.0 spends time and memory, and which changes that justifies |
 | [docs/cicd.md](docs/cicd.md) | Pipelines, quality gates, secrets, containers |
 | [docs/security.md](docs/security.md) | Threat model and protections |
+| [docs/dp.md](docs/dp.md) | Differential privacy mode: the guarantee, the two stages, MST/AIM two-way marginals, utility against ε |
 | [docs/theory.md](docs/theory.md) | The model in brief and the v1.0 propositions with proofs |
 | [docs/proofs/](docs/proofs/) | The full proofs (PDF and LaTeX source) |
 | [docs/testing.md](docs/testing.md) | The test suite |
@@ -503,6 +531,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/datasets.md](docs/datasets.md) | Which datasets may be used, committed and where |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute: workflow, commits, sign-off, tests |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
+| [docs/assurance/](docs/assurance/README.md) | For privacy, legal and audit teams: the assurance case, the regulation mapping (GDPR and EDPB 02/2026, AI Act, HIPAA, NIST, ISO), a DPIA template, release guidance and the claim register |
 
 ## Licence
 
