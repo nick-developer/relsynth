@@ -752,6 +752,8 @@ def _nb_predict(model, texts):
     for c in cls:
         for w in cnt[c]:
             vocab.setdefault(w, len(vocab))
+    if C * (len(vocab) + 1) > _NB_DENSE_CELLS:
+        return _nb_predict_sparse(cls, cnt, prior, V, tot, texts)
     # column len(vocab): a word no class has seen
     L = np.empty((C, len(vocab) + 1))
     for i, c in enumerate(cls):
@@ -768,6 +770,39 @@ def _nb_predict(model, texts):
         for x in WORD.findall(str(t).lower()):
             acc += L[:, vocab.get(x, oov)]
         out.append(cls[int(np.argmax(lp + acc))])
+    return out
+
+
+_NB_DENSE_CELLS = 50_000_000      # class x word table above this (400 MB) is not built
+
+
+def _nb_predict_sparse(cls, cnt, prior, V, tot, texts):
+    """The same model as `_nb_predict` without the class x word table, for a
+    condition with very many levels (a DP seed's near-unique placeholder values
+    gave 66,000 classes by 65,000 words, 32 GB).  A word a class has not seen
+    scores that class's default; the others are added from an inverted index.
+    Scores agree with the dense path up to floating-point rounding."""
+    n = sum(prior.values())
+    C = len(cls)
+    dflt = np.array([np.log(1 / (tot[c] + V + 1)) for c in cls])
+    inv: dict = {}
+    for i, c in enumerate(cls):
+        den = tot[c] + V + 1
+        for w, k in cnt[c].items():
+            inv.setdefault(w, ([], []))
+            inv[w][0].append(i)
+            inv[w][1].append(np.log((k + 1) / den) - dflt[i])
+    inv = {w: (np.array(ix), np.array(d)) for w, (ix, d) in inv.items()}
+    lp = np.array([np.log(prior[c] / n) for c in cls])
+    out = []
+    for t in texts:
+        words = WORD.findall(str(t).lower())
+        acc = lp + len(words) * dflt
+        for x in words:
+            hit = inv.get(x)
+            if hit is not None:
+                acc[hit[0]] += hit[1]
+        out.append(cls[int(np.argmax(acc))] if C else None)
     return out
 
 

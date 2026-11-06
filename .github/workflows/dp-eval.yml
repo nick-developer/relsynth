@@ -6,6 +6,7 @@ name: dp-eval
 #   smartnoise-synth pins its own OpenDP and PyTorch, so it gets its own job;
 # - curves: Chinook, Contoso and AdventureWorks DW at epsilon 0.5, 1, 4, 8 with
 #   three repetitions, scorecard share and two-way error (tools/dp_curves.py).
+# - audit: the attacks of `relsynth privacy` on Contoso at epsilon 1, against the bound.
 # Long: AdventureWorks takes about 16 minutes per run.  Runs on demand, weekly,
 # and on pull requests that change the DP engine.  `summary` prints the tables.
 
@@ -41,6 +42,10 @@ jobs:
       matrix:
         measure: [mst, aim]
         eps: ["0.5", "1", "4", "8"]
+        include:
+          # AIM of smartnoise-synth ran past 3 hours for three repetitions at epsilon 4 and 8
+          - { measure: aim, eps: "4", reps: "1" }
+          - { measure: aim, eps: "8", reps: "1" }
     name: compare-smartnoise (${{ matrix.measure }}, ${{ matrix.eps }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,7 +65,7 @@ jobs:
           /tmp/sn/bin/pip install "smartnoise-synth==1.0.8" pandas
       - name: MST and AIM
         env:
-          REPS: ${{ inputs.reps || '3' }}
+          REPS: ${{ matrix.reps || inputs.reps || '3' }}
           MEASURE: ${{ matrix.measure }}
           EPS: ${{ matrix.eps }}
         run: |
@@ -99,8 +104,10 @@ jobs:
       matrix:
         part:
           - { name: chinook, db: chinook, eps: "0.5 1 4 8" }
-          - { name: contoso-low, db: contoso_sqlite, eps: "0.5 1" }
-          - { name: contoso-high, db: contoso_sqlite, eps: "4 8" }
+          - { name: contoso-0.5, db: contoso_sqlite, eps: "0.5" }
+          - { name: contoso-1, db: contoso_sqlite, eps: "1" }
+          - { name: contoso-4, db: contoso_sqlite, eps: "4" }
+          - { name: contoso-8, db: contoso_sqlite, eps: "8" }
           - { name: aw-0.5, db: adventureworks, eps: "0.5" }
           - { name: aw-1, db: adventureworks, eps: "1" }
           - { name: aw-4, db: adventureworks, eps: "4" }
@@ -129,8 +136,36 @@ jobs:
         if: always()
         with: { name: "dp-curves-${{ matrix.part.name }}", path: out/ }
 
+  audit:
+    # membership inference and the other attacks of `relsynth privacy` against the epsilon bound,
+    # Contoso at epsilon 1 as in the T07 report; about 50 minutes per measure
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        measure: [mst, aim]
+    name: audit (${{ matrix.measure }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dp,bench,parquet]" datasketches
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-contoso_sqlite-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - run: python -m bench fetch --datasets contoso_sqlite
+      - name: audit
+        env: { MEASURE: "${{ matrix.measure }}" }
+        run: python tools/dp_audit.py --db contoso_sqlite --eps 1 --measure "$MEASURE" --out "out/audit-$MEASURE.jsonl"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: "dp-audit-${{ matrix.measure }}", path: out/ }
+
   summary:
-    needs: [compare-smartnoise, compare-relsynth, curves]
+    needs: [compare-smartnoise, compare-relsynth, curves, audit]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -145,7 +180,9 @@ jobs:
         run: |
           cat in/compare-*.jsonl > compare.jsonl || true
           cat in/curves-*.jsonl > curves.jsonl || true
+          cat in/audit-*.jsonl > audit.jsonl || true
           { echo "## Two-way error on ACS"; python tools/dp_compare.py --summary compare.jsonl
-            echo; echo "## Utility against epsilon"; python tools/dp_curves.py --summary curves.jsonl; } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo; echo "## Utility against epsilon"; python tools/dp_curves.py --summary curves.jsonl
+            echo; echo "## Attack audit against the bound"; python tools/dp_audit.py --summary audit.jsonl; } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: dp-eval-summary, path: "*.jsonl" }
