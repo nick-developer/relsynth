@@ -21,6 +21,7 @@ scope:
   - docs/security.md
   - docs/governance/guide.md
   - README.md
+  - docs/documents.md
 
 claims:
 
@@ -802,7 +803,7 @@ claims:
     area: scope
     quote:
       - "Each statement the engine relies on is a numbered proposition with a proof (docs/proofs/relsynth-proofs.pdf) and a test that checks it."
-      - "relsynth-proofs.pdf: 152 propositions with proofs, each tied to a numbered check."
+      - "relsynth-proofs.pdf: 173 propositions with proofs, each tied to a numbered check."
     status: partial
     note: The count is checked (test below), and checks name their propositions, but no tool verifies that every proposition has a check of its own.
     evidence:
@@ -1320,6 +1321,227 @@ claims:
     evidence:
       - code: src/relsynth/dp/relational.py::PLACEHOLDER
       - report: docs/adr/0010-synthetic-text.md
+
+  # ------------------------------------------------------------------ docs/documents.md and README (document databases, T13)
+
+  - id: DOC-01
+    doc: docs/documents.md
+    area: scope
+    quote: Release 2.1; design in ADR 0011, propositions 1400–1405 in the proofs.
+    status: supported
+    evidence:
+    - report: docs/adr/0011-document-databases.md
+    - report: docs/proofs/sec_v40_documents.tex
+
+  - id: DOC-02
+    doc: docs/documents.md
+    area: structure
+    quote: synth and check exit with code 1 (the quality gate, as for relsynth run --fail-under) when a document does not validate, a reference does not resolve or a shape metric is outside its limit.
+    status: partial
+    note: The test runs the check command with a passing and a failing collection; the synth command's gate shares the report code but is not run by a test.
+    evidence:
+    - code: src/relsynth/documents/cli.py::cmd_synth
+    - code: src/relsynth/documents/cli.py::cmd_check
+    - test: tests/unit/test_documents.py::test_docs_check_gates_on_invalid_documents
+
+  - id: DOC-03
+    doc: docs/documents.md
+    area: security
+    quote: 'A MongoDB URL with a password is refused on the command line. collections: [...] limits a source to some collections.'
+    status: supported
+    evidence:
+    - test: tests/unit/test_documents.py::test_no_password_on_the_command_line_and_hostile_keyspaces
+    - code: src/relsynth/documents/connectors.py::parse_location
+
+  - id: DOC-04
+    doc: docs/documents.md
+    area: structure
+    quote: 'discover profiles each collection by path: how many objects hold the field, the count of each type (null, bool, int, long, double, decimal, string, objectId, date, binary, object, array), array lengths, the distinct values, the set of fields of each object (its signature) and the depth.'
+    status: supported
+    evidence:
+    - test: tests/unit/test_documents.py::test_inference_finds_shapes
+    - code: src/relsynth/documents/infer.py::profile_collection
+
+  - id: DOC-05
+    doc: docs/documents.md
+    area: structure
+    quote:
+    - '- length fields: an integer field equal to an array''s length on every document (n_items == len(items));'
+    - '- set arrays: arrays of scalars whose elements never repeat;'
+    status: supported
+    evidence:
+    - test: tests/unit/test_documents.py::test_inference_finds_shapes
+    - check: C1400
+
+  - id: DOC-06
+    doc: docs/documents.md
+    area: structure
+    quote:
+    - Partial or near-unique matches are listed as candidates with their coverage and are not enforced.
+    - Declare a reference the profile cannot see with --references refs.yaml ([{collection, path, to, to_path}]).
+    status: supported
+    evidence:
+    - test: tests/unit/test_documents.py::test_reference_candidates_and_sequences
+    - code: src/relsynth/documents/infer.py::find_references
+
+  - id: DOC-07
+    doc: docs/documents.md
+    area: structure
+    quote: Every source document validates against the inferred schema (Prop. 1400).
+    status: supported
+    evidence:
+    - prop: prop:docschema
+    - check: C1400
+    - test: tests/unit/test_documents.py::test_every_source_document_validates
+
+  - id: DOC-08
+    doc: docs/documents.md
+    area: structure
+    quote: The tables go to a SQLite work file with every key declared, and introspect drafts the spec. nest(shred(D)) gives D back exactly (Prop. 1401).
+    status: supported
+    evidence:
+    - prop: prop:docshred
+    - check: C1401
+    - test: tests/unit/test_documents.py::test_shred_nest_round_trip
+
+  - id: DOC-09
+    doc: docs/documents.md
+    area: statistics
+    quote: 'Synthesise with the relational engine: a Bayesian copula per table, latent segments across tables, exact keys and links, and a Dirichlet-process law for the number of elements per parent.'
+    status: supported
+    evidence:
+    - code: src/relsynth/documents/relational.py::spec_for
+    - test: tests/unit/test_documents.py::test_document_synthesizer_end_to_end
+
+  - id: DOC-10
+    doc: docs/documents.md
+    area: structure
+    quote:
+    - Every synthetic document is made to validate against the schema (Prop. 1402).
+    - A value that breaks it (an array outside the source's length range, a repeated element in a set, a field outside its variant, a missing required field) is replaced by a value of another synthetic document at the same path, never by a source value.
+    - Every repair is counted by kind and path in the report (repairs); many repairs of one kind say the model misses a dependence.
+    status: supported
+    note: '"many repairs of one kind say the model misses a dependence" is guidance for reading the report, not a tested property.'
+    evidence:
+    - prop: prop:docconform
+    - check: C1402
+    - test: tests/unit/test_documents.py::test_conform_repairs_every_violation
+    - code: src/relsynth/documents/conform.py::conform
+
+  - id: DOC-11
+    doc: docs/documents.md
+    area: statistics
+    quote: '| signature | TVD of the field sets of the documents (which top-level fields a document holds together) |'
+    status: supported
+    evidence:
+    - code: src/relsynth/documents/metrics.py::shape_distances
+    - test: tests/unit/test_documents.py::test_shape_metrics_and_limits
+
+  - id: DOC-12
+    doc: docs/documents.md
+    area: statistics
+    quote: Each limit is the one-sided 99% prediction bound of the same distance between random halves of the real documents (--splits, default 10), rescaled to the compared sizes and to the variance of a posterior predictive draw (Props. 109, 1204 and 1403), the method of the quality report 2.0.
+    status: supported
+    evidence:
+    - prop: prop:doclimits
+    - check: C1403
+    - test: tests/unit/test_documents.py::test_shape_metrics_and_limits
+
+  - id: DOC-13
+    doc: docs/documents.md
+    area: structure
+    quote: Validity (share of documents that validate) and references (share of synthetic reference values that resolve) must be 1.
+    status: supported
+    evidence:
+    - prop: prop:docrefs
+    - check: C1405
+    - code: src/relsynth/documents/pipeline.py::DocumentSynthesizer::report
+
+  - id: DOC-14
+    doc: docs/documents.md
+    area: structure
+    quote: 'For each key attribute it learns a template (PK = CUSTOMER#{customer_id}, SK = ORDER#{ordered_at}#{order_id}): every #-separated part is a constant or one attribute of the item.'
+    status: supported
+    evidence:
+    - prop: prop:dockeys
+    - check: C1404
+    - test: tests/unit/test_documents.py::test_single_table_split_merge
+
+  - id: DOC-15
+    doc: docs/documents.md
+    area: security
+    quote: relsynth.documents.connectors.profile_with_pushdown(con, collection, sample_size) computes the exact counts in the database with one $group pipeline (documents per $type per path and the $size histogram of every array) and reads only a $sample of documents for the rest of the profile.
+    status: supported
+    evidence:
+    - code: src/relsynth/documents/connectors.py::profile_with_pushdown
+    - test: tests/unit/test_documents.py::test_mongodb_pushdown_pipeline
+    - test: tests/unit/test_documents.py::test_mongodb_live_pushdown
+
+  - id: DOC-16
+    doc: docs/documents.md
+    area: scope
+    quote: 'benchmarks/documents/run_documents.py runs the whole path on the MongoDB sample datasets (downloaded, never committed: their licence is to be checked before redistribution) and on StackExchange dumps (CC BY-SA 4.0; questions with their answers and comments embedded, linked to users).'
+    status: supported
+    evidence:
+    - code: benchmarks/documents/run_documents.py::stackexchange_set
+    - report: docs/datasets.md
+
+  - id: DOC-17
+    doc: docs/documents.md
+    area: scope
+    quote: '- A whole collection is shredded in memory; the pushdown profile bounds what is read for inference only.'
+    status: limitation
+    evidence:
+    - report: docs/adr/0011-document-databases.md
+    - code: src/relsynth/documents/pipeline.py::DocumentSynthesizer::build_spec
+
+  - id: RM-40
+    doc: README.md
+    area: structure
+    quote: Collections are shredded into tables (one per array, map and optional sub-document, with tag and length columns), synthesised by the relational engine and nested again; nest(shred(D)) = D exactly (Prop. 1401).
+    status: supported
+    evidence:
+    - claim: DOC-08
+    - claim: DOC-09
+
+  - id: RM-41
+    doc: README.md
+    area: structure
+    quote: Every synthetic document validates against the inferred schema and references resolve; what had to be repaired is counted per kind and path.
+    status: supported
+    evidence:
+    - claim: DOC-10
+    - claim: DOC-13
+
+  - id: RM-42
+    doc: README.md
+    area: statistics
+    quote: '- Shape metrics (presence, type mix, array lengths, field sets, depth, size) with limits calibrated on real-versus-real splits.'
+    status: supported
+    evidence:
+    - claim: DOC-11
+    - claim: DOC-12
+
+  - id: RM-43
+    doc: README.md
+    area: security
+    quote: '- In MongoDB, exact counts come from one $group pipeline and the rest from a $sample.'
+    status: supported
+    evidence:
+    - claim: DOC-15
+
+  - id: RM-44
+    doc: README.md
+    area: scope
+    quote: '| Documents (v2.1) | 1400–1405 the inferred schema admits its source; shredding is invertible; conformance; calibrated shape limits; key templates; references and lengths |'
+    status: supported
+    evidence:
+    - prop: prop:docschema
+    - prop: prop:docshred
+    - prop: prop:docconform
+    - prop: prop:doclimits
+    - prop: prop:dockeys
+    - prop: prop:docrefs
 
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
