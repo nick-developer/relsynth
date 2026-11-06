@@ -89,7 +89,18 @@ class TenantIn(BaseModel):
 
 class ServiceAccountIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    roles: list[Literal["data_owner", "privacy_officer", "engineer", "consumer"]]
+    roles: list[Literal["data_owner", "privacy_officer", "engineer", "consumer", "agent"]] = Field(
+        description="'agent' makes an agent account: it may read and propose, never decide (docs/agents.md)")
+
+
+class AgentReviewIn(BaseModel):
+    only: list[str] | None = Field(None, description="item kinds to answer (default: all)")
+
+
+class DecisionsIn(BaseModel):
+    decisions: dict[str, Literal["accept", "reject"]] = Field(
+        description="proposal id -> accept or reject; accepted changes make a new spec version")
+    reason: str = Field("", max_length=4000)
 
 
 # ------------------------------------------------------------------ app
@@ -187,6 +198,13 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
         if row is None:
             raise HTTPException(404, what)
         return row
+
+    def agent_or_person(p: Principal, tenant: str) -> None:
+        """An agent account proposes; a person asks an agent for proposals."""
+        if p.kind == "agent":
+            need(p, tenant, "agent:propose")
+        else:
+            need(p, tenant, "agent:invoke")
 
     def connection_for(p: Principal, tenant: str, cid: str) -> dict:
         c = get_or_404(st.connection(tenant, cid))
@@ -408,9 +426,91 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
         ra, rb = _report(tenant, a, "report"), _report(tenant, b, "report")
         return {"a": _summary(ra), "b": _summary(rb), "changed": _diff(ra, rb)}
 
+    # agents (T16): proposals and explanations; people decide --------------------
+    @app.post(T + "/specs/{sid}/agent/review", tags=["agents"], status_code=202)
+    def agent_review(sid: str, body: AgentReviewIn | None = None, tenant: str = Depends(tenant_of),
+                     p: Principal = Depends(principal)):
+        """Queue the review agent on a spec's `review:` items.  Its answers become
+        proposals (GET .../proposals); nothing changes until a person decides.  The
+        agent sees aggregates at most, never rows, and no more than the caller's
+        role allows (docs/agents.md)."""
+        agent_or_person(p, tenant)
+        spec = get_or_404(st.spec(tenant, sid), "spec not found")
+        if not spec["connection_id"]:
+            raise HTTPException(422, "the spec has no connection to check its review items on")
+        connection_for(p, tenant, spec["connection_id"])
+        from ..agents.scope import for_roles
+        scope = for_roles(p.roles.get(tenant, set()), s.agent_scope_ceiling)
+        params = {"scope": scope, "on_behalf_of": p.id, "agent": f"agent:{s.agent_name}",
+                  "only": (body.only if body else None)}
+        row = st.add_run(tenant, spec["project_id"], sid, spec["connection_id"], "agent_review", params, "internal",
+                         s.max_attempts, p.id)
+        audit(p, tenant, "agent.review.queued", row["id"], spec=sid, scope=scope)
+        return row
+
+    @app.get(T + "/specs/{sid}/proposals", tags=["agents"])
+    def list_proposals(sid: str, tenant: str = Depends(tenant_of), p: Principal = Depends(principal),
+                       status: Literal["proposed", "accepted", "rejected"] | None = None):
+        need(p, tenant, "proposal:read")
+        get_or_404(st.spec(tenant, sid), "spec not found")
+        return st.proposals(tenant, sid, status)
+
+    @app.post(T + "/specs/{sid}/proposals/decisions", tags=["agents"], status_code=201)
+    def decide_proposals(sid: str, body: DecisionsIn, tenant: str = Depends(tenant_of),
+                         p: Principal = Depends(principal)):
+        """A person's decisions on proposals.  Accepted changes are applied to the
+        spec as a new version written by that person; rejected ones change nothing."""
+        if p.kind != "user":
+            audit(p, tenant, "agent.proposal.refused", sid, "denied", reason=f"{p.kind} identity")
+            raise Forbidden("proposals are accepted or rejected by a person, not by an agent or service account")
+        need(p, tenant, "proposal:decide", sid)
+        spec = get_or_404(st.spec(tenant, sid), "spec not found")
+        rows = {r["id"]: r for r in st.proposals(tenant, sid)}
+        unknown = [k for k in body.decisions if k not in rows]
+        if unknown:
+            raise HTTPException(404, f"unknown proposals: {unknown[:5]}")
+        closed = [k for k in body.decisions if rows[k]["status"] != "proposed"]
+        if closed:
+            raise HTTPException(409, f"already decided: {closed[:5]}")
+        from ..agents.review import apply_decisions
+        raw = yaml.safe_load(spec["body"]) or {}
+        answers = [rows[k]["body"] for k in body.decisions]
+        by_item: dict[str, str] = {rows[k]["item"]: str(d) for k, d in body.decisions.items()}
+        new, log = apply_decisions(raw, answers, by_item, decided_by=p.id)
+        out = {"decided": len(log), "changes": [e["change"] for e in log if (e.get("change") or {}).get("applied")]}
+        if out["changes"] or new.get("review") != raw.get("review"):
+            ns = st.add_spec(tenant, spec["project_id"], spec["name"], yaml.safe_dump(new, sort_keys=False),
+                             list(new.get("review") or []), spec["connection_id"], p.id)
+            out["spec"] = {"id": ns["id"], "version": ns["version"]}
+        for k, d in body.decisions.items():
+            st.decide_proposal(tenant, k, "accepted" if d == "accept" else "rejected", p.id, body.reason)
+            audit(p, tenant, f"agent.proposal.{'accepted' if d == 'accept' else 'rejected'}", k,
+                  item=rows[k]["item"], verdict=rows[k]["verdict"], agent=rows[k]["created_by"])
+        return out
+
+    @app.post(T + "/runs/{rid}/agent/explain", tags=["agents"])
+    def agent_explain(rid: str, tenant: str = Depends(tenant_of), p: Principal = Depends(principal),
+                      kind: Literal["report", "quality"] = "quality"):
+        """A plain-language explanation of a run's report.  The explainer gets the
+        report the caller may read (privacy items removed without privacy:read)."""
+        agent_or_person(p, tenant)
+        need(p, tenant, "report:read", rid)
+        rep = _report(tenant, rid, kind)
+        if not p.has(tenant, "privacy:read"):
+            rep = _strip_privacy(rep)
+        from ..agents.backends import make_backend
+        from ..agents.explain import explain
+        e = explain(rep, "quality" if kind == "quality" else "scorecard", backend=make_backend(_agent_cfg(s)))
+        audit(p, tenant, "agent.explain", rid, kind=kind, source=e["source"], problems=len(e["problems"]))
+        return {"run": rid, "kind": kind, "text": e["text"], "source": e["source"], "problems": e["problems"],
+                "by": f"agent:{s.agent_name}", "on_behalf_of": p.id}
+
     # approvals and downloads -----------------------------------------------------
     @app.post(T + "/runs/{rid}/approvals", tags=["approvals"], status_code=201)
     def decide(rid: str, body: ApprovalIn, tenant: str = Depends(tenant_of), p: Principal = Depends(principal)):
+        if p.kind == "agent":
+            audit(p, tenant, "approval.refused", rid, "denied", reason="agents do not approve (T16)")
+            raise Forbidden("approvals are made by people; an agent identity cannot approve, reject or revoke")
         need(p, tenant, "approval:decide", rid)
         r = get_or_404(st.run(tenant, rid))
         if r["state"] != "succeeded" or r["kind"] != "run":
@@ -522,6 +622,17 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
 
 
 # ------------------------------------------------------------------ helpers
+def _agent_cfg(s: Settings) -> dict | str:
+    if s.agent_backend == "rules":
+        return "rules"
+    cfg = {"kind": "openai", "base_url": s.agent_base_url, "allow_remote": s.agent_allow_remote}
+    if s.agent_model:
+        cfg["model"] = s.agent_model
+    if s.agent_api_key_env:
+        cfg["api_key_env"] = s.agent_api_key_env
+    return cfg
+
+
 def _safe_id(v: str) -> bool:
     return 0 < len(v) <= 64 and all(c.isalnum() or c in "-_." for c in v)
 

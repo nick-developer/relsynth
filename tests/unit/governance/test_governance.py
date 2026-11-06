@@ -329,6 +329,18 @@ def test_invariants_hold_under_a_permissive_policy():
 
 
 # ---------------------------------------------------------------- approvals and release
+def test_agent_keys_cannot_approve(people):
+    """T16 (Prop. 1604): a key trusted with the role agent cannot sign an approval
+    or a rejection, even when it also holds an approver role."""
+    rr = _record(people, verdict="review")
+    bot = G.Signer.generate("review-bot")
+    people["reg"].trust(people["owner"], bot.public, "review-bot", ["agent", "dpo"])
+    for reject in (False, True):
+        with pytest.raises(GovernanceError, match="agent key"):
+            G.approve(people["reg"], people["policy"], rr.run_id, "internal", bot, reject=reject)
+    assert G.verify_registry(people["reg"]) == []
+
+
 def test_internal_review_needs_named_approval_then_releases(people, tmp_path):
     rr = _record(people, verdict="review")
     assert not rr.decisions["internal"]["allow"]

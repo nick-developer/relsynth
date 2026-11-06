@@ -62,6 +62,14 @@ class Settings:
     approval_internal: bool = True
     separation_of_duties: bool = True
     approval_quorum: int = 1
+    # agents (T16, docs/agents.md): they draft and explain; people decide
+    agent_backend: str = "rules"            # rules (no model) | openai (an OpenAI-compatible server, e.g. Ollama)
+    agent_base_url: str = "http://localhost:11434/v1"
+    agent_model: str = ""
+    agent_api_key_env: str = ""
+    agent_allow_remote: bool = False
+    agent_scope_ceiling: str = "aggregates"  # the most an agent sees: schema | aggregates | values
+    agent_name: str = "relsynth-agent"
     # HTTP
     max_body_mb: int = 16
     cors_origins: str = ""
@@ -102,6 +110,10 @@ class Settings:
             errs.append("auth_mode=oidc needs RELSYNTH_SVC_OIDC_ISSUER")
         if self.kms not in ("local", "vault-transit", "aws-kms", "azure-kv", "gcp-kms"):
             errs.append(f"unknown kms {self.kms!r}")
+        if self.agent_backend not in ("rules", "openai"):
+            errs.append(f"agent_backend must be rules or openai, not {self.agent_backend!r}")
+        if self.agent_scope_ceiling not in ("schema", "aggregates", "values"):
+            errs.append("agent_scope_ceiling must be schema, aggregates or values")
         if self.lease_s <= 2 * self.heartbeat_s:
             errs.append("lease_s must exceed twice heartbeat_s, or healthy jobs lose their lease")
         return errs

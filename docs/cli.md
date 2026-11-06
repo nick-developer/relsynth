@@ -57,6 +57,7 @@ Commands that read a spec also take `--set KEY=VALUE` (repeatable), which overri
 | [`ir`](#ir) | IR 2.0 documents: migrate, validate, convert, privacy paths, ODCS, OpenLineage |
 | [`gov`](#gov) | governance: registry, keys, policy, privacy budget, approvals and releases |
 | [`docs`](#docs) | document collections (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON): discover, synthesise, check |
+| [`agent`](#agent) | agents that draft and explain; people decide (docs/agents.md) |
 
 ## introspect
 
@@ -582,3 +583,16 @@ usage: relsynth docs [-h] [--json] [--log-level {debug,info,warning,error}] DOCS
 | Option | Required | Default | Meaning |
 |---|---|---|---|
 | `docs_cmd` | yes |  |  |
+
+## agent
+
+Agents that draft and explain; people decide (docs/agents.md).
+
+```
+usage: relsynth agent [-h] [--json] [--log-level {debug,info,warning,error}]
+                      {review,apply,explain,doctor,draft,eval} ...
+```
+
+| Option | Required | Default | Meaning |
+|---|---|---|---|
+| `agent_cmd` | yes |  |  |

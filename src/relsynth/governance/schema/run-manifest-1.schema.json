@@ -132,6 +132,17 @@
           "type": "object", "required": ["prev"], "additionalProperties": false,
           "description": "Hash of the registry log head when the manifest was made (Prop. 803).",
           "properties": {"prev": {"$ref": "#/$defs/sha256"}}
+        },
+        "agents": {
+          "type": "array",
+          "description": "Agent actions whose proposals shaped this run's spec (T16, RFC-T16-02): the digest of the signed agent-action statement, the agent, and the person who accepted or rejected its proposals. Optional; older manifests have none.",
+          "items": {
+            "type": "object", "required": ["action", "agent", "accepted", "accepted_by"], "additionalProperties": false,
+            "properties": {"action": {"type": "object", "required": ["sha256"], "properties": {"sha256": {"$ref": "#/$defs/sha256"}}},
+                           "agent": {"type": "string"}, "task": {"type": "string"},
+                           "accepted": {"type": "integer", "minimum": 0}, "rejected": {"type": "integer", "minimum": 0},
+                           "accepted_by": {"type": "string"}}
+          }
         }
       }
     }

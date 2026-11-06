@@ -1,0 +1,81 @@
+{
+ "judged_items": 22,
+ "correct": 21,
+ "wrong": 0,
+ "abstained": 1,
+ "coverage": 0.9545454545454546,
+ "accuracy": 1.0,
+ "accuracy_ci95": [
+  0.8453609790128563,
+  1.0
+ ],
+ "by_kind": {
+  "pk": {
+   "correct": 10
+  },
+  "fk_ask": {
+   "abstain": 1,
+   "correct": 1
+  },
+  "fk": {
+   "correct": 9
+  },
+  "unique": {
+   "correct": 1
+  }
+ },
+ "wrong_answers": [],
+ "approval": {
+  "oracle_wrong_changes_applied": 0,
+  "wrong_flagged_for_attention": 0,
+  "wrong_unflagged": 0,
+  "hurried_reviewer_would_accept_wrong": [],
+  "hurried_wrong_changes_applied": 0
+ },
+ "links_missed_by_draft": [],
+ "verified_not_holding": [],
+ "verified": {
+  "aggregate:confirm": 1,
+  "constant:confirm": 2,
+  "date:confirm": 3,
+  "key_order:confirm": 1,
+  "lookup:confirm": 6
+ },
+ "time": {
+  "agent_seconds": 0.4,
+  "items_verifiable": 35,
+  "attention_items": 2,
+  "assumed_minutes_manual_per_item": 2.0,
+  "assumed_minutes_read_per_item": 0.5,
+  "estimated_minutes_manual": 70.0,
+  "estimated_minutes_assisted": 21.5,
+  "note": "an estimate from the stated minutes per item, not a measurement of people"
+ },
+ "dataset": "chinook",
+ "truth": "declared catalog",
+ "draft_seconds": 1.8,
+ "backend": {
+  "name": "rules",
+  "model": "relsynth-rules-1"
+ },
+ "scope": "aggregates",
+ "summary": {
+  "items": 61,
+  "verdicts": {
+   "confirm": 33,
+   "unsure": 1,
+   "answer": 1,
+   "explain": 26
+  },
+  "attention": 28,
+  "changes": 1,
+  "flags": 0,
+  "seconds": 0.43,
+  "scope": "aggregates",
+  "backend": {
+   "name": "rules",
+   "model": "relsynth-rules-1"
+  }
+ },
+ "model_calls": 0
+}

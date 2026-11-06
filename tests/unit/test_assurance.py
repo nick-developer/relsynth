@@ -150,6 +150,7 @@ NETWORK_ALLOWED = {
     "relsynth/service/auth.py": "OIDC discovery and keys of the identity provider the operator configures",
     "relsynth/service/secrets.py": "the Vault server named by VAULT_ADDR",
     "relsynth/service/telemetry.py": "OpenTelemetry export, only when otel is turned on",
+    "relsynth/agents/backends.py": "the model server the operator configures (local by default; remote needs https)",
 }
 NETWORK_MODULES = ("urllib.request", "http.client", "requests", "httpx", "aiohttp", "urllib3", "opentelemetry.exporter")
 

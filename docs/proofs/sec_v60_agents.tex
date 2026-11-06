@@ -1,0 +1,109 @@
+%=====================================================================
+\section{Agent-assisted operations (T16)}\label{sec:agents}
+% numbered from 1600 (wave D ranges: T07b 1300s, T13 1400s, T14 1500s, T16 1600s)
+\newcounter{savedpropag}\setcounter{savedpropag}{\value{proposition}}
+\setcounter{proposition}{1599}
+Agents (\texttt{relsynth/agents}, guide \texttt{docs/agents.md}) draft and explain; people decide. The review agent
+answers the \texttt{review:} items of an introspected draft; the explainer words quality, privacy and scorecard
+reports; the doctor agent turns findings into proposals; the drafters write a data contract and an organisation
+policy for people to complete. Each answer comes from a \emph{backend}: deterministic rules (the default), or a
+language model behind an OpenAI-compatible endpoint, which is treated as an adversary: the propositions below hold
+for \emph{every} output the model can produce, including one that follows instructions an attacker planted in a
+column name, a data value or a report (indirect prompt injection, OWASP LLM01). They are properties of the code,
+proved from its structure, and each has a check that tries to break it (\texttt{tests/science/test\_agent\_checks.py},
+C1600--C1604) and unit tests (\texttt{tests/unit/agents}, \texttt{tests/unit/service/test\_service\_agents.py}).
+
+\paragraph{Notation.} A task has a data scope $\sigma\in\{\textsf{schema}<\textsf{aggregates}<\textsf{values}\}$ and
+a value threshold $k\ge2$. An item $x$ of the review list has a kind $\kappa(x)$, a table $t(x)$, candidate parents
+$C(x)$ and evidence records $E(x)$ computed by the evidence tools on every row. The guard $g$ maps any model output
+$o$ (any JSON value) and $(x,E(x))$ to an answer $a=g(o,x,E(x))$.
+
+\begin{proposition}[Data minimisation]\label{prop:agscope}
+The scope of a task is $\sigma=\min(\sigma_{\text{role}},\sigma_{\text{ceiling}})$, lowered to \textsf{aggregates}
+when the model endpoint is not on the local machine. Everything an agent receives about the source is (i) a table or
+column name, (ii) a count, share or distinct count of whole columns when $\sigma\ge\textsf{aggregates}$, or (iii) a
+single value $v$ of a column $c$ with $|\{r:r_c=v\}|\ge k$ when $\sigma=\textsf{values}$. No row, and no value
+occurring fewer than $k$ times, reaches an agent, its model or its output.
+\end{proposition}
+\begin{proof}
+The evidence tools (\texttt{evidence.Tools}) are the only code that reads source data on an agent's behalf. In the
+\textsf{schema} scope they return before reading (\texttt{\_blocked}). Otherwise every result is built from
+\texttt{len}, \texttt{sum}, \texttt{mean}, \texttt{nunique}-style reductions over whole columns, except the single
+value of a constant column, which passes \texttt{Scope.value}: it returns the value only when $\sigma=\textsf{values}$
+and its count is at least $k$, and \texttt{None} otherwise. The prompt (\texttt{review.prompt}) and the answers are
+built from the review text (written by introspection, which names tables, columns and shares), the spec, and these
+results only. \texttt{review} replaces $\sigma$ by $\min(\sigma,\textsf{aggregates})$ when the backend is not local,
+and the service computes $\sigma_{\text{role}}$ from the caller's roles (\texttt{scope.for\_roles}) under its
+configured ceiling. Hence (i)--(iii) exhaust what is passed on.
+\end{proof}
+
+\begin{proposition}[Containment]\label{prop:agguard}
+For every model output $o$, the answer $a=g(o,x,E(x))$ satisfies: the verdict is in the set allowed for
+$\kappa(x)$ (only \emph{explain} for privacy items: personal data, copying as-is, leaving tables out); a proposed
+parent is in $C(x)\cup\{t(x)\}$ and is a table of the draft, or is none; every cited evidence id is in $E(x)$; the
+change is $\varnothing$ or one of \emph{add relationship}, \emph{remove relationship}, \emph{remove rule}, built
+from $x$ and the verdict alone; the explanation contains no link, address, image or HTML. In particular no answer
+can set or change a privacy setting, a DP parameter, a policy, an approval or a release.
+\end{proposition}
+\begin{proof}
+\texttt{guard.check\_answer} is total: a non-object $o$ gives \emph{unsure}. Each field is projected onto its allowed
+set: an unknown or disallowed verdict becomes \emph{unsure} (or \emph{explain}); citations are intersected with the
+ids of $E(x)$, and a verdict left without evidence becomes \emph{unsure}; a parent outside
+$C(x)\cup\{t(x)\}$ or the draft's tables makes the answer \emph{unsure} with no parent. The change is computed by
+\texttt{change\_for}$(x,\text{verdict},\text{parent},\text{spec})$, whose image is the three typed operations, each
+naming only $t(x)$, the item's column, a parent from the set above, or a rule already in the draft; fields of $o$
+other than the five of the answer schema are never read. The explanation passes \texttt{plain\_text}, which removes
+Markdown links and images, HTML tags, URLs and addresses. \texttt{apply\_decisions} recomputes the change from the
+item and the verdict (never from the stored answer) and refuses a decision made by an agent or service identity; the
+service refuses agent identities every permission outside reading and proposing, and \texttt{governance.approve}
+refuses keys whose trusted role is \emph{agent}.
+\end{proof}
+
+\begin{proposition}[Evidence first]\label{prop:agevidence}
+If the evidence measured on every row contradicts an inference (a key column with a duplicate or a null, a link
+with a value missing from the parent key, a rule with a violated row, a ``constant'' with two values, a ``date'' with
+a time of day), no answer confirms it, whatever the backend says; an answer naming a parent into which some values
+do not fall is refused.
+\end{proposition}
+\begin{proof}
+After projection, \texttt{guard.contradiction} inspects the cited evidence (all of $E(x)$ when none is cited); for a
+confirmation it returns a reason on exactly the listed conditions, and \texttt{check\_answer} then turns the
+confirmation into a rejection. For an answer with a parent it returns a reason when that parent's inclusion share is
+below one, and the answer becomes \emph{unsure}. The evidence is computed by the tools, not by the model, on every
+row of the tables (\texttt{Tools.table} reads whole tables).
+\end{proof}
+
+\begin{proposition}[Grounded wording]\label{prop:aggrounded}
+A model's explanation is shown only if every number in it equals, after the stated roundings (to 4, 2, 1 and 0
+decimals, and shares as percentages), a number of the facts it was given; otherwise the template wording, built from
+the facts alone, is shown. The same holds for report explanations, which are also replaced when they state a release
+decision.
+\end{proposition}
+\begin{proof}
+\texttt{ungrounded\_numbers} extracts every decimal number of the text (thousands separators and percent signs
+normalised) and compares it with the closure of the facts' numbers under those roundings; \texttt{check\_answer} and
+\texttt{explain.\_narrate} keep the model text only when the difference is empty (and the text does not read as an
+instruction or a release decision). The template functions print only numbers of the facts.
+\end{proof}
+
+\begin{proposition}[No authority]\label{prop:agauthority}
+No sequence of agent actions changes a spec, an approval, a release, the privacy budget, a policy or access without
+a decision by a person: every change made from agent output is a change a person accepted, recorded with that
+person's identity, and every agent action is recorded with the agent's own identity.
+\end{proposition}
+\begin{proof}
+The agents' functions return values and write nothing (\texttt{review} works on a copy of the spec). The only
+functions that apply agent output are \texttt{apply\_decisions} and \texttt{apply\_doctor} (library) and the
+decisions endpoint (service); each requires a person's identity (a service or agent identity is refused) and applies
+only the changes of answers that person accepted, rebuilt by Prop.~\ref{prop:agguard}. In the service an agent
+account holds the \emph{agent} role only, which grants reading and proposing (\texttt{AGENT\_PERMISSIONS}); approvals,
+runs, specs, connections, service accounts and audit reads are refused and the refusals audited; OIDC tokens cannot
+claim the role. In the registry an agent action is a signed statement by a key with role \emph{agent}, and such a key
+cannot sign an approval (\texttt{approve} refuses it, \texttt{verify\_registry} reports it).
+\end{proof}
+
+\paragraph{Evaluation.} Accuracy is measured against ground truth that the agent does not see: the declared catalog
+(Chinook, AdventureWorks DW, Contoso), with the draft made in benchmark mode, and the hand-reviewed spec for
+bi/COREP. Intervals are Wilson score intervals. The numbers are in the T16 report; \texttt{python -m bench.agents}
+reproduces them and the CI job \texttt{agents} gates them.
+\setcounter{proposition}{\value{savedpropag}}

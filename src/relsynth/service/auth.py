@@ -34,21 +34,29 @@ import jwt
 
 from .config import Settings
 
-ROLES = ("data_owner", "privacy_officer", "engineer", "consumer", "tenant_admin")
+ROLES = ("data_owner", "privacy_officer", "engineer", "consumer", "tenant_admin", "agent")
+# what an agent identity may do, whatever roles it is given (T16): read, and propose
+AGENT_PERMISSIONS = frozenset({"project:read", "spec:read", "run:read", "report:read", "agent:propose",
+                               "proposal:read"})
 PLATFORM_ADMIN = "platform_admin"
 
 # permission -> roles that hold it (docs/service/identity.md has the same table)
 PERMISSIONS: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in {
     "project:read": ROLES,
+    # agents (T16, docs/agents.md): people ask agents for proposals and decide on them
+    "agent:invoke": ("data_owner", "privacy_officer", "engineer"),
+    "agent:propose": ("agent",),
+    "proposal:read": ("data_owner", "privacy_officer", "engineer", "agent"),
+    "proposal:decide": ("data_owner", "engineer"),
     "project:write": ("data_owner", "engineer"),
     "connection:read": ("data_owner", "privacy_officer", "engineer"),
     "connection:write": ("data_owner", "engineer"),
-    "spec:read": ("data_owner", "privacy_officer", "engineer"),
+    "spec:read": ("data_owner", "privacy_officer", "engineer", "agent"),
     "spec:write": ("data_owner", "engineer"),
     "run:create": ("engineer", "data_owner"),
     "run:read": ROLES,
     "run:cancel": ("engineer", "data_owner"),
-    "report:read": ("data_owner", "privacy_officer", "engineer", "consumer"),
+    "report:read": ("data_owner", "privacy_officer", "engineer", "consumer", "agent"),
     "privacy:read": ("data_owner", "privacy_officer"),
     "approval:decide": ("data_owner", "privacy_officer"),
     "data:download": ("data_owner", "engineer", "consumer"),
@@ -72,7 +80,7 @@ class Forbidden(Exception):
 class Principal:
     subject: str
     name: str
-    kind: str = "user"                                   # user | service
+    kind: str = "user"                                   # user | service | agent
     roles: dict[str, set[str]] = field(default_factory=dict)   # tenant -> roles
     attributes: dict[str, Any] = field(default_factory=dict)
     platform_admin: bool = False
@@ -85,6 +93,10 @@ class Principal:
         return sorted(self.roles)
 
     def has(self, tenant: str, perm: str) -> bool:
+        if self.kind == "agent" and perm not in AGENT_PERMISSIONS:
+            return False                 # an agent never decides, approves, writes or manages access (T16)
+        if self.kind != "agent" and perm == "agent:propose":
+            return False
         return bool(self.roles.get(tenant, set()) & PERMISSIONS[perm])
 
     def require(self, tenant: str, perm: str) -> None:
@@ -118,7 +130,7 @@ def parse_roles(values, tenant_claim: str | None = None) -> tuple[dict[str, set[
             t, r = tenant_claim or "", v
         if r == PLATFORM_ADMIN and t == "*":
             admin = True
-        elif r in ROLES and TENANT_RE.match(t):
+        elif r in ROLES and r != "agent" and TENANT_RE.match(t):   # agent is for agent accounts only
             roles.setdefault(t, set()).add(r)
     return roles, admin
 
@@ -212,6 +224,8 @@ class Authenticator:
         if sa is None:
             raise AuthError("unknown or revoked service-account token")
         roles = {r for r in sa["roles"] if r in ROLES and r != "tenant_admin"}
+        if "agent" in roles:            # an agent account holds the agent role only, whatever else it was given
+            return Principal(subject=sa["id"], name=sa["name"], kind="agent", roles={sa["tenant_id"]: {"agent"}})
         return Principal(subject=sa["id"], name=sa["name"], kind="service", roles={sa["tenant_id"]: roles})
 
     def _dev(self, header: str) -> Principal:

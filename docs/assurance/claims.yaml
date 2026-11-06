@@ -22,6 +22,7 @@ scope:
   - docs/governance/guide.md
   - README.md
   - docs/documents.md
+  - docs/agents.md
 
 claims:
 
@@ -1543,6 +1544,197 @@ claims:
     - prop: prop:dockeys
     - prop: prop:docrefs
 
+  - id: AGT-01
+    doc: docs/agents.md
+    area: governance
+    quote:
+    - 'People make every decision: which answers to accept, what to release, which epsilon to spend, which policy exception to grant.'
+    - In the service an agent account can read and propose and nothing else; in the governance registry an agent key cannot sign an approval.
+    status: supported
+    evidence:
+    - prop: prop:agauthority
+    - check: C1604
+    - test: tests/unit/agents/test_agents.py::test_apply_decisions_needs_a_person_and_rebuilds_changes
+    - test: tests/unit/service/test_service_agents.py::test_agent_account_reads_and_proposes_and_nothing_else
+    - test: tests/unit/service/test_service_agents.py::test_agent_cannot_approve_and_explains_only_what_the_caller_may_read
+    - test: tests/unit/governance/test_governance.py::test_agent_keys_cannot_approve
+  - id: AGT-02
+    doc: docs/agents.md
+    area: structure
+    quote:
+    - '| review | an introspected draft and its source | one answer per review: item: a verdict, the evidence measured on every row, an explanation, and the change it implies | the spec owner accepts or rejects each answer |'
+    - 'The review agent checks each inference on every row of the table and answers:'
+    - '| confirm | the inference holds on every row |'
+    status: supported
+    evidence:
+    - prop: prop:agevidence
+    - check: C1602
+    - test: tests/unit/agents/test_agents.py::test_review_toy_against_catalog
+    - test: tests/unit/agents/test_agents.py::test_evidence_gate_refuses_confirmation_of_a_false_inference
+  - id: AGT-03
+    doc: docs/agents.md
+    area: governance
+    quote: '| draft policy | a spec | an organisation policy with the privacy unit and source filled in and every budget empty | the privacy owner sets the budgets and signs it |'
+    status: supported
+    evidence:
+    - test: tests/unit/agents/test_agents.py::test_drafts_leave_epsilon_to_the_privacy_owner
+    - test: tests/unit/agents/test_injection.py::test_policy_and_contract_drafts_ignore_injected_descriptions
+  - id: AGT-04
+    doc: docs/agents.md
+    area: structure
+    quote: Answers that need a person's attention (every reject, answer, unsure and privacy item, and any answer below 0.8 confidence or with a flag) are marked.
+    status: supported
+    evidence:
+    - test: tests/unit/agents/test_injection.py::test_compromised_model_cannot_break_out
+    - test: tests/unit/agents/test_agents.py::test_review_toy_against_catalog
+  - id: AGT-05
+    doc: docs/agents.md
+    area: security
+    quote:
+    - A server that is not on the local machine is refused unless allow_remote is set, must use https, and then gets the aggregates scope at most.
+    status: supported
+    evidence:
+    - prop: prop:agscope
+    - test: tests/unit/agents/test_agents.py::test_backend_configuration
+    - test: tests/unit/agents/test_agents.py::test_remote_model_never_gets_values
+  - id: AGT-06
+    doc: docs/agents.md
+    area: privacy-measured
+    quote: An agent never sees source rows.
+    status: supported
+    note: Proved for the code paths of the agents (Prop. 1600) and tried on random databases (C1600); an agent's model server is outside relsynth and sees only what the prompt carries.
+    evidence:
+    - prop: prop:agscope
+    - check: C1600
+    - test: tests/unit/agents/test_agents.py::test_review_reads_no_rows_into_output
+    - test: tests/unit/agents/test_agents.py::test_values_scope_shows_only_frequent_values
+  - id: AGT-07
+    doc: docs/agents.md
+    area: security
+    quote:
+    - 'The safeguards assume the worst case: a model that follows every instruction an attacker planted in a column name, a data value, a spec description or a report field'
+    - The guard builds the change from the item, never from model text, and rebuilds it again when a person accepts it.
+    status: supported
+    evidence:
+    - prop: prop:agguard
+    - check: C1601
+    - test: tests/unit/agents/test_injection.py::test_compromised_model_cannot_break_out
+    - test: tests/unit/agents/test_injection.py::test_compromised_model_cannot_apply_anything
+  - id: AGT-08
+    doc: docs/agents.md
+    area: structure
+    quote: A confirmation that the evidence on every row contradicts (duplicates in a key, values without a parent, rule violations) is turned into a rejection.
+    status: supported
+    evidence:
+    - prop: prop:agevidence
+    - check: C1602
+    - test: tests/unit/agents/test_agents.py::test_evidence_gate_refuses_confirmation_of_a_false_inference
+  - id: AGT-09
+    doc: docs/agents.md
+    area: security
+    quote: Explanations are plain text without links, images, HTML or addresses, and every number in a model's text must occur in the evidence; otherwise the guard's own wording is used.
+    status: supported
+    evidence:
+    - prop: prop:aggrounded
+    - check: C1603
+    - check: C1601
+    - test: tests/unit/agents/test_agents.py::test_explain_reports_are_grounded
+    - test: tests/unit/agents/test_injection.py::test_compromised_model_cannot_word_an_explanation
+  - id: AGT-10
+    doc: docs/agents.md
+    area: security
+    quote: The prompt-injection suite (tests/unit/agents/test_injection.py) places 20 payloads in names, values, review lines, descriptions and report fields and runs them against a backend that obeys every instruction; the checks C1600–C1604 try random model outputs and random databases.
+    status: supported
+    evidence:
+    - test: tests/unit/agents/test_injection.py::test_detector_flags_every_payload
+    - test: tests/unit/agents/test_injection.py::test_compromised_model_cannot_break_out
+    - check: C1600
+    - check: C1601
+    - check: C1602
+    - check: C1603
+    - check: C1604
+  - id: AGT-11
+    doc: docs/agents.md
+    area: security
+    quote:
+    - It holds that role only, whatever else it is given, and may read projects, specs, runs, reports and proposals and ask for reviews and explanations.
+    - Approvals, runs, specs, connections, service accounts and the audit log are refused to it, and each refusal is audited.
+    - OIDC tokens cannot claim the agent role.
+    status: supported
+    evidence:
+    - test: tests/unit/service/test_service_agents.py::test_agent_account_reads_and_proposes_and_nothing_else
+    - test: tests/unit/service/test_service_agents.py::test_oidc_tokens_cannot_claim_the_agent_role
+  - id: AGT-12
+    doc: docs/agents.md
+    area: governance
+    quote:
+    - 'Every agent action is recorded with the agent''s own identity, the person it acted for, the backend and model, the scope, and digests of its inputs and output:'
+    - 'in a governance registry (--registry --key on the command line, with a key trusted with the role agent): a signed in-toto statement of type agent-action/1, covered by the registry''s hash chain;'
+    status: supported
+    evidence:
+    - test: tests/unit/agents/test_agents.py::test_signed_action_records_and_manifest_entry
+    - test: tests/unit/service/test_service_agents.py::test_review_proposals_and_a_persons_decision
+  - id: AGT-13
+    doc: docs/agents.md
+    area: statistics
+    quote:
+    - 'python -m bench.agents drafts each database with its catalog hidden (benchmark mode), lets the review agent answer, and compares every answer about a key or a link with ground truth the agent does not see: the declared catalog of Chinook, AdventureWorks DW and Contoso, and the hand-reviewed spec of bi/COREP.'
+    - Accuracy on answered items is 122/124 = 0.984 (Wilson 95% interval 0.943–0.996), with 98.4% of items answered.
+    - 'Both wrong answers are links that hold on every row but that the ground truth leaves out:'
+    - A reviewer who accepts only the answers not flagged for attention would accept the second one, which adds no change to the spec because the draft already holds the link.
+    - Of 92 lookups, derive, check and aggregate rules, constants, dates and key orders across the four databases, 90 held on every row.
+    status: supported
+    note: Measured with the rules backend on 2026-11-01; the model backend is measured in the CI job agents, not claimed. Sampling in introspection can change the draft's items between runs.
+    evidence:
+    - report: docs/assurance/evidence/T16/agents-summary-rules.json
+    - report: docs/assurance/evidence/T16/agents-adventureworks-rules.json
+    - report: docs/assurance/evidence/T16/agents-bi_corep_lr-rules.json
+    - report: docs/assurance/evidence/T16/agents-chinook-rules.json
+    - report: docs/assurance/evidence/T16/agents-contoso_sqlite-rules.json
+  - id: AGT-14
+    doc: docs/agents.md
+    area: scope
+    quote:
+    - Rule items have no independent ground truth, because the agent measures them on every row.
+    - 'Links that introspection did not ask about cannot be answered: on the toy test database customer.support_rep is missing from the draft, and the evaluation reports such links separately.'
+    - The agents do not judge whether a column holds personal data; that stays a privacy decision.
+    status: limitation
+    evidence:
+    - test: tests/unit/agents/test_agents.py::test_review_toy_against_catalog
+    - check: C1601
+  - id: AGT-15
+    doc: README.md
+    area: structure
+    quote:
+    - 'review answers the review: items of an introspected draft (keys, links, lookups, rules, ASK questions) with evidence measured on every row, and proposes the change each answer implies.'
+    - relsynth agent apply --by <person> applies the answers that person accepts.
+    - explain words a quality, privacy or scorecard report in plain language; doctor turns doctor findings into proposals (privacy settings become advice for the privacy officer); draft contract and draft policy write an ODCS contract and an organisation policy with every budget left empty.
+    status: supported
+    evidence:
+    - claim: AGT-02
+    - claim: AGT-03
+    - test: tests/unit/agents/test_agents.py::test_doctor_proposals_hold_back_privacy_fixes
+    - test: tests/unit/agents/test_agents.py::test_cli_review_apply_explain_draft
+  - id: AGT-16
+    doc: README.md
+    area: security
+    quote:
+    - 'Agents never see rows: they get names and whole-column aggregates, and single values only in the values scope when they occur at least 10 times.'
+    - In the service an agent account can read and propose only, and in the governance registry an agent key cannot approve.
+    - A prompt-injection suite runs 20 payloads against a model that obeys every instruction.
+    status: supported
+    evidence:
+    - claim: AGT-06
+    - claim: AGT-01
+    - claim: AGT-10
+  - id: AGT-17
+    doc: README.md
+    area: statistics
+    quote: With the catalog hidden, the rules backend's answers about keys and links matched the ground truth on 122 of 124 answered items on Chinook, AdventureWorks DW, Contoso and bi/COREP
+    status: supported
+    evidence:
+    - claim: AGT-13
+
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
   - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
@@ -1558,3 +1750,6 @@ not_claims:
   - {doc: README.md, quote: "| docs/governance/guide.md | Registry, signed manifests, policy, budget ledger, approvals (design) |", reason: "documentation map: names a document's contents"}
   - {doc: README.md, quote: "| docs/theory.md | The model in brief and the v1.0 propositions with proofs |", reason: "documentation map: names a document's contents"}
   - {doc: README.md, quote: "| docs/proofs/ | The full proofs (PDF and LaTeX source) |", reason: "documentation map: names a document's contents"}
+  - {doc: docs/agents.md, quote: 'This guide covers what each agent does, the safeguards, the command line, the service, and how accurate the agents are on the four real databases', reason: introduces the guide}
+  - {doc: docs/agents.md, quote: 'Review answers. relsynth introspect lists every inference it made from a sample under review:', reason: describes introspect's output format (the review list)}
+  - {doc: README.md, quote: '- Agents: drafting and explaining, never deciding', reason: table of contents}

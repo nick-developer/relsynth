@@ -94,7 +94,7 @@ def build_manifest(*, outputs: list[dict], run_id: str, started: str, finished: 
                    source: dict, spec_digest: str, ir_digest: str, ir_version: str, privacy: dict,
                    reports: list[dict], verdicts: dict, policy_info: dict, release: dict, chain_prev: str,
                    seeds: dict | None = None, public_facts_only: bool | None = None, plugins=(),
-                   accountant: str | None = None) -> dict:
+                   accountant: str | None = None, agents: list[dict] | None = None) -> dict:
     """An in-toto statement for one run (schema run-manifest-1)."""
     spec: dict = {"digest": {"sha256": spec_digest}, "ir_digest": {"sha256": ir_digest}, "ir_version": ir_version}
     if public_facts_only is not None:
@@ -106,6 +106,8 @@ def build_manifest(*, outputs: list[dict], run_id: str, started: str, finished: 
             "release": release, "chain": {"prev": chain_prev}}
     if seeds:
         pred["seeds"] = seeds
+    if agents:
+        pred["agents"] = list(agents)
     if not outputs:
         raise GovernanceError("a manifest needs at least one output table")
     return {"_type": STATEMENT, "subject": outputs, "predicateType": MANIFEST_TYPE, "predicate": pred}
@@ -170,6 +172,8 @@ def approve(registry, policy, run: str, context: str, signer, *, reject: bool = 
         raise GovernanceError(f"key {signer.id} is not in the registry's trusted keys")
     ctx = policy.context(context)
     roles = trusted[signer.id]["roles"]
+    if "agent" in roles:
+        raise GovernanceError(f"{signer.name} is an agent key; approvals and rejections are made by people (T16)")
     if not set(roles) & set(ctx["approval"]["approver_roles"]):
         raise GovernanceError(f"{signer.name} has roles {roles}; context {context!r} needs one of "
                               f"{ctx['approval']['approver_roles']}")

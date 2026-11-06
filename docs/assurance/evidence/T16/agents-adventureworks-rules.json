@@ -1,0 +1,104 @@
+{
+ "judged_items": 73,
+ "correct": 71,
+ "wrong": 1,
+ "abstained": 1,
+ "coverage": 0.9863013698630136,
+ "accuracy": 0.9861111111111112,
+ "accuracy_ci95": [
+  0.9254339777605758,
+  0.9975440481442419
+ ],
+ "by_kind": {
+  "pk": {
+   "correct": 22
+  },
+  "fk_ask": {
+   "abstain": 1,
+   "wrong": 1,
+   "correct": 3
+  },
+  "fk": {
+   "correct": 43
+  },
+  "unique": {
+   "correct": 3
+  }
+ },
+ "wrong_answers": [
+  {
+   "item": "a1448bca642e",
+   "kind": "fk_ask",
+   "line": "ASK FactAdditionalInternationalProductDescription.ProductKey: looks like a foreign key but the data fits DimProduct (100% of values in the parent, coverage 5%, ",
+   "verdict": "answer",
+   "parent": "DimProduct",
+   "truth": null,
+   "outcome": "wrong",
+   "attention": "high",
+   "confidence": 0.6
+  }
+ ],
+ "approval": {
+  "oracle_wrong_changes_applied": 0,
+  "wrong_flagged_for_attention": 1,
+  "wrong_unflagged": 0,
+  "hurried_reviewer_would_accept_wrong": [],
+  "hurried_wrong_changes_applied": 0
+ },
+ "links_missed_by_draft": [],
+ "verified_not_holding": [
+  {
+   "kind": "check",
+   "line": "FactResellerSales: check OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek (equal on 99.99% of 20,000 sampled rows, 15.1% by chance)",
+   "verdict": "reject"
+  }
+ ],
+ "verified": {
+  "aggregate:confirm": 1,
+  "check:confirm": 4,
+  "check:reject": 1,
+  "constant:confirm": 11,
+  "date:confirm": 6,
+  "derive:confirm": 11,
+  "key_order:confirm": 1,
+  "lookup:confirm": 25
+ },
+ "time": {
+  "agent_seconds": 39.8,
+  "items_verifiable": 133,
+  "attention_items": 6,
+  "assumed_minutes_manual_per_item": 2.0,
+  "assumed_minutes_read_per_item": 0.5,
+  "estimated_minutes_manual": 266.0,
+  "estimated_minutes_assisted": 78.5,
+  "note": "an estimate from the stated minutes per item, not a measurement of people"
+ },
+ "dataset": "adventureworks",
+ "truth": "declared catalog",
+ "draft_seconds": 110.3,
+ "backend": {
+  "name": "rules",
+  "model": "relsynth-rules-1"
+ },
+ "scope": "aggregates",
+ "summary": {
+  "items": 240,
+  "verdicts": {
+   "explain": 107,
+   "confirm": 127,
+   "unsure": 1,
+   "answer": 4,
+   "reject": 1
+  },
+  "attention": 113,
+  "changes": 5,
+  "flags": 0,
+  "seconds": 39.8,
+  "scope": "aggregates",
+  "backend": {
+   "name": "rules",
+   "model": "relsynth-rules-1"
+  }
+ },
+ "model_calls": 0
+}
