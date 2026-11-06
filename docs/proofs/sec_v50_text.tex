@@ -1,0 +1,141 @@
+%=====================================================================
+\section{Synthetic text (v5.0)}\label{sec:v50text}
+% numbered from 1500 (wave D range of T14)
+\newcounter{savedproptx}\setcounter{savedproptx}{\value{proposition}}
+\setcounter{proposition}{1499}
+Version 5.0 adds row-conditioned free text (\texttt{relsynth/textgen}, guide \texttt{docs/text.md}, design record
+\texttt{docs/adr/0010-synthetic-text.md}). A text column chooses a method: the 1.0 n-gram model (Props.~12, 13), the
+DP n-gram release, a local language model with optional DP fine-tuning, or Private Evolution. A PII layer replaces
+detected personal data by typed placeholders before any model sees a text, and a leakage audit measures what the
+output still reveals. The checks are \texttt{tests/unit/test\_textgen.py} and C1500--C1507 in
+\texttt{tests/science/test\_text\_checks.py}; numbers on data are in the T14 report.
+
+\paragraph{Setting.} A \emph{person} $u$ (the value of \texttt{text.dp.unit\_column}) holds rows $(x_r,c_r)$, a text
+and its conditioning values. Neighbouring datasets $D\simeq D'$ differ by all rows of one person (add/remove).
+$\rho$-zCDP (Bun and Steinke 2016) and $(\varepsilon,\delta)$-DP are as in Section~\ref{sec:v25dp}; the conversion
+from $\rho$ to $\varepsilon(\delta)$ is the one of Canonne, Kamath and Steinke (2020) used by the ledger.
+
+\begin{proposition}[Canary exposure under DP]\label{prop:txexposure}
+Let a canary person $u$ hold copies of $p\,s$, where the secret $s$ is uniform on a candidate set $R$ and independent
+of everything else, and let $M$ be $(\varepsilon,\delta)$-DP for $u$. Let $\mathrm{rank}(s)$ be the position of $s$
+among all candidates ordered by any score computed from $M(D)$ and public data, ties broken by independent uniform
+randomness, and $\mathrm{exposure}=\log_2|R|-\log_2\mathrm{rank}(s)$. Then for every $t\ge0$
+\[P(\mathrm{exposure}\ge t)\le e^{\varepsilon}\,2^{-t}+\delta.\]
+For $\rho$-zCDP plus a partition-selection $\delta_0$, the bound holds with
+$\min_{\delta'}\{e^{\varepsilon(\rho,\delta')}2^{-t}+\delta'\}+\delta_0$.
+\end{proposition}
+\begin{proof}
+Let $D^-$ be the data without $u$. The event $E_t=\{\mathrm{rank}(s)\le|R|2^{-t}\}=\{\mathrm{exposure}\ge t\}$ is a
+post-processing of the output (the score, the public candidate list and the tie-breaking coins), so
+$P(E_t\mid D)\le e^\varepsilon P(E_t\mid D^-)+\delta$ for every value of $s$, hence also after averaging over $s$. Under
+$D^-$ the output is independent of $s$, and with random tie-breaking the rank of a uniform $s$ is uniform on
+$\{1,\dots,|R|\}$ for any fixed scores, so $P(E_t\mid D^-)=\lfloor|R|2^{-t}\rfloor/|R|\le2^{-t}$. For zCDP every pair
+$(\varepsilon(\rho,\delta'),\delta')$ is valid, and the partition-selection mechanisms add their $\delta_0$ by
+composition.
+\end{proof}
+
+\begin{proposition}[DP n-gram release]\label{prop:txngram}
+The release of \texttt{DPNgramModel.fit\_dp} with levels $n=0,\dots,N-1$, budgets $\rho_n$, $\rho_\emptyset$ and
+selection deltas $\delta_n$ is $(\rho_\emptyset+\sum_n\rho_n)$-zCDP up to the event of probability at most
+$\sum_n\delta_n$ (user level), and every text it generates is post-processing.
+\end{proposition}
+\begin{proof}
+After bounding, person $u$ keeps at most $k$ texts of at most $L$ tokens. At level $n$, $u$ contributes the indicator
+of a set $K_u$ of at most $m$ keys, so the count vector over keys changes by a $0/1$ vector with at most $m$ ones:
+$L_2$ sensitivity $\sqrt m$, and at most $1$ on any key. The discrete Gaussian with scale
+$\sigma_n=\lceil\sqrt m\rceil/\sqrt{2\rho_n}$ is $\rho_n$-zCDP on the keys present in both datasets
+(Canonne et al.\ 2020, Thm.~4; Prop.~900). Keys held by $u$ alone have true count at most $1$ and are released only if
+$1+X>\tau_n$; with $\tau_n$ from Prop.~903 for count bound $1$ and $m$ keys per person, the probability that any of
+them is released is at most $\delta_n$, which is the partition-selection argument of Prop.~903 (Gopi et al.\ 2020;
+Kim et al.\ 2021, Sec.~3). The candidate set at level $n$ depends on the data only through the release at level
+$n-1$ (the shorter context and the context must be released) and is otherwise public. The share of empty texts is a
+2-vector with sensitivity at most $k$ in $L_2$, released with $\rho_\emptyset$. Adaptive composition of zCDP adds the
+$\rho$'s (Bun and Steinke 2016, Lemma~2.3). The back-off model, the sampler and the placeholder filler use only the
+released counts, the public start/end tokens and fresh randomness.
+\end{proof}
+
+\begin{proposition}[User-level DP-GD]\label{prop:txdpgd}
+\texttt{LMTextModel} with \texttt{dp} runs $T$ steps $\theta_{t+1}=\mathrm{opt}\big(\theta_t,(\sum_u
+\mathrm{clip}_C(g_u(\theta_t))+Z_t)/\tilde n\big)$ with $Z_t\sim N(0,\sigma^2C^2I)$ and $\tilde n$ a noisy count of
+people. With $\sigma=\sqrt{T/(2\rho_{\mathrm{steps}})}$ and $\tilde n$ released with $\rho_{\mathrm{n}}$, the final
+weights are $(\rho_{\mathrm{steps}}+\rho_{\mathrm n})$-zCDP for one person, and so is every text generated from them.
+\end{proposition}
+\begin{proof}
+$g_u$ is the gradient of the mean loss over the at most $k$ kept texts of $u$; after clipping,
+$\|\mathrm{clip}_C(g_u)\|_2\le C$, so the sum over people has $L_2$ sensitivity $C$ under add/remove of $u$, given
+$\theta_t$. The Gaussian mechanism with variance $\sigma^2C^2$ is then $1/(2\sigma^2)$-zCDP (Bun and Steinke 2016,
+Prop.~1.6); every person is used in every step (no sampling), so adaptive composition over $T$ steps gives
+$T/(2\sigma^2)=\rho_{\mathrm{steps}}$. The count has sensitivity $1$. The optimiser state, the division and the model
+are post-processing. The noise is floating-point (as in Opacus); the guarantee is stated for exact Gaussian noise
+(Mironov 2012 for the caveat).
+\end{proof}
+
+\begin{proposition}[Private Evolution votes]\label{prop:txpe}
+In \texttt{PETextModel.fit\_dp} with $T$ iterations, each vote histogram has $L_2$ sensitivity at most
+$S=\texttt{SCALE}$ for one person, the iterations cost $\sum_t\rho_t$, the class levels cost $\rho_c$ and $\delta$, and
+the final pool and weights are post-processing; the guarantee is user-level.
+\end{proposition}
+\begin{proof}
+The embedding is a function of the text and a public constant only (hash and projection seeded by 1503), and the
+proposals are produced by a public API from the previous noisy release, so the only data access per iteration is the
+histogram. Person $u$ with votes $v_u\in\mathbb N^{|S|}$ contributes $\lfloor Sv_u/\|v_u\|_2\rfloor$ (elementwise), whose
+$L_2$ norm is at most $S$; removing $u$ removes that vector. The discrete Gaussian with scale
+$S/\sqrt{2\rho_t}$ is $\rho_t$-zCDP (Prop.~900), and adaptive composition adds the costs. The class levels are a
+partition selection with $k+1$ keys per person (Prop.~903). Resampling, the API's variations and the final draws use
+the noisy histograms and public randomness only (Lin et al.\ 2024, Thm.~1; Xie et al.\ 2024).
+\end{proof}
+
+\begin{proposition}[Expected exposure]\label{prop:txexpect}
+Under the assumptions of Prop.~\ref{prop:txexposure},
+$\mathbb E[\mathrm{exposure}]\le(\varepsilon+1)/\ln2+\delta\log_2|R|$.
+\end{proposition}
+\begin{proof}
+Exposure is nonnegative and at most $\log_2|R|$, so $\mathbb E[\mathrm{exposure}]=\int_0^{\log_2|R|}P(\mathrm{exposure}
+\ge t)\,dt\le\int_0^{\infty}\min(1,e^\varepsilon2^{-t})\,dt+\delta\log_2|R|$. With $t_0=\varepsilon/\ln2$ the integral is
+$t_0+\int_{t_0}^\infty e^\varepsilon2^{-t}dt=\varepsilon/\ln2+1/\ln2$.
+\end{proof}
+
+\begin{proposition}[Near-duplicate search]\label{prop:txminhash}
+For shingle sets $A,B$ with Jaccard similarity $s$, one MinHash coordinate agrees with probability $s$ (Broder 1997)
+when the hash family is min-wise independent; with $b$ bands of $r$ coordinates the pair becomes a candidate with
+probability $1-(1-s^r)^b$. Every reported similarity is the exact Jaccard similarity of a candidate pair, so the
+reported counts of near duplicates are never too high, and a pair with similarity $s$ is missed with probability at
+most $(1-s^r)^b$ ($2\cdot10^{-4}$ at $s=0.7$, $b=32$, $r=4$).
+\end{proposition}
+\begin{proof}
+For a random permutation $\pi$, $\min\pi(A)=\min\pi(B)$ iff the minimiser of $\pi$ on $A\cup B$ lies in $A\cap B$,
+which has probability $|A\cap B|/|A\cup B|$. Bands use disjoint coordinates, so they agree independently; a band
+agrees with probability $s^r$ and the pair is a candidate if some band agrees. The implementation hashes with
+$x\mapsto ax+b\bmod 2^{64}$ over 64-bit BLAKE2 hashes, which is only approximately min-wise independent; check C1505
+measures the candidate rate against the formula. The exact verification step makes the counts conservative.
+\end{proof}
+
+\begin{proposition}[PII placeholders]\label{prop:txpii}
+(a) No character of a span found by the recognizers reaches a text model: the model is fitted to the redacted texts.
+(b) Surrogates are drawn from fresh randomness and reserved or fictitious ranges (RFC 2606 domains, 555-01xx numbers,
+RFC 5737 addresses, Luhn-valid test cards, mod-97-valid IBANs of a test bank code), independent of the source values,
+and each is format-valid. (c) With $x$ of $n$ labelled entities caught, the Wilson interval covers the recall with
+probability close to $0.95$ for $n\ge 30$.
+\end{proposition}
+\begin{proof}
+(a) \texttt{redact} rebuilds the text from the gaps between the merged spans and the placeholders, and
+\texttt{TextColumn.fit} passes only the redacted list on. Overlapping spans are merged, so a partly overlapping detection
+removes the union. (b) By construction of \texttt{surrogate}: the check digits are computed (Luhn: the last digit is
+chosen to make the sum $0\bmod 10$; IBAN: ISO 7064 mod 97-10). (c) Wilson (1927); Brown, Cai and DasGupta (2001) for
+its coverage. The recall is a property of the recognizers on the labelled distribution only, which is why the audit
+runs on the output as well.
+\end{proof}
+
+\begin{proposition}[Consistency with the row]\label{prop:txconsist}
+Let $f$ be a classifier fitted on real training rows that predicts a conditioning value $c$ from a text. If the
+synthetic pairs $(\tilde x,\tilde c)$ have the law of the real pairs, then
+$\mathbb E[\mathrm{acc}_{\mathrm{syn}}]=\mathbb E[\mathrm{acc}_{\mathrm{held\text{-}out}}]$, so the consistency ratio is $1$
+up to sampling error; if the text is independent of the row, $\mathbb E[\mathrm{acc}_{\mathrm{syn}}]=\sum_c
+q(c)\,P(f(\tilde x)=c)$, the chance agreement.
+\end{proposition}
+\begin{proof}
+Given $f$ (fitted on data disjoint from both samples), $\mathrm{acc}$ is the mean of i.i.d.\ indicators
+$1\{f(x)=c\}$ whose expectation depends only on the joint law of $(x,c)$. Under independence,
+$P(f(\tilde x)=\tilde c)=\sum_cP(\tilde c=c)P(f(\tilde x)=c)$.
+\end{proof}
+\setcounter{proposition}{\value{savedproptx}}
