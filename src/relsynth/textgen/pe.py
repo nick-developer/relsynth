@@ -93,7 +93,8 @@ class LMApi:
                 ids = torch.tensor([p], device=self.lm.dev)
                 res = self.lm.net.generate(input_ids=ids, attention_mask=torch.ones_like(ids), do_sample=True,
                                            top_p=self.lm.top_p, max_new_tokens=self.lm.max_new_tokens,
-                                           pad_token_id=self.lm.tok.pad_token_id, eos_token_id=self.lm.tok.eos_token_id)
+                                           pad_token_id=self.lm.tok.pad_token_id, eos_token_id=self.lm.tok.eos_token_id,
+                                           remove_invalid_values=True, renormalize_logits=True)
                 row = res[0, len(p):].tolist()
                 if self.lm.tok.eos_token_id in row:
                     row = row[: row.index(self.lm.tok.eos_token_id)]

@@ -101,7 +101,10 @@ class LMTextModel:
         else:
             # a local folder only (local_files_only): nothing is downloaded, so there is no revision to pin
             self.tok = _HFTok(AutoTokenizer.from_pretrained(self.model_name, local_files_only=True))  # nosec B615
+            # float32: transformers 5 keeps the checkpoint dtype (float16 for Pythia), and float16 training on a
+            # CPU overflows, which ends in NaN logits at sampling time
             self.net = AutoModelForCausalLM.from_pretrained(self.model_name, local_files_only=True)  # nosec B615
+            self.net = self.net.float()
         if self.lora:
             from peft import LoraConfig, get_peft_model
             o = dict(self.lora)
@@ -152,9 +155,14 @@ class LMTextModel:
             for _ in range(self.steps):
                 b = [exs[j] for j in g.choice(len(exs), min(self.bs, len(exs)), replace=False)]
                 opt.zero_grad()
-                self._loss(b).backward()
+                loss = self._loss(b)
+                if not torch.isfinite(loss):
+                    continue
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.params, 1.0)
                 opt.step()
             self.net.eval()
+            self._check_finite()
             return self
         return self._fit_dp(texts, conds, owners, acct, rho, opt)
 
@@ -205,9 +213,15 @@ class LMTextModel:
             opt.step()
             clipped_share.append(n_clip / max(len(people), 1))
         self.net.eval()
+        self._check_finite()
         self.release = {"method": "DP-GD (user-level, full batch)", "people": len(people), "max_texts": k, "clip": C,
                         "steps": T, "noise_multiplier": sigma, "rho": rho, "clipped_share_last": clipped_share[-1]}
         return self
+
+    def _check_finite(self):
+        torch = _torch()
+        if not all(bool(torch.isfinite(p).all()) for p in self.params):
+            raise RuntimeError("text lm: the fine-tuned weights are not finite; lower `lm.lr` or the number of steps")
 
     # ------------------------------------------------------------ sample and score
     def generate(self, conds: list[dict], rng: np.random.Generator) -> list:
@@ -228,7 +242,8 @@ class LMTextModel:
                     res = self.net.generate(input_ids=ids, attention_mask=torch.ones_like(ids), do_sample=True,
                                             temperature=self.temperature, top_p=self.top_p,
                                             max_new_tokens=self.max_new_tokens, pad_token_id=self.tok.pad_token_id,
-                                            eos_token_id=self.tok.eos_token_id)
+                                            eos_token_id=self.tok.eos_token_id, remove_invalid_values=True,
+                                            renormalize_logits=True)
                     for j, row in zip(chunk, res[:, len(p):].tolist()):
                         if self.tok.eos_token_id in row:
                             row = row[: row.index(self.tok.eos_token_id)]
