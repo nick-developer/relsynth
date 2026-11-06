@@ -4,10 +4,15 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
-### Fixed
+### Added
 
-- **Helm chart: a fresh `helm install` no longer times out.** The pre-install migrate job ran as the release's ServiceAccount, which Helm only creates after the pre-install hooks; the job now runs as its own hook ServiceAccount (`<release>-migrate`, same annotations), created just before it. Found by the new kind-cluster end-to-end job.
-- **Helm chart: workers can store run outputs.** The data PVC was mounted at `/var/lib/relsynth`, so the container runtime created `/var/lib/relsynth/data` (the parent of the work `emptyDir`) as root and the non-root workers failed with `Permission denied: '/var/lib/relsynth/data/tenants'`, losing every synthesis run. The PVC is now mounted at `<data_dir>/tenants`, the only directory the service writes. An install of 2.0.0 that got this far keeps its artefacts under `data/tenants/` on the volume: move that folder's contents to the volume root before upgrading. Found by the kind-cluster end-to-end job.
+- **Compliance evidence and assurance case** (`docs/assurance/`; roadmap T17): an assurance case for a release (claims, evidence, assumptions, defeaters), a mapping to EDPB Guidelines 02/2026 and *EDPS v SRB*, the AI Act (Art. 10 and the new Art. 4a), HIPAA expert determination, NIST SP 800-226 and SP 800-188 and ISO/IEC 27559 and 20889, a DPIA template for a synthetic release, and release guidance for internal, partner and public recipients.
+- **Claim register** (`docs/assurance/claims.yaml`, `tools/claims_check.py`, CI job `lint`): every claim of the README and of the privacy, DP, security and governance guides (96 claims) traced to a proposition, check, test or measured report; a README sentence that sums up a guide cites that guide's claim. CI fails when a claim changes, its evidence disappears, or a new claim is not registered.
+
+### Changed
+
+- README: "No row is copied" now reads "Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied"; "Privacy checks run by default" now says the copy guards run by default and are not a privacy check; the 2.0 science checks are C600–C606 (privacy attacks), not C700–C706, which do not exist (the generator propositions are tested in `tests/unit/test_generators.py`).
+- `docs/security.md` now describes 2.0: differential privacy is optional rather than absent, the distance guards are copy guards rather than privacy checks, seven core dependencies, four `subprocess` call sites, and the service's connections to the OIDC provider and Vault.
 
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).
