@@ -75,13 +75,26 @@ def chain_hash(prev: str, entry: dict) -> str:
 class Registry(Protocol):
     """What the governance layer needs from a registry backend."""
 
-    def put_blob(self, data: bytes) -> str: ...
-    def get_blob(self, digest: str) -> bytes: ...
-    def append(self, entry: dict) -> int: ...
-    def head(self) -> tuple[int, str]: ...
-    def entries(self, type_prefix: str | None = None) -> Iterator[dict]: ...
-    def locked(self): ...
-    def secret(self, name: str, create: bool = True) -> bytes: ...
+    def put_blob(self, data: bytes) -> str:
+        """Store bytes by content; return their digest."""
+
+    def get_blob(self, digest: str) -> bytes:
+        """The bytes stored under `digest`."""
+
+    def append(self, entry: dict) -> int:
+        """Append an entry to the hash chain; return its sequence number."""
+
+    def head(self) -> tuple[int, str]:
+        """(sequence number, hash) of the last entry."""
+
+    def entries(self, type_prefix: str | None = None) -> Iterator[dict]:
+        """The entries in order, optionally only those whose type starts with `type_prefix`."""
+
+    def locked(self):
+        """A context manager that holds the registry's write lock."""
+
+    def secret(self, name: str, create: bool = True) -> bytes:
+        """The registry's named secret key, created on first use when `create`."""
 
 
 class LocalRegistry:

@@ -21,7 +21,7 @@ class OracleConnector(SqlConnector):
             import oracledb
             oracledb.defaults.fetch_lobs = False       # CLOB/BLOB as str/bytes, not LOB handles
         except ImportError:
-            pass
+            pass                        # the driver is checked when a connection is made
 
     def after_load(self, con, tbl):
         prep = con.dialect.identifier_preparer

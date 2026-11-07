@@ -99,7 +99,8 @@ def main():
             summary[k]["anonymeter_mean"] = float(np.mean([r["anonymeter"][k]["value"] for r in runs]))
             summary[k]["relsynth_ci_overlaps_anonymeter_same_seed"] = \
                 f"{sum(overlap(r['relsynth'][k]['ci'], r['anonymeter'][k]['ci']) for r in runs)}/{len(runs)}"
-    json.dump({"summary": summary, "runs": runs}, open(a.out, "w"), indent=1)
+    with open(a.out, "w") as fh:
+        json.dump({"summary": summary, "runs": runs}, fh, indent=1)
     print(json.dumps(summary, indent=1))
 
 

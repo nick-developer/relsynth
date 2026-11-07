@@ -124,7 +124,6 @@ _PRIV = ("dcr_ratio", "exact_match_rate", "privacy:record_isolation", "privacy:l
          "privacy:membership")
 _TEXT = ("text_rare_exact_copies", "text_rare_ngram_copies", "text_rare_token_leaks", "text_tstr_ratio")
 _RULES = ("rule_violation_rate", "soft_rule_rate_diff", "unique_duplicate_rate")
-_TIME = ("time_bucket_tvd", "time_bucket_tvd_conditional")
 _TREE = ("tree_depth_tvd", "tree_fanout_ks", "attr_by_depth_tvd", "tree_depth_ppc_pvalue")
 
 META: dict[str, dict] = dict([
@@ -697,8 +696,8 @@ def reference() -> str:
     """Markdown reference of every parameter (docs/settings-reference.md)."""
     P = params()
     out = ["# Settings reference", "",
-           "Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings-reference.md`); "
-           "do not edit by hand. See [docs/settings.md](settings.md) for how settings are set.", "",
+           ("Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings-reference.md`); "
+            "do not edit by hand. See [docs/settings.md](settings.md) for how settings are set."), "",
            "| Key | Type | Default | Range / choices | Tunable | Meaning |", "|---|---|---|---|---|---|"]
     for k, p in P.items():
         rng = ", ".join(str(c) for c in p.choices) if p.type == "choice" else (
@@ -708,8 +707,8 @@ def reference() -> str:
         tun = ("yes" + (" (log)" if p.scale == "log" else "")) if p.tunable else ""
         out.append(f"| `{k}` | {p.type} | `{p.default}` | {rng} | {tun} | {p.doc} |")
     out += ["", "## `evaluation.thresholds`", "",
-            "Fixed tolerances of the scorecard. Each item's limit is the larger of its tolerance and its sampling "
-            "limit, so lowering a tolerance never makes a check stricter than its noise allows.", "",
+            ("Fixed tolerances of the scorecard. Each item's limit is the larger of its tolerance and its sampling "
+             "limit, so lowering a tolerance never makes a check stricter than its noise allows."), "",
             "| Key | Default |", "|---|---|"]
     out += [f"| `{k}` | `{v}` |" for k, v in threshold_keys().items()]
     return "\n".join(out) + "\n"

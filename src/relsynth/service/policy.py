@@ -75,12 +75,16 @@ def spec_refusals(raw: dict) -> list[str]:
     moves the folder relative paths resolve against), a settings file other than a
     built-in ``preset:NAME`` and a compute file are paths the workers would read."""
     out = [f"key {k!r} is internal and cannot be set in a spec" for k in raw if str(k).startswith("_")]
-    syn = raw.get("synthesis") if isinstance(raw.get("synthesis"), dict) else {}
+    syn = raw.get("synthesis")
+    if not isinstance(syn, dict):
+        syn = {}
     ref = syn.get("settings_file")
     if ref is not None and not str(ref).startswith("preset:"):
         out.append("synthesis.settings_file: the service accepts only a built-in preset:NAME, "
                    "not a file on the service")
-    comp = syn.get("compute") if isinstance(syn.get("compute"), dict) else {}
+    comp = syn.get("compute")
+    if not isinstance(comp, dict):
+        comp = {}
     if comp.get("file") is not None:
         out.append("synthesis.compute.file: the service does not read compute files; "
                    "use a built-in preset with overrides")

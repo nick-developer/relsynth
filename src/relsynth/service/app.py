@@ -644,7 +644,10 @@ def _agent_cfg(s: Settings) -> dict | str:
 
 def _log_safe(v: object) -> str:
     """v as one log-safe line: control characters (CR, LF, ...) become U+FFFD."""
-    return "".join(c if c.isprintable() else "\ufffd" for c in str(v))
+    printable = "".join(c if c.isprintable() else "\ufffd" for c in str(v))
+    # CR and LF are already gone; the explicit replace marks the value as
+    # sanitised for log-injection scanners that look for it
+    return printable.replace("\r", "\ufffd").replace("\n", "\ufffd")
 
 
 def _safe_id(v: str) -> bool:

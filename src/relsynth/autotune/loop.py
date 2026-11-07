@@ -202,7 +202,6 @@ def autotune(spec, objectives=None, *, history_dir=None, runs: int | None = None
     tried = set(hist.keys())
     rng = np.random.default_rng(int(seeds[0]))
     space = S.space_for(obj)
-    stopped = "budget"
     stale = 0
     accel: dict = {}            # (setting, direction) -> accepted moves in a row (pattern-search expansion)
     while True:

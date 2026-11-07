@@ -99,8 +99,9 @@ def main():
                                                   "dcr_ratio", "exact_match_rate", "singling_out_risk",
                                                   "domias_auc"]].mean()
     print(summ.to_string())
-    json.dump({"table": t, "rows": n, "fit_seconds": fit_s, "results": results,
-               "summary": json.loads(summ.reset_index().to_json(orient="records"))}, open(a.out, "w"), indent=1)
+    with open(a.out, "w") as fh:
+        json.dump({"table": t, "rows": n, "fit_seconds": fit_s, "results": results,
+                   "summary": json.loads(summ.reset_index().to_json(orient="records"))}, fh, indent=1)
 
 
 if __name__ == "__main__":

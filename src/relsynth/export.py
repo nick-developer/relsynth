@@ -735,16 +735,16 @@ def to_markdown(S, mean, draws, checks, scope, replica=None):
           + (f"; {nfail} condition(s) of the propositions fail." if nfail else
              "; every condition of the propositions holds" + (" (the rest are convergence warnings)."
                                                                if nok < len(checks) else ".")), "",
-          "FAIL: a condition under which a proposition holds is violated.  WARN: a convergence diagnostic "
-          "of an MCMC block (the model is valid; a longer chain gives more certain draws).", "",
+          ("FAIL: a condition under which a proposition holds is violated.  WARN: a convergence diagnostic "
+           "of an MCMC block (the model is valid; a longer chain gives more certain draws)."), "",
           "| check | result | detail | proved by |", "|---|---|---|---|"]
     for c in checks:
         res = "ok" if c["ok"] else ("WARN" if c.get("level") == "warn" else "FAIL")
         cell = [str(x).replace("|", "/") for x in (c["check"], res, c["detail"], c["reference"])]
         L.append("| " + " | ".join(cell) + " |")
     if replica:
-        L += ["", "**Replica against the source** (scorecard of `relsynth` on the replica's output, "
-              "posterior mean, same checks as `relsynth run`):", ""]
+        L += ["", ("**Replica against the source** (scorecard of `relsynth` on the replica's output, "
+               "posterior mean, same checks as `relsynth run`):"), ""]
         for k, v in replica.items():
             L.append(f"- {k}: {v}")
     L += [GENERAL_MD, "## 2. This dataset's model (posterior means)", ""]
@@ -819,11 +819,11 @@ def to_markdown(S, mean, draws, checks, scope, replica=None):
             L.append(f"- {a['table']}.{a['column']} = {a['agg']}({a.get('of') or '*'}) over {a['from']} by {a['child_key']}")
         L.append("")
     L += ["## 5. Replicating the synthesis", "",
-          "- Exactly, with relsynth: `python run_model.py` (the calls of `relsynth run`; same spec, same seed, "
-          "bit-identical output).",
-          "- On your own, without relsynth: `python replicate.py model.json --out replica/ [--draw 0|mean] "
-          "[--seed 7] [--scale 1.0] [--reference DIR]` (numpy, pandas, scipy).  It draws the core process of "
-          "section 1 from the exported posterior draws.",
+          ("- Exactly, with relsynth: `python run_model.py` (the calls of `relsynth run`; same spec, same seed, "
+           "bit-identical output)."),
+          ("- On your own, without relsynth: `python replicate.py model.json --out replica/ [--draw 0|mean] "
+           "[--seed 7] [--scale 1.0] [--reference DIR]` (numpy, pandas, scipy).  It draws the core process of "
+           "section 1 from the exported posterior draws."),
           "", "What replicate.py leaves to the engine:", ""]
     L += [f"- {s}" for s in scope] or ["- nothing"]
     return "\n".join(L) + "\n"

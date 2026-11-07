@@ -7,6 +7,7 @@ The report contains aggregates only, never rows.
 """
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 
@@ -314,7 +315,7 @@ def _assoc_fast(A, B, cx, cy):
 
 
 def assoc_metrics(real, syn, tspec, cols, max_rows=20000, rng=None, min_level_rows=0, floor=None):
-    rng = rng or np.random.default_rng(0)
+    del rng                             # kept for callers; the metrics use every row, so draw nothing
     floor = THRESHOLDS["assoc_max"] if floor is None else floor
     if len(cols) < 2:
         return {"max_abs_diff": 0.0, "mean_abs_diff": 0.0, "worst_pair": None}
@@ -1450,14 +1451,14 @@ def scorecard(rep, th=None):
         if d.get("kind") == "soft":
             # a soft rule should break as often as in the source, not less
             r0, r1 = d.get("violation_rate_real"), d["violation_rate_syn"]
-            r0_ok = r0 is not None and r0 == r0
+            r0_ok = r0 is not None and not math.isnan(r0)
             r0 = r0 if r0_ok else 0.0
             sd = None
-            if "rows_real" in d and r1 == r1:
+            if "rows_real" in d and not math.isnan(r1):
                 rb = (r0 + r1) / 2
                 sd = float(np.sqrt(rb * (1 - rb) * _eff(d["rows_real"], d["rows_syn"])))
             lim = max(0.01, 0.25 * r0, 2.5 * sd if sd else 0.0)
-            add(n, "soft_rule_rate_diff", round(abs(r1 - r0), 6) if r1 == r1 else nan, round(lim, 6),
+            add(n, "soft_rule_rate_diff", nan if math.isnan(r1) else round(abs(r1 - r0), 6), round(lim, 6),
                 abs(r1 - r0) <= lim, _z_alpha(lim, sd), real_ok=r0_ok)
             continue
         # A rule the real data never breaks must hold exactly.  One the real data
@@ -1466,12 +1467,12 @@ def scorecard(rep, th=None):
         # three standard errors of the real-minus-synthetic difference (one-sided).
         r0 = d.get("violation_rate_real")
         lim, al = max(th["rule_violation"], r0 or 0.0), None
-        if r0 is not None and r0 == r0 and r0 > 0 and d.get("rows_real") and d.get("rows_syn"):
+        if r0 is not None and not math.isnan(r0) and r0 > 0 and d.get("rows_real") and d.get("rows_syn"):
             sd = float(np.sqrt(r0 * (1 - r0) * _eff(d["rows_real"], d["rows_syn"])))
             lim = max(lim, r0 + 3 * sd)
             al = _z_alpha(lim - r0, sd, two_sided=False)
         add(n, "rule_violation_rate", d["violation_rate_syn"], round(lim, 6), d["violation_rate_syn"] <= lim, al,
-            real_ok=r0 is not None and r0 == r0)
+            real_ok=r0 is not None and not math.isnan(r0))
     for t, d in rep.get("removed", {}).items():
         add(t, "rows_removed_share", d["share"], th["rows_removed"], d["share"] <= th["rows_removed"])
     for n, d in rep.get("grain", {}).items():

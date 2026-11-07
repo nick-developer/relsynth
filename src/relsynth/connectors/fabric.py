@@ -44,7 +44,6 @@ constraints):
 from __future__ import annotations
 
 import io
-import logging
 import struct
 import uuid
 
@@ -56,7 +55,6 @@ from .sql import SqlStats
 from .sqlfuncs import row_hash
 from .warehouse import WarehouseConnector, resolve_auth
 
-log = logging.getLogger("relsynth.connectors")
 
 UTF8_BIN = "Latin1_General_100_BIN2_UTF8"
 SCOPE = "https://database.windows.net/.default"

@@ -7,6 +7,14 @@ See docs/service/README.md.
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:       # declared for type checkers; loaded lazily below (fastapi is optional)
+    from .app import create_app
+    from .config import Settings
+    from .store import Store
+    from .worker import Worker
+
 __all__ = ["create_app", "Settings", "Store", "Worker"]
 
 

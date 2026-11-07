@@ -29,10 +29,10 @@ def test_parse_kinds_of_review_lines():
     lines = [
         "Album: primary key AlbumId inferred (only unique non-null key-like column (score 1.00))",
         "Album.ArtistId -> Artist: foreign key inferred (100% of values in the parent, coverage 74%)",
-        "ASK Customer.SupportRepId: looks like a foreign key but the data fits Employee (100% of values in the "
-        "parent, coverage 38%), MediaType (100% of values, coverage 60%) equally well; declare it",
-        "ASK Employee.ReportsTo: looks like a foreign key to Employee (100% of values in the parent), but the data "
-        "does not establish it; declare it under relationships",
+        ("ASK Customer.SupportRepId: looks like a foreign key but the data fits Employee (100% of values in the "
+         "parent, coverage 38%), MediaType (100% of values, coverage 60%) equally well; declare it"),
+        ("ASK Employee.ReportsTo: looks like a foreign key to Employee (100% of values in the parent), but the data "
+         "does not establish it; declare it under relationships"),
         "PlaylistTrack: unique key [PlaylistId, TrackId] inferred (8715 rows, no repeated pair)",
         "CurrencyExchange: unique key ['Date', 'FromCurrency', 'ToCurrency'] inferred (no repeat)",
         "Invoice.BillingCity: lookup CustomerId.City (equal on 100.0% of 412 sampled rows; 2.0% expected by chance)",

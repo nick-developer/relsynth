@@ -118,6 +118,7 @@ def c00():
     # so the script runs a second time only when all its failures are timing checks.
     timing = ("T4 ", "T9 ")
     for attempt in (1, 2):
+        rerun = attempt == 2
         out = subprocess.run([sys.executable, str(p)], capture_output=True, text=True, timeout=900).stdout
         last = [l for l in out.splitlines() if "checks passed" in l]
         n = last[-1].split()[0] if last else "0/14"
@@ -125,7 +126,7 @@ def c00():
         failed = [l[len("[FAIL] "):].split(":")[0] for l in out.splitlines() if l.startswith("[FAIL] ")]
         if a == b or not failed or not all(f.startswith(timing) for f in failed):
             break
-    detail = n + (f" (failed: {'; '.join(failed)})" if failed else "") + (" on the second run" if attempt == 2 else "")
+    detail = n + (f" (failed: {'; '.join(failed)})" if failed else "") + (" on the second run" if rerun else "")
     return [item("layer 1 validate_algorithms.py", detail, "14/14", a == b)]
 
 
@@ -459,7 +460,7 @@ def c15():
     k1 = ks_2samp(y, ref.rvs(60000, random_state=2)).statistic
     return [item("KS of redraw-until-valid sample vs exact truncated law", float(k1), f"<= {ks_crit(60000, 60000):.4f}",
                  k1 <= ks_crit(60000, 60000)),
-            item("acceptance rate = P(rule)", f"{len(kept) / len(x):.4f} vs {ref.cdf(0.5) if False else 0.6915:.4f}",
+            item("acceptance rate = P(rule)", f"{len(kept) / len(x):.4f} vs {0.6915:.4f}",
                  "within 0.005", abs(len(kept) / len(x) - 0.6915) <= 0.005)]
 
 
@@ -1744,7 +1745,7 @@ def c49():
         back = normalise_frame(read_table_file(tmp / "t.parquet"))
         ok_pq = back["code"].tolist() == ["0101", "0202"] and back["ts"].dt.tz is None
     except ImportError:
-        pass
+        pass                            # no pyarrow: the Parquet part is reported as not run
     (tmp / "c.csv").write_text("code,n\n0101,1\n0202,2\n")
     csv = read_table_file(tmp / "c.csv")
     return [item("add_days on ISO strings", dts[:2], "['2020-02-02', '2020-02-29']", dts[:2] == ["2020-02-02", "2020-02-29"]),
@@ -1869,7 +1870,7 @@ def c52():
                         "age": rng.normal(40, 9, ne).round(), "rate": rng.gamma(3, 10, ne).round(2)})
     days = pd.DataFrame({"dk": np.arange(1, 41), "q": np.tile([1, 2, 3, 4], 10)})
     se = emp.ek[sales].to_numpy()
-    rows = [(e, d) for e in se for d in np.sort(rng.choice(40, rng.integers(4, 13), replace=False)) + 1]
+    rows = [(e, d) for e in se for d in np.sort(rng.choice(np.arange(1, 41), rng.integers(4, 13), replace=False))]
     quota = pd.DataFrame(rows, columns=["ek", "dk"])
     quota.insert(0, "qk", np.arange(1, len(quota) + 1))
     quota["amt"] = rng.gamma(4, 1000, len(quota)).round()
@@ -2599,7 +2600,8 @@ def c67():
     bad, n = [], 0
     for f in files:
         try:
-            raw = yaml.safe_load(open(f))
+            with open(f) as fh:
+                raw = yaml.safe_load(fh)
         except Exception:  # noqa: BLE001
             continue
         if isinstance(raw, dict) and "tables" in raw:
@@ -2945,7 +2947,6 @@ def _export(name, M=3):
 @check("C72", "Exported model: verified, strict JSON, draws are the engine's datasets",
        "Props. 'Exported draw m is the parameter of dataset m' and 'Verification conditions'")
 def c72():
-    import json
     from relsynth.export import theta
     out = []
     for name in ("S4_tree", "S9_small_shop", "S10_order_dw"):
@@ -2976,7 +2977,6 @@ def c73():
     out = []
     for name in ("S9_small_shop", "S10_order_dw", "S11_retail_dw"):
         syn, d, res, tables = _export(name)
-        import json
         m = json.loads((d / "model.json").read_text())
         gen = replica.generate(m, "mean", 7, 1.0, {e: syn._copy_rows[e] for e in syn.copied})
         T = m["structure"]["tables"]
@@ -3009,7 +3009,7 @@ def c73():
     env = dict(os.environ, PYTHONPATH=str(ROOT), PYTHONDONTWRITEBYTECODE="1", RELSYNTH_QUIET="1")
     run = lambda *a: subprocess.run([sys.executable, "-P", *a], cwd=tmp, env=env, capture_output=True, text=True)
     r1 = run("-m", "relsynth", "run", "spec.yaml", "--out", "A", "--datasets", "2", "--no-privacy")
-    r2 = run("-m", "relsynth", "export-model", "spec.yaml", "--out", "M", "--formats", "json,py", "--no-replica-check")
+    run("-m", "relsynth", "export-model", "spec.yaml", "--out", "M", "--formats", "json,py", "--no-replica-check")
     r3 = run("M/run_model.py", "--out", str(tmp / "B"), "--datasets", "2")
     files = [(f, tmp / dst / f.name) for src, dst in (("A", "B"), ("A_2", "B_2"))
              for f in sorted((tmp / src).glob("*.csv"))]

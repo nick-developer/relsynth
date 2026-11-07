@@ -111,15 +111,15 @@ def context_markdown(rep: dict, name: str) -> str:
         lines.append(f"| {crit} | {c['attack'].replace('_', ' ')} | {_f(c['value'])} | {_ci(c['ci'])} | "
                      f"{_f(c['limit'])} | {c['status'].upper()} |")
     if ctx.get("per_person") == "info":
-        lines += ["", "INFO checks are shown, not gated: one person's interval is too wide to decide at this "
-                  "shadow count, so the pooled attack on the most exposed people gates instead."]
-    lines += ["", "Risk values are the share of attacks that succeed on people in the training data beyond what "
-              "succeeds on unseen people (0 = no more than for strangers, 1 = always). AUC 0.5 means the attacker "
-              "cannot tell members from non-members.", ""]
+        lines += ["", ("INFO checks are shown, not gated: one person's interval is too wide to decide at this "
+                   "shadow count, so the pooled attack on the most exposed people gates instead.")]
+    lines += ["", ("Risk values are the share of attacks that succeed on people in the training data beyond what "
+               "succeeds on unseen people (0 = no more than for strangers, 1 = always). AUC 0.5 means the attacker "
+               "cannot tell members from non-members."), ""]
     recs = rep.get("vulnerable_records") or []
     if recs:
-        lines += ["## People most at risk", "", "| Rank | Person | Membership AUC | Interval | Singled out | Linked "
-                  "| Attribute guessed |", "|---|---|---|---|---|---|---|"]
+        lines += ["## People most at risk", "", ("| Rank | Person | Membership AUC | Interval | Singled out | Linked "
+                   "| Attribute guessed |"), "|---|---|---|---|---|---|---|"]
         for r in recs:
             yn = lambda b: "yes" if b else "no"  # noqa: E731
             lines.append(f"| {r['rank']} | {r['person']} | {_f(r['mia_auc'])} | {_ci(r.get('mia_auc_ci'))} | "
@@ -156,8 +156,8 @@ def annex_markdown(rep: dict) -> str:
         L += ["", "Example isolating queries (on the synthetic data): " + "; ".join(f"`{q}`" for q in ex)]
     if A["attribute_inference"]:
         L += ["", "## Attribute inference against a population baseline", "",
-              "| Attribute | Knows | Accuracy (synthetic, members) | Accuracy (population, members) | "
-              "Advantage members | Advantage non-members | Specific leakage | Interval |", "|---|---|---|---|---|---|---|---|"]
+              ("| Attribute | Knows | Accuracy (synthetic, members) | Accuracy (population, members) | "
+               "Advantage members | Advantage non-members | Specific leakage | Interval |"), "|---|---|---|---|---|---|---|---|"]
         for r in A["attribute_inference"]:
             L.append(f"| {r['attribute']} | {r['attacker_knows']} | {_f(r['accuracy_syn_members'])} | "
                      f"{_f(r['accuracy_population_members'])} | {_f(r['advantage_members']['value'])} | "
@@ -193,8 +193,8 @@ def annex_markdown(rep: dict) -> str:
     if g.get("dcr"):
         d = g["dcr"]
         L += ["", "## relsynth guards (not a privacy check)", "",
-              "Kept for continuity with the scorecard. Calibration showed the distance guard misses even 20% "
-              "copied records, which the attacks above detect; it does not decide any verdict.", "",
+              ("Kept for continuity with the scorecard. Calibration showed the distance guard misses even 20% "
+               "copied records, which the attacks above detect; it does not decide any verdict."), "",
               f"- Distance to closest record, ratio of 5th percentiles: {_f(d['dcr_ratio'])}"
               f" (limit {g['dcr_ratio_limit']}).",
               f"- Exact copies of training rows: {_f(d['exact_match_rate'], True)} (real data's own repeat rate "

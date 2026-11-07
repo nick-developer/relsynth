@@ -36,7 +36,8 @@ class Backend(Protocol):
     name: str
     model: str
 
-    def complete(self, system: str, user: str, schema: dict) -> dict: ...
+    def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The model's answer to (system, user) as a dict that follows `schema`."""
 
 
 @dataclass

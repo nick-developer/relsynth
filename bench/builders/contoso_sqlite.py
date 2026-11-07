@@ -32,6 +32,7 @@ def sqltype(t):
     for pat, s in TYPE:
         if re.search(pat, t.lower()):
             return s
+    return "TEXT"                       # not reached: the last pattern matches every type
 
 
 tables = {}

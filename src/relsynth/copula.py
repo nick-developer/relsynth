@@ -130,9 +130,10 @@ def chain_converged(draws, trace_ld, rhat_target, eps=MCSE_Z):
     bad = ~((rh <= rhat_target) | (long & (mz <= eps)))
     bad_ld = not (rld <= rhat_target or (long and mld <= 2 * p * eps))
     worst = np.argsort(-np.nan_to_num(rh * bad, nan=0.0))[: min(3, int(bad.sum()))]
-    return (not bad.any() and not bad_ld), {"mcse_z_max": float(np.nanmax(mz)) if len(mz) else 0.0,
-                                            "unconverged_entries": int(bad.sum()) + int(bad_ld),
-                                            "unconverged_pairs": [[int(iu[0][k]), int(iu[1][k])] for k in worst]}
+    n_bad = int(bad.sum()) + int(bad_ld)
+    return n_bad == 0, {"mcse_z_max": float(np.nanmax(mz)) if len(mz) else 0.0,
+                        "unconverged_entries": n_bad,
+                        "unconverged_pairs": [[int(iu[0][k]), int(iu[1][k])] for k in worst]}
 
 
 class GaussianCopula:
@@ -174,7 +175,7 @@ class GaussianCopula:
                 rare = n - cnt.max()
                 if rare < min_dep_rows and rare <= RARE_SHARE * n:
                     live[j] = False
-        if p >= 2 and live.sum() < p:
+        if live.sum() < p:                        # p >= 2 here (see the early return)
             sub = GaussianCopula(int(live.sum())).fit(lo[:, live], hi[:, live], rng, eta, iters, burn_in, mh_steps, mode,
                                                       max_iters, rhat_target, min_dep_rows, mcse_z) \
                 if live.sum() >= 2 else None

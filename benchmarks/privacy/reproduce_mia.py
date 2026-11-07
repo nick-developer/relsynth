@@ -74,7 +74,8 @@ def main():
         print(name, {ro: (round(v["auc"], 3), round(v.get("mean_auc_vulnerable", np.nan), 3),
                           round(v.get("mean_auc_random", np.nan), 3)) for ro, v in p.items()},
               f"{time.time() - t:.0f}s", flush=True)
-    json.dump(out, open(a.out, "w"), indent=1, default=float)
+    with open(a.out, "w") as fh:
+        json.dump(out, fh, indent=1, default=float)
 
 
 if __name__ == "__main__":

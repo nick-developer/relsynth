@@ -1358,7 +1358,7 @@ class Discovery:
                         continue
                     eq = ca == cb
                     share = float(eq[m].mean())
-                    if share >= MIN_SHARE and fa is not None and fb is not None and fa != fb:
+                    if share >= MIN_SHARE and None not in (fa, fb) and fa != fb:
                         # the same value through two different links (the store's country is
                         # the customer's): a rule between the links, not a lookup
                         chance = _eq_chance(va[m], vb[m])

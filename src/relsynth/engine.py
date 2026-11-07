@@ -16,6 +16,7 @@ v0.3 adds, on top of the v0.2 model:
 """
 from __future__ import annotations
 
+import math
 import logging
 import time
 import traceback
@@ -105,7 +106,7 @@ def _scores(x):
 
 
 def _is_null(v):
-    return v is None or v is pd.NA or v is pd.NaT or (isinstance(v, float) and v != v)
+    return v is None or v is pd.NA or v is pd.NaT or (isinstance(v, float) and math.isnan(v))
 
 
 def _has_null(k):
@@ -519,13 +520,13 @@ class Synthesizer:
                 continue
             st = self._strata(e, tables)
             if st is not None:
-                codes, labels, by = st[:3]
+                codes, labels, by, attr = st
                 ns = np.bincount(codes, minlength=len(labels))
                 caps = np.maximum(1, np.minimum(cap, ns // max(sc["min_rows_per_segment"], 1)))
                 E[e] = Entity(e, n, None, Xn, Xc, ncat, strata=codes, caps=caps)
                 self.strata_info[e] = {"by": by, "labels": labels, "caps": caps.tolist()}
-                if len(st) > 3:
-                    self.strata_info[e]["attr"] = st[3]
+                if attr is not None:
+                    self.strata_info[e]["attr"] = attr
             else:
                 cap = max(1, min(cap, n // max(sc["min_rows_per_segment"], 1)))
                 E[e] = Entity(e, n, cap, Xn, Xc, ncat)
@@ -1074,7 +1075,7 @@ class Synthesizer:
             codes, labels = pd.factorize(pd.Series(key), use_na_sentinel=False)
             K = int(np.maximum(1, np.minimum(cap, np.bincount(codes) // minr)).sum())
             if len(labels) <= max(1, n // minr) and n * K <= max_cells:
-                return codes.astype(np.int64), list(labels), [r["child_key"] for r in rels]
+                return codes.astype(np.int64), list(labels), [r["child_key"] for r in rels], None
             if n * K > max_cells:
                 self.log["decisions"].setdefault(e, {})[f"stratify {rels[-1]['child_key']}"] = (
                     f"not stratified: {len(labels)} strata would need {K} segments, {n * K:.2g} cells per sweep "
@@ -2150,7 +2151,6 @@ class Synthesizer:
                     if partners is not None:
                         members[bb] = partners(bb)
                     else:
-                        o, st, ct, pos = by_partner
                         members[bb] = np.unique(v[blk == bb])
                 ui = int(u[i])
                 cand = members[bb]

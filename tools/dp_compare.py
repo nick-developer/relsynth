@@ -119,7 +119,7 @@ def main() -> int:
 
 
 def summary(path: str) -> int:
-    rows = [json.loads(x) for x in open(path) if x.strip()]
+    rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
     g: dict = {}
     for r in rows:
         if "error" not in r:

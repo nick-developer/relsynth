@@ -431,7 +431,7 @@ def t_fixed_weights_option():
     The reporting scenario's undeclared structure is exact with fixed weights and
     within 0.3% with learned ones."""
     sys.path.insert(0, str(ROOT / "checks"))
-    import scenarios as S
+    from fakedata import scenarios as S
     from run_checks import _s8_stats
     out = []
     for kappa in (0.0, None):

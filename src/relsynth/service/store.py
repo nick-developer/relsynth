@@ -165,7 +165,7 @@ def _dict(r) -> dict:
             try:
                 d[k] = json.loads(d[k])
             except ValueError:
-                pass
+                pass                    # a plain string column, not JSON
     return d
 
 

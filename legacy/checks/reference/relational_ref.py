@@ -22,7 +22,7 @@ the collapsed marginal likelihood exactly from block statistics.
 from __future__ import annotations
 
 import numpy as np
-from scipy.special import betaln, gammaln, logsumexp
+from scipy.special import betaln, gammaln
 
 from .kernels import count_table, dirichlet_rows, gauss_ll
 

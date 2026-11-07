@@ -9,7 +9,6 @@ labels.
 """
 import argparse
 import json
-import sys
 import time
 
 import pandas as pd
@@ -50,4 +49,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

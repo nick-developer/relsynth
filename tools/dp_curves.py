@@ -60,7 +60,7 @@ def one(db: str, eps: float, measure: str, rep: int, extra: dict) -> dict:
 
 def summary(path: str) -> None:
     from scipy.stats import t as tdist
-    rows = [json.loads(x) for x in open(path) if x.strip()]
+    rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
     groups: dict = {}
     for r in rows:
         if "error" in r:

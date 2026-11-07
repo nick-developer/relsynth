@@ -335,7 +335,9 @@ def test_compute_validation_and_user_file(tmp_path):
     assert validate_compute({"preset": "cpu", "overrides": {"colour": "red"}})
     f = tmp_path / "compute.yaml"
     f.write_text("presets:\n  lab-a100:\n    device: gpu\n    gpus: 2\n    precision: bf16\n")
-    assert validate_compute({"preset": "lab-a100", "file": str(f)}) == []
+    # a spec without a folder may only name files below the working directory
+    assert any("outside" in e for e in validate_compute({"preset": "lab-a100", "file": str(f)}))
+    assert validate_compute({"preset": "lab-a100", "file": "compute.yaml"}, tmp_path) == []
     p = resolve({"preset": "lab-a100", "file": "compute.yaml"}, "optional", base_dir=tmp_path, gpus={"cuda": [0, 1]})
     assert p.device_ids == [0, 1] and p.precision == "bf16" and p.preset == "lab-a100"
 

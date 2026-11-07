@@ -8,6 +8,7 @@ mssql.py, oracle.py): bulk loads, sampling and identity columns.
 """
 from __future__ import annotations
 
+import math
 import logging
 import os
 from typing import Any, Iterator
@@ -99,11 +100,11 @@ def py_value(v):
     """A pandas / numpy value as the plain Python value a DBAPI driver binds."""
     if v is None or v is pd.NA or v is pd.NaT:
         return None
-    if isinstance(v, float) and v != v:
+    if isinstance(v, float) and math.isnan(v):
         return None
     if isinstance(v, np.generic):
         v = v.item()
-        return None if isinstance(v, float) and v != v else v
+        return None if isinstance(v, float) and math.isnan(v) else v
     if isinstance(v, pd.Timestamp):
         return v.to_pydatetime()
     return v
@@ -122,7 +123,7 @@ def frame_records(df: pd.DataFrame, cols: list[str]) -> list[tuple]:
             arr = np.array([None if pd.isna(x) else int(x) for x in s], dtype=object)
         elif pd.api.types.is_float_dtype(s):
             v = s.to_numpy(dtype=float)
-            arr = np.array([None if x != x else float(x) for x in v], dtype=object)
+            arr = np.array([None if math.isnan(x) else float(x) for x in v], dtype=object)
         else:
             arr = np.array([py_value(x) for x in s.to_numpy(dtype=object)], dtype=object)
         parts.append(arr)
@@ -241,7 +242,7 @@ class SqlConnector(Connector):
                     if cn and cn != pk and cn not in uniques and len(cn) == len(u.get("column_names") or []):
                         uniques.append(cn)
             except NotImplementedError:
-                pass
+                pass                    # the dialect cannot list unique constraints
         return TableInfo(name=name, columns=cols, primary_key=pk, foreign_keys=fks, unique=uniques)
 
     def count(self, table):

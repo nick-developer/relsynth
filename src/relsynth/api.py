@@ -27,7 +27,6 @@ from __future__ import annotations
 import importlib
 import copy
 import json
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,7 +38,6 @@ import yaml
 from .errors import EngineError, QualityGateError, RelsynthError, SourceError
 from .spec import SpecError, from_ir, load_spec, normalise, read_spec, validate
 
-log = logging.getLogger("relsynth")
 
 __all__ = ["Spec", "FittedModel", "SyntheticData", "EvaluationReport", "QualityReport", "RunResult", "Diagnosis",
            "introspect", "validate_spec", "fit", "sample", "evaluate", "assess_quality", "run", "doctor", "tune",
@@ -145,7 +143,7 @@ class Spec:
             try:
                 value = yaml.safe_load(value) if value.strip() else value
             except yaml.YAMLError:
-                pass
+                pass                    # not YAML: keep the text as typed
         out = self.copy()
         cur = out.raw
         parts = [p for p in key.split(".") if p]
@@ -219,7 +217,6 @@ class Spec:
         return md
 
 
-SpecLike = "Spec | str | Path | dict"
 # words YAML 1.1 would turn into booleans; as --set values they are settings (pushdown on / off)
 _WORDS = {"on", "off", "yes", "no", "y", "n"}
 
@@ -783,8 +780,7 @@ def profile(source, *, tables: list[str] | None = None, top: int = 0) -> dict:
     source (no rows leave the database).  top > 0 adds the most frequent values
     of each column - only use it where those values may be shared."""
     from .connectors import from_spec
-    conn = from_spec(_section(source))
-    try:
+    with from_spec(_section(source)) as conn:
         out = {}
         for t in tables or conn.tables():
             info = conn.describe(t)
@@ -805,8 +801,6 @@ def profile(source, *, tables: list[str] | None = None, top: int = 0) -> dict:
             out[t] = {"rows": st.n_rows, "primary_key": info.primary_key,
                       "foreign_keys": [fk.to_dict() for fk in info.foreign_keys], "columns": cols}
         return out
-    finally:
-        conn.close()
 
 
 def ping(source) -> dict:
@@ -819,9 +813,7 @@ def ping(source) -> dict:
         conn = from_spec(_section(source))
     except Exception as e:  # noqa: BLE001 - reported to the caller
         return {"ok": False, "error": f"{type(e).__name__}: {e}", "seconds": round(time.time() - t0, 3)}
-    try:
+    with conn:
         out = conn.ping()
         out["seconds"] = round(time.time() - t0, 3)
         return out
-    finally:
-        conn.close()
