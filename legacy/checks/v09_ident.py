@@ -202,13 +202,20 @@ def t_names_need_values():
         for (t,) in con.execute("select name from sqlite_master where type='table'"):
             for row in con.execute("select * from pragma_foreign_key_list(?)", (t,)):
                 p, c, pc = row[2], row[3], row[4]
-                a = pd.read_sql(f'select "{c}" from "{t}"', con)[c].dropna().astype(np.int64).unique()
-                k = np.sort(pd.read_sql(f'select "{pc}" from "{p}"', con)[pc].astype(np.int64).unique())
+                a = pd.read_sql(f"select {_q(c)} from {_q(t)}", con)[c].dropna().astype(np.int64).unique()
+                k = np.sort(pd.read_sql(f"select {_q(pc)} from {_q(p)}", con)[pc].astype(np.int64).unique())
                 a = np.sort(a[np.isin(a, k)])
                 if randomness(a, k) < r_crit(len(a)):
                     bad.append(f"{t}.{c}")
         out.append(("Chinook declared links below R_crit", bad, [], not bad))
     return out
+
+
+def _q(name: object) -> str:
+    """name as a quoted SQLite identifier (the SQLite dialect's identifier preparer:
+    always quoted, embedded double quotes doubled), for database metadata in SQL."""
+    from sqlalchemy.dialects import sqlite as _sqlite
+    return _sqlite.dialect().identifier_preparer.quote_identifier(str(name))
 
 
 # ------------------------------------------------------------------ S4 composite keys

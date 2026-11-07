@@ -197,3 +197,28 @@ def test_semgrep_summary_paths_cannot_issue_workflow_commands():
     row = f"| `rule` | `{safe}` | 7 |"
     assert len(re.findall(r"(?<!\\)\|", row)) == 4, row
     assert row.endswith("| 7 |")
+
+
+def test_legacy_ident_check_quotes_database_metadata():
+    """The v09 identification check quotes table and column names from the database:
+    apostrophes and embedded double quotes neither break nor escape the SQL."""
+    import importlib.util
+    from pathlib import Path
+
+    import pandas as pd
+    path = Path(__file__).resolve().parents[2] / "legacy" / "checks" / "v09_ident.py"
+    spec = importlib.util.spec_from_file_location("v09_ident_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    con = sqlite3.connect(":memory:")
+    parent, child, key = "par'\" x", "kid'\" x", "k'\"y"
+    con.execute(f"create table {mod._q(parent)} ({mod._q(key)} integer primary key)")
+    con.execute(f"create table {mod._q(child)} ({mod._q(key)} integer references {mod._q(parent)}({mod._q(key)}))")
+    con.executemany(f"insert into {mod._q(parent)} values (?)", [(1,), (2,)])
+    con.executemany(f"insert into {mod._q(child)} values (?)", [(1,), (2,), (2,)])
+    (t, ) = [r[0] for r in con.execute("select name from sqlite_master where name like 'kid%'")]
+    row = list(con.execute("select * from pragma_foreign_key_list(?)", (t,)))[0]
+    p, c, pc = row[2], row[3], row[4]
+    assert (p, c, pc) == (parent, key, key)
+    assert sorted(pd.read_sql(f"select {mod._q(c)} from {mod._q(t)}", con)[c]) == [1, 2, 2]
+    assert mod._q('a"b') == '"a""b"'
