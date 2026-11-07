@@ -814,7 +814,7 @@ claims:
     area: scope
     quote:
       - "Each statement the engine relies on is a numbered proposition with a proof (docs/proofs/relsynth-proofs.pdf) and a test that checks it."
-      - "relsynth-proofs.pdf: 173 propositions with proofs, each tied to a numbered check."
+      - "relsynth-proofs.pdf: 178 propositions with proofs, each tied to a numbered check."
     status: partial
     note: The count is checked (test below), and checks name their propositions, but no tool verifies that every proposition has a check of its own.
     evidence:
@@ -1744,6 +1744,51 @@ claims:
     status: supported
     evidence:
     - claim: AGT-13
+
+  # ------------------------------------------------------------------ README.md, release 2.1 summary
+
+  - id: RM-45
+    doc: README.md
+    area: scope
+    quote: "Release 2.1 adds document databases (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON), row-conditioned synthetic text with differentially private methods, a PII layer and a leakage audit, agents that draft and explain while people decide, two-way marginals (MST, AIM) in DP mode, a claim register and assurance case for privacy, legal and audit teams, and wider security scanning with fixes for every finding."
+    status: partial
+    note: Summary of the 2.1 guides. "Every finding" means the CodeQL, Semgrep and Dependabot findings open when 2.1.0 was cut, apart from the cyclic-import notes left as a follow-up (CHANGELOG 2.1.0, Security).
+    evidence:
+      - claim: DOC-08
+      - claim: RM-37
+      - claim: RM-38
+      - claim: AGT-02
+      - check: C1300
+      - check: C1302
+      - test: tests/unit/test_assurance.py::test_claim_register_traces_every_claim
+      - report: docs/development/ci.md#security-scanning
+
+  - id: RM-46
+    doc: README.md
+    area: privacy-formal
+    quote: "A text column is generated from its row (a billing ticket talks about billing) by a word-level model, a local language model or Private Evolution, optionally with user-level differential privacy; personal data is replaced by typed placeholders and the output is audited for leaks (relsynth text)."
+    status: supported
+    evidence:
+      - claim: RM-37
+      - claim: RM-38
+      - prop: prop:txpii
+      - prop: prop:txconsist
+      - check: C1506
+      - check: C1507
+      - test: tests/unit/test_textgen.py::test_redact_and_fill_round_trip
+      - test: tests/unit/test_textgen.py::test_consistency_detects_shuffled_text
+
+  - id: RM-47
+    doc: README.md
+    area: security
+    quote: "Every pull request also runs CodeQL (security-extended and security-and-quality suites), Semgrep with project rules, gitleaks, zizmor for the workflows and GitHub dependency review; Dependabot watches dependencies and the digest-pinned base images (docs/development/ci.md)."
+    status: supported
+    evidence:
+      - report: docs/development/ci.md#security-scanning
+      - report: .github/workflows/codeql.yml
+      - report: .github/workflows/security.yml
+      - report: .github/dependabot.yml
+      - test: tests/unit/test_scanner_fixes.py::test_urlopen_refuses_other_schemes
 
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}

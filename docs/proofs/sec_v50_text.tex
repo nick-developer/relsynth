@@ -1,9 +1,9 @@
 %=====================================================================
-\section{Synthetic text (v5.0)}\label{sec:v50text}
+\section{Synthetic text (v2.1)}\label{sec:v50text}
 % numbered from 1500 (wave D range of T14)
 \newcounter{savedproptx}\setcounter{savedproptx}{\value{proposition}}
 \setcounter{proposition}{1499}
-Version 5.0 adds row-conditioned free text (\texttt{relsynth/textgen}, guide \texttt{docs/text.md}, design record
+Release 2.1 adds row-conditioned free text (\texttt{relsynth/textgen}, guide \texttt{docs/text.md}, design record
 \texttt{docs/adr/0010-synthetic-text.md}). A text column chooses a method: the 1.0 n-gram model (Props.~12, 13), the
 DP n-gram release, a local language model with optional DP fine-tuning, or Private Evolution. A PII layer replaces
 detected personal data by typed placeholders before any model sees a text, and a leakage audit measures what the

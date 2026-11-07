@@ -2,6 +2,8 @@
 
 **Bayesian synthetic data for whole relational databases.** relsynth reads a database (Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, SQLite), a cloud warehouse (Databricks SQL, Microsoft Fabric, Snowflake, BigQuery), a lakehouse table (Apache Iceberg, Delta Lake) or a folder of CSV or Parquet files. It identifies the tables, keys, links and business rules, fits one Bayesian model of the whole schema, and writes a synthetic database with the same table structure. Every primary and foreign key resolves, every rule holds, and the statistics match the source. Each statement the engine relies on is a numbered proposition with a proof ([docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf)) and a test that checks it.
 
+Release 2.1 adds **document databases** (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON), **row-conditioned synthetic text** with differentially private methods, a PII layer and a leakage audit, **agents** that draft and explain while people decide, **two-way marginals** (MST, AIM) in DP mode, a **claim register and assurance case** for privacy, legal and audit teams, and wider **security scanning** with fixes for every finding. See the [changelog](CHANGELOG.md#210-2026-11-07).
+
 Release 2.0 adds an optional **differential privacy mode** with a per-person guarantee, **privacy attacks** and a report per release context, **governance** (signed manifests, a privacy budget ledger, policy and approvals), **time series and event sequences**, **partitioned generation** on many processes or Spark, **generator plug-ins**, a canonical **IR 2.0** document for the data estate, adjustable **engine settings** with **autotune**, and a **service** with an API, a web UI and single sign-on for running relsynth for many teams. See the [changelog](CHANGELOG.md).
 
 ```bash
@@ -17,6 +19,8 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 | Setting up a CI/CD job | [CI/CD](#cicd) and [docs/cicd.md](docs/cicd.md) |
 | Running relsynth as a service for many teams (SSO, approvals, Kubernetes, air-gapped) | [docs/service/](docs/service/README.md) |
 | A privacy officer or data protection officer | [Privacy and differential privacy](#privacy-differential-privacy-and-governance), [docs/privacy.md](docs/privacy.md), [docs/dp.md](docs/dp.md), [governance](docs/governance/guide.md) |
+| Synthesising MongoDB, Cosmos DB, DynamoDB or Couchbase collections | [Document databases](#document-databases) and [docs/documents.md](docs/documents.md) |
+| On a privacy, legal or audit team | [docs/assurance/](docs/assurance/README.md): the assurance case, regulation mapping, DPIA template and claim register |
 | A database administrator | [Connectors](docs/connectors.md), [security](docs/security.md), [large tables](docs/pushdown.md) |
 | Reviewing the method | [Theory](#theory-propositions-and-proofs), [docs/theory.md](docs/theory.md) and the [proofs](docs/proofs/relsynth-proofs.pdf) |
 
@@ -38,11 +42,11 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - [Privacy, differential privacy and governance](#privacy-differential-privacy-and-governance)
 - [Time series, generators, settings and scale](#time-series-generators-settings-and-scale)
 - [Document databases](#document-databases)
+- [Synthetic text](#synthetic-text)
 - [Agents: drafting and explaining, never deciding](#agents-drafting-and-explaining-never-deciding)
 - [Security](#security)
 - [Performance](#performance)
 - [Validation](#validation)
-- [Synthetic text](#synthetic-text)
 - [Theory: propositions and proofs](#theory-propositions-and-proofs)
 - [Testing the package](#testing-the-package)
 - [Limitations](#limitations)
@@ -62,6 +66,8 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - **Differential privacy (optional).** `relsynth run --epsilon 1` gives a user-level (ε, δ) guarantee for each person of the privacy unit and all their rows. The organisation sets ε; there is no default. Releases outside the organisation are refused without it.
 - **Governance.** Signed, hash-chained manifests of every run, a privacy budget ledger per domain, an organisation policy and human approvals before release (`relsynth gov`).
 - **Documents.** MongoDB, Cosmos DB, DynamoDB (single-table designs included), Couchbase and JSON collections keep their shape: optional fields, unions, nested arrays with their length laws, polymorphic sub-documents, maps and references between collections (`relsynth docs`).
+- **Text.** A text column is generated from its row (a billing ticket talks about billing) by a word-level model, a local language model or Private Evolution, optionally with user-level differential privacy; personal data is replaced by typed placeholders and the output is audited for leaks (`relsynth text`).
+- **Agents.** `relsynth agent` answers the review questions of a draft spec with evidence, explains reports in plain language and drafts contracts and policies. Agents only propose; a person decides.
 - **Time.** Event sequences (a customer's orders) keep their gaps, life times and calendar; meter-style series keep their seasonal profiles and autocorrelation; `relsynth extend` adds new days to a synthetic dataset.
 - **Large tables.** Facts larger than memory are fitted from statistics computed inside the database (`GROUP BY`, window functions) plus a uniform sample. Rows never leave the database as a whole. Generation can run in partitions on many processes or Spark, with the same output for any number of workers.
 - **Pluggable and adjustable.** Each table's columns come from a generator plug-in (`copula` by default, `independent`, `cart`, or third-party packages). 101 engine settings can be changed in a file, a preset or per table, and `relsynth autotune` tunes them toward your objectives.
@@ -91,6 +97,9 @@ pip install "relsynth[dp]"                 # differential privacy mode (OpenDP)
 pip install "relsynth[gov]"                # signed manifests, registry, policy (relsynth gov)
 pip install "relsynth[ir]"                 # JSON Schema check of IR documents
 pip install "relsynth[service]"            # the REST API, workers and web UI (relsynth-service)
+pip install "relsynth[service-otel]"       # + OpenTelemetry traces and metrics for the service
+pip install "relsynth[documents]"          # document databases: MongoDB, Cosmos DB, DynamoDB (relsynth docs)
+pip install "relsynth[couchbase]"          # + Couchbase
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
 pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
 pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
@@ -99,15 +108,15 @@ pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNE
 From a checkout or a wheel file:
 
 ```bash
-pip install .                   # or: pip install relsynth-2.0.0-py3-none-any.whl
+pip install .                   # or: pip install relsynth-2.1.0-py3-none-any.whl
 relsynth version                # versions of relsynth and its main dependencies
 ```
 
 A container image is described in the [Dockerfile](Dockerfile) (all drivers and ODBC Driver 18 included):
 
 ```bash
-docker build -t relsynth:2.0.0 .
-docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:2.0.0 run /work/spec.yaml --json
+docker build -t relsynth:2.1.0 .
+docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:2.1.0 run /work/spec.yaml --json
 ```
 
 ## Quick start (command line)
@@ -237,7 +246,7 @@ The target's structure comes in three forms:
 | `relsynth tune spec.yaml [--rounds 3]` | Run, doctor and apply, repeated |
 | `relsynth autotune spec.yaml` | Tune engine settings toward your objectives over several seeds; constraints report for what cannot be met |
 | `relsynth settings show\|explain\|validate\|template\|reference` | The engine settings, their ranges and the checks each affects |
-| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement |
+| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `mst`/`aim` release two-way marginals |
 | `relsynth privacy spec.yaml` | Attack a release per person; privacy report per release context |
 | `relsynth extend spec.yaml --until DATE [--step day]` | Continue the event histories of a synthetic dataset step by step |
 | `relsynth generators list\|show`, `relsynth compute` | Installed generator plug-ins; GPUs found and the device each generator would get |
@@ -250,6 +259,8 @@ The target's structure comes in three forms:
 | `relsynth profile --source LOC` | Row, null and distinct counts computed in the source (no rows read) |
 | `relsynth ping --source LOC` | Test a connection |
 | `relsynth text models\|pii-eval\|audit\|metrics` | Synthetic text: model licences, PII recall, leakage audit, text metrics |
+| `relsynth docs discover\|synth\|check` | Document databases: infer the schema with counts, synthesise collections, score their shape (needs `relsynth[documents]`) |
+| `relsynth agent review\|apply\|explain\|doctor\|draft\|eval` | Agents: review answers with evidence, a person's decisions, plain-language reports, doctor proposals, contract and policy drafts, accuracy |
 | `relsynth version` | Versions of relsynth and its dependencies |
 
 Shared options:
@@ -290,6 +301,8 @@ The full reference with every option is in [docs/cli.md](docs/cli.md).
 | `rs.privacy(spec, ...)`, `rs.assess_quality(...)` | Privacy attacks per person; the 2.0 quality report |
 | `rs.extend(...)` | Continue a synthetic dataset's event histories |
 | `rs.Synthesizer` | The engine class, for full control |
+| `relsynth.documents.DocumentSynthesizer` | Document collections: discover, synthesise, check ([docs/documents.md](docs/documents.md)) |
+| `relsynth.agents` | Review, explain, doctor and draft agents with their backends ([docs/agents.md](docs/agents.md)) |
 
 Errors are typed:
 - `SpecError` (exit code 2).
@@ -305,7 +318,7 @@ A job that refreshes a test database every night and fails when quality drops:
 
 ```yaml
 # .github/workflows/synthetic-data.yml (excerpt)
-- run: pip install "relsynth[postgres]==2.0.0"
+- run: pip install "relsynth[postgres]==2.1.0"
 - run: relsynth check spec.yaml --connect --json
 - run: relsynth run spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98 --json > run.json
   env:
@@ -375,55 +388,6 @@ relsynth docs check jsonl:data/shop jsonl:synthetic/
 - **Shape metrics** (presence, type mix, array lengths, field sets, depth, size) with limits calibrated on real-versus-real splits.
 - **DynamoDB single-table designs**: item types are split by a discriminator and keys such as `CUSTOMER#{customer_id}` are rebuilt from learned templates, unique and with the same access patterns.
 - **In MongoDB**, exact counts come from one `$group` pipeline and the rest from a `$sample`.
-## Agents: drafting and explaining, never deciding
-
-`relsynth agent` ([docs/agents.md](docs/agents.md)) saves people time on the checking that comes before a decision, and makes no decision itself.
-
-- **review** answers the `review:` items of an introspected draft (keys, links, lookups, rules, `ASK` questions) with evidence measured on every row, and proposes the change each answer implies. `relsynth agent apply --by <person>` applies the answers that person accepts.
-- **explain** words a quality, privacy or scorecard report in plain language; **doctor** turns doctor findings into proposals (privacy settings become advice for the privacy officer); **draft contract** and **draft policy** write an ODCS contract and an organisation policy with every budget left empty.
-- **Backends.** Deterministic rules by default; any OpenAI-compatible model server on the same machine (Ollama, vLLM, llama.cpp) for questions that need the meaning of a name. A remote server must be allowed explicitly, use https, and gets aggregates only.
-- **Safeguards.** Agents never see rows: they get names and whole-column aggregates, and single values only in the `values` scope when they occur at least 10 times. Untrusted text is marked as data; verdicts, parents and changes come from closed sets; a confirmation the evidence contradicts becomes a rejection; numbers in model text must occur in the evidence. In the service an agent account can read and propose only, and in the governance registry an agent key cannot approve. A prompt-injection suite runs 20 payloads against a model that obeys every instruction.
-- **Accuracy.** With the catalog hidden, the rules backend's answers about keys and links matched the ground truth on 122 of 124 answered items on Chinook, AdventureWorks DW, Contoso and bi/COREP; the CI job `agents` gates it and measures a small local model.
-
-## Security
-
-- **Credentials.** Passwords are never accepted on the command line; they come from `password_env` or `url_env`. Passwords are masked in every message, log, saved spec, diagnostics bundle and exported model. The masking covers URL passwords, `password=`/`token=` query parameters and ODBC `PWD=`.
-- **SQL.** Every SQL statement is built with SQLAlchemy Core, with quoted identifiers and bound values. Table and column names cannot inject SQL; tests use hostile names on every database.
-- **Specs.** A spec is YAML read with a safe loader that also refuses aliases, so an alias bomb fails. Rule expressions run in a sandboxed evaluator: no attribute access, calls only to a fixed list of functions, and size and depth limits. Regular expressions with catastrophic backtracking are refused.
-- **Files.** Table names cannot leave the target folder (`..`, separators, absolute paths and symlinks are refused).
-- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Copy guards run by default; they are not a privacy check ([docs/privacy.md](docs/privacy.md) measures privacy).
-- **Supply chain.** The code is scanned with bandit and ruff's security rules, and dependencies with pip-audit, in CI.
-
-Details and the threat model: [docs/security.md](docs/security.md).
-
-## Performance
-
-- Fits use exact vectorised kernels, with numba kernels as an option (`relsynth[speed]`). Sampling is linear in the output size.
-- Writes use each database's bulk path: COPY on PostgreSQL, fast executemany on SQL Server, array binds on Oracle.
-- Large facts are pushed down (see above). On AdventureWorks DW (27 tables, 1.05 million rows), pushing the ten eligible facts down cut peak memory from 2.1 GiB to 1.6 GiB and run time from 803 s to 668 s on a 4-core machine.
-
-Tuning knobs and measurements: [docs/pushdown.md](docs/pushdown.md#performance).
-
-## Validation
-
-**Release 2.0.** The statistical check suite now has C00–C82 plus the 2.0 checks C600–C606 (privacy attacks), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series), with the generator propositions 700–706 tested in tests/unit/test_generators.py: 113 science tests, all run in CI on every pull request in four shards, next to about 800 unit, end-to-end, security and live-server integration tests. A benchmark harness (`bench/`) reruns the real databases (bi/COREP, Chinook, AdventureWorks DW, Contoso, plus Berka, ACS PUMS and a doubled Chinook) on every change and flags drift against a five-seed baseline. Draws for the same seed change on databases with link tables, because degree laws are now the default (`synthesis.facts.link_degree: segment` restores the 1.0 draws); the [changelog](CHANGELOG.md) lists every change.
-
-relsynth 1.0.0 was checked at three levels. Every number below comes from the final code.
-
-**Fake data with known ground truth.** The statistical check suite (`pytest -m science`) generates eleven databases from known models, from one mixed-type table to an enterprise schema with nested facts, views, trees and order headers. It then checks that each numbered proposition holds: posterior recovery and calibration, identification of keys and rules, rules on every row, privacy guards, reproducibility. All 79 checks (C00–C78, more than 500 assertions) pass.
-
-**Four real databases**, each from an unedited `introspect` draft, fitted in memory and with every eligible fact pushed down:
-
-| Database | Rows | Scorecard in memory | Scorecard pushdown | Domain checks (rules and invariants) |
-|---|---|---|---|---|
-| EBA COREP reporting | 68 k | 177/178 | 178/178 | B1–B8 equal in both modes; B6 per-cell KS 0.10 and 0.13 |
-| Chinook | 15.6 k | 144/146 | 144/146 | |
-| Contoso V2 100k (Parquet) | 753 k | 253/253 | 253/253 | T1–T17 within 0.015 between modes |
-| AdventureWorks DW | 1.05 M | 1229/1286 | 1237/1285 | G1–G13 equal in both modes, except two counts within 2% |
-
-In both modes, every key resolves, every unique key but one holds (an AdventureWorks alternate key with a start date), and every declared or found rule holds on every row. The remaining failures, database by database, are described in [docs/pushdown.md](docs/pushdown.md#real-databases-in-memory-against-pushdown).
-
-**Software tests** (`pytest`): 136 unit, end-to-end CLI and security tests, and 24 integration tests run live against PostgreSQL 16.15, SQL Server 2022 (16.0) and Oracle Database 26ai Free (23.26). On every server, the same seed gives the same synthetic database as SQLite, value for value. The wheel was installed and tested in clean environments on Python 3.11, 3.12 and 3.13. Python 3.10 is supported by the code and the CI matrix, but it was not available on the build machine.
 
 ## Synthetic text
 
@@ -448,12 +412,65 @@ body:
 
 relsynth ships no model weights; `relsynth text models` lists models with their licences. `relsynth text pii-eval` measures the recall of the PII recognizers, and `relsynth text audit` inserts canaries, measures their exposure against the DP bound and searches the output for copies of training texts. See [docs/text.md](docs/text.md).
 
+## Agents: drafting and explaining, never deciding
+
+`relsynth agent` ([docs/agents.md](docs/agents.md)) saves people time on the checking that comes before a decision, and makes no decision itself.
+
+- **review** answers the `review:` items of an introspected draft (keys, links, lookups, rules, `ASK` questions) with evidence measured on every row, and proposes the change each answer implies. `relsynth agent apply --by <person>` applies the answers that person accepts.
+- **explain** words a quality, privacy or scorecard report in plain language; **doctor** turns doctor findings into proposals (privacy settings become advice for the privacy officer); **draft contract** and **draft policy** write an ODCS contract and an organisation policy with every budget left empty.
+- **Backends.** Deterministic rules by default; any OpenAI-compatible model server on the same machine (Ollama, vLLM, llama.cpp) for questions that need the meaning of a name. A remote server must be allowed explicitly, use https, and gets aggregates only.
+- **Safeguards.** Agents never see rows: they get names and whole-column aggregates, and single values only in the `values` scope when they occur at least 10 times. Untrusted text is marked as data; verdicts, parents and changes come from closed sets; a confirmation the evidence contradicts becomes a rejection; numbers in model text must occur in the evidence. In the service an agent account can read and propose only, and in the governance registry an agent key cannot approve. A prompt-injection suite runs 20 payloads against a model that obeys every instruction.
+- **Accuracy.** With the catalog hidden, the rules backend's answers about keys and links matched the ground truth on 122 of 124 answered items on Chinook, AdventureWorks DW, Contoso and bi/COREP; the CI job `agents` gates it and measures a small local model.
+
+## Security
+
+- **Credentials.** Passwords are never accepted on the command line; they come from `password_env` or `url_env`. Passwords are masked in every message, log, saved spec, diagnostics bundle and exported model. The masking covers URL passwords, `password=`/`token=` query parameters and ODBC `PWD=`.
+- **SQL.** Every SQL statement is built with SQLAlchemy Core, with quoted identifiers and bound values. Table and column names cannot inject SQL; tests use hostile names on every database.
+- **Specs.** A spec is YAML read with a safe loader that also refuses aliases, so an alias bomb fails. Rule expressions run in a sandboxed evaluator: no attribute access, calls only to a fixed list of functions, and size and depth limits. Regular expressions with catastrophic backtracking are refused.
+- **Files.** Table names cannot leave the target folder (`..`, separators, absolute paths and symlinks are refused).
+- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Copy guards run by default; they are not a privacy check ([docs/privacy.md](docs/privacy.md) measures privacy).
+- **Supply chain.** The code is scanned with bandit and ruff's security rules, and dependencies with pip-audit, in CI.
+- **Code scanning.** Every pull request also runs CodeQL (security-extended and security-and-quality suites), Semgrep with project rules, gitleaks, zizmor for the workflows and GitHub dependency review; Dependabot watches dependencies and the digest-pinned base images ([docs/development/ci.md](docs/development/ci.md#security-scanning)).
+
+Details and the threat model: [docs/security.md](docs/security.md).
+
+## Performance
+
+- Fits use exact vectorised kernels, with numba kernels as an option (`relsynth[speed]`). Sampling is linear in the output size.
+- Writes use each database's bulk path: COPY on PostgreSQL, fast executemany on SQL Server, array binds on Oracle.
+- Large facts are pushed down (see above). On AdventureWorks DW (27 tables, 1.05 million rows), pushing the ten eligible facts down cut peak memory from 2.1 GiB to 1.6 GiB and run time from 803 s to 668 s on a 4-core machine.
+
+Tuning knobs and measurements: [docs/pushdown.md](docs/pushdown.md#performance).
+
+## Validation
+
+**Release 2.1.** The check suite adds C1300–C1306 (DP two-way marginals), C1400–C1405 (document databases), C1500–C1507 (synthetic text) and C1600–C1604 (agents): 141 science tests in four CI shards, next to about 930 unit, end-to-end, security and live-server integration tests. New CI jobs measure the agents (122 of 124 review answers correct on four real databases), the document pipeline against a MongoDB 7 server and real dumps, and DP two-way marginals against smartnoise-synth on ACS (`dp-eval`). Draws for the same seed are unchanged with default settings.
+
+**Release 2.0.** The statistical check suite now has C00–C82 plus the 2.0 checks C600–C606 (privacy attacks), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series), with the generator propositions 700–706 tested in tests/unit/test_generators.py: 113 science tests, all run in CI on every pull request in four shards, next to about 800 unit, end-to-end, security and live-server integration tests. A benchmark harness (`bench/`) reruns the real databases (bi/COREP, Chinook, AdventureWorks DW, Contoso, plus Berka, ACS PUMS and a doubled Chinook) on every change and flags drift against a five-seed baseline. Draws for the same seed change on databases with link tables, because degree laws are now the default (`synthesis.facts.link_degree: segment` restores the 1.0 draws); the [changelog](CHANGELOG.md) lists every change.
+
+relsynth 1.0.0 was checked at three levels. Every number below comes from the final code.
+
+**Fake data with known ground truth.** The statistical check suite (`pytest -m science`) generates eleven databases from known models, from one mixed-type table to an enterprise schema with nested facts, views, trees and order headers. It then checks that each numbered proposition holds: posterior recovery and calibration, identification of keys and rules, rules on every row, privacy guards, reproducibility. All 79 checks (C00–C78, more than 500 assertions) pass.
+
+**Four real databases**, each from an unedited `introspect` draft, fitted in memory and with every eligible fact pushed down:
+
+| Database | Rows | Scorecard in memory | Scorecard pushdown | Domain checks (rules and invariants) |
+|---|---|---|---|---|
+| EBA COREP reporting | 68 k | 177/178 | 178/178 | B1–B8 equal in both modes; B6 per-cell KS 0.10 and 0.13 |
+| Chinook | 15.6 k | 144/146 | 144/146 | |
+| Contoso V2 100k (Parquet) | 753 k | 253/253 | 253/253 | T1–T17 within 0.015 between modes |
+| AdventureWorks DW | 1.05 M | 1229/1286 | 1237/1285 | G1–G13 equal in both modes, except two counts within 2% |
+
+In both modes, every key resolves, every unique key but one holds (an AdventureWorks alternate key with a start date), and every declared or found rule holds on every row. The remaining failures, database by database, are described in [docs/pushdown.md](docs/pushdown.md#real-databases-in-memory-against-pushdown).
+
+**Software tests** (`pytest`): 136 unit, end-to-end CLI and security tests, and 24 integration tests run live against PostgreSQL 16.15, SQL Server 2022 (16.0) and Oracle Database 26ai Free (23.26). On every server, the same seed gives the same synthetic database as SQLite, value for value. The wheel was installed and tested in clean environments on Python 3.11, 3.12 and 3.13. Python 3.10 is supported by the code and the CI matrix, but it was not available on the build machine.
+
 ## Theory: propositions and proofs
 
 The method is described in two papers shipped with the package:
 
 - [docs/proofs/algorithms.pdf](docs/proofs/algorithms.pdf): the layer 1 algorithms, with complexity and proofs. It covers the Bayesian Gaussian copula, latent segments from in-database sufficient statistics, the merge step and differential privacy on summaries.
-- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 173 propositions with proofs, each tied to a numbered check. They are grouped as follows:
+- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 178 propositions with proofs, each tied to a numbered check. They are grouped as follows:
 
 | Area | Propositions (examples) |
 |---|---|
@@ -468,9 +485,11 @@ The method is described in two papers shipped with the package:
 | In-database fitting (v1.0) | **100** sufficiency of the in-database statistics; **101** agreement with in-memory fitting; **102** Acklam's quantile bound; **103** hash sampling is Bernoulli; **104** the sample posterior is exact; **105** eligibility |
 | IR, generators and quality (v2.0) | **106** loss-free 1.0 conversion; **107–108** privacy-unit tracing; **109–113** calibrated quality report; **700–706** the skeleton is kept whatever the generator |
 | Privacy and governance (v2.0) | Per-person attack metrics; **800–803** the budget ledger bounds the domain's privacy loss, reserve before reading, tamper evidence; **900–906** discrete Gaussian, stable contribution bounding, exact partition selection, two-stage DP |
+| DP two-way marginals (v2.1) | **1300–1306** report noisy max; sensitivity of scores and pairs; the selections spend within the plan; the forest estimate and its sampler; compression; error falls with the budget |
 | Documents (v2.1) | **1400–1405** the inferred schema admits its source; shredding is invertible; conformance; calibrated shape limits; key templates; references and lengths |
 | Time and scale (v2.0) | **1200–1206** time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; **950–954** worker independence, partitions keep the law, keys across partitions, drift tests |
-| Agents (next release) | **1600–1604** data minimisation, containment of any model output, evidence first, grounded wording, no authority without a person |
+| Synthetic text (v2.1) | **1500–1507** canary exposure under DP; DP n-gram release; user-level DP-GD; Private Evolution votes; expected exposure; near-duplicate search; PII placeholders; consistency with the row |
+| Agents (v2.1) | **1600–1604** data minimisation, containment of any model output, evidence first, grounded wording, no authority without a person |
 
 [docs/theory.md](docs/theory.md) gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full.
 
@@ -487,7 +506,7 @@ export RELSYNTH_TEST_MYSQL_URL=mysql://root:RelSynthTest1@localhost:3306/relsynt
 export RELSYNTH_TEST_MARIADB_URL=mariadb://root:RelSynthTest1@localhost:3307/relsynth
 export RELSYNTH_TEST_MONGO_URL=mongodb://localhost:27017   # a MongoDB 7 server: pytest -m mongodb
 pytest tests/integration                  # the same checks against live servers
-pytest -m science                         # the statistical check suite: C00–C82 and the 2.0 checks (about an hour and a half; CI runs it in four shards)
+pytest -m science                         # the statistical check suite: C00–C82 and the 2.x checks (about an hour and a half; CI runs it in four shards)
 pytest --cov=relsynth --cov-report=term   # coverage
 ruff check src tests && bandit -c pyproject.toml -r src && pip-audit
 ```
@@ -540,6 +559,7 @@ What each test module covers is in [docs/testing.md](docs/testing.md).
 | [docs/proofs/](docs/proofs/) | The full proofs (PDF and LaTeX source) |
 | [docs/testing.md](docs/testing.md) | The test suite |
 | [CHANGELOG.md](CHANGELOG.md) | Versions |
+| [docs/development/](docs/development/) | For maintainers: CI and security scanning, the release checklist, supply chain and release verification |
 | [docs/datasets.md](docs/datasets.md) | Which datasets may be used, committed and where |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute: workflow, commits, sign-off, tests |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |

@@ -7,7 +7,7 @@ pip install -e ".[dev]"
 pytest                                   # unit, end-to-end and security tests: SQLite, CSV, Parquet (a few minutes)
 pytest -m "not slow"                     # skip the longer end-to-end runs
 pytest tests/integration                 # live PostgreSQL, SQL Server, Oracle, MySQL and MariaDB (skipped unless configured)
-pytest -m science                        # the statistical check suite: C00–C82 and the 2.0 checks (about 90 minutes on 4 cores)
+pytest -m science                        # the statistical check suite: C00–C82 and the 2.x checks (about 90 minutes on 4 cores)
 RELSYNTH_SCIENCE_SHARD=2/4 pytest -m science   # one of four shards of about equal run time (as CI runs it)
 pytest tests/unit/core                   # the fast core-engine tests (about 15 s; mutation testing uses them)
 pytest tests/unit --cov=relsynth --cov-branch --cov-report=term

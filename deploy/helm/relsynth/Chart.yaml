@@ -2,8 +2,8 @@ apiVersion: v2
 name: relsynth
 description: relsynth service (synthetic relational data) - API, web UI and job workers
 type: application
-version: 2.0.0
-appVersion: "2.0.0"
+version: 2.1.0
+appVersion: "2.1.0"
 license: Apache-2.0
 home: https://github.com/nick-developer/relsynth
 sources: [https://github.com/nick-developer/relsynth]

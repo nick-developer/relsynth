@@ -4,6 +4,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+## 2.1.0 (2026-11-07)
 ### Security
 
 - **The service no longer writes a job's description to disk.** The worker passed the job (source section, spec, parameters) to the job process in a `job.json` file in the work directory; it now goes over the process's stdin, and credential keys are removed from the source section before it leaves the worker (CodeQL `py/clear-text-storage-sensitive-data`). `python -m relsynth.service.runner -` reads stdin; a file argument still works for development.
@@ -28,8 +29,16 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **Governance**: an agent action can be recorded as a signed `agent-action/1` statement in the registry; run manifests may list agent actions under `agents`; `approve` refuses keys trusted with the role `agent` and `gov verify` reports any such approval.
 - **Evaluation**: `python -m bench.agents` and the CI job `agents` measure the review agent against the catalogs of Chinook, AdventureWorks DW and Contoso (and the curated bi/COREP spec) with the draft made in benchmark mode: 122 of 124 answered items correct with the rules backend.
 - **Compliance evidence and assurance case** (`docs/assurance/`; roadmap T17): an assurance case for a release (claims, evidence, assumptions, defeaters), a mapping to EDPB Guidelines 02/2026 and *EDPS v SRB*, the AI Act (Art. 10 and the new Art. 4a), HIPAA expert determination, NIST SP 800-226 and SP 800-188 and ISO/IEC 27559 and 20889, a DPIA template for a synthetic release, and release guidance for internal, partner and public recipients.
-- **Claim register** (`docs/assurance/claims.yaml`, `tools/claims_check.py`, CI job `lint`): every claim of the README and of the privacy, DP, security and governance guides (96 claims) traced to a proposition, check, test or measured report; a README sentence that sums up a guide cites that guide's claim. CI fails when a claim changes, its evidence disappears, or a new claim is not registered.
+- **Claim register** (`docs/assurance/claims.yaml`, `tools/claims_check.py`, CI job `lint`): every claim of the README and of the privacy, DP, security and governance guides (96 claims) traced to a proposition, check, test or measured report; a README sentence that sums up a guide cites that guide's claim. With the documents and agents guides added, the register holds 147 claims in 7 documents at release. CI fails when a claim changes, its evidence disappears, or a new claim is not registered.
 - **Two-way marginals in DP mode** (`synthesis.privacy.dp.measure: mst | aim`, `relsynth run --dp-measure`; roadmap T07b, guide `docs/dp.md` sec. 7, Props. 1300-1306, checks C1300-C1306). Stage 1 can release privately chosen two-way histograms in place of the copula's correlation matrix: MST picks a maximum spanning tree with the exponential mechanism, AIM picks pairs over adaptive rounds with annealing (kept to a forest). The nodes of a table include its parent row's cells and its rows per parent row, so the chosen pairs carry the links between tables. Domains are compressed to `pair_bins` cells (default 8) from released marginals; the seed is drawn from the fitted forest. Same accountant, same per-person guarantee and contribution bounding. The default (`copula`) is unchanged. New tools `tools/dp_compare.py` (against smartnoise-synth MST and AIM on ACS), `tools/dp_curves.py` and `tools/dp_workload.py`, the CI workflow `dp-eval` and `tools/dp_audit.py` (the attack audit against the ε bound, run in `dp-eval`).
+
+#### Synthetic text (roadmap T14)
+
+- **Row-conditioned text with a method per column** (`text.method: ngram | lm | pe`, guide `docs/text.md`, ADR 0010, Props. 1500–1507, checks C1500–C1507). `condition_on` takes one or several columns, so a ticket's text fits its category and priority. `ngram` is the 1.0 word-level model and stays the default; with one conditioning column (or none) its output is byte-identical to 2.0.
+- **Differentially private text**: `text.dp` gives user-level DP for the column by a DP n-gram release (CPU, no weights, air-gapped), DP-GD fine-tuning of a local language model on full batches (zCDP cost exactly T/(2σ²)), or Private Evolution with a public generator (refused without `dp`). Charges go to the DP mode's accountant. The guarantee covers that column only; text columns are still placeholders inside a whole-database DP run.
+- **Local language models** (`relsynth[text-lm]`: PyTorch, transformers, peft) from a model folder only (`local_files_only`), with optional LoRA; relsynth ships no weights. `relsynth text models` lists the allowed models with their licences (`src/relsynth/data/text_models.yaml`, checked by `tools/check_text_models.py`).
+- **PII layer**: recognised personal data (regex by default; Presidio, spaCy and GLiNER with `relsynth[text-pii]`) is replaced by typed placeholders before training and by valid surrogates after generation; `relsynth text pii-eval` measures recognizer recall with intervals.
+- **Leakage audit and text metrics**: `relsynth text audit` inserts canaries and measures their exposure against the DP bound and searches the output for near-duplicates of training texts (MinHash); `relsynth text metrics` reports consistency with the row, MAUVE-style distance and the rest of the text metrics. CI job `text-lm` runs a small local model end to end.
 
 #### Document databases (roadmap T13)
 
@@ -42,17 +51,25 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **MongoDB pushdown**: exact type and length counts from one `$group` pipeline and a `$sample` for the rest of the profile.
 - **Acceptance runner** `benchmarks/documents/run_documents.py` (MongoDB sample datasets and a StackExchange dump, downloaded with SHA-256 pins, never committed) and CI job `documents` with a MongoDB 7 service.
 - Research spike on a direct document generator (`docs/research/document-generator-spike.md`): no-go for now; parent-conditioned element columns proposed as the follow-up.
+#### Autotune, service and CI
+
 - `relsynth autotune --workers N`: the seeds of a candidate run in parallel processes, with the same records and search path as one worker.
 - `tools/autotune_bench.py` and the `autotune` workflow: autotune on a bench database (AdventureWorks with its G1-G14 identities as hard constraints) on GitHub runners; the report and a per-candidate summary go to the job log, and a later run resumes the search. First results: [docs/research/autotune-adventureworks.md](docs/research/autotune-adventureworks.md).
 - The `autotune` workflow searches 4.5 hours by default, so the held-out confirmation fits the 6-hour job limit.
 
+- **Service end to end on Kubernetes and docker compose** (`service-e2e.yml`): the Helm chart is installed on a kind cluster and the compose stack is started, and the same API flow (sign-in, spec, run, approval, download) runs against both, and a worker killed mid-run must leave its job to the other worker.
+
 ### Changed
 
+- **Draws for the same seed are unchanged** with default settings: the new options (`text.method`, `dp.measure`, document collections) are opt-in, and the default text path is byte-identical to 2.0 on every fake scenario.
+- README and documentation describe release 2.1: what each new feature does, install extras (`documents`, `couchbase`, `service-otel`), the `docs` and `agent` commands, the new checks and propositions (178 in the proofs, whose PDF is rebuilt), and the security scanning. Proof sections numbered by roadmap version (v2.6, v5.0, T16) are titled v2.1.
 - README: "No row is copied" now reads "Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied"; "Privacy checks run by default" now says the copy guards run by default and are not a privacy check; the 2.0 science checks are C600–C606 (privacy attacks), not C700–C706, which do not exist (the generator propositions are tested in `tests/unit/test_generators.py`).
 - `docs/security.md` now describes 2.0: differential privacy is optional rather than absent, the distance guards are copy guards rather than privacy checks, seven core dependencies, four `subprocess` call sites, and the service's connections to the OIDC provider and Vault.
 
 ### Fixed
 
+- **Helm chart: a fresh `helm install` no longer times out.** The pre-install migrate job ran as the release's ServiceAccount, which Helm only creates after the pre-install hooks; the job now runs as its own hook ServiceAccount (`<release>-migrate`, same annotations), created just before it. Found by the new kind-cluster end-to-end job.
+- **Helm chart: workers can store run outputs.** The data PVC was mounted at `/var/lib/relsynth`, so the container runtime created `/var/lib/relsynth/data` (the parent of the work `emptyDir`) as root and the non-root workers failed with `Permission denied: '/var/lib/relsynth/data/tenants'`, losing every synthesis run. The PVC is now mounted at `<data_dir>/tenants`, the only directory the service writes. An install of 2.0.0 that got this far keeps its artefacts under `data/tenants/` on the volume: move that folder's contents to the volume root before upgrading. Found by the kind-cluster end-to-end job.
 - Code-quality findings of CodeQL: NaN tests use `math.isnan`; intentional string wraps in lists are parenthesised; files are closed with `with`; uninitialised-variable, redundant-comparison, unused-variable/import and lazy-export findings are resolved. Output is unchanged.
 - The text TSTR metric of the scorecard no longer builds a dense class x word table for a condition with very many levels (it needed 32 GB on a Contoso DP run); above 50 M cells it uses an inverted index with the same model. Smaller tables, and so every earlier result, are unchanged.
 - The scorecard's naive Bayes accepts labels that mix strings and nulls, and an empty seed table keeps its columns in check enforcement.
