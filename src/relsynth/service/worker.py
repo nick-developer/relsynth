@@ -78,6 +78,17 @@ def _signal(p: subprocess.Popen, kill: bool) -> None:
             p.terminate()
 
 
+
+def _feed(stdin, data: bytes) -> None:
+    """Write the job description to the job process's stdin and close it.  A child that
+    exits or is killed first ends the write with a broken pipe; its exit code reports it."""
+    if stdin is None:
+        return
+    with contextlib.suppress(OSError, ValueError):
+        stdin.write(data)
+    with contextlib.suppress(OSError, ValueError):
+        stdin.close()
+
 class Worker:
     def __init__(self, settings: Settings, store: Store, artifacts: Artifacts, name: str | None = None):
         self.s, self.store, self.art = settings, store, artifacts
@@ -200,11 +211,12 @@ class Worker:
         p = subprocess.Popen([sys.executable, "-m", "relsynth.service.runner", "-"],  # noqa: S603  # nosec B603
                              cwd=work, env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, **extra)
-        assert p.stdin is not None  # noqa: S101  # nosec B101 (stdin=PIPE)
-        with contextlib.suppress(BrokenPipeError):   # a child that dies at once is reported by its exit code
-            p.stdin.write(payload.encode("utf-8"))
-        with contextlib.suppress(BrokenPipeError):
-            p.stdin.close()
+        # the payload is fed from a thread: a child that never reads would block a write
+        # of a large spec, and the watchdog below (deadline, heartbeat, cancel) must keep
+        # running; killing the child ends the write with a broken pipe
+        feeder = threading.Thread(target=_feed, args=(p.stdin, payload.encode("utf-8")),
+                                  name=f"stdin-{rid}", daemon=True)
+        feeder.start()
         deadline = time.time() + self.s.job_timeout_s
         cancelled = timed_out = lost = False
         next_beat = time.time() + self.s.heartbeat_s
@@ -228,7 +240,9 @@ class Worker:
                 except subprocess.TimeoutExpired:
                     _signal(p, kill=True)
                 break
-        return (p.wait(), cancelled, timed_out, lost)
+        code = p.wait()
+        feeder.join(5)
+        return (code, cancelled, timed_out, lost)
 
     def _store_outputs(self, job: dict, out: Path, result: dict) -> None:
         tid, rid = job["tenant_id"], job["id"]

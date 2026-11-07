@@ -463,3 +463,6 @@ def test_version_specifier_parse_is_linear():
     assert time.perf_counter() - t0 < 0.5
     assert version_matches("1.2.3", "== 1.2.*") and not version_matches("1.3", "==1.2.*")
     assert version_matches("2.0", ">=1.0, <3") and version_matches("1.4", "~=1.2")
+    for odd in (">=\u00b2", "==1.\u2460", "==\u0661.0"):    # superscript, circled and Arabic-Indic digits
+        with pytest.raises(GeneratorError):
+            version_matches("1.0", odd)

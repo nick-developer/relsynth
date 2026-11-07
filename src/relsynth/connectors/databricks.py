@@ -330,7 +330,7 @@ class DatabricksConnector(WarehouseConnector):
             raw = con.connection.dbapi_connection
             cur = raw.cursor()
             try:
-                cur.execute(f"PUT {sql_literal(local, 'str')} INTO {sql_literal(remote, 'str')} OVERWRITE")  # nosemgrep
+                cur.execute(f"PUT {sql_literal(local, 'str')} INTO {sql_literal(remote, 'str')} OVERWRITE")  # noqa: S608  # nosec B608 - both operands escaped by sql_literal  # nosemgrep
             finally:
                 cur.close()
         else:
@@ -350,7 +350,7 @@ class DatabricksConnector(WarehouseConnector):
             raw = con.connection.dbapi_connection
             cur = raw.cursor()
             try:
-                cur.execute(f"REMOVE {sql_literal(remote, 'str')}")  # nosemgrep
+                cur.execute(f"REMOVE {sql_literal(remote, 'str')}")  # noqa: S608  # nosec B608 - operand escaped by sql_literal  # nosemgrep
             finally:
                 cur.close()
         os.remove(local)

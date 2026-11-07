@@ -38,6 +38,7 @@ def _cmp(a, b):
     return (a > b) - (a < b)
 
 
+_DIGITS = frozenset("0123456789")
 _OPS = ("==", "!=", ">=", "<=", "~=", ">", "<")   # two-character operators first
 
 
@@ -57,7 +58,8 @@ def version_matches(version: str, spec: str | None) -> bool:
         star = rest.endswith(".*")
         if star:
             rest = rest[:-2]
-        if not (rest[:1].isdigit() and all(ch.isdigit() or ch == "." for ch in rest)):
+        # ASCII digits only: str.isdigit() accepts "²" or "①", which _vtuple would read as 0
+        if not (rest[:1] in _DIGITS and all(ch in _DIGITS or ch == "." for ch in rest)):
             raise GeneratorError(f"version specifier {clause!r} is not understood (use e.g. '>=1.0,<2' or '==1.2')")
         op, w = op or "==", _vtuple(rest)
         if star and op in ("==", "!="):

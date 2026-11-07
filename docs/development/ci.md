@@ -25,7 +25,7 @@ More workflows run outside the required gate:
 
 ## Security scanning
 
-Every finding goes to Security > Code scanning (SARIF) and annotates the pull request.
+CodeQL, Semgrep and zizmor findings go to Security > Code scanning (SARIF) and annotate the pull request. gitleaks and dependency-review fail their job and report in its log; they do not upload SARIF.
 
 | Workflow / job | What it checks | Fails the pull request on |
 |---|---|---|
@@ -36,7 +36,7 @@ Every finding goes to Security > Code scanning (SARIF) and annotates the pull re
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
 | `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
 
-`codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. All five run weekly as well.
+`codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. CodeQL, Semgrep, gitleaks and zizmor run weekly as well; dependency-review runs on pull requests only.
 
 [CodeRabbit](https://coderabbit.ai) reviews every pull request with [`.coderabbit.yaml`](../../.coderabbit.yaml). It comments; it does not approve or merge.
 

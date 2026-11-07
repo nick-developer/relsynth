@@ -197,7 +197,7 @@ def partition_drift(data, by=None, *, table: str | None = None, columns: list[st
             if t.startswith(("DATE", "TIMESTAMP")):
                 q, t = f"epoch(CAST({q} AS TIMESTAMP))", "DOUBLE"           # times are compared as numbers
             if any(x in t for x in ("INT", "DOUBLE", "FLOAT", "DECIMAL", "REAL", "NUMERIC")) and "[]" not in t:
-                g = con.execute(f"SELECT count({q}), avg({q}), var_samp({q}) FROM rs_p GROUP BY rs_part").fetchall()  # noqa: S608  # nosec B608  # nosemgrep
+                g = con.execute(f"SELECT count({q}), avg({q}), var_samp({q}) FROM rs_p GROUP BY rs_part").fetchall()  # noqa: S608  # nosec B608 - q is a quoted name  # nosemgrep
                 g = [x for x in g if x[0]]
                 if len(g) < 2:
                     continue

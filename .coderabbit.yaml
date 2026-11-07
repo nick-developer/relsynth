@@ -18,7 +18,8 @@ early_access: false
 
 reviews:
   profile: assertive              # more findings, including security nits
-  request_changes_workflow: false # findings are comments; the CI gate blocks merges
+  auto_approvals:
+    enabled: false                # findings are comments; the CI gate blocks merges
   high_level_summary: true
   review_status: true
   commit_status: true

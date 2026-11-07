@@ -1,6 +1,7 @@
 # Security scanners beyond CodeQL (codeql.yml) and the lint job's ruff S rules,
-# bandit and pip-audit (ci.yml).  Each scanner uploads SARIF to Security > Code
-# scanning, so its findings sit next to CodeQL's and annotate pull requests.
+# bandit and pip-audit (ci.yml).  Semgrep and zizmor upload SARIF to Security >
+# Code scanning, so their findings sit next to CodeQL's and annotate pull requests;
+# gitleaks and dependency-review fail their job and report in its log.
 #
 #   semgrep            Python, security-audit, secrets, Dockerfile and Actions rule packs,
 #                      plus the project rules in .semgrep/ (also used by CodeRabbit)
@@ -50,7 +51,7 @@ jobs:
           semgrep scan --metrics=off --sarif -o semgrep.sarif \
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
-            --exclude tests --exclude bench/data || true
+            --exclude tests --exclude bench/data
           # drop findings suppressed in source (# nosemgrep next to a reviewed # nosec reason):
           # semgrep keeps them in SARIF and code scanning would open alerts for them.
           # Strip the matched source text too, so a secret found by p/secrets is not
