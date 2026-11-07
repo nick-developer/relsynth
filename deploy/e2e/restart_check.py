@@ -16,6 +16,26 @@ sys.path.insert(0, __import__("os").path.dirname(__file__))
 from e2e_flow import Client, check, login  # noqa: E402
 
 
+def _kill_owner(a, owner: str) -> str:
+    """Kill the worker whose lease owner is ``owner`` ("<hostname>-<pid>-<hex>"; the hostname
+    is the container id under compose and the pod name under Kubernetes)."""
+    if a.compose:
+        ids = subprocess.run(["docker", "compose", "-f", a.compose, "ps", "-q", "worker"],  # noqa: S603, S607  # nosec B603 B607
+                             capture_output=True, text=True, check=True).stdout.split()
+        victim = next((i for i in ids if i.startswith(owner.split("-")[0])), None)
+        check("the leasing worker container is found", victim is not None, f"{owner} not in {ids}")
+        subprocess.run(["docker", "kill", victim], check=True, capture_output=True)  # noqa: S603, S607  # nosec B603 B607
+        return victim
+    pods = subprocess.run(["kubectl", "-n", a.k8s_namespace, "get", "pods",  # noqa: S603, S607  # nosec B603 B607
+                           "-l", "app.kubernetes.io/component=worker", "-o", "name"],
+                          capture_output=True, text=True, check=True).stdout.split()
+    victim = next((p for p in pods if owner.startswith(p.split("/", 1)[1] + "-")), None)
+    check("the leasing worker pod is found", victim is not None, f"{owner} not in {pods}")
+    subprocess.run(["kubectl", "-n", a.k8s_namespace, "delete", victim,  # noqa: S603, S607  # nosec B603 B607
+                    "--grace-period=0", "--force", "--wait=false"], check=True, capture_output=True)
+    return victim
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default="http://localhost:8080")
@@ -28,32 +48,30 @@ def main() -> int:
     T = "/api/v1/t/acme"
     _, runs = erin.call("GET", f"{T}/runs?state=succeeded")
     spec_id = next(r["spec_id"] for r in runs if r["kind"] == "run")
-    _, run = erin.call("POST", f"{T}/runs", {"spec_id": spec_id, "scale": 30, "seed": 1})
-    owner = None
-    for _ in range(300):
+    # the run must still be running when its worker dies: on a fast runner a small run can
+    # finish before the kill (it then succeeds at attempt 1 and proves nothing), so the
+    # scale grows until the kill lands mid-run
+    for scale in (30, 120, 480):
+        _, run = erin.call("POST", f"{T}/runs", {"spec_id": spec_id, "scale": scale, "seed": 1})
+        owner = None
+        for _ in range(300):
+            _, r = erin.call("GET", f"{T}/runs/{run['id']}")
+            if r["state"] == "running":
+                owner = r["lease_owner"]
+                break
+            time.sleep(0.5)
+        check("big run is leased by a worker", owner is not None)
+        time.sleep(1)
+        victim = _kill_owner(a, owner)
         _, r = erin.call("GET", f"{T}/runs/{run['id']}")
-        if r["state"] == "running":
-            owner = r["lease_owner"]
+        if r["state"] == "running" and r["attempts"] == 1:
             break
-        time.sleep(0.5)
-    check("big run is leased by a worker", owner is not None)
-    time.sleep(3)
-    # a worker's lease owner is "<hostname>-<pid>-<hex>"; the hostname is the
-    # container id (compose) or the pod name (Kubernetes)
-    if a.compose:
-        ids = subprocess.run(["docker", "compose", "-f", a.compose, "ps", "-q", "worker"],  # noqa: S603, S607  # nosec B603 B607
-                             capture_output=True, text=True, check=True).stdout.split()
-        victim = next((i for i in ids if i.startswith(owner.split("-")[0])), None)
-        check("the leasing worker container is found", victim is not None, f"{owner} not in {ids}")
-        subprocess.run(["docker", "kill", victim], check=True, capture_output=True)  # noqa: S603, S607  # nosec B603 B607
+        print(f"run {run['id']} at scale {scale} finished before the kill ({r['state']}); retrying larger")
+        if a.compose:
+            subprocess.run(["docker", "compose", "-f", a.compose, "up", "-d", "worker"], check=True,  # noqa: S603, S607  # nosec B603 B607
+                           capture_output=True)
     else:
-        pods = subprocess.run(["kubectl", "-n", a.k8s_namespace, "get", "pods",  # noqa: S603, S607  # nosec B603 B607
-                               "-l", "app.kubernetes.io/component=worker", "-o", "name"],
-                              capture_output=True, text=True, check=True).stdout.split()
-        victim = next((p for p in pods if owner.startswith(p.split("/", 1)[1] + "-")), None)
-        check("the leasing worker pod is found", victim is not None, f"{owner} not in {pods}")
-        subprocess.run(["kubectl", "-n", a.k8s_namespace, "delete", victim,  # noqa: S603, S607  # nosec B603 B607
-                        "--grace-period=0", "--force", "--wait=false"], check=True, capture_output=True)
+        check("a run is still running when its worker is killed", False, "even scale 480 finished first")
     check("worker killed mid-run", True, victim)
     t0 = time.time()
     while time.time() - t0 < 900:
