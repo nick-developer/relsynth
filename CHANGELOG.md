@@ -13,6 +13,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 - **mypy baseline down from 68 to 29 errors** (`tools/mypy-baseline.txt`). The fixes are annotations only (empty containers, and the attributes the engine sets on `Marginal`, `Entity` and `PairRel`); the synthetic output is byte-identical on every fake scenario and the quickstart (`tools/identity_check.py`, 24 runs).
 
+### Tests
+
+- **Three claims now have tests of their own.** A diagnostics bundle, a verify report and profile output hold no identifier value and at most a few summary values of each continuous column (SEC-10 and README RM-27 move from partial to supported); every statement sent to a SQLite source by introspect, profile, run (pushdown off and on) and verify is a `SELECT` or a read-only reflection `PRAGMA`, and the source file is unchanged (new claim SEC-17); `doctor --apply` refuses a DP spec (DP-12). The register holds 148 claims.
+
 ## 2.1.0 (2026-11-07)
 ### Security
 

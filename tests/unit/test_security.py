@@ -162,3 +162,76 @@ def test_synthetic_rows_are_not_copies(star_sqlite):
     key = lambda df: df[cols].astype(str).agg("|".join, axis=1)  # noqa: E731
     shared = np.isin(key(syn).to_numpy(), key(real).to_numpy()).mean()
     assert shared < 0.05
+
+
+# ---------------------------------------------------------------- what leaves the source
+def _row_leaks(text: str, tables: dict) -> dict:
+    """Source values found in `text`: every identifier value, and the continuous values
+    (as Python writes a float) that appear verbatim."""
+    import re
+    nums = set(re.findall(r"-?\d+\.\d+(?:e-?\d+)?", text))
+    out = {"customer_id": [v for v in tables["customer"]["customer_id"] if f'"{v}"' in text]}
+    for t, c in (("customer", "income"), ("product", "price"), ("sales", "amount")):
+        vals = tables[t][c].dropna().unique()
+        out[f"{t}.{c}"] = [v for v in vals if repr(float(v)) in nums]
+    return out
+
+
+def test_bundles_verify_reports_and_profiles_hold_no_rows(star_sqlite, tmp_path):
+    """SEC-10: diagnostics bundles, verify reports and profile output hold counts and statistics,
+    not rows.  No customer identifier appears, and of each continuous column at most the few
+    values a summary can name (minimum, maximum, a quantile) appear verbatim."""
+    from conftest import scenario
+
+    from relsynth.diagnostics import write_bundle
+    spec, _ = star_sqlite
+    tables, _, _ = scenario("S2_star")
+    r = rs.run(spec, write=False, privacy=False)
+    write_bundle(dict(r.bundle), tmp_path / "bundle.json")
+    rep = rs.verify(spec, draws=2, stability=False, privacy=False)
+    texts = {"bundle": (tmp_path / "bundle.json").read_text(),
+             "verify": rep.to_json() + rep.to_markdown(),
+             "profile": json.dumps(rs.profile(spec["source"]), default=str)}
+    for name, text in texts.items():
+        leaks = _row_leaks(text, tables)
+        assert leaks["customer_id"] == [], (name, leaks["customer_id"][:5])
+        for col, hit in leaks.items():
+            if col != "customer_id":
+                assert len(hit) <= 5, (name, col, len(hit))
+
+
+def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
+    """docs/security.md: only SELECT is issued against a source (and, on SQLite, the read-only
+    PRAGMAs of SQLAlchemy's schema reflection), with and without pushdown, for introspect,
+    profile, run and verify; the source file is byte for byte unchanged."""
+    import hashlib
+
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+    spec, db = star_sqlite
+    spec = {**spec, "target": {"kind": "csv", "path": str(tmp_path / "out")}}
+    before = hashlib.sha256(db.read_bytes()).hexdigest()
+    reflection = ("table_info", "table_xinfo", "index_list", "index_info", "foreign_key_list")
+    seen: list[str] = []
+
+    def listen(conn, cursor, statement, params, context, executemany):
+        if conn.engine.url.database == str(db):
+            seen.append(statement.strip())
+
+    event.listen(Engine, "before_cursor_execute", listen)
+    try:
+        rs.introspect(spec["source"])
+        rs.profile(spec["source"])
+        for mode in ("off", "on"):
+            rs.run(spec, privacy=False, pushdown=mode)
+        rs.verify(spec, draws=2, stability=False, privacy=False, pushdown="on")
+    finally:
+        event.remove(Engine, "before_cursor_execute", listen)
+    assert seen, "no statement reached the source"
+    for st in seen:
+        head = st.split(None, 1)[0].upper()
+        if head == "PRAGMA":
+            assert st.split(None, 1)[1].split("(")[0].split(".")[-1] in reflection, st
+        else:
+            assert head in ("SELECT", "WITH"), st
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == before

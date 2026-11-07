@@ -376,7 +376,7 @@ claims:
     evidence:
       - test: tests/unit/dp/test_dp.py::test_ordinary_pipeline_refuses_a_dp_spec
       - test: tests/unit/dp/test_dp.py::test_cli_refuses_tune_and_export_model_on_a_dp_spec
-    note: The CLI test covers tune and export-model; verify and doctor --apply are refused by the same guard but have no test of their own.
+      - test: tests/unit/dp/test_dp.py::test_cli_refuses_doctor_apply_on_a_dp_spec
 
   - id: DP-13
     doc: docs/dp.md
@@ -582,9 +582,10 @@ claims:
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
       - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
-    status: partial
-    note: The bundle test checks that no password is in it; there is no test that a bundle holds no row. Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103).
+    status: supported
+    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103). The row test searches bundle, verify report and profile for every identifier value and every continuous value of the star scenario; only a few summary values (minimum, maximum, quantiles) may appear.
     evidence:
+      - test: tests/unit/test_security.py::test_bundles_verify_reports_and_profiles_hold_no_rows
       - test: tests/unit/test_security.py::test_bundle_holds_no_password
       - prop: prop:pdsuff
       - prop: prop:hashsample
@@ -655,6 +656,16 @@ claims:
       - test: tests/unit/service/test_service_api.py::test_spec_cannot_name_service_files
       - code: src/relsynth/service/policy.py::spec_refusals
     note: The test exercises the save path; the run-time check calls the same spec_refusals function from the worker.
+
+  - id: SEC-17
+    doc: docs/security.md
+    area: security
+    quote: "Only `SELECT` is issued against a source; pushdown statistics are plain aggregate queries"
+    status: supported
+    evidence:
+      - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
+      - prop: prop:pdsuff
+    note: The test records every statement SQLAlchemy sends to a SQLite source during introspect, profile, run (pushdown off and on) and verify; all are SELECT or the read-only PRAGMAs of schema reflection, and the source file is unchanged. Other dialects share the same connector code but are not instrumented.
 
   # ------------------------------------------------------------------ docs/governance/guide.md (T08)
 
@@ -1153,8 +1164,7 @@ claims:
     doc: README.md
     area: security
     quote: "Bundles and profiles hold aggregates only, and profile --top must be asked for explicitly."
-    status: partial
-    note: As SEC-10, no test shows that a diagnostics bundle holds no rows.
+    status: supported
     evidence:
       - claim: SEC-10
 
