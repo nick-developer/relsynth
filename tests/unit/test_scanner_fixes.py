@@ -49,3 +49,19 @@ def test_create_table_refuses_unknown_types():
     con = sqlite3.connect(":memory:")
     with pytest.raises(ValueError, match="column type"):
         create_table(con, "t", [("a", "TEXT); DROP TABLE t; --", False)])
+
+
+def test_opener_refuses_cross_origin_redirects():
+    """A redirect to another host, port or scheme is refused, so credentials never follow it."""
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    h = _http._SameOriginRedirect()
+    req = urllib.request.Request("https://vault.example:8200/v1/x", headers={"X-Vault-Token": "t"})
+    for target in ("http://vault.example:8200/v1/y", "https://evil.example/v1/y", "https://vault.example:9000/y"):
+        with pytest.raises(urllib.error.HTTPError, match="another origin"):
+            h.redirect_request(req, None, 302, "Found", {}, target)
+    same = h.redirect_request(req, None, 302, "Found", {}, "https://VAULT.example:8200/v1/y")
+    assert same.full_url.endswith("/v1/y")
+    assert _http._origin("https://a.example/x") == _http._origin("https://a.example:443/y")

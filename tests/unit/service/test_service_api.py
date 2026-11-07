@@ -249,6 +249,9 @@ def test_openapi_document_is_current(app):
     ("_base_dir: /\ntables: {}\n", "internal"),
     ("synthesis: {settings_file: /etc/relsynth/settings.yaml}\ntables: {}\n", "settings_file"),
     ("synthesis: {compute: {preset: cpu, file: ../../secrets.yaml}}\ntables: {}\n", "compute.file"),
+    ("synthesis: preset:fast\ntables: {}\n", "mapping"),
+    ("synthesis: {settings_file: 'preset:../../etc/x'}\ntables: {}\n", "settings_file"),
+    ("synthesis: {settings_file: 7}\ntables: {}\n", "settings_file"),
 ])
 def test_spec_cannot_name_service_files(client, flow, body, reason):
     """A tenant's spec may not read files on the service: internal keys and file

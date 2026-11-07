@@ -62,7 +62,9 @@ def main(argv: list[str]) -> int:
         if found:
             print("| rule | path | line |\n|---|---|---|")
             for rule, uri, line in sorted(found, key=lambda f: (f[1], f[2], f[0])):
-                print(f"| `{rule}` | `{uri}` | {line} |")
+                # a file name holding "::" or a line break must not read as a workflow command
+                safe = str(uri).replace("\r", " ").replace("\n", " ").replace("::", ":\u200b:").replace("`", "'")
+                print(f"| `{rule}` | `{safe}` | {line} |")
     return 0
 
 

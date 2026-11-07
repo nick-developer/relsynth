@@ -67,6 +67,12 @@ def check_source(src: dict, tenant: str, settings) -> dict:
     return src
 
 
+def _settings_presets() -> tuple:
+    """Names of the built-in settings presets (relsynth.settings is imported only when needed)."""
+    from ..settings import PRESETS
+    return tuple(PRESETS)
+
+
 def spec_refusals(raw: dict) -> list[str]:
     """Why a tenant's spec cannot run on the service (empty when it can).
 
@@ -76,10 +82,13 @@ def spec_refusals(raw: dict) -> list[str]:
     built-in ``preset:NAME`` and a compute file are paths the workers would read."""
     out = [f"key {k!r} is internal and cannot be set in a spec" for k in raw if str(k).startswith("_")]
     syn = raw.get("synthesis")
+    if syn is not None and not isinstance(syn, dict):
+        out.append("synthesis must be a mapping")
     if not isinstance(syn, dict):
         syn = {}
     ref = syn.get("settings_file")
-    if ref is not None and not str(ref).startswith("preset:"):
+    if ref is not None and not (isinstance(ref, str) and ref.startswith("preset:")
+                                and ref.split(":", 1)[1] in _settings_presets()):
         out.append("synthesis.settings_file: the service accepts only a built-in preset:NAME, "
                    "not a file on the service")
     comp = syn.get("compute")

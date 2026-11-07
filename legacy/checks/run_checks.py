@@ -1739,13 +1739,13 @@ def c49():
     tmp = Path(tempfile.mkdtemp())
     pq = pd.DataFrame({"code": ["0101", "0202"], "ts": pd.to_datetime(["2020-01-01", "2020-01-02"]).tz_localize("UTC"),
                        "amt": [1.5, 2.0]})
-    ok_pq = True
+    ok_pq, pq_note = True, None
     try:
         pq.to_parquet(tmp / "t.parquet")
         back = normalise_frame(read_table_file(tmp / "t.parquet"))
         ok_pq = back["code"].tolist() == ["0101", "0202"] and back["ts"].dt.tz is None
     except ImportError:
-        pass                            # no pyarrow: the Parquet part is reported as not run
+        pq_note = "not run: pyarrow is not installed"
     (tmp / "c.csv").write_text("code,n\n0101,1\n0202,2\n")
     csv = read_table_file(tmp / "c.csv")
     return [item("add_days on ISO strings", dts[:2], "['2020-02-02', '2020-02-29']", dts[:2] == ["2020-02-02", "2020-02-29"]),
@@ -1756,7 +1756,7 @@ def c49():
                  lv == [0.9, 0.95, 1.0, 1.15] and note["snapped_rows"] == 3),
             item("cycle lookup <-> aggregate rejected", [e for e in cyc if "cycle" in e][:1], "one error",
                  any("cycle" in e for e in cyc)),
-            item("parquet: codes kept, time zones removed", ok_pq, True, ok_pq),
+            item("parquet: codes kept, time zones removed", pq_note or ok_pq, True, ok_pq),
             item("CSV codes with leading zeros kept as text", csv["code"].tolist(), "['0101', '0202']",
                  csv["code"].tolist() == ["0101", "0202"])]
 

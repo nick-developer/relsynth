@@ -75,7 +75,7 @@ def _compute_file(file, base_dir=None) -> str:
     root = os.path.realpath(str(base_dir) if base_dir else os.getcwd())
     full = os.path.realpath(os.path.join(root, name))
     # a file strictly below the folder (the folder itself is not a YAML file)
-    if not full.startswith(root + os.sep):
+    if full == root or os.path.commonpath([root, full]) != root:
         raise ComputeError(f"synthesis.compute.file: {name} lies outside the spec's folder {root}")
     return full
 
