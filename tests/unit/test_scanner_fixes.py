@@ -246,6 +246,7 @@ def test_redirect_to_another_scheme_is_refused_before_urllib_echoes_it(target):
             err = e.value
             text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
             assert not any(s in text for s in ("pw9", "s9", "passwd", "tok1", "s3", "/v1/x")), text
+            assert err.__context__ is None and err.__cause__ is None
             assert body.closed
 
 
@@ -267,6 +268,7 @@ def test_shared_opener_sanitises_urllib_refusals_after_the_origin_check():
     err = e.value
     text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
     assert not any(s in text for s in ("s9", "s3", "/v1/x")), text
+    assert err.__context__ is None and err.__cause__ is None      # no chained urllib error with the target
 
     loop = urllib.request.Request("https://api.example/v1/x?t=s3")
     loop.redirect_dict = {"https://api.example/next?token=s9": h.max_repeats}
@@ -275,3 +277,4 @@ def test_shared_opener_sanitises_urllib_refusals_after_the_origin_check():
     err = e.value
     text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
     assert not any(s in text for s in ("s9", "s3", "/v1/x")), text
+    assert err.__context__ is None and err.__cause__ is None

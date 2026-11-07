@@ -79,10 +79,13 @@ class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
         if new != old and _has_credentials(req):
             raise _refused(req, code, f"redirect with credentials to another origin refused: {_where(newurl)}",
                            headers, fp)
+        # urllib refuses e.g. a 307 POST with an error that keeps the headers: raise a clean one
+        # instead, outside the except block so the original is not kept as __context__
         try:
             return super().redirect_request(req, fp, code, msg, headers, newurl)
-        except urllib.error.HTTPError:  # urllib refuses e.g. a POST: its error keeps the headers
-            raise _refused(req, code, f"redirect of a {req.get_method()} request refused", headers, fp) from None
+        except urllib.error.HTTPError as e:
+            e.close()
+        raise _refused(req, code, f"redirect of a {req.get_method()} request refused", headers, fp)
 
     def http_error_302(self, req, fp, code, msg, headers):
         """Follow a redirect as urllib does, but refuse a target that is not http(s) here, before
@@ -96,9 +99,11 @@ class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
         try:
             return super().http_error_302(req, fp, code, msg, headers)
         except urllib.error.HTTPError as e:
-            if e.filename == req.full_url and str(e.msg).startswith(self.inf_msg):
-                raise _refused(req, code, "redirect loop refused", headers, fp) from None
-            raise
+            if not (e.filename == req.full_url and str(e.msg).startswith(self.inf_msg)):
+                raise
+            e.close()
+        # urllib's redirect-loop error (raised outside the except block: no __context__)
+        raise _refused(req, code, "redirect loop refused", headers, fp)
 
     http_error_301 = http_error_303 = http_error_307 = http_error_302
     if hasattr(urllib.request.HTTPRedirectHandler, "http_error_308"):    # Python 3.11+
