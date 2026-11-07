@@ -101,6 +101,7 @@ pip install "relsynth[service-otel]"       # + OpenTelemetry traces and metrics 
 pip install "relsynth[documents]"          # document databases: MongoDB, Cosmos DB, DynamoDB (relsynth docs)
 pip install "relsynth[couchbase]"          # + Couchbase
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
+pip install "relsynth[spark]"              # optional: the spark executor of the partitioned runtime (PySpark; needs Java)
 pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
 pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
 ```

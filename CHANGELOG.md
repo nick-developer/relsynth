@@ -4,6 +4,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Fixed
+
+- **`relsynth[spark]` exists.** The spark executor of the partitioned runtime told users to `pip install 'relsynth[spark]'`, but the package had no such extra. It now installs PySpark and cloudpickle; cloudpickle is needed because the fitted model holds closures, which the standard pickle cannot send to Spark tasks. CI runs the spark executor's identity test through the extra.
+
 ## 2.1.0 (2026-11-07)
 ### Security
 
