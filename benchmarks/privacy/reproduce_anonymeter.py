@@ -74,6 +74,7 @@ def overlap(a, b):
 
 
 def main():
+    """Reproduce the Anonymeter attack results on a dataset (command line)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("data")
     ap.add_argument("out")

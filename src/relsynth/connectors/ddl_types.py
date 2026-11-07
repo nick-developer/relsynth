@@ -33,6 +33,7 @@ def _kind(ty) -> str:
 
 
 def prepare_frame(df: pd.DataFrame, tbl: sa.Table) -> pd.DataFrame:
+    """df with each column converted to what the target column type accepts."""
     out = {}
     for c in df.columns:
         s = df[c]

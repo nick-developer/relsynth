@@ -171,6 +171,7 @@ def t_string_chance():
 
 # ------------------------------------------------------------------ S3, S6 names need values
 def t_names_need_values():
+    """Key and link names alone are not trusted: the values must support them."""
     from relsynth.introspect import introspect
     from relsynth.keyfind import r_crit, randomness
     rng = np.random.default_rng(3)

@@ -119,6 +119,7 @@ def main() -> int:
 
 
 def summary(path: str) -> int:
+    """Print the DP engine comparison as a Markdown table; non-zero when a run failed."""
     rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
     g: dict = {}
     for r in rows:

@@ -26,6 +26,7 @@ def toy(tmp_path_factory):
 
 
 def test_parse_kinds_of_review_lines():
+    """Every kind of review line parses to its verdict."""
     lines = [
         "Album: primary key AlbumId inferred (only unique non-null key-like column (score 1.00))",
         "Album.ArtistId -> Artist: foreign key inferred (100% of values in the parent, coverage 74%)",
@@ -246,6 +247,7 @@ def test_remote_model_never_gets_values(toy):
 
 
 def test_openai_backend_speaks_chat_completions(monkeypatch):
+    """The OpenAI-compatible backend sends a strict JSON-schema chat request at temperature 0."""
     import io
     sent = {}
 

@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 
 def summary(path: str) -> None:
+    """Print the DP audit results as a Markdown table."""
     rows = [json.loads(x) for x in Path(path).read_text().splitlines() if x.strip()]
     print("| database | measure | epsilon | context | verdict | DOMIAS TPR at 1 % FPR | bound | failed checks |")
     print("|---|---|---|---|---|---|---|---|")

@@ -157,6 +157,7 @@ NETWORK_MODULES = ("urllib.request", "http.client", "requests", "httpx", "aiohtt
 
 
 def test_network_access_is_confined_to_named_modules():
+    """Only the listed modules import network libraries or the shared opener."""
     found = {}
     for path in sorted((ROOT / "src").rglob("*.py")):
         rel = path.relative_to(ROOT / "src").as_posix()

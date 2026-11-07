@@ -169,6 +169,7 @@ _DISCOVERY: dict[str, tuple[float, dict]] = {}
 
 
 def _discover(issuer: str) -> dict:
+    """The OpenID configuration of `issuer`, cached for an hour."""
     from .._http import urlopen
     hit = _DISCOVERY.get(issuer)
     if hit and time.time() - hit[0] < 3600:

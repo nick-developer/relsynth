@@ -52,6 +52,7 @@ _CH = {}
 
 
 def _chinook():
+    """The Chinook spec and tables, loaded once."""
     if "spec" not in _CH:
         import yaml
         from relsynth.data import load_tables

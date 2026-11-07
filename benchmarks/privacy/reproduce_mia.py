@@ -24,6 +24,7 @@ from relsynth.privacy.assess import relsynth_generator
 
 
 def main():
+    """Reproduce the membership-inference results on a CSV and spec (command line)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("csv")
     ap.add_argument("spec")

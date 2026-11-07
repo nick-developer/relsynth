@@ -54,6 +54,7 @@ class Client:
         self.api, self.token = api.rstrip("/"), token
 
     def call(self, method: str, path: str, body=None, raw: bool = False):
+        """Call the service API: the JSON answer (or raw bytes), raising on an HTTP error."""
         req = urllib.request.Request(self.api + path, method=method,  # noqa: S310 (http(s) from the command line)
                                      data=json.dumps(body).encode() if body is not None else None,
                                      headers={"Authorization": f"Bearer {self.token}",
@@ -71,6 +72,7 @@ class Client:
 
 
 def login(token_url: str, client_id: str, user: str, password: str) -> str:
+    """An access token from the identity provider (resource-owner password grant)."""
     data = urllib.parse.urlencode({"grant_type": "password", "client_id": client_id, "username": user,
                                    "password": password, "scope": "openid"}).encode()
     with _open(urllib.request.Request(token_url, data=data), timeout=30) as r:  # noqa: S310 (http(s) only)

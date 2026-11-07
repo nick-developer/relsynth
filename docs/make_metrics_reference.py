@@ -111,6 +111,7 @@ SETTINGS = {
 
 
 def main():
+    """Print the metrics reference (docs/metrics-reference.md)."""
     lines = [INTRO.rstrip("\n")]
     for k, v in DEFAULTS.items():
         lines.append(f"| `{k}` | `{v!r}` | {SETTINGS[k]} |")

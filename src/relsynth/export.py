@@ -725,6 +725,7 @@ def _clean(o):
 
 
 def to_markdown(S, mean, draws, checks, scope, replica=None):
+    """The exported model as Markdown: parameters, posterior summaries and verification checks."""
     S, checks, scope, replica = _clean(S), _clean(checks), _clean(scope), _clean(replica)
     L = [f"# Data model: {S.get('name') or 'specification'}", "",
          f"Exported by relsynth export-model (format {S['format_version']}); fit seed {S['seed']}; "

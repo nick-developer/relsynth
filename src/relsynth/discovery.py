@@ -1237,6 +1237,7 @@ class Discovery:
 
     # ------------------------------------------------------- cross-table rules
     def cross_rules(self):
+        """Rules between tables: equal values reached through two different links."""
         for t in self.names:
             if not self._modelled(t):
                 continue

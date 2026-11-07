@@ -49,6 +49,7 @@ class RulesBackend:
     uses_model: bool = False
 
     def complete(self, system: str, user: str, schema: dict) -> dict:  # pragma: no cover - never called
+        """The model's answer as a dict that follows `schema` (OpenAI-compatible chat completions)."""
         raise RuntimeError("the rules backend has no language model")
 
 
@@ -62,6 +63,7 @@ class ScriptedBackend:
     calls: list = field(default_factory=list)
 
     def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The model's answer as a dict that follows `schema` (OpenAI-compatible chat completions)."""
         self.calls.append({"system": system, "user": user})
         out = self.fn(system, user, schema)
         return out if isinstance(out, dict) else json.loads(out)
@@ -100,6 +102,7 @@ class OpenAICompatBackend:
         return (urllib.parse.urlparse(self.base_url).hostname or "") in LOCAL_HOSTS
 
     def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The model's answer as a dict that follows `schema` (OpenAI-compatible chat completions)."""
         body = {"model": self.model, "temperature": self.temperature, "seed": self.seed,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "response_format": {"type": "json_schema",

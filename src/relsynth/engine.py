@@ -106,6 +106,7 @@ def _scores(x):
 
 
 def _is_null(v):
+    """True for None, pd.NA, pd.NaT and float NaN."""
     return v is None or v is pd.NA or v is pd.NaT or (isinstance(v, float) and math.isnan(v))
 
 

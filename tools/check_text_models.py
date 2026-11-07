@@ -26,6 +26,7 @@ HUB = {"Apache-2.0": "apache-2.0", "MIT": "mit", "Llama 3.2 Community License": 
 
 
 def hub_licence(model_id: str) -> str | None:
+    """The licence of a Hugging Face model, from its card or tags."""
     with urlopen(f"https://huggingface.co/api/models/{model_id}", timeout=60) as r:
         info = json.load(r)
     lic = (info.get("cardData") or {}).get("license")

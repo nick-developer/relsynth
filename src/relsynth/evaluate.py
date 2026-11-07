@@ -315,6 +315,7 @@ def _assoc_fast(A, B, cx, cy):
 
 
 def assoc_metrics(real, syn, tspec, cols, max_rows=20000, rng=None, min_level_rows=0, floor=None):
+    """Largest and mean difference of pairwise association between real and synthetic columns."""
     del rng                             # kept for callers; the metrics use every row, so draw nothing
     floor = THRESHOLDS["assoc_max"] if floor is None else floor
     if len(cols) < 2:

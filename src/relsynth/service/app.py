@@ -105,6 +105,7 @@ class DecisionsIn(BaseModel):
 
 # ------------------------------------------------------------------ app
 def create_app(settings: Settings | None = None, store: Store | None = None) -> FastAPI:
+    """The FastAPI application of the service, after checking its settings."""
     s = settings or Settings.load()
     errs = s.check()
     if errs:
@@ -337,6 +338,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
 
     @app.post(T + "/projects/{pid}/specs", tags=["specs"], status_code=201)
     def create_spec(pid: str, body: SpecIn, tenant: str = Depends(tenant_of), p: Principal = Depends(principal)):
+        """Save a spec in a project; specs that name files on the service are refused (422)."""
         need(p, tenant, "spec:write")
         get_or_404(st.project(tenant, pid), "project not found")
         if body.connection_id:

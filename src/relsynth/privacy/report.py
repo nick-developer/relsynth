@@ -72,6 +72,7 @@ def _advice(rep, ctx) -> list[str]:
 
 
 def context_markdown(rep: dict, name: str) -> str:
+    """The privacy report of one release context, in Markdown."""
     ctx = rep["contexts"][name]
     u = rep["unit"]
     lines = [f"# Privacy report: {name} release of {rep.get('spec_name') or 'the database'}", "",
@@ -139,6 +140,7 @@ def context_markdown(rep: dict, name: str) -> str:
 
 
 def annex_markdown(rep: dict) -> str:
+    """The technical annex of the privacy report (all attack results), in Markdown."""
     A = rep["attacks"]
     L = ["# Annex: technical results", "", f"Privacy unit: `{rep['unit']['table']}` (key `{rep['unit']['key']}`)."]
     for t, p in rep["unit"]["owned_tables"].items():

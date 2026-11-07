@@ -87,6 +87,7 @@ def _vault_token() -> str:
 
 
 def _vault_call(path: str, token: str | None, body: dict | None = None) -> dict:
+    """Call the Vault HTTP API at VAULT_ADDR and return its JSON answer."""
     addr = os.environ.get("VAULT_ADDR")
     if not addr or not addr.startswith(("https://", "http://")):
         raise SecretError("VAULT_ADDR must be an http(s) URL")

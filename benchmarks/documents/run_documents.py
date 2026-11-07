@@ -62,6 +62,7 @@ SE_BASE = "https://archive.org/download/stackexchange/"
 
 
 def fetch(url: str, dest: Path, sha256: str | None = None) -> Path:
+    """Download url to dest once (http(s) only), checking its SHA-256 when given."""
     if not dest.exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
         with urlopen(url, timeout=300) as r, open(dest.with_suffix(".part"), "wb") as f:
@@ -93,6 +94,7 @@ def mongo_set(name: str, cache: Path) -> dict[str, list[dict]]:
 
 # ---------------------------------------------------------------- StackExchange
 def _xml_rows(path: Path):
+    """The attributes of each <row> element of a StackExchange dump, streamed."""
     for _, el in ET.iterparse(path, events=("end",)):
         if el.tag == "row":
             yield dict(el.attrib)

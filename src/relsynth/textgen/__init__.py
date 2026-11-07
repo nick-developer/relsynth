@@ -104,6 +104,7 @@ class TextColumn:
             self.pii = PiiPipeline(rec)
 
     def fit(self, df, seg=None):
+        """Fit the text model of this column on df (with PII redaction and DP when set)."""
         texts = df[self.column].tolist()
         if self.pii is not None:
             texts, counts = self.pii.redact_all(texts)

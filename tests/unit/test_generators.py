@@ -328,6 +328,7 @@ def test_compute_presets_and_resolution(monkeypatch):
 
 
 def test_compute_validation_and_user_file(tmp_path):
+    """Compute settings are validated and a user compute file is confined to its folder."""
     assert validate_compute({"preset": "gpu-auto", "overrides": {"precision": "fp8"}})
     assert validate_compute({"preset": "nope"})
     assert validate_compute({"preset": "cpu", "overrides": {"memory_limit": "lots"}})

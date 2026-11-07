@@ -47,6 +47,7 @@ def _match(name, include, exclude):
 
 class Source:
     def __init__(self, source: dict, include=None, exclude=None, seed=7):
+        """A data source from its spec section, limited to the included tables."""
         self.source = source
         self.kind = source.get("kind", "csv")
         self.seed = seed

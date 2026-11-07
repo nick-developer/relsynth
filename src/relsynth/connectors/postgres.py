@@ -118,6 +118,7 @@ class PostgresConnector(SqlConnector):
         return super().write_tables(spec, tables, mode=mode, structure=structure, source=source)
 
     def before_load(self, con, tbl):
+        """Make tbl a TimescaleDB hypertable on its time column when one is set and its keys allow it."""
         col = getattr(self, "_hyper", {}).get(tbl.name)
         if not col:
             return

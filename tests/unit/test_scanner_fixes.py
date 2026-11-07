@@ -8,7 +8,7 @@ import urllib.request
 
 import pytest
 
-from bench.builders.sqlite_ddl import create_table, quote
+from bench.builders.sqlite_ddl import create_table, insert_rows, quote
 from relsynth._http import urlopen
 
 
@@ -44,6 +44,17 @@ def test_create_table_quotes_hostile_names():
     assert [r[1] for r in con.execute(f"PRAGMA table_info({quote(bad)})")] == [bad, "id"]
 
 
+def test_insert_rows_quotes_metadata_names():
+    """Table and column names with apostrophes and double quotes are quoted on insert and in keys."""
+    con = sqlite3.connect(":memory:")
+    t, c = 'o\'brien "t"', 'it\'s "col"'
+    create_table(con, t, [(c, "VARCHAR(20)", False), ("k", "INTEGER", True)], unique=[[c]])
+    insert_rows(con, t, [c, "k"], [("a'b\"c", 1), ("x", 2)])
+    assert con.execute(f"SELECT {quote(c)} FROM {quote(t)} ORDER BY k").fetchall() == [("a'b\"c",), ("x",)]
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_rows(con, t, [c, "k"], [("x", 3)])
+
+
 def test_create_table_refuses_unknown_types():
     """Column types come from a fixed list, so a type cannot carry SQL."""
     con = sqlite3.connect(":memory:")
@@ -65,3 +76,21 @@ def test_opener_refuses_cross_origin_redirects():
     same = h.redirect_request(req, None, 302, "Found", {}, "https://VAULT.example:8200/v1/y")
     assert same.full_url.endswith("/v1/y")
     assert _http._origin("https://a.example/x") == _http._origin("https://a.example:443/y")
+
+
+def test_opener_errors_never_carry_credentials():
+    """Refusals name only scheme, host and port: no user, password, path or query."""
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    with pytest.raises(ValueError) as e:
+        _http.urlopen("ftp://user:hunter2@files.example/x?token=abc", timeout=1)
+    assert "hunter2" not in str(e.value) and "token" not in str(e.value)
+    req = urllib.request.Request("https://u:pw1@vault.example/v1/x?t=s3")
+    with pytest.raises(urllib.error.HTTPError) as e:
+        _http._SameOriginRedirect().redirect_request(req, None, 302, "Found", {},
+                                                     "https://u:pw2@evil.example/y?token=s4")
+    text = f"{e.value} {e.value.filename} {e.value.msg}"
+    assert not any(s in text for s in ("pw1", "pw2", "s3", "s4", "/v1/x")), text
+    assert "evil.example" in text

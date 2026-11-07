@@ -217,6 +217,7 @@ class SqlConnector(Connector):
         return self._tables[name]
 
     def describe(self, table):
+        """Columns, keys and unique constraints of a table, as the database declares them."""
         name, table = table, self.stored_name(table)
         insp = self.inspector
         cols = []

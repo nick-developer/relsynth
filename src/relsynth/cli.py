@@ -713,6 +713,7 @@ def cmd_generators(a, out):
 
 
 def cmd_compute(a, out):
+    """`relsynth compute`: the presets, the GPUs found and the plan for each GPU need."""
     from .compute import detect_gpus, presets, resolve
     settings = {"preset": a.preset, "file": a.file}
     # the user typed the file, so its own folder is the trusted root

@@ -606,6 +606,7 @@ def _match_presence(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
 
 
 def _sort_key(v):
+    """A sort key that orders missing values last and numbers before strings."""
     if v is None or (isinstance(v, float) and math.isnan(v)):
         return (1, "")
     return (0, float(v)) if isinstance(v, (int, float)) else (0, str(v))
@@ -629,6 +630,7 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
     cols = {c.name: c for c in tl.columns}
 
     def value_at(path: list[str]):
+        """The value of the document at `path`, or _ABSENT."""
         key = ".".join(path)
         info = shapes.get(key)
         if info is None:

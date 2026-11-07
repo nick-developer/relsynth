@@ -74,6 +74,7 @@ def rate(r: dict) -> float:
 
 
 def build(records: list[dict], sources: list[str] | None = None) -> dict:
+    """The regression baseline of bench records: per dataset, pass rates and judged checks over seeds."""
     by_ds: dict = defaultdict(list)
     for r in _runs(records):
         by_ds[r["dataset"]].append(r)

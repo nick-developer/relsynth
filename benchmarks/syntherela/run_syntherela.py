@@ -37,6 +37,7 @@ CATEGORICAL = {("content", "word_cited_id")}
 
 
 def download(root: Path, name: str) -> Path:
+    """The folder of SyntheRela dataset `name` under root, downloaded once."""
     d = root / name
     if (d / "metadata.json").exists():
         return d

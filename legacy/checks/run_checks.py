@@ -107,6 +107,7 @@ def sample(syn, spec, scale=None):
 # ====================================================================== C00
 @check("C00", "Layer 1 algorithm checks still pass", "Layer 1 paper, Table 4")
 def c00():
+    """Layer 1 algorithm checks, rerun once when only timing checks failed."""
     p = ROOT.parent / "research" / "algorithms" / "validate_algorithms.py"
     import importlib.util
     if importlib.util.find_spec("datasketches") is None:
@@ -447,6 +448,7 @@ def c14():
 
 @check("C15", "Rejection sampling for business rules gives the exact conditional law", "Prop. 14")
 def c15():
+    """Redraw-until-valid sampling follows the exact truncated law."""
     rng = np.random.default_rng(1)
     x = rng.standard_normal(200000)
     kept = x[x <= 0.5]                      # rule: x <= 0.5, applied by redrawing violators
@@ -1386,6 +1388,7 @@ def c43():
 @check("C44", "Introspect on the sales warehouse (SQLite, declared keys): calendar, headers, offsets, lookups, "
        "identities, running balance, first purchase; same spec twice", "Prop. 42 (significance of discovered rules)")
 def c44():
+    """Introspection on the sales warehouse finds its calendar, headers, offsets, lookups and identities."""
     import sqlite3
     import tempfile
     from relsynth.introspect import introspect
@@ -1705,6 +1708,7 @@ def c48():
        "precision, computed-column cycles, file formats",
        "Props. 55-58; findings K03, K09, K14, K15")
 def c49():
+    """Dates, lookups, ratio factors and file formats round-trip as specified."""
     import tempfile
     from relsynth.data import normalise_frame, read_table_file
     from relsynth.expr import check_mask, derive_values
@@ -1862,6 +1866,7 @@ def c51():
        "for sales staff) never reference the excluded rows, and keep their row counts",
        "Prop. anchorincl; AW finding (quotas linked to non-sales staff)")
 def c52():
+    """Anchor inclusion: quotas linked only to sales staff."""
     rng = np.random.default_rng(52)
     ne = 300
     sales = rng.random(ne) < 0.08
@@ -2579,6 +2584,7 @@ def c66():
        "every spec drafted or written for the earlier tests still validates",
        "schema.py (v0.7)")
 def c67():
+    """Every spec in the repository passes the strict key check."""
     import glob
     import yaml
     from relsynth.schema import check_keys
@@ -2973,6 +2979,7 @@ def c72():
 @check("C73", "Standalone replica: keys, sizes and fidelity",
        "Prop. 'The replica samples the core generative process'")
 def c73():
+    """The replica samples the core generative process of the exported model."""
     from relsynth import replica
     out = []
     for name in ("S9_small_shop", "S10_order_dw", "S11_retail_dw"):

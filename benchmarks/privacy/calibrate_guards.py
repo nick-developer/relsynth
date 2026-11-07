@@ -51,6 +51,7 @@ def leak(syn, train, p, rng, near):
 
 
 def main():
+    """Calibrate relsynth's privacy guards against planted copies (command line)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
     ap.add_argument("out")
