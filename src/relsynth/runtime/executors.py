@@ -74,7 +74,7 @@ def _call(arg):
 
 def _init_spawned(blob):
     global _SHARED
-    _SHARED = pickle.loads(blob)  # noqa: S301  # nosec B301 - written by the parent process
+    _SHARED = pickle.loads(blob)  # noqa: S301  # nosec B301 - written by the parent process  # nosemgrep
 
 
 class ProcessExecutor(Executor):
@@ -128,7 +128,7 @@ def _spark_task(fn, bc):
         key = bc.id if hasattr(bc, "id") else id(bc)
         shared = _BROADCAST_CACHE.get(key)
         if shared is None:
-            shared = pickle.loads(bc.value)  # noqa: S301  # nosec B301 - broadcast by the driver of this job
+            shared = pickle.loads(bc.value)  # noqa: S301  # nosec B301 - broadcast by the driver of this job  # nosemgrep
             _BROADCAST_CACHE.clear()
             _BROADCAST_CACHE[key] = shared
         return i, dumps(fn(shared, item))
@@ -170,7 +170,7 @@ class SparkExecutor(Executor):
         finally:
             bc.unpersist()
         got.sort(key=lambda p: p[0])
-        return [pickle.loads(b) for _, b in got]  # noqa: S301  # nosec B301 - results of our own tasks
+        return [pickle.loads(b) for _, b in got]  # noqa: S301  # nosec B301 - results of our own tasks  # nosemgrep
 
     def describe(self):
         return {"executor": self.name, "workers": self.workers, "master": self.spark.sparkContext.master}

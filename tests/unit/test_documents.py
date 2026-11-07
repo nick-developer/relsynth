@@ -347,3 +347,18 @@ def test_docs_check_gates_on_invalid_documents(tmp_path, shop):
     write_json_documents([{**docs[0], "unexpected_field": 1}] + docs[1:], bad / "customers.jsonl")
     assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{good}", "--splits", "2"]) == 0
     assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{bad}", "--splits", "2"]) == 1
+
+
+def test_sqlite_export_quotes_names_from_documents():
+    """Field paths become SQLite names; an embedded quote must not change the DDL."""
+    import sqlite3
+
+    from relsynth.documents.relational import _q
+    assert _q('a"b') == '"a""b"'
+    con = sqlite3.connect(":memory:")
+    name = 'x"); DROP TABLE t; --'
+    con.execute("CREATE TABLE t (a)")
+    col = _q('c"d')
+    con.execute(f"CREATE TABLE {_q(name)} ({col} TEXT)")
+    tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert tables == {"t", name}

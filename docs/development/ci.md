@@ -30,7 +30,7 @@ Every finding goes to Security > Code scanning (SARIF) and annotates the pull re
 | Workflow / job | What it checks | Fails the pull request on |
 |---|---|---|
 | `codeql` (`codeql.yml`) | CodeQL for Python, GitHub Actions and the UI's JavaScript with the `security-extended` and `security-and-quality` suites ([config](../../.github/codeql/codeql-config.yml); tests are left out) | alerts at or above the severity set in the branch rule |
-| `security / semgrep` | Semgrep rule packs `p/python`, `p/security-audit`, `p/secrets`, `p/dockerfile`, `p/github-actions` | new ERROR findings only (`--baseline-commit`), so older findings are triaged in code scanning |
+| `security / semgrep` | Semgrep rule packs `p/python`, `p/security-audit`, `p/secrets`, `p/dockerfile`, `p/github-actions`, and the project rules in [`.semgrep/relsynth.yml`](../../.semgrep/relsynth.yml) (unsafe YAML or pickle loading, `shell=True`, eval, TLS or JWT verification off, credentials in logs or files, the `random` module in privacy code, weak hashes, `mktemp`, SQL built with f-strings, unconfined paths in the service) | new ERROR findings only (`--baseline-commit`), so older findings are triaged in code scanning |
 | `security / gitleaks` | secrets in the commits of the pull request or push; the whole history on the weekly run ([allowlist](../../.gitleaks.toml): test fixtures and the documented demo credentials) | any secret |
 | `security / zizmor` | workflow security: template injection, actions not pinned to a commit SHA, credential persistence, permissions ([policy](../../.github/zizmor.yml)) | high-severity, high-confidence findings |
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
@@ -38,7 +38,13 @@ Every finding goes to Security > Code scanning (SARIF) and annotates the pull re
 
 `codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. All five run weekly as well.
 
-[CodeRabbit](https://coderabbit.ai) reviews pull requests with the instructions in [`.coderabbit.yaml`](../../.coderabbit.yaml) (tenant isolation and secrets in the service, privacy-critical code against the proofs and the claim register, workflow hardening) once its GitHub App is installed on the repository. It comments; it does not approve or merge.
+[CodeRabbit](https://coderabbit.ai) reviews every pull request with [`.coderabbit.yaml`](../../.coderabbit.yaml). It comments; it does not approve or merge.
+
+- **Security pre-merge checks**: four failing checks and one warning: no secrets at rest or in logs; tenant isolation and authorisation in the service; untrusted input reaching a dangerous sink (paths, SQL, subprocess, eval, unsafe YAML or pickle, regular expressions, outbound URLs, HTML); privacy guarantees matching the proofs and the claim register; workflow and deployment hardening (warning).
+- **Path instructions** for the service, the DP/privacy/governance code, synthetic text, agents, connectors, specs and generators, the runtime's use of pickle, workflows, images, the Helm chart, tests, dependencies and docs.
+- **Scanners** run by CodeRabbit: ruff, Semgrep with the project rules, gitleaks, Checkov, OSV-Scanner, actionlint, shellcheck, hadolint, yamllint and markdownlint, plus the results of this repository's checks.
+
+A `# nosemgrep` comment marks a call site that a project rule flags but that was reviewed (the pickles between processes of one job, the trusted model-file load, quoted SQL); each sits next to the matching `# nosec` reason.
 
 ## The type ratchet
 

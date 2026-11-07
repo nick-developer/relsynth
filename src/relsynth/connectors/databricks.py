@@ -330,7 +330,7 @@ class DatabricksConnector(WarehouseConnector):
             raw = con.connection.dbapi_connection
             cur = raw.cursor()
             try:
-                cur.execute(f"PUT {sql_literal(local, 'str')} INTO {sql_literal(remote, 'str')} OVERWRITE")
+                cur.execute(f"PUT {sql_literal(local, 'str')} INTO {sql_literal(remote, 'str')} OVERWRITE")  # nosemgrep
             finally:
                 cur.close()
         else:
@@ -350,7 +350,7 @@ class DatabricksConnector(WarehouseConnector):
             raw = con.connection.dbapi_connection
             cur = raw.cursor()
             try:
-                cur.execute(f"REMOVE {sql_literal(remote, 'str')}")
+                cur.execute(f"REMOVE {sql_literal(remote, 'str')}")  # nosemgrep
             finally:
                 cur.close()
         os.remove(local)

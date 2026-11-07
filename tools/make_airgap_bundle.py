@@ -38,7 +38,7 @@ def run(cmd: list[str], **kw) -> None:
 
 def version() -> str:
     ns: dict = {}
-    exec((ROOT / "src/relsynth/_version.py").read_text(), ns)  # noqa: S102  # nosec B102 (our own version file)
+    exec((ROOT / "src/relsynth/_version.py").read_text(), ns)  # noqa: S102  # nosec B102 (our own version file)  # nosemgrep
     return ns["__version__"]
 
 

@@ -254,5 +254,5 @@ class TableGenerator:
         if hashlib.sha256(payload).hexdigest() != head.get("sha256"):
             raise GeneratorError("model file is corrupt (SHA-256 mismatch)")
         obj = cls.__new__(cls)
-        obj.set_state(pickle.loads(payload))  # noqa: S301 # nosec B301 - trusted=True required above
+        obj.set_state(pickle.loads(payload))  # noqa: S301 # nosec B301 - trusted=True required above  # nosemgrep
         return obj

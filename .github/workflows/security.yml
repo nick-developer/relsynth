@@ -2,7 +2,8 @@
 # bandit and pip-audit (ci.yml).  Each scanner uploads SARIF to Security > Code
 # scanning, so its findings sit next to CodeQL's and annotate pull requests.
 #
-#   semgrep            Python, security-audit, secrets, Dockerfile and Actions rule packs
+#   semgrep            Python, security-audit, secrets, Dockerfile and Actions rule packs,
+#                      plus the project rules in .semgrep/ (also used by CodeRabbit)
 #                      (pull requests fail on new ERROR findings only: --baseline-commit)
 #   gitleaks           secrets in the commits of a pull request or push
 #   zizmor             GitHub Actions workflow security (template injection,
@@ -48,7 +49,7 @@ jobs:
         run: |
           semgrep scan --metrics=off --sarif -o semgrep.sarif \
             --config p/python --config p/security-audit --config p/secrets \
-            --config p/dockerfile --config p/github-actions \
+            --config p/dockerfile --config p/github-actions --config .semgrep/ \
             --exclude tests --exclude bench/data || true
       - name: semgrep (new ERROR findings fail the pull request)
         if: github.event_name == 'pull_request'
@@ -57,7 +58,7 @@ jobs:
         run: |
           semgrep scan --metrics=off --error --severity ERROR --baseline-commit "$BASE_SHA" \
             --config p/python --config p/security-audit --config p/secrets \
-            --config p/dockerfile --config p/github-actions \
+            --config p/dockerfile --config p/github-actions --config .semgrep/ \
             --exclude tests --exclude bench/data
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         if: always() && hashFiles('semgrep.sarif') != ''
