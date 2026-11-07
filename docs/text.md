@@ -1,6 +1,6 @@
 # Synthetic text
 
-relsynth synthesises free-text columns (ticket bodies, notes, comments) so that each text fits its row: a ticket in the `billing` category talks about billing. You choose a method per column, set a privacy guarantee if the text leaves the organisation, and measure what the output still reveals with a leakage audit. Proofs are Props. 1500–1507 in [docs/proofs](proofs/) (section v5.0); the design record is [ADR 0010](adr/0010-synthetic-text.md); measured numbers are in the T14 report.
+relsynth synthesises free-text columns (ticket bodies, notes, comments) so that each text fits its row: a ticket in the `billing` category talks about billing. You choose a method per column, set a privacy guarantee if the text leaves the organisation, and measure what the output still reveals with a leakage audit. Proofs are Props. 1500–1507 in [docs/proofs](proofs/) (section "Synthetic text (v2.1)"); the design record is [ADR 0010](adr/0010-synthetic-text.md); measured numbers are in the T14 report.
 
 ## Choosing a method
 

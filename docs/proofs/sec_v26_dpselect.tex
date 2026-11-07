@@ -1,5 +1,5 @@
 %=====================================================================
-\section{Two-way marginals in DP stage 1 (v2.6)}\label{sec:v26dpsel}
+\section{Two-way marginals in DP stage 1 (v2.1)}\label{sec:v26dpsel}
 % numbered from 1300 (wave D range of T07b); the shared counter is restored at the end
 \newcounter{savedpropdpsel}\setcounter{savedpropdpsel}{\value{proposition}}
 With \texttt{synthesis.privacy.dp.measure: mst} or \texttt{aim} (guide \texttt{docs/dp.md}, sec.~7; code \texttt{relsynth/dp/select.py}), stage~1 of Section~\ref{sec:v25dp} releases, for each owned table $t$, the one-way histograms of Prop.~\ref{prop:sens}(a) and a set of two-way histograms chosen privately, in place of the second-moment matrix of Prop.~\ref{prop:sens}(b). The setting, the adjacency, the truncation (Prop.~\ref{prop:bound}) and $c=c_t$ are those of Section~\ref{sec:v25dp}. Each proposition is tested by a check in \texttt{tests/science/test\_dp\_select\_checks.py} (C1300--C1306).

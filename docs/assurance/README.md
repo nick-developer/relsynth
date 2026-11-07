@@ -35,4 +35,4 @@ When your change makes it fail:
 
 `python tools/claims_check.py --json claims.json` writes the register with every proposition label resolved to its printed number, for an auditor's tooling.
 
-Documents in scope today: docs/privacy.md, docs/dp.md, docs/security.md and docs/governance/guide.md. The README and the remaining guides are added one by one; until then their `Prop. N` references are still checked.
+Documents in scope in release 2.1: README.md, docs/privacy.md, docs/dp.md, docs/security.md, docs/governance/guide.md, docs/documents.md and docs/agents.md (147 claims). The remaining guides are added one by one; until then their `Prop. N` references are still checked.
