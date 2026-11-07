@@ -3,6 +3,8 @@
 quoted DDL in the benchmark builders."""
 from __future__ import annotations
 
+import re
+
 import sqlite3
 import urllib.request
 
@@ -129,3 +131,8 @@ def test_semgrep_summary_paths_cannot_issue_workflow_commands():
         out = mod._summary_safe(name)
         assert "::" not in out and "##[" not in out and "\n" not in out and "`" not in out, out
     assert mod._summary_safe("src/relsynth/app.py") == "src/relsynth/app.py"
+    # a pipe in a path cannot split the summary row into extra cells
+    safe = mod._summary_safe("src/a|[review](https://evil.example)|b.py")
+    row = f"| `rule` | `{safe}` | 7 |"
+    assert len(re.findall(r"(?<!\\)\|", row)) == 4, row
+    assert row.endswith("| 7 |")

@@ -479,3 +479,16 @@ def test_cli_compute_file_in_a_subfolder(tmp_path, monkeypatch, capsys):
     assert cli_main(["compute", "--preset", "lab", "--file", "configs/compute.yaml", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["presets"]["lab"]["threads"] == 3
+
+
+def test_cli_compute_file_through_a_symlink(tmp_path, monkeypatch, capsys):
+    """A --file path through a symlinked folder and `..` resolves to the real file and folder."""
+    real = tmp_path / "real" / "configs"
+    real.mkdir(parents=True)
+    (real / "compute.yaml").write_text("presets:\n  lab:\n    device: cpu\n    threads: 5\n")
+    (tmp_path / "work").mkdir()
+    (tmp_path / "work" / "link").symlink_to(real, target_is_directory=True)
+    monkeypatch.chdir(tmp_path / "work")
+    assert cli_main(["compute", "--preset", "lab", "--file", "link/../configs/compute.yaml", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["presets"]["lab"]["threads"] == 5

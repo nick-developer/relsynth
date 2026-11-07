@@ -38,8 +38,9 @@ def clean(doc: dict) -> list[tuple[str, str, int]]:
 
 def _summary_safe(uri) -> str:
     """uri for a summary row that `tee` also prints: no line break, no workflow
-    command marker (``::`` or the legacy ``##[``) and no backtick."""
-    text = str(uri).replace("\r", " ").replace("\n", " ").replace("`", "'")
+    command marker (``::`` or the legacy ``##[``), no backtick and no unescaped
+    ``|`` (which would split the table row)."""
+    text = str(uri).replace("\r", " ").replace("\n", " ").replace("`", "'").replace("|", "\\|")
     return text.replace("::", ":\u200b:").replace("##[", "#\u200b#[")
 
 
