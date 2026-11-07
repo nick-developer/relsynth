@@ -46,7 +46,7 @@ CodeQL, Semgrep and zizmor findings go to Security > Code scanning (SARIF) and a
 
 The scanners themselves are supply-chain inputs. Semgrep and zizmor install from [`.github/requirements/`](../../.github/requirements/) with `pip install --require-hashes` (every dependency checked against its SHA-256); the gitleaks image is pinned by digest and runs as the runner's user with a read-only root filesystem, a read-only checkout, no capabilities, `no-new-privileges` and no network. Semgrep's SARIF is cleaned by [`.github/scripts/sarif_clean.py`](../../.github/scripts/sarif_clean.py) before upload: suppressed results are dropped and the matched source text is removed, and the pull-request gate prints only rule, path and line, so a secret that `p/secrets` finds is not copied into an artefact or a log.
 
-A `# nosemgrep` comment marks a call site that a project rule flags but that was reviewed (the pickles between processes of one job, the trusted model-file load, quoted SQL); each sits next to the matching `# nosec` reason.
+A `# nosemgrep` comment marks a call site that a project rule flags but that was reviewed (the pickles between processes of one job, the trusted model-file load, quoted SQL); each sits next to the matching `# nosec` reason. A suppression hides a finding from the gate and from code scanning, so the `semgrep` job annotates every `# nosemgrep` a pull request adds and lists them in the job summary; each needs a reason next to it and the owner's review before merge.
 
 ## The type ratchet
 

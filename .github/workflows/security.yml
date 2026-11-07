@@ -72,6 +72,15 @@ jobs:
             --exclude tests --exclude bench/data || rc=$?
           python .github/scripts/sarif_clean.py gate.sarif --list
           exit "$rc"
+      - name: semgrep (new suppressions, for the reviewer)
+        # a "# nosemgrep" hides a finding from the gate and from code scanning, so every one
+        # the pull request adds is annotated on its line and listed in the job summary;
+        # each needs a reason next to it and the owner's review (docs/development/ci.md)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff -U0 "$BASE_SHA"...HEAD -- . ':!tests' ':!bench/data' | python .github/scripts/new_suppressions.py
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with: { sarif_file: semgrep.sarif, category: semgrep }
