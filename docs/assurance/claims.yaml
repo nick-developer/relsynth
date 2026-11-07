@@ -123,12 +123,16 @@ claims:
     area: privacy-measured
     quote:
       - "The privacy unit is the table that holds the people"
-      - "Every table that reaches it through foreign keys belongs to it: a customer's invoices and invoice lines are attacked together with the customer."
+      - "Every table that reaches it through foreign keys belongs to it, composite keys included (the IR's trace, relsynth ir trace): a customer's invoices and invoice lines are attacked together with the customer."
+      - "A row that reaches the unit along several paths belongs to every person those paths reach (Prop. 1700)."
       - "Chains stop at other person tables: a customer's sales representative does not own the customer."
     status: supported
     evidence:
       - prop: prop:pusplit
+      - prop: prop:unionown
       - check: C600
+      - check: C1700
+      - check: C1701
       - test: tests/unit/test_privacy.py::test_unit_paths_and_split_keep_people_whole
       - test: tests/unit/test_privacy.py::test_unit_chain_stops_at_other_person_tables
 
@@ -325,7 +329,7 @@ claims:
     doc: docs/dp.md
     area: privacy-formal
     quote:
-      - "Every DP run produces a statement (schema relsynth.dp-statement/1; write it with --dp-statement)."
+      - "Every DP run produces a statement (schema relsynth.dp-statement/1, or /2 for a run with several units; write it with --dp-statement)."
       - "the guarantee in ε, δ and ρ, and how it was computed (zCDP, converted with Canonne, Kamath and Steinke 2020);"
       - "It holds no data and no exact counts."
     status: supported
@@ -381,7 +385,7 @@ claims:
   - id: DP-13
     doc: docs/dp.md
     area: scope
-    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), more than one privacy unit, composite parent keys (generated as (i, 1)), and values of pii, text and binary columns (placeholders)."
+    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, governed runs with several units, and values of pii, text and binary columns (placeholders)."
     status: limitation
     evidence:
       - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
@@ -467,6 +471,73 @@ claims:
     status: supported
     evidence:
       - report: docs/assurance/evidence/T07b/audit.jsonl
+
+  - id: DP-21
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "In AdventureWorks DW, FactInternetSalesReason (keyed by order number and line number) is owned by DimCustomer through FactInternetSales."
+      - "When a row reaches the unit along two paths, the attack suite counts it for every person those paths reach (Prop. 1700); DP mode still refuses such a table."
+    status: supported
+    evidence:
+      - prop: prop:unionown
+      - check: C1700
+      - check: C1701
+      - check: C1705
+
+  - id: DP-22
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "It is one more block of the table's marginals, so it costs no extra budget share (Prop. 1702)."
+      - "The seed then has orders with several lines, numbered 1, 2, … within each order, and child rows point to them by the full composite key."
+    status: supported
+    evidence:
+      - prop: prop:groups
+      - check: C1702
+      - check: C1703
+
+  - id: DP-23
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "Each unit has its own accountant, and its statistics read only its own tables, so the run is (ε, δ)-DP for one customer with all their rows and, separately, for one employee with all their rows (Prop. 1703)."
+      - "The budgets do not add up across units, because the units' tables are disjoint."
+      - "The plan refuses, before any read, a table that holds data of two units and a link between two units' data (drop it with drop_columns)."
+    status: supported
+    evidence:
+      - prop: prop:multiunit
+      - check: C1703
+      - check: C1704
+      - check: C1705
+
+  - id: DP-24
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "The statement of such a run has schema relsynth.dp-statement/2: unit is the list of units and units holds each unit's ε, ρ and tables."
+      - "A governed run (--registry) protects the one unit of its source's domain, so a governed run with several units is refused before anything is reserved or read (Prop. 1704)."
+    status: supported
+    evidence:
+      - prop: prop:multigov
+      - test: tests/science/test_privacy_units_checks.py::test_c1704_run_states_one_guarantee_per_unit
+      - test: tests/science/test_privacy_units_checks.py::test_c1704_refusals_before_any_read
+
+  - id: DP-25
+    doc: docs/dp.md
+    area: privacy-formal
+    quote: "C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time."
+    status: supported
+    evidence:
+      - check: C1705
+
+  - id: DP-26
+    doc: docs/dp.md
+    area: statistics
+    quote: "At ε = 2 the private cap on rows per employee is 1, so the seed holds a few dozen reseller sales at most."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/G1/aw_two_units.json
 
   # ------------------------------------------------------------------ docs/security.md
 

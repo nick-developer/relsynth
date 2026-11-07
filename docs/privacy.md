@@ -32,7 +32,7 @@ Every number has a confidence interval (95% by default). Membership attacks are 
 
 ### People, not rows
 
-The **privacy unit** is the table that holds the people (`unit`, detected when omitted: the person table that owns the most tables). Every table that reaches it through foreign keys belongs to it: a customer's invoices and invoice lines are attacked together with the customer. The attacks run on one profile row per person: the person's attributes, the attributes of their parents (store, region), and per owned table the number of rows and the mean or most frequent value of each attribute, including those of the rows' parents (the genre of the tracks bought). Profiles hold no key values, because synthetic keys are new labels. Chains stop at other person tables: a customer's sales representative does not own the customer.
+The **privacy unit** is the table that holds the people (`unit`, detected when omitted: the person table that owns the most tables). Every table that reaches it through foreign keys belongs to it, composite keys included (the IR's trace, `relsynth ir trace`): a customer's invoices and invoice lines are attacked together with the customer. A row that reaches the unit along several paths belongs to every person those paths reach (Prop. 1700). The attacks run on one profile row per person: the person's attributes, the attributes of their parents (store, region), and per owned table the number of rows and the mean or most frequent value of each attribute, including those of the rows' parents (the genre of the tracks bought). Profiles hold no key values, because synthetic keys are new labels. Chains stop at other person tables: a customer's sales representative does not own the customer.
 
 ### How the release is tested
 
@@ -114,7 +114,6 @@ The scorecard's distance-to-closest-record ratio and exact-match rate stay in ev
 
 - Results hold for the attacks run, not for every possible attack. Only differential privacy gives a guarantee against all attacks; this module measures, it does not protect.
 - The release attacked is fitted on 40% of the people. It stands for a release of the same generator fitted on everyone, as in Anonymeter and the shadow-model literature.
-- Composite foreign keys are not followed when finding owned tables.
 - Small databases (tens of people) give wide intervals; the report says *review* rather than guess.
 
 ## Sources

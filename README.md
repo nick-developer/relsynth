@@ -246,7 +246,7 @@ The target's structure comes in three forms:
 | `relsynth tune spec.yaml [--rounds 3]` | Run, doctor and apply, repeated |
 | `relsynth autotune spec.yaml` | Tune engine settings toward your objectives over several seeds; constraints report for what cannot be met |
 | `relsynth settings show\|explain\|validate\|template\|reference` | The engine settings, their ranges and the checks each affects |
-| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `mst`/`aim` release two-way marginals |
+| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE[,TABLE]] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `--dp-unit` takes several units separated by commas; `mst`/`aim` release two-way marginals |
 | `relsynth privacy spec.yaml` | Attack a release per person; privacy report per release context |
 | `relsynth extend spec.yaml --until DATE [--step day]` | Continue the event histories of a synthetic dataset step by step |
 | `relsynth generators list\|show`, `relsynth compute` | Installed generator plug-ins; GPUs found and the device each generator would get |

@@ -2,12 +2,14 @@
 """The privacy unit: the person whose rows are protected together.
 
 A privacy unit is an entity table (for example Customer).  A table is *owned*
-by the unit when a chain of single-column foreign keys leads from it to the unit
-table (InvoiceLine -> Invoice -> Customer).  Every row of an owned table belongs
-to exactly one person, and the attacks treat all of a person's rows as one
-record (Ponomareva et al. 2023, sec. 3: the unit of privacy).  Tables that are
-not owned (products, calendars, code lists) are shared context: they are kept
-whole in every split.
+by the unit when a chain of foreign keys leads from it to the unit table
+(InvoiceLine -> Invoice -> Customer); composite keys count (an order line's
+sales reasons, keyed by order number and line number).  The chains come from
+the IR's trace (relsynth.ir.privacy).  A row reached along several chains
+belongs to every person they reach (union ownership, RFC-T06-01, Prop. 1700),
+and the attacks treat all of a person's rows as one record (Ponomareva et al.
+2023, sec. 3: the unit of privacy).  Tables that are not owned (products,
+calendars, code lists) are shared context: they are kept whole in every split.
 
 `profiles` turns a database into one row per person:
   * the unit table's own attributes;
@@ -37,7 +39,8 @@ MAX_LEVELS = 200
 class Unit:
     table: str
     key: str
-    # owned table -> chain of (child, child_key, parent, parent_key) up to the unit
+    # owned table -> its paths to the unit, shortest first; a path is a chain of
+    # (child, child_keys, parent, parent_keys) steps, keys as tuples of columns
     paths: dict = field(default_factory=dict)
 
     @property
@@ -46,12 +49,16 @@ class Unit:
 
     def to_dict(self) -> dict:
         return {"table": self.table, "key": self.key,
-                "owned_tables": {t: " -> ".join([p[0] for p in ch] + [self.table]) for t, ch in self.paths.items()
-                                 if t != self.table}}
+                "owned_tables": {t: " | ".join(" -> ".join([s[0] for s in ch] + [self.table]) for ch in chains)
+                                 for t, chains in self.paths.items() if t != self.table}}
 
 
 def _single_fks(spec):
     return [r for r in spec["relationships"] if not r.get("composite") and r.get("kind") != "self_reference"]
+
+
+def _cols(k) -> tuple:
+    return tuple(k) if isinstance(k, (list, tuple)) else (k,)
 
 
 def person_tables(spec) -> list[str]:
@@ -77,53 +84,155 @@ def default_unit(spec) -> str | None:
     return max(pool, key=lambda t: (len(resolve(spec, t).paths), t in people))
 
 
-def resolve(spec, table: str | None = None) -> Unit:
-    """The unit and the foreign-key path of every table it owns (breadth first,
-    so each table gets its shortest chain).  A chain never passes through
-    another person table: a customer's link to their sales representative does
-    not make the customer's rows the representative's."""
+def _bfs_order(spec, table, owned: set) -> list[str]:
+    """The owned tables breadth first from the unit (relationships in spec order),
+    which fixes the order of profile columns."""
+    order, seen, q = [table], {table}, deque([table])
+    rels = [r for r in spec.get("relationships") or [] if r.get("kind") != "self_reference"]
+    while q:
+        p = q.popleft()
+        for r in rels:
+            if r["parent"] == p and r["child"] in owned and r["child"] not in seen:
+                seen.add(r["child"])
+                order.append(r["child"])
+                q.append(r["child"])
+    return order + sorted(owned - seen)
+
+
+def resolve(spec, table: str | None = None, others: set | None = None) -> Unit:
+    """The unit and every foreign-key path of each table it owns, from the IR's
+    trace (relsynth.ir.privacy, Prop. 107): composite links are followed, and a
+    table with several paths belongs to the union of the people they reach
+    (RFC-T06-01, Prop. 1700).  A path never passes through another person
+    table (or a table in `others`): a customer's link to their sales
+    representative does not make the customer's rows the representative's."""
+    from ..ir import lift
+    from ..ir.privacy import trace
     table = table or default_unit(spec)
     if table is None:
         raise ValueError("no privacy unit: name the table that holds the people (privacy.unit)")
     ts = spec["tables"].get(table)
-    if ts is None or not ts.get("primary_key"):
+    if ts is None or not ts.get("primary_key") or isinstance(ts["primary_key"], (list, tuple)):
         raise ValueError(f"privacy unit {table!r} must be a table with a single-column primary key")
-    paths: dict[str, list] = {table: []}
-    q = deque([table])
-    fks = _single_fks(spec)
-    others = set(person_tables(spec)) - {table}
-    while q:
-        p = q.popleft()
-        for r in fks:
-            if r["parent"] == p and r["child"] not in paths and r["child"] not in others:
-                paths[r["child"]] = [(r["child"], r["child_key"], r["parent"], r["parent_key"])] + paths[p]
-                q.append(r["child"])
+    stop = (set(person_tables(spec)) | set(others or ())) - {table}
+    est = lift(spec)
+    tr = trace(est, table)
+
+    def step(rn):
+        r = est.relationship(rn)
+        to = r.to.attributes or est.entities[r.to.entity].primary_key.attributes
+        return (r.from_.entity, tuple(r.from_.attributes), r.to.entity, tuple(to))
+    found: dict[str, list] = {}
+    for n, et in tr.entities.items():
+        if et.status != "owned" or n in stop:
+            continue
+        chains = []
+        for p in et.paths:
+            ch = [step(rn) for rn in p]
+            if any(s[2] in stop for s in ch[:-1]):
+                continue
+            chains.append(ch)
+        if chains:
+            found[n] = sorted(chains, key=len)
+    paths: dict[str, list] = {table: [[]]}
+    for t in _bfs_order(spec, table, set(found)):
+        if t != table:
+            paths[t] = found[t]
     return Unit(table, ts["primary_key"], paths)
 
 
-def owner_ids(unit: Unit, tables: dict[str, pd.DataFrame]) -> dict[str, pd.Series]:
-    """For each owned table, the unit key of each row (NaN when the chain has a
-    null key: such rows belong to nobody)."""
-    out = {unit.table: tables[unit.table][unit.key]}
-    for t, chain in unit.paths.items():
-        if t == unit.table:
+def _lookup(parent: pd.DataFrame, pk: tuple, carry: tuple, cur: pd.DataFrame) -> pd.DataFrame:
+    """For the rows of cur (columns named like pk), the parent's carry columns."""
+    if tuple(carry) == tuple(pk):
+        return cur[list(pk)]
+    if len(pk) == 1:
+        m = parent.drop_duplicates(pk[0]).set_index(pk[0], drop=False)
+        return pd.DataFrame({c: cur[pk[0]].map(m[c]).to_numpy() for c in carry}, index=cur.index)
+    from ..dp.relational import _canon
+    idx = pd.MultiIndex.from_frame(parent[list(pk)].astype(object).map(_canon))
+    look = parent.loc[~idx.duplicated(), list(dict.fromkeys(carry))]
+    look.index = idx[~idx.duplicated()]
+    key = pd.MultiIndex.from_frame(cur[list(pk)].astype(object).map(_canon))
+    pos = look.index.get_indexer(key)
+    out = {}
+    for c in carry:
+        v = look[c].to_numpy(dtype=object)
+        out[c] = np.where(pos >= 0, v[np.clip(pos, 0, None)] if len(v) else None, None)
+    return pd.DataFrame(out, index=cur.index)
+
+
+def _chain_owner(unit: Unit, chain: list, tables: dict[str, pd.DataFrame]) -> pd.Series:
+    """The unit key each row of chain[0]'s table reaches along chain (NaN when a
+    key on the way is null or dangling)."""
+    first = tables[chain[0][0]]
+    cur = pd.DataFrame({p: first[c].to_numpy() for c, p in zip(chain[0][1], chain[0][3])}, index=first.index)
+    for i, (_c, _ck, par, pk) in enumerate(chain):
+        carry = chain[i + 1][1] if i + 1 < len(chain) else (unit.key,)
+        nxt_pk = chain[i + 1][3] if i + 1 < len(chain) else (unit.key,)
+        got = _lookup(tables[par], pk, carry, cur)
+        cur = pd.DataFrame({p: got[c].to_numpy() for c, p in zip(carry, nxt_pk)}, index=first.index)
+        if len(carry) > 1:
+            # a composite key with a null part leads nowhere
+            bad = cur.isna().any(axis=1).to_numpy()
+            if bad.any():
+                cur.loc[bad, :] = None
+    s = cur[unit.key]
+    return s.infer_objects() if s.dtype == object else s
+
+
+def owners(unit: Unit, tables: dict[str, pd.DataFrame]) -> dict[str, pd.Series]:
+    """For each table of the unit, its (row, owner) pairs: a Series of unit keys
+    indexed by row position (0..n-1).  A row reached along several paths
+    appears once per distinct owner (union ownership, RFC-T06-01); a row
+    whose paths all lead nowhere belongs to nobody and is absent."""
+    U = tables[unit.table]
+    out = {unit.table: _positional(U[unit.key])}
+    for t, chains in unit.paths.items():
+        if t == unit.table or t not in tables:
             continue
-        cur = tables[t][chain[0][1]]
-        for (_c, _ck, par, pk), nxt in zip(chain, chain[1:] + [None]):
-            if nxt is None:
-                break
-            m = tables[par].drop_duplicates(pk).set_index(pk)[nxt[1]]
-            cur = cur.map(m)
-        out[t] = pd.Series(cur.to_numpy(), index=tables[t].index)
+        parts = [_positional(_chain_owner(unit, ch, tables)) for ch in chains]
+        if len(parts) == 1:
+            out[t] = parts[0]
+            continue
+        both = pd.concat(parts)
+        d = pd.DataFrame({"r": both.index.to_numpy(), "o": both.to_numpy()}).drop_duplicates().sort_values(
+            "r", kind="mergesort")
+        out[t] = pd.Series(d["o"].to_numpy(), index=d["r"].to_numpy())
+    return out
+
+
+def _positional(s: pd.Series) -> pd.Series:
+    s = pd.Series(s.to_numpy(), index=np.arange(len(s)))
+    return s[s.notna()]
+
+
+def owner_ids(unit: Unit, tables: dict[str, pd.DataFrame]) -> dict[str, pd.Series]:
+    """For each owned table, the unit key of each row along its shortest path
+    (NaN when the chain has a null key).  Kept for callers that need one owner
+    per row; `owners` gives all of them."""
+    out = {unit.table: tables[unit.table][unit.key]}
+    for t, chains in unit.paths.items():
+        if t != unit.table and t in tables:
+            out[t] = _chain_owner(unit, chains[0], tables)
     return out
 
 
 def subset(unit: Unit, tables: dict[str, pd.DataFrame], ids) -> dict[str, pd.DataFrame]:
     """The database restricted to the people in ids: owned tables keep the
-    rows of those people, shared tables stay whole (Prop. 600)."""
+    rows of which any owner is among those people (union ownership), shared
+    tables stay whole (Prop. 600)."""
     ids = pd.Index(ids)
-    own = owner_ids(unit, tables)
-    return {t: (df[own[t].isin(ids).to_numpy()].copy() if t in own else df) for t, df in tables.items()}
+    own = owners(unit, tables)
+    out = {}
+    for t, df in tables.items():
+        if t not in own:
+            out[t] = df
+            continue
+        o = own[t]
+        keep = np.zeros(len(df), dtype=bool)
+        keep[o.index.to_numpy()[o.isin(ids).to_numpy()]] = True
+        out[t] = df[keep].copy()
+    return out
 
 
 def split(unit: Unit, tables, frac_control: float, seed: int = 0, max_people: int | None = None):
@@ -230,7 +339,7 @@ def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, d
     base = base[~base.index.duplicated()]
     parts = [base]
     used: dict[str, str] = {}
-    own = owner_ids(unit, tables)
+    own = owners(unit, tables)
     on_path = set(unit.paths)
     for t in unit.owned:
         if t not in tables:
@@ -238,8 +347,10 @@ def profiles(spec, unit: Unit, tables: dict[str, pd.DataFrame], hops: int = 2, d
         df = tables[t]
         feats = _with_parents(spec, t, df, tables, on_path, hops)
         pid = own[t]
-        feats = feats.assign(__pid=pid.to_numpy())
-        feats = feats[feats["__pid"].notna()].copy()
+        # one row per (row, owner): a row of several people counts for each of them
+        feats = feats.iloc[pid.index.to_numpy()].assign(__pid=pid.to_numpy())
+        if len(unit.paths[t]) > 1:
+            feats = feats.reset_index(drop=True)
         ks = {}
         for c in feats.columns:
             if c == "__pid":

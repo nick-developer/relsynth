@@ -52,7 +52,7 @@ The proofs are Propositions 900 to 906 in [docs/proofs](proofs/sec_v25_dp.tex). 
 
 ## 3. The DP statement
 
-Every DP run produces a statement (schema `relsynth.dp-statement/1`; write it with `--dp-statement`). It follows NIST SP 800-226 and contains:
+Every DP run produces a statement (schema `relsynth.dp-statement/1`, or `/2` for a run with several units; write it with `--dp-statement`). It follows NIST SP 800-226 and contains:
 
 - the unit and the adjacency;
 - the guarantee in ε, δ and ρ, and how it was computed (zCDP, converted with Canonne, Kamath and Steinke 2020);
@@ -83,7 +83,7 @@ relsynth run spec.yaml --epsilon 1 --registry registry/ --context partner --rele
 
 What DP mode refuses: `tune`, `verify`, `export-model` and `doctor --apply` refuse a DP spec, because they would turn real data into models or spec values outside the accounting. The ordinary pipeline (`relsynth.run`, `execute`) also refuses a DP spec rather than run it without DP. Run those on a copy of the spec without the `dp` section, for internal use only.
 
-Not supported yet: in-database pushdown in DP mode (every owned table is loaded), more than one privacy unit, composite parent keys (generated as `(i, 1)`), and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2.
+Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, governed runs with several units, and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2. Several units and composite keys are in section 8.
 
 ## 6. Utility against ε
 
@@ -155,11 +155,41 @@ On the multi-table databases the share of checks passing moves less, because mos
 
 An attack audit (`tools/dp_audit.py`, Contoso, ε = 1, 16 + 16 shadow databases) found the membership-inference true-positive rate at 1 % false positives to be 0.011 with `mst` and 0.012 with `aim`, below the bound e^ε · 0.01 + δ = 0.027. No check failed.
 
+## 8. Composite keys and several units
+
+**Ownership.** The tables of a unit come from the IR's trace (`relsynth ir trace`), so composite foreign keys count. In AdventureWorks DW, `FactInternetSalesReason` (keyed by order number and line number) is owned by `DimCustomer` through `FactInternetSales`. The attack suite (`relsynth privacy`) uses the same trace. When a row reaches the unit along two paths, the attack suite counts it for every person those paths reach (Prop. 1700); DP mode still refuses such a table.
+
+**Composite keys in the seed.** When an id groups the rows of an owned table (an order number, with a sequence column `within` it or as the fact's header key), stage 1 also releases a histogram of rows per group. It is one more block of the table's marginals, so it costs no extra budget share (Prop. 1702). The seed then has orders with several lines, numbered 1, 2, … within each order, and child rows point to them by the full composite key. Other key columns that are attributes (a date in a key) are drawn like attributes, and rows that repeat a declared composite key are dropped.
+
+**Several units.** List the units:
+
+```yaml
+synthesis:
+  privacy:
+    dp:
+      unit: [DimCustomer, DimEmployee]   # each unit gets this budget
+      epsilon: 2.0
+      delta: 1.0e-9
+      public_tables: all_unowned
+      drop_columns: [DimEmployee.ParentEmployeeKey]
+```
+
+or `relsynth run spec.yaml --epsilon 2 --dp-unit DimCustomer,DimEmployee`.
+
+Each unit owns the tables with a path to it that passes through no other unit's table. Each unit has its own accountant, and its statistics read only its own tables, so the run is (ε, δ)-DP for one customer with all their rows and, separately, for one employee with all their rows (Prop. 1703). The budgets do not add up across units, because the units' tables are disjoint. A person who is both a customer and an employee is protected for each role separately, and the statement says so. The plan refuses, before any read, a table that holds data of two units and a link between two units' data (drop it with `drop_columns`).
+
+The statement of such a run has schema `relsynth.dp-statement/2`: `unit` is the list of units and `units` holds each unit's ε, ρ and tables. Each charge names its unit. A governed run (`--registry`) protects the one unit of its source's domain, so a governed run with several units is refused before anything is reserved or read (Prop. 1704). Release each unit in its own governed run until the governance RFC-G1-01 is decided.
+
+Checks C1700 to C1705 (`pytest -m science tests/science/test_privacy_units_checks.py`) test this. C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time. No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all.
+
+Small units give little. AdventureWorks has 296 employees, of whom 17 are sales representatives with about 3,600 reseller sales each. At ε = 2 the private cap on rows per employee is 1, so the seed holds a few dozen reseller sales at most.
+
 ## API
 
 ```python
 import relsynth.dp as dp
 res = dp.synthesize("spec.yaml", write=False)
 res.data, res.statement, res.epsilon, res.charges
+res.per_unit                              # several units: each unit's rho, epsilon and tables
 pl, cfg, spec = dp.plan("spec.yaml")      # what a run would do, without reading data
 ```

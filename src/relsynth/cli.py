@@ -308,11 +308,12 @@ def _source_locator(spec):
 
 
 def _dp_override(a) -> dict:
-    o = {}
+    o: dict = {}
     if getattr(a, "epsilon", None) is not None:
         o["epsilon"] = float(a.epsilon)
     if getattr(a, "dp_unit", None):
-        o["unit"] = a.dp_unit
+        units = [u.strip() for u in a.dp_unit.split(",") if u.strip()]
+        o["unit"] = units if len(units) > 1 else units[0]
     if getattr(a, "dp_measure", None):
         o["measure"] = a.dp_measure
     return o
@@ -330,8 +331,13 @@ def cmd_run_dp(a, out, s, gv):
         override = dp.domain_override(spec, gv["policy"], dom or "", override)
         led, run_id = G.Ledger(gv["reg"], gv["policy"]), G.new_run_id()
     pl, cfg, _ = dp.plan(spec, override)            # refuses before anything is reserved or read
-    out.line(f"DP plan: unit {cfg.unit}, rho {cfg.rho:.6g}, delta {cfg.delta:g}; tables of the unit: "
-             f"{', '.join(pl.order)}; public: {', '.join(pl.public) or 'none'}")
+    if cfg.multi:
+        out.line(f"DP plan: units {', '.join(cfg.units)}, rho {cfg.rho:.6g} each, delta {cfg.delta:g}; "
+                 + "; ".join(f"tables of {u}: {', '.join(pl.owned_by(u))}" for u in cfg.units)
+                 + f"; public: {', '.join(pl.public) or 'none'}")
+    else:
+        out.line(f"DP plan: unit {cfg.unit}, rho {cfg.rho:.6g}, delta {cfg.delta:g}; tables of the unit: "
+                 f"{', '.join(pl.order)}; public: {', '.join(pl.public) or 'none'}")
     if led is not None:
         led.reserve(dom, run_id, cfg.rho, cfg.delta * cfg.levels_delta_share)
         out.line(f"reserved rho {cfg.rho:.6g} in domain {dom!r} for run {run_id}")
@@ -346,10 +352,17 @@ def cmd_run_dp(a, out, s, gv):
     rep = EvaluationReport(res.report["scorecard"]) if res.report.get("scorecard") is not None else None
     out.put(seconds=round(time.time() - t0, 1), rows={t: len(d) for t, d in res.data.items()},
             dp={"epsilon": res.epsilon, "delta": res.config.delta, "rho": res.rho, "delta_approx": res.delta,
-                "unit": res.config.unit, "charges": [c.to_manifest() for c in res.charges]},
+                "unit": res.config.units if res.config.multi else res.config.unit,
+                "charges": [c.to_manifest() for c in res.charges],
+                **({"units": res.per_unit} if res.per_unit else {})},
             written=[_mask(w) for w in (res.run.written if res.run else [])])
-    out.line(f"DP guarantee: ({res.epsilon:.4g}, {res.config.delta:g})-DP for one {res.config.unit} and all their rows "
-             f"(rho {res.rho:.6g})")
+    if res.per_unit:
+        for u, v in res.per_unit.items():
+            out.line(f"DP guarantee: ({v['epsilon']:.4g}, {res.config.delta:g})-DP for one {u} and all their rows "
+                     f"(rho {v['rho']:.6g})")
+    else:
+        out.line(f"DP guarantee: ({res.epsilon:.4g}, {res.config.delta:g})-DP for one {res.config.unit} and all their "
+                 f"rows (rho {res.rho:.6g})")
     if rep is not None:
         out.put(scorecard={"passed": rep.passed, "total": rep.total, "score": rep.score, "failed": rep.failed})
         _scorecard_lines(out, rep)
@@ -825,7 +838,8 @@ def build_parser() -> argparse.ArgumentParser:
     d = s.add_argument_group("differential privacy (docs/dp.md)")
     d.add_argument("--dp", action="store_true", help="differentially private run (the spec's synthesis.privacy.dp)")
     d.add_argument("--epsilon", type=float, help="this run's epsilon (implies --dp; overrides the spec)")
-    d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's)")
+    d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's); "
+                                     "several units separated by commas, each with the full budget (tables disjoint)")
     d.add_argument("--dp-measure", choices=["copula", "mst", "aim"],
                    help="what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals "
                         "chosen by MST or AIM (docs/dp.md sec. 7)")

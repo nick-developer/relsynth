@@ -56,6 +56,23 @@ def test_epsilon_is_converted_at_the_delta_left_after_level_selection(star):
     assert r.rho == 0.05 and dp.epsilon_of_config(r) == pytest.approx(epsilon_of(0.05, 0.5e-9))
 
 
+def test_config_takes_one_unit_or_a_list(star):
+    _, s = star
+    c = dp.parse(_spec(s))
+    assert c.unit == "customer" and c.units == ["customer"] and not c.multi
+    for bad, msg in ((["customer", "customer"], "distinct"), (["customer", "nobody"], "not a table"), ([], "name")):
+        with pytest.raises(PrivacyError, match=msg):
+            dp.parse(_spec(s, unit=bad))
+
+
+def test_cli_reads_several_units_separated_by_commas():
+    from types import SimpleNamespace
+
+    from relsynth.cli import _dp_override
+    assert _dp_override(SimpleNamespace(epsilon=1, dp_unit="A, B", dp_measure=None))["unit"] == ["A", "B"]
+    assert _dp_override(SimpleNamespace(epsilon=None, dp_unit="A", dp_measure=None)) == {"unit": "A"}
+
+
 def test_plan_traces_ownership_and_public_tables(star):
     _, s = star
     pl, cfg, _ = dp.plan(_spec(s))

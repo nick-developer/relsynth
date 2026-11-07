@@ -1,0 +1,51 @@
+%=====================================================================
+\section{Privacy units: composite keys and several units (v2.2)}\label{sec:g1units}
+% numbered from 1700 (gap plan G1 range); the shared counter is restored at the end
+\newcounter{savedpropunits}\setcounter{savedpropunits}{\value{proposition}}
+This section extends the privacy unit of Sections~\ref{sec:v25dp} and of the attack suite in three ways (gap plan G1; guide \texttt{docs/dp.md}, sec.~8; code \texttt{relsynth/privacy/unit.py}, \texttt{relsynth/dp/relational.py}). Ownership is read from the IR trace (Prop.~\ref{prop:irowner}), so composite foreign keys are followed. DP stage~1 releases how rows group under a composite key, and the seed has real composite keys. One DP run may protect several units. Each proposition is tested by a check in \texttt{tests/science/test\_privacy\_units\_checks.py} (C1700--C1705).
+
+\setcounter{proposition}{1699}
+\begin{proposition}[Union ownership]\label{prop:unionown}
+Let $P_t$ be the set of paths of table $t$ to the unit table $U$ in the IR trace, with the paths that pass through another person table removed. For a row $r$ of $t$ let $O(r)=\{\text{the unit key reached from } r \text{ along } \pi : \pi\in P_t\}$, without nulls. The attack suite's subset for a set of people $I$ keeps $r$ if and only if $O(r)\cap I\neq\emptyset$, and a person's profile aggregates every row $r$ with that person in $O(r)$. Then (a) when $|P_t|=1$ for every $t$ the subsets and profiles are those of Section~\ref{sec:v25}; (b) the rows kept for $I$ are the rows that the IR's \texttt{contribution} marks for $I$; (c) a split of the people into disjoint sets loses no row, and a row is in two halves only when its paths reach people in both.
+\end{proposition}
+\begin{proof}
+(a) With one path, $O(r)$ is the single key that the chain reaches, which is the owner the earlier resolution computed (it followed single-column keys breadth first, and a composite key now adds a path where there was none, never a second path to a table already owned). (b) \texttt{contribution} ORs, over the same paths, the masks of rows whose path reaches a key in $I$; that is $O(r)\cap I\neq\emptyset$. (c) If $O(r)\neq\emptyset$ some person owns $r$ and the half holding that person keeps it; it is kept twice only if $O(r)$ meets both halves.
+\end{proof}
+\noindent Union ownership is the conservative choice for risk measurement (RFC-T06-01): a row of two people counts for both. Check C1700 follows the composite link of order lines to their sales reasons, compares the subsets with \texttt{contribution}, and builds a row whose two paths reach different people; check C1701 checks the profiles. On the bench specs the owned tables are unchanged except AdventureWorks \texttt{FactInternetSalesReason}, now owned by \texttt{DimCustomer}.
+
+\setcounter{proposition}{1700}
+\begin{proposition}[Composite keys in the IR trace and in DP mode]\label{prop:compkey}
+A composite foreign key $(a_1,\dots,a_k)\to(b_1,\dots,b_k)$ is one reference of the IR, and a row reaches its parent row when all $k$ values match. With the parent row unique on $(b_1,\dots,b_k)$, the truncation of Prop.~\ref{prop:bound} applied to the tuple keys is stable, and Props.~\ref{prop:sens}--\ref{prop:degree} hold with $c_t$ unchanged.
+\end{proposition}
+\begin{proof}
+The proofs of Props.~\ref{prop:bound}--\ref{prop:degree} use only that each row of $t$ has one parent row and that the priority of a row depends on the row and the key alone. Matching on a tuple of values keeps both properties; a row with a null part reaches no parent and is dropped before truncation, as a null single key is.
+\end{proof}
+
+\setcounter{proposition}{1701}
+\begin{proposition}[Group sizes]\label{prop:groups}
+Let $g$ be an id column of an owned child table $t$ that groups its rows: a sequence column counts within $g$, or $g$ is the header key of the fact. A group is a pair (parent row, value of $g$) over the truncated rows of $t$. The histogram of group sizes over the cells of the degree histogram for the cap $D_t$, added as one more block to the marginals of Prop.~\ref{prop:sens}(a), has $L_2$ sensitivity at most $c_t$; with it the vector of $q$ blocks plus the row count has sensitivity at most $c_t\sqrt{q+2}$, which is what the marginals are charged for.
+\end{proposition}
+\begin{proof}
+A group lies within one parent row, so all its rows belong to the unit of that row (Prop.~\ref{prop:bound}). The removed unit owns at most $c_t$ truncated rows of $t$, hence at most $c_t$ groups, and each group adds one to one cell; the groups of other units do not change. So the block changes by at most $c_t$ in $L_1$, hence in $L_2$, and the blocks add in squares as in Prop.~\ref{prop:sens}(a). A group has at most $D_t$ rows, so the cells are fixed before the read.
+\end{proof}
+\noindent Decoding is post-processing (Prop.~\ref{prop:post}): each parent row's rows are cut into groups whose sizes are drawn from the noisy histogram, $g$ numbers the groups, a sequence numbers the rows within its group, any other free key column numbers the rows, and a part of a composite key that is an attribute (a date, a code) is drawn as one. Rows that repeat a declared composite key are dropped. Children follow their parent rows' tuple keys, so links are valid. Check C1702 checks unique composite keys, groups of several rows within the cap and valid composite links; checks C1703 and C1705 include the group block in the sensitivity replay.
+
+\setcounter{proposition}{1702}
+\begin{proposition}[Several units]\label{prop:multiunit}
+Let $U_1,\dots,U_m$ be the units of a run. Table $t$ is owned by $U_j$ when the IR trace has a path from $t$ to $U_j$ that passes through no other unit's table; the plan refuses a run in which a table is owned by two units, or in which a link it does not drop joins tables of different units. Each unit has its own accountant with plan $(\rho,\delta_0)$, charged only for the statistics of its own tables, as in Section~\ref{sec:v25dp}. Then for each $j$ the release satisfies $\rho$-zCDP and $(\varepsilon,\delta)$-DP for add/remove of one unit of $U_j$ with all its rows, with $\varepsilon$ as in Prop.~\ref{prop:run}.
+\end{proposition}
+\begin{proof}
+Write the real database as $x=(x_1,\dots,x_m,x_0)$, where $x_j$ holds the tables of $U_j$ and $x_0$ the public tables. Every statistic of a table of $U_j$ reads only $x_j$ and $x_0$: its own rows, its owned children (owned by $U_j$ too, since the child's path passes through $t$), and its parents in public tables; links to another unit's tables are dropped and never read. A neighbour of $x$ for $U_j$ changes $x_j$ only, since the tables are disjoint. The mechanism is $M(x)=(M_1(x_1,x_0),\dots,M_m(x_m,x_0))$ followed by post-processing, where each $M_k$ may depend on the outputs of earlier ones only through public quantities (the plan, the spec, the public tables). For a neighbour of $U_j$ the outputs of $M_k$, $k\neq j$, have the same law, and $M_j$ is $\rho$-zCDP by Props.~\ref{prop:sens}--\ref{prop:run} with the accountant of $U_j$. Joint privacy loss is therefore that of $M_j$, which is at most $\rho$ (parallel composition, McSherry \cite{mcsherry2009}; for zCDP the R\'enyi divergence of a product law is the sum over its coordinates, and it is zero for the unchanged ones). The conversion to $(\varepsilon,\delta)$ is that of Prop.~\ref{prop:run}.
+\end{proof}
+\noindent A person who is a member of two units (a customer who is also an employee) is protected for each role separately, and the losses add up for that person; the DP statement says so. Check C1703 replays a run with customers and employees: removing a customer or an employee moves every statistic of that unit's tables by at most its charged sensitivity, the other unit's statistics are exactly as they were, and each accountant stays within $\rho$. Check C1705 repeats it on AdventureWorks DW with \texttt{DimCustomer} and \texttt{DimEmployee}, removing the busiest customer and sales representative. Check C1704 checks the refusals and the per-unit statement.
+
+\setcounter{proposition}{1703}
+\begin{proposition}[Scope of governed runs]\label{prop:multigov}
+A governed run reserves, touches and settles its budget in the one privacy domain of its source (Props.~\ref{prop:ledger}--\ref{prop:reserve}); a run with several units is refused before anything is reserved or read.
+\end{proposition}
+\begin{proof}
+\texttt{domain\_override} raises before the plan when the unit is a list of more than one table, and the CLI calls it before the ledger's reservation and before any read.
+\end{proof}
+\noindent Several units in one domain need one ledger account per unit and a manifest that lists them (RFC-G1-01 to the governance owner). Until then the units of a governed source are released by separate runs, one per domain.
+
+\setcounter{proposition}{\value{savedpropunits}}

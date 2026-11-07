@@ -112,7 +112,8 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             if not (cfg.get("release") or {}).get("dp"):
                 c = dp.parse(s)
                 cfg["release"] = {**(cfg.get("release") or {}),
-                                  "dp": {"epsilon": float(dp.epsilon_of_config(c)), "delta": c.delta, "unit": c.unit}}
+                                  "dp": {"epsilon": float(dp.epsilon_of_config(c)), "delta": c.delta,
+                                         "unit": unit.table if unit.table in c.units else c.unit}}
     gen = generator or relsynth_generator(s)
 
     t = time.time()

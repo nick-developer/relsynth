@@ -3,6 +3,16 @@
 All notable user-visible changes are recorded here, following [Keep a Changelog 1.1](https://keepachangelog.com/en/1.1.0/). relsynth uses [Semantic Versioning](https://semver.org/); see [CONTRIBUTING.md](CONTRIBUTING.md) for what counts as the public API.
 
 ## Unreleased
+### Added
+
+- **Several privacy units in one DP run** (gap plan G1). `synthesis.privacy.dp.unit` takes a list (`[DimCustomer, DimEmployee]`), and `--dp-unit` a comma-separated list. Each unit owns the tables whose path to it passes through no other unit, has its own accountant with the run's budget, and gets its own (ε, δ) guarantee; the budgets do not add up because the units' tables are disjoint (Prop. 1703). The plan refuses a table with data of two units and links between the units' data before any read. The statement of such a run has schema `relsynth.dp-statement/2` (`unit` is the list, `units` each unit's ε, ρ and tables), each charge names its unit, and `DPResult.per_unit` holds the same figures. Governed runs (`--registry`) stay single-unit and refuse a list before anything is reserved (RFC-G1-01 proposes ledger accounts per unit).
+- **Real composite keys in the DP seed database.** When an id groups an owned table's rows (an order number with a sequence column `within` it, or a fact's header key), stage 1 releases a histogram of rows per group as one more block of the table's marginals (Prop. 1702). The seed has orders with several lines numbered within each order, and children point to them by the full composite key; other free key columns number the rows instead of the old `(i, 1)` placeholder, attribute parts of a composite key (a date) are drawn like attributes, and seed rows that repeat a declared composite key are dropped.
+- Checks C1700–C1705 (`tests/science/test_privacy_units_checks.py`), Props. 1700–1704 (`docs/proofs/sec_g1_units.tex`), docs/dp.md section 8; C1705 replays the two-unit sensitivity check on AdventureWorks DW when the bench cache has it.
+
+### Changed
+
+- **Privacy-unit ownership comes from the IR's trace** (`relsynth.ir.privacy`, RFC-T06-01). The attack suite (`relsynth privacy`) now follows composite foreign keys, so AdventureWorks `FactInternetSalesReason` is owned by `DimCustomer` and appears in its profiles and report. A row that reaches the unit along several paths belongs to every person they reach (union ownership, Prop. 1700); on the bench specs whose paths all agree (Contoso, bi/COREP) the subsets and profiles are unchanged. New `relsynth.privacy.unit.owners`; `owner_ids` keeps one owner per row along the shortest path.
+- DP mode output changes where documented above (composite keys, groups); the non-DP output is byte-identical (`tools/identity_check.py`, 24 runs).
 
 ## 2.1.0 (2026-11-07)
 ### Security

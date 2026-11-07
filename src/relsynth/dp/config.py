@@ -5,7 +5,8 @@
       privacy:
         dp:
           enabled: true
-          unit: Customer                 # the privacy unit (the IR's, or the policy domain's)
+          unit: Customer                 # the privacy unit (the IR's, or the policy domain's),
+                                         # or a list: [DimCustomer, DimEmployee], each with this budget
           epsilon: 2.0                   # this run's budget, stated at delta ...
           delta: 1.0e-9                  # ... or give rho (zCDP) instead of epsilon
           public_tables: [Genre, MediaType, Track]   # or all_unowned: tables without data of the unit
@@ -55,6 +56,11 @@ class DPConfig:
     select_share: float = 0.5         # mst: share of the pairs budget spent on choosing the tree
     pair_bins: int = 8                # mst/aim: cells per coordinate in a two-way marginal (null included)
     aim_rounds: int | None = None     # aim: planned rounds (default 16 x nodes); annealing may use fewer
+    units: list = field(default_factory=list)   # every privacy unit (unit is the first); each gets rho and delta
+
+    @property
+    def multi(self) -> bool:
+        return len(self.units) > 1
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -74,8 +80,13 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
     unit = raw.get("unit")
     if not unit:
         raise PrivacyError("synthesis.privacy.dp.unit: name the table of the people DP protects (e.g. Customer)")
-    if unit not in spec["tables"]:
-        raise PrivacyError(f"synthesis.privacy.dp.unit: {unit!r} is not a table of the spec")
+    units = [str(u) for u in unit] if isinstance(unit, (list, tuple)) else [unit]
+    if not units or len(set(units)) != len(units):
+        raise PrivacyError("synthesis.privacy.dp.unit: a table, or a list of distinct tables")
+    for u in units:
+        if u not in spec["tables"]:
+            raise PrivacyError(f"synthesis.privacy.dp.unit: {u!r} is not a table of the spec")
+    unit = units[0]
     delta = raw.get("delta")
     if delta is None or not 0 < float(delta) <= 1e-5:
         raise PrivacyError("synthesis.privacy.dp.delta: set delta in (0, 1e-5]; NIST SP 800-226 sec. 2.3 calls larger "
@@ -128,4 +139,4 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
                     max_pair_cells=int(raw.get("max_pair_cells", 4096)),
                     select_share=float(raw.get("select_share", 0.5)),
                     pair_bins=int(raw.get("pair_bins", 8)),
-                    aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None)
+                    aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None, units=units)
