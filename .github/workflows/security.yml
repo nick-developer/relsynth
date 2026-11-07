@@ -59,7 +59,7 @@ jobs:
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions \
             --exclude tests --exclude bench/data
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with: { sarif_file: semgrep.sarif, category: semgrep }
 
@@ -98,7 +98,7 @@ jobs:
       - run: pip install "zizmor==${ZIZMOR_VERSION}"
       - name: zizmor (report)
         run: zizmor --offline --format sarif .github/workflows > zizmor.sarif || true
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with: { sarif_file: zizmor.sarif, category: zizmor }
       - name: zizmor (high-severity findings fail)
         run: zizmor --offline --min-severity high --min-confidence high .github/workflows
@@ -110,6 +110,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
         with:
           fail-on-severity: high

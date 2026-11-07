@@ -40,7 +40,7 @@ reviews:
         subprocess, SQL text or YAML/pickle loading.
     - path: ".github/workflows/**"
       instructions: >-
-        Actions pinned to commit SHAs (see .github/zizmor.yml for exceptions),
+        Actions pinned to full commit SHAs (no exceptions, .github/zizmor.yml),
         least-privilege permissions per job, persist-credentials: false, no
         ${{ }} expressions of event data inside run blocks (pass them through env).
     - path: "deploy/**"

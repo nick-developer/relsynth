@@ -32,7 +32,7 @@ Every finding goes to Security > Code scanning (SARIF) and annotates the pull re
 | `codeql` (`codeql.yml`) | CodeQL for Python, GitHub Actions and the UI's JavaScript with the `security-extended` and `security-and-quality` suites ([config](../../.github/codeql/codeql-config.yml); tests are left out) | alerts at or above the severity set in the branch rule |
 | `security / semgrep` | Semgrep rule packs `p/python`, `p/security-audit`, `p/secrets`, `p/dockerfile`, `p/github-actions` | new ERROR findings only (`--baseline-commit`), so older findings are triaged in code scanning |
 | `security / gitleaks` | secrets in the commits of the pull request or push; the whole history on the weekly run ([allowlist](../../.gitleaks.toml): test fixtures and the documented demo credentials) | any secret |
-| `security / zizmor` | workflow security: template injection, unpinned actions, credential persistence, permissions ([policy](../../.github/zizmor.yml)) | high-severity, high-confidence findings |
+| `security / zizmor` | workflow security: template injection, actions not pinned to a commit SHA, credential persistence, permissions ([policy](../../.github/zizmor.yml)) | high-severity, high-confidence findings |
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
 | `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
 

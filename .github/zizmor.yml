@@ -1,10 +1,6 @@
-# zizmor policy (security.yml).  Every action is pinned to a commit SHA except
-# two GitHub-owned ones added with the code-scanning workflows, which are pinned
-# to a major tag until their SHAs are recorded (Dependabot keeps the tags current).
+# zizmor policy (security.yml): every action is pinned to a full commit SHA.
 rules:
   unpinned-uses:
     config:
       policies:
-        "github/codeql-action/*": ref-pin
-        "actions/dependency-review-action": ref-pin
         "*": hash-pin
