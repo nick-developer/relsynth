@@ -113,12 +113,18 @@ def stackexchange_set(cache: Path, sha256: str | None = None, max_questions: int
     comments of both (the document design of a Q&A store)."""
     import py7zr
     last = None
-    for site in SE_SITES:
-        try:
-            arc = fetch(SE_BASE + site + ".7z", cache / "stackexchange" / (site + ".7z"), sha256)
-            break
-        except Exception as e:  # noqa: BLE001
-            last = e
+    for site in SE_SITES:          # the shape limits are calibrated on the first site: say why it was skipped
+        for attempt in range(3):
+            try:
+                arc = fetch(SE_BASE + site + ".7z", cache / "stackexchange" / (site + ".7z"), sha256)
+                break
+            except Exception as e:  # noqa: BLE001
+                last = e
+                print(f"{site}: download attempt {attempt + 1} failed: {type(e).__name__}: {e}", file=sys.stderr)
+                time.sleep(5 * (attempt + 1))
+        else:
+            continue
+        break
     else:
         raise SystemExit(f"no StackExchange archive could be downloaded: {last}")
     out = cache / "stackexchange" / site
