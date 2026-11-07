@@ -36,6 +36,13 @@ def clean(doc: dict) -> list[tuple[str, str, int]]:
     return found
 
 
+def _summary_safe(uri) -> str:
+    """uri for a summary row that `tee` also prints: no line break, no workflow
+    command marker (``::`` or the legacy ``##[``) and no backtick."""
+    text = str(uri).replace("\r", " ").replace("\n", " ").replace("`", "'")
+    return text.replace("::", ":\u200b:").replace("##[", "#\u200b#[")
+
+
 def main(argv: list[str]) -> int:
     """Clean the SARIF file named first; ``--list`` or ``--summary`` prints the remaining results."""
     if not argv or (argv[0] == "-" and len(argv) < 2):
@@ -62,8 +69,7 @@ def main(argv: list[str]) -> int:
         if found:
             print("| rule | path | line |\n|---|---|---|")
             for rule, uri, line in sorted(found, key=lambda f: (f[1], f[2], f[0])):
-                # a file name holding "::" or a line break must not read as a workflow command
-                safe = str(uri).replace("\r", " ").replace("\n", " ").replace("::", ":\u200b:").replace("`", "'")
+                safe = _summary_safe(uri)
                 print(f"| `{rule}` | `{safe}` | {line} |")
     return 0
 

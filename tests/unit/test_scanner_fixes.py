@@ -95,3 +95,17 @@ def test_opener_errors_never_carry_credentials():
     text = f"{e.value} {e.value.filename} {e.value.msg}"
     assert not any(s in text for s in ("pw1", "pw2", "s3", "s4", "/v1/x")), text
     assert "evil.example" in text
+
+
+def test_semgrep_summary_paths_cannot_issue_workflow_commands():
+    """A file name with ::, ##[ or a line break prints as text in the Semgrep summary."""
+    import importlib.util
+    from pathlib import Path
+    p = Path(__file__).parents[2] / ".github" / "scripts" / "sarif_clean.py"
+    spec = importlib.util.spec_from_file_location("sarif_clean", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    for name in ("src/##[error]review-required.py", "src/x::error file=a::b.py", "a\n::error::x.py", "a`b.py"):
+        out = mod._summary_safe(name)
+        assert "::" not in out and "##[" not in out and "\n" not in out and "`" not in out, out
+    assert mod._summary_safe("src/relsynth/app.py") == "src/relsynth/app.py"
