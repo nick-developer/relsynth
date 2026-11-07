@@ -12,4 +12,3 @@ zizmor==1.30.0 \
     --hash=sha256:baa02978518248bf9f011e6ceca7b7c5efb5b893810cd4954e01785e1b68f959 \
     --hash=sha256:ca321b5b1cb85d08ac0c3c86275bfd5a6b5564c176437e3b41e10bd1e4463296 \
     --hash=sha256:e4193537785dd07177227e4695871ffae1d7fe3f6043c217498445e71b477bc1
-    # via -r /tmp/claude-0/-home-user-relsynth/61f5d7a5-3f47-5ea4-ba14-ee43211ba4a1/scratchpad/zz.in

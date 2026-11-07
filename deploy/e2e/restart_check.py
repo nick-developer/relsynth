@@ -54,19 +54,25 @@ def main() -> int:
     # scale grows until the kill lands mid-run
     for scale in (30, 120, 480):
         _, run = erin.call("POST", f"{T}/runs", {"spec_id": spec_id, "scale": scale, "seed": 1})
-        owner = None
+        owner, r = None, {}
         for _ in range(300):
             _, r = erin.call("GET", f"{T}/runs/{run['id']}")
             if r["state"] == "running":
                 owner = r["lease_owner"]
                 break
+            if r["state"] in ("succeeded", "failed", "cancelled"):
+                break                       # finished between two polls
             time.sleep(0.5)
-        check("big run is leased by a worker", owner is not None)
-        time.sleep(1)
-        victim = _kill_owner(a, owner)
-        _, r = erin.call("GET", f"{T}/runs/{run['id']}")
-        if r["state"] == "running" and r["attempts"] == 1:
-            break
+        check("the run did not fail before the kill", r.get("state") not in ("failed", "cancelled"),
+              f"{r.get('state')} {r.get('error')}")
+        if owner is None and r.get("state") != "succeeded":
+            check("big run is leased by a worker", False, f"still {r.get('state')} after 150 s")
+        if owner is not None:
+            time.sleep(1)
+            victim = _kill_owner(a, owner)
+            _, r = erin.call("GET", f"{T}/runs/{run['id']}")
+            if r["state"] == "running" and r["attempts"] == 1:
+                break
         print(f"run {run['id']} at scale {scale} finished before the kill ({r['state']}); retrying larger")
         if a.compose:
             subprocess.run(["docker", "compose", "-f", a.compose, "up", "-d", "worker"], check=True,  # noqa: S603, S607  # nosec B603 B607

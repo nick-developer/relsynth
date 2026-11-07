@@ -12,16 +12,22 @@ import sys
 
 
 def added_suppressions(diff: str) -> list[tuple[str, int]]:
-    """(path, line) of every added line in a unified diff that contains ``nosemgrep``."""
+    """(path, line) of every added line in a unified diff that contains ``# nosemgrep``."""
     out, path, line = [], None, 0
     for raw in diff.splitlines():
         if raw.startswith("+++ "):
-            path = raw[6:] if raw.startswith("+++ b/") else None
+            # the workflow runs git diff with core.quotePath=false and explicit a/ b/ prefixes;
+            # a path with special characters still arrives in C quotes, which are undone here
+            name = raw[4:]
+            if name.startswith('"') and name.endswith('"'):
+                name = name[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape").encode(
+                    "latin-1").decode("utf-8", "replace")
+            path = name[2:] if name.startswith("b/") else None
         elif raw.startswith("@@"):
             plus = raw.split(" ")[2]                     # +start[,count]
             line = int(plus[1:].split(",")[0])
         elif raw.startswith("+") and path is not None:
-            if "nosemgrep" in raw:
+            if "# nosemgrep" in raw:
                 out.append((path, line))
             line += 1
     return out

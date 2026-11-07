@@ -965,7 +965,6 @@ semgrep==1.180.0 \
     --hash=sha256:cba06f64b10e5ec86a0b3a9757cfdfdf3ce6c2bbdb5e98762aa2a4b0a296f8ca \
     --hash=sha256:d19b447b5d49c435dda099fd5f9d96ec7822e98a8ea6df16630f4f0596ed27ed \
     --hash=sha256:f074dcfd6a56095fde32c354af27ef0cce6d15607bef42fa50964dd7042b667d
-    # via -r /tmp/claude-0/-home-user-relsynth/61f5d7a5-3f47-5ea4-ba14-ee43211ba4a1/scratchpad/sg.in
 sse-starlette==3.7.0 \
     --hash=sha256:326416da2ab52e9a41b3f409d3ff897eda45aa68c9f3b7b17d0913aab8d219c3 \
     --hash=sha256:f1d3136caa12d129284fca3d2ded79bc9af943320b6472712955fea52a6d3eea

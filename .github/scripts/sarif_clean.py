@@ -34,6 +34,9 @@ def clean(doc: dict) -> list[tuple[str, str, int]]:
 
 def main(argv: list[str]) -> int:
     """Clean the SARIF file named first; ``--list`` prints the remaining results."""
+    if not argv:
+        print("usage: sarif_clean.py FILE.sarif [--list]", file=sys.stderr)
+        return 2
     path = Path(argv[0])
     if not path.exists():
         return 0
