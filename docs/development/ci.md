@@ -44,6 +44,8 @@ Every finding goes to Security > Code scanning (SARIF) and annotates the pull re
 - **Path instructions** for the service, the DP/privacy/governance code, synthetic text, agents, connectors, specs and generators, the runtime's use of pickle, workflows, images, the Helm chart, tests, dependencies and docs.
 - **Scanners** run by CodeRabbit: ruff, Semgrep with the project rules, gitleaks, Checkov, OSV-Scanner, actionlint, shellcheck, hadolint, yamllint and markdownlint, plus the results of this repository's checks.
 
+The scanners themselves are supply-chain inputs. Semgrep and zizmor install from [`.github/requirements/`](../../.github/requirements/) with `pip install --require-hashes` (every dependency checked against its SHA-256); the gitleaks image is pinned by digest and runs as the runner's user with a read-only root filesystem, a read-only checkout, no capabilities, `no-new-privileges` and no network. Semgrep's SARIF is cleaned by [`.github/scripts/sarif_clean.py`](../../.github/scripts/sarif_clean.py) before upload: suppressed results are dropped and the matched source text is removed, and the pull-request gate prints only rule, path and line, so a secret that `p/secrets` finds is not copied into an artefact or a log.
+
 A `# nosemgrep` comment marks a call site that a project rule flags but that was reviewed (the pickles between processes of one job, the trusted model-file load, quoted SQL); each sits next to the matching `# nosec` reason.
 
 ## The type ratchet

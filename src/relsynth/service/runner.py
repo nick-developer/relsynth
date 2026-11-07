@@ -34,6 +34,9 @@ def source_section(src: dict, has_secret: bool, secret_is_url: bool) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    """Run one job attempt.  The job description is read from stdin (no argument or ``-``);
+    a file path is accepted for local debugging only.  The source secret, if any, comes
+    from the process environment and is never part of the description."""
     raw = sys.stdin.read() if not argv or argv[0] == "-" else Path(argv[0]).read_text(encoding="utf-8")
     job = json.loads(raw)
     out = Path(job["out_dir"])

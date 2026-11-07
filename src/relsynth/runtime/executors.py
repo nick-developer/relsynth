@@ -73,6 +73,7 @@ def _call(arg):
 
 
 def _init_spawned(blob):
+    """Spawned pool worker: unpickle the shared object sent by the parent process of this job."""
     global _SHARED
     _SHARED = pickle.loads(blob)  # noqa: S301  # nosec B301 - written by the parent process  # nosemgrep
 
@@ -123,6 +124,7 @@ _BROADCAST_CACHE: dict[int, Any] = {}
 
 
 def _spark_task(fn, bc):
+    """The Spark task for `fn`: the shared object comes from the broadcast of this job's driver."""
     def run(pair):
         i, item = pair
         key = bc.id if hasattr(bc, "id") else id(bc)
@@ -160,6 +162,7 @@ class SparkExecutor(Executor):
         self.workers = int(workers or spark.sparkContext.defaultParallelism)
 
     def map(self, fn, items, shared=None):
+        """Run `fn` over `items` as Spark tasks; results are pickled by our own tasks only."""
         if not items:
             return []
         sc = self.spark.sparkContext

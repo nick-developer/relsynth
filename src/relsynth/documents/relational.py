@@ -35,6 +35,11 @@ def target_column(lay: Layout, table: str, path: str) -> str:
 
 
 def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
+    """Write the shredded tables to a new SQLite file with every key declared.
+
+    Names come from the documents, so every identifier is quoted with `_q`; values
+    are bound by pandas.  An existing file at `path` is replaced.
+    """
     path = Path(path)
     if path.exists():
         path.unlink()

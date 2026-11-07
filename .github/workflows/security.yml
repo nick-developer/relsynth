@@ -28,9 +28,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SEMGREP_VERSION: "1.180.0"
-  ZIZMOR_VERSION: "1.30.0"
-  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.21.2
+  # v8.21.2, pinned by the digest of its multi-arch index
+  GITLEAKS_IMAGE: zricethezav/gitleaks@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
 
 jobs:
   semgrep:
@@ -44,7 +43,8 @@ jobs:
         with: { persist-credentials: false, fetch-depth: 0 }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install "semgrep==${SEMGREP_VERSION}"
+      # every package, semgrep's dependencies included, checked against its SHA-256
+      - run: pip install --require-hashes --no-deps -r .github/requirements/semgrep.txt
       - name: semgrep (all findings to code scanning)
         run: |
           semgrep scan --metrics=off --sarif -o semgrep.sarif \
@@ -52,25 +52,25 @@ jobs:
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
             --exclude tests --exclude bench/data || true
           # drop findings suppressed in source (# nosemgrep next to a reviewed # nosec reason):
-          # semgrep keeps them in SARIF and code scanning would open alerts for them
-          python - <<'PY'
-          import json, pathlib
-          p = pathlib.Path("semgrep.sarif")
-          if p.exists():
-              d = json.loads(p.read_text())
-              for run in d.get("runs", []):
-                  run["results"] = [r for r in run.get("results", []) if not r.get("suppressions")]
-              p.write_text(json.dumps(d))
-          PY
+          # semgrep keeps them in SARIF and code scanning would open alerts for them.
+          # Strip the matched source text too, so a secret found by p/secrets is not
+          # copied into the uploaded SARIF (code scanning shows the line from the repository)
+          python .github/scripts/sarif_clean.py semgrep.sarif
       - name: semgrep (new ERROR findings fail the pull request)
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          # the findings go to a file and only rule, path and line reach the log,
+          # never the matched text (a p/secrets finding would print the secret)
+          rc=0
           semgrep scan --metrics=off --error --severity ERROR --baseline-commit "$BASE_SHA" \
+            --sarif -o gate.sarif \
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
-            --exclude tests --exclude bench/data
+            --exclude tests --exclude bench/data || rc=$?
+          python .github/scripts/sarif_clean.py gate.sarif --list
+          exit "$rc"
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with: { sarif_file: semgrep.sarif, category: semgrep }
@@ -92,7 +92,10 @@ jobs:
             push) range="$BEFORE..HEAD"; git cat-file -e "$BEFORE" 2>/dev/null || range="HEAD~1..HEAD" ;;
             *) range="" ;;                                   # schedule and manual runs: whole history
           esac
-          docker run --rm -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" git /repo \
+          # least privilege: caller's uid, read-only root and checkout, no capabilities
+          docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --network none -v "$PWD:/repo:ro" -w /repo "$GITLEAKS_IMAGE" git /repo \
             --config /repo/.gitleaks.toml --redact --verbose --exit-code 1 \
             ${range:+--log-opts="$range"}
 
@@ -107,7 +110,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install "zizmor==${ZIZMOR_VERSION}"
+      - run: pip install --require-hashes --no-deps -r .github/requirements/zizmor.txt
       - name: zizmor (report)
         run: zizmor --offline --format sarif .github/workflows > zizmor.sarif || true
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4

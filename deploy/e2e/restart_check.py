@@ -37,6 +37,7 @@ def _kill_owner(a, owner: str) -> str:
 
 
 def main() -> int:
+    """Kill the worker that owns a running run and check that another worker finishes it on attempt 2."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default="http://localhost:8080")
     ap.add_argument("--token-url", default="http://localhost:8081/realms/relsynth/protocol/openid-connect/token")

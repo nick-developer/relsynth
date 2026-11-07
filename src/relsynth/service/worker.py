@@ -118,6 +118,7 @@ class Worker:
 
     # one attempt -------------------------------------------------------------
     def _execute(self, job: dict) -> str:
+        """Run one attempt of `job` in a fresh work folder, then delete the folder; return the final state."""
         tid, rid = job["tenant_id"], job["id"]
         work = Path(self.s.data_dir).resolve() / "work" / tid / f"{rid}-{job['attempts']}"
         shutil.rmtree(work, ignore_errors=True)
@@ -158,6 +159,11 @@ class Worker:
             shutil.rmtree(work, ignore_errors=True)       # plaintext outputs never outlive the attempt
 
     def _payload(self, job: dict, work: Path, env: dict) -> dict:
+        """The job description for the job process, after the tenant and source policy checks.
+
+        The resolved secret goes only into `env`; credential keys are removed from the
+        source section, so the description never carries a credential.
+        """
         tid = job["tenant_id"]
         con = self.store.connection(tid, job["connection_id"]) if job["connection_id"] else None
         spec = self.store.spec(tid, job["spec_id"]) if job["spec_id"] else None
@@ -184,6 +190,8 @@ class Worker:
                 "out_dir": str(work / "out")}
 
     def _spawn(self, job: dict, work: Path, env: dict, payload: str) -> tuple[int, bool, bool, bool]:
+        """Start the job process with rlimits in its own session, send `payload` on its stdin
+        and supervise it (lease, heartbeat, cancel, timeout)."""
         tid, rid = job["tenant_id"], job["id"]
         env["TMPDIR"] = env["TEMP"] = env["TMP"] = str(work)
         # POSIX: own session plus rlimits; Windows (development only): no limits, plain terminate/kill
