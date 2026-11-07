@@ -17,11 +17,12 @@ class OracleConnector(SqlConnector):
         return {"arraysize": 10_000}
 
     def _setup_engine(self, engine):
+        """Fetch CLOB/BLOB columns as str/bytes when the oracledb driver is installed."""
         try:
             import oracledb
             oracledb.defaults.fetch_lobs = False       # CLOB/BLOB as str/bytes, not LOB handles
         except ImportError:
-            pass
+            pass                        # the driver is checked when a connection is made
 
     def after_load(self, con, tbl):
         prep = con.dialect.identifier_preparer

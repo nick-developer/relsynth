@@ -1,0 +1,13 @@
+# Overrides for semgrep's exact pins that carry known vulnerabilities
+# (Dependabot alerts on .github/requirements/semgrep.txt). semgrep 1.184.0 still pins
+# mcp==1.29.0 (CVE-2026-59951, CVE-2026-116684/5/6; fixed in 1.30.0) and the
+# OpenTelemetry family ~=1.37.0 (opentelemetry-api CVE-2026-114603; fixed in 1.45.1).
+# The OpenTelemetry packages move together: api, sdk and exporters share a version,
+# and the instrumentation packages use the matching 0.(minor+21)b0 release.
+# Used by: uv pip compile --override (see the header of semgrep.txt).
+mcp>=1.30.0,<2
+opentelemetry-api>=1.45.1,<1.46
+opentelemetry-sdk>=1.45.1,<1.46
+opentelemetry-exporter-otlp-proto-http>=1.45.1,<1.46
+opentelemetry-instrumentation-requests>=0.66b0,<0.67
+opentelemetry-instrumentation-threading>=0.66b0,<0.67

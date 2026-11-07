@@ -4,6 +4,7 @@ engine receives what its column accepts (an integral float 3.0 for an INTEGER
 column, a timestamp for a DATE column, text for a VARCHAR column)."""
 from __future__ import annotations
 
+import math
 import numpy as np
 import pandas as pd
 import sqlalchemy as sa
@@ -32,6 +33,7 @@ def _kind(ty) -> str:
 
 
 def prepare_frame(df: pd.DataFrame, tbl: sa.Table) -> pd.DataFrame:
+    """df with each column converted to what the target column type accepts."""
     out = {}
     for c in df.columns:
         s = df[c]
@@ -53,12 +55,12 @@ def prepare_frame(df: pd.DataFrame, tbl: sa.Table) -> pd.DataFrame:
         elif k == "datetime" and not pd.api.types.is_datetime64_any_dtype(s):
             out[c] = pd.to_datetime(s, errors="coerce")
         elif k == "bool" and not pd.api.types.is_bool_dtype(s):
-            out[c] = s.map(lambda v: None if v is None or (isinstance(v, float) and v != v) or v is pd.NA
+            out[c] = s.map(lambda v: None if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NA
                            else bool(v) if not isinstance(v, str) else v.strip().lower() in ("1", "true", "t", "yes", "y"))
         elif k == "str" and not (pd.api.types.is_object_dtype(s) or pd.api.types.is_string_dtype(s)):
             if pd.api.types.is_float_dtype(s):
                 v = s.to_numpy(dtype=float)
-                txt = [None if x != x else (str(int(x)) if float(x).is_integer() else repr(float(x))) for x in v]
+                txt = [None if math.isnan(x) else (str(int(x)) if float(x).is_integer() else repr(float(x))) for x in v]
                 out[c] = pd.Series(txt, index=s.index, dtype=object)
             elif pd.api.types.is_datetime64_any_dtype(s):
                 out[c] = s.dt.strftime("%Y-%m-%d %H:%M:%S").where(s.notna(), None)

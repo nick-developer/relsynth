@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from relsynth.service.app import create_app
@@ -242,3 +243,36 @@ def test_openapi_document_is_current(app):
     doc["info"].pop("version")
     live["info"].pop("version")
     assert doc == live
+
+
+@pytest.mark.parametrize("body, reason", [
+    ("_base_dir: /\ntables: {}\n", "internal"),
+    ("synthesis: {settings_file: /etc/relsynth/settings.yaml}\ntables: {}\n", "settings_file"),
+    ("synthesis: {compute: {preset: cpu, file: ../../secrets.yaml}}\ntables: {}\n", "compute.file"),
+    ("synthesis: preset:fast\ntables: {}\n", "mapping"),
+    ("synthesis: {settings_file: 'preset:../../etc/x'}\ntables: {}\n", "settings_file"),
+    ("synthesis: {settings_file: 7}\ntables: {}\n", "settings_file"),
+])
+def test_spec_cannot_name_service_files(client, flow, body, reason):
+    """A tenant's spec may not read files on the service: internal keys and file
+    references are refused when the spec is saved."""
+    pid = flow["project"]["id"]
+    r = client.post(f"{T}/projects/{pid}/specs", json={"name": "x", "body": body}, headers=ENG)
+    assert r.status_code == 422 and reason in r.text, r.text
+
+
+def test_built_in_settings_preset_is_accepted(client, flow):
+    """A built-in settings preset names no file on the service, so it is accepted."""
+    pid = flow["project"]["id"]
+    raw = yaml.safe_load(_ok(client.get(f"{T}/specs/{flow['spec']['id']}", headers=ENG))["body"])
+    raw.setdefault("synthesis", {})["settings_file"] = "preset:fast"
+    r = client.post(f"{T}/projects/{pid}/specs", json={"name": "y", "body": yaml.safe_dump(raw)}, headers=ENG)
+    assert r.status_code == 201, r.text
+
+
+def test_audit_log_lines_cannot_be_forged():
+    """Control characters in a logged value are replaced, so a name with a line
+    break cannot start a forged log record."""
+    from relsynth.service.app import _log_safe
+    assert _log_safe("run\r\nINFO forged") == "run��INFO forged"
+    assert _log_safe("plain-name_1.0") == "plain-name_1.0"

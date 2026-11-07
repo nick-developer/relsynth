@@ -37,6 +37,7 @@ docs/development/benchmarks.md explains the choice.
 """
 from __future__ import annotations
 
+import math
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -73,6 +74,7 @@ def rate(r: dict) -> float:
 
 
 def build(records: list[dict], sources: list[str] | None = None) -> dict:
+    """The regression baseline of bench records: per dataset, pass rates and judged checks over seeds."""
     by_ds: dict = defaultdict(list)
     for r in _runs(records):
         by_ds[r["dataset"]].append(r)
@@ -81,7 +83,7 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
            "machines": sorted({(rec.get("machine") or {}).get("node", "") for rec in records}), "datasets": {}}
     for ds, runs in sorted(by_ds.items()):
         rates = [rate(r) for r in runs]
-        ok = [x for x in rates if x == x]       # a run without verdicts (an error) counts under R3
+        ok = [x for x in rates if not math.isnan(x)]       # a run without verdicts (an error) counts under R3
         n_judged = statistics.median(len(judged(r)) for r in runs) or 1
         sd = statistics.stdev(ok) if len(ok) > 1 else 0.0
         per_check: dict = defaultdict(lambda: {"passed": 0, "judged": 0, "failed_seeds": []})
@@ -94,7 +96,7 @@ def build(records: list[dict], sources: list[str] | None = None) -> dict:
                 else:
                     pc["failed_seeds"].append(r.get("seed"))
         out["datasets"][ds] = {
-            "seeds": [r.get("seed") for r in runs], "pass_rates": [round(x, 6) if x == x else None for x in rates],
+            "seeds": [r.get("seed") for r in runs], "pass_rates": [None if math.isnan(x) else round(x, 6) for x in rates],
             "passed": [sum(c["pass"] for c in judged(r)) for r in runs], "judged": [len(judged(r)) for r in runs],
             "mean": round(statistics.fmean(ok), 6) if ok else None, "sd": round(sd, 6),
             "spread": round(max(2 * sd, 1 / n_judged), 6),

@@ -89,7 +89,6 @@ def view(trial: dict, obj) -> SeedView:
             continue
         con = constraint_of(cid)
         if pats and _match(cid, pats):
-            con = con or "checks"
             v.seen["checks"] = v.seen.get("checks", 0) + 1
             if not ok:
                 v.hard.setdefault("checks", []).append(cid)

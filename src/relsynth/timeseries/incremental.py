@@ -41,7 +41,6 @@ from scipy.special import gammaincc, gammainccinv, gammaincinv, ndtri
 
 from .calendar import from_days, to_days
 
-_M64 = np.uint64(0xFFFFFFFFFFFFFFFF)
 
 
 def _mix(x):

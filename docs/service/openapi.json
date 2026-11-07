@@ -1494,6 +1494,7 @@
     ]
    },
    "post": {
+    "description": "Save a spec in a project.  Refused (422): top-level keys starting with `_`, a non-null\n`synthesis.settings_file` other than a built-in `preset:NAME`, and a non-null `synthesis.compute.file`.",
     "operationId": "create_spec_api_v1_t__tenant__projects__pid__specs_post",
     "parameters": [
      {

@@ -207,7 +207,7 @@ def to_extjson_value(v: Any, *, relaxed: bool = False) -> Any:
     if t == "double":
         f = float(v)
         if not math.isfinite(f):
-            return {"$numberDouble": "NaN" if f != f else ("Infinity" if f > 0 else "-Infinity")}
+            return {"$numberDouble": "NaN" if math.isnan(f) else ("Infinity" if f > 0 else "-Infinity")}
         return f if relaxed else {"$numberDouble": repr(f)}
     if t == "decimal":
         return {"$numberDecimal": str(v)}
@@ -292,14 +292,14 @@ OID_PREFIX = "oid:"
 
 def from_cell(v: Any, t: str, decimals: int | None = None) -> Any:
     """A synthetic cell back as a document value of type `t`."""
-    if v is None or (isinstance(v, float) and v != v):
+    if v is None or (isinstance(v, float) and math.isnan(v)):
         return None
     try:
         import pandas as pd
         if v is pd.NaT or (not isinstance(v, (str, bytes, list, dict)) and pd.isna(v)):
             return None
     except (TypeError, ValueError, ImportError):
-        pass
+        pass                            # not a scalar pandas can test: not missing
     if t == "date":
         import pandas as pd
         ts = pd.Timestamp(v)

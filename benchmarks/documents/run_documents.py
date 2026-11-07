@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Document acceptance runs (T13): MongoDB sample datasets and a StackExchange dump.
 
+    pip install "relsynth[documents,bench]"     # bench: defusedxml for the XML dump
     python benchmarks/documents/run_documents.py --out docs-out [--mongo-url mongodb://localhost:27017]
            [--sets supplies,analytics,mflix,training,weather,geospatial,airbnb,stackexchange]
 
@@ -27,10 +28,11 @@ import json
 import sys
 import time
 import traceback
-import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import defusedxml.ElementTree as ET  # data dumps from the internet: no entity expansion
+
+from relsynth._http import urlopen
 from relsynth.documents import DocumentSynthesizer
 from relsynth.documents.values import read_json_documents
 
@@ -60,9 +62,10 @@ SE_BASE = "https://archive.org/download/stackexchange/"
 
 
 def fetch(url: str, dest: Path, sha256: str | None = None) -> Path:
+    """Download url to dest once (http(s) only), checking its SHA-256 when given."""
     if not dest.exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(url, timeout=300) as r, open(dest.with_suffix(".part"), "wb") as f:  # noqa: S310
+        with urlopen(url, timeout=300) as r, open(dest.with_suffix(".part"), "wb") as f:
             while True:
                 b = r.read(1 << 20)
                 if not b:
@@ -91,7 +94,8 @@ def mongo_set(name: str, cache: Path) -> dict[str, list[dict]]:
 
 # ---------------------------------------------------------------- StackExchange
 def _xml_rows(path: Path):
-    for _, el in ET.iterparse(path, events=("end",)):     # noqa: S314 (public data dump)
+    """The attributes of each <row> element of a StackExchange dump, streamed."""
+    for _, el in ET.iterparse(path, events=("end",)):
         if el.tag == "row":
             yield dict(el.attrib)
             el.clear()
@@ -109,12 +113,18 @@ def stackexchange_set(cache: Path, sha256: str | None = None, max_questions: int
     comments of both (the document design of a Q&A store)."""
     import py7zr
     last = None
-    for site in SE_SITES:
-        try:
-            arc = fetch(SE_BASE + site + ".7z", cache / "stackexchange" / (site + ".7z"), sha256)
-            break
-        except Exception as e:  # noqa: BLE001
-            last = e
+    for site in SE_SITES:          # the shape limits are calibrated on the first site: say why it was skipped
+        for attempt in range(3):
+            try:
+                arc = fetch(SE_BASE + site + ".7z", cache / "stackexchange" / (site + ".7z"), sha256)
+                break
+            except Exception as e:  # noqa: BLE001
+                last = e
+                print(f"{site}: download attempt {attempt + 1} failed: {type(e).__name__}: {e}", file=sys.stderr)
+                time.sleep(5 * (attempt + 1))
+        else:
+            continue
+        break
     else:
         raise SystemExit(f"no StackExchange archive could be downloaded: {last}")
     out = cache / "stackexchange" / site

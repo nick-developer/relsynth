@@ -30,7 +30,7 @@ from .artifacts import Artifacts
 from .auth import PERMISSIONS, TENANT_RE, Authenticator, AuthError, Forbidden, Principal
 from .config import Settings
 from .crypto import KeyWrapper
-from .policy import SourceRefused, check_source
+from .policy import SourceRefused, check_source, spec_refusals
 from .store import Store
 from .telemetry import METRICS, setup_logging, setup_tracing, span
 
@@ -105,6 +105,7 @@ class DecisionsIn(BaseModel):
 
 # ------------------------------------------------------------------ app
 def create_app(settings: Settings | None = None, store: Store | None = None) -> FastAPI:
+    """The FastAPI application of the service, after checking its settings."""
     s = settings or Settings.load()
     errs = s.check()
     if errs:
@@ -190,9 +191,15 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
             raise Forbidden(f"{perm} needs one of the roles {sorted(PERMISSIONS[perm])}")
 
     def audit(p: Principal, tenant: str, action: str, target: str = "", outcome: str = "ok", **detail) -> None:
+        """Record an action in the tenant's audit trail and the service log.
+
+        The audit trail keeps the values as given; the log gets them with control
+        characters replaced, because a target can be a name a tenant chose and a
+        line break in it would forge a log record."""
         st.append_audit(tenant, p.id, action, target, outcome, detail)
-        log.info(action, extra={"tenant": tenant, "actor": p.id, "action": action, "target": target,
-                                "outcome": outcome})
+        log.info(_log_safe(action), extra={"tenant": _log_safe(tenant), "actor": _log_safe(p.id),
+                                           "action": _log_safe(action), "target": _log_safe(target),
+                                           "outcome": _log_safe(outcome)})
 
     def get_or_404(row, what="not found"):
         if row is None:
@@ -331,6 +338,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
 
     @app.post(T + "/projects/{pid}/specs", tags=["specs"], status_code=201)
     def create_spec(pid: str, body: SpecIn, tenant: str = Depends(tenant_of), p: Principal = Depends(principal)):
+        """Save a spec in a project.  Refused (422): top-level keys starting with `_`, a non-null
+        `synthesis.settings_file` other than a built-in `preset:NAME`, and a non-null `synthesis.compute.file`."""
         need(p, tenant, "spec:write")
         get_or_404(st.project(tenant, pid), "project not found")
         if body.connection_id:
@@ -344,6 +353,9 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
         if "source" in raw or "target" in raw:
             raise HTTPException(422, "remove source and target: the service takes them from the connection "
                                      "and its own storage")
+        refused = spec_refusals(raw)
+        if refused:
+            raise HTTPException(422, "; ".join(refused))
         row = st.add_spec(tenant, pid, body.name, body.body, list(raw.get("review") or []), body.connection_id, p.id)
         audit(p, tenant, "spec.saved", row["id"], name=body.name, version=row["version"])
         return row | {"errors": _spec_errors(raw)}
@@ -631,6 +643,14 @@ def _agent_cfg(s: Settings) -> dict | str:
     if s.agent_api_key_env:
         cfg["api_key_env"] = s.agent_api_key_env
     return cfg
+
+
+def _log_safe(v: object) -> str:
+    """v as one log-safe line: control characters (CR, LF, ...) become U+FFFD."""
+    printable = "".join(c if c.isprintable() else "\ufffd" for c in str(v))
+    # CR and LF are already gone; the explicit replace marks the value as
+    # sanitised for log-injection scanners that look for it
+    return printable.replace("\r", "\ufffd").replace("\n", "\ufffd")
 
 
 def _safe_id(v: str) -> bool:

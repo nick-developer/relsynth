@@ -39,7 +39,6 @@ Engine differences handled here:
 """
 from __future__ import annotations
 
-import logging
 
 import sqlalchemy as sa
 
@@ -47,7 +46,6 @@ from .sql import frame_records
 from .sqlfuncs import row_hash
 from .warehouse import WarehouseConnector, resolve_auth
 
-log = logging.getLogger("relsynth.connectors")
 
 # rows of one multi-row INSERT are capped by the statement's size: Snowflake
 # refuses statements over 1 MB of text, and a long statement can outlast the

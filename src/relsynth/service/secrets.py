@@ -23,6 +23,8 @@ import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
 
+from .._http import urlopen
+
 SCHEMES = ("env", "file", "vault", "aws-sm", "azure-kv", "gcp-sm")
 
 
@@ -85,6 +87,7 @@ def _vault_token() -> str:
 
 
 def _vault_call(path: str, token: str | None, body: dict | None = None) -> dict:
+    """Call the Vault HTTP API at VAULT_ADDR and return its JSON answer."""
     addr = os.environ.get("VAULT_ADDR")
     if not addr or not addr.startswith(("https://", "http://")):
         raise SecretError("VAULT_ADDR must be an http(s) URL")
@@ -94,7 +97,7 @@ def _vault_call(path: str, token: str | None, body: dict | None = None) -> dict:
     ns = os.environ.get("VAULT_NAMESPACE")
     if ns:
         req.add_header("X-Vault-Namespace", ns)
-    with urllib.request.urlopen(req, timeout=10) as r:  # noqa: S310  # nosec B310 (scheme checked above)
+    with urlopen(req, timeout=10) as r:
         return json.loads(r.read())
 
 

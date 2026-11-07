@@ -40,36 +40,37 @@ mssql-pymssql = ["pymssql>=2.2.8"]
 oracle = ["oracledb>=2.0"]
 mysql = ["pymysql>=1.1.1"]
 databricks = ["databricks-sqlalchemy>=2.0.5", "databricks-sql-connector>=4.0", "databricks-sdk>=0.30"]
-fabric = ["pyodbc>=5.0", "azure-identity>=1.15", "azure-storage-file-datalake>=12.14"]
+fabric = ["pyodbc>=5.0", "azure-identity>=1.16.1", "azure-storage-file-datalake>=12.14"]
 bigquery = ["sqlalchemy-bigquery>=1.11", "google-cloud-bigquery[pandas]>=3.20"]
-snowflake = ["snowflake-sqlalchemy>=1.7", "snowflake-connector-python[pandas]>=3.12"]
-parquet = ["pyarrow>=14"]
-iceberg = ["pyiceberg[sql-sqlite,pyarrow,pyiceberg-core]>=0.10", "pyarrow>=14"]
-delta = ["deltalake>=1.0", "pyarrow>=14"]
+snowflake = ["snowflake-sqlalchemy>=1.11", "snowflake-connector-python[pandas]>=4.7.3"]
+parquet = ["pyarrow>=17"]
+iceberg = ["pyiceberg[sql-sqlite,pyarrow,pyiceberg-core]>=0.10", "pyarrow>=17"]
+delta = ["deltalake>=1.0", "pyarrow>=17"]
 speed = ["numba>=0.59"]
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
 # the service: REST API, workers, OIDC, encryption at rest (docs/service/README.md)
-service = ["fastapi>=0.110", "uvicorn>=0.29", "PyJWT[crypto]>=2.8", "cryptography>=42"]
-service-otel = ["relsynth[service]", "opentelemetry-sdk>=1.24", "opentelemetry-exporter-otlp-proto-http>=1.24"]
-gov = ["cryptography>=42", "jsonschema>=4.18"]   # signed manifests, registry, policy (relsynth gov)
+service = ["fastapi>=0.110", "uvicorn>=0.29", "PyJWT[crypto]>=2.15", "cryptography>=49"]
+service-otel = ["relsynth[service]", "opentelemetry-sdk>=1.45.1", "opentelemetry-exporter-otlp-proto-http>=1.45.1"]
+gov = ["cryptography>=49", "jsonschema>=4.18"]   # signed manifests, registry, policy (relsynth gov)
 dp = ["opendp>=0.12,<0.17"]                         # differential privacy mode (relsynth run --dp; MIT)
 # document stores (relsynth docs): MongoDB / Cosmos DB for MongoDB, Cosmos DB for NoSQL, DynamoDB
-documents = ["pymongo>=4.6", "azure-cosmos>=4.5", "boto3>=1.34"]
-couchbase = ["couchbase>=4.1"]
+documents = ["pymongo>=4.18.3", "azure-cosmos>=4.5", "boto3>=1.34"]
+couchbase = ["couchbase>=4.6"]
 # synthetic text with local language models (docs/text.md); weights are never bundled
-text-lm = ["torch>=2.2", "transformers>=4.44", "peft>=0.12"]
+text-lm = ["torch>=2.13", "transformers>=5.10", "peft>=0.12"]
 # PII recognizers beyond the built-in regex (Presidio and spaCy MIT, GLiNER Apache-2.0); models are local folders
 text-pii = ["presidio-analyzer>=2.2", "spacy>=3.7", "gliner>=0.2"]
 all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet,iceberg,delta]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
-bench = ["py7zr>=0.21"]
+bench = ["py7zr>=1.1.3", "defusedxml>=0.7.1"]   # defusedxml (PSF-2.0): the XML of junit files and data dumps
 dev = [
     "relsynth[all,ir,gov,dp,service,documents]",
     "mongomock>=4.1",                        # document connector unit tests
+    "defusedxml>=0.7.1",                     # bench/runner.py (the bench tests import it)
     "moto[dynamodb]>=5.0",
     "httpx>=0.27",                           # FastAPI's test client
-    "pytest>=8",
+    "pytest>=9.0.3",
     "pytest-cov>=5",
     "hypothesis>=6.100",
     "jsonschema>=4.18",

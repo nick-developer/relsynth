@@ -400,7 +400,6 @@ def write_tables(spec, tables: dict[str, pd.DataFrame], target=None, source_conn
                 src = None
             if not isinstance(src, SqlConnector):
                 if structure == "clone":
-                    import logging
                     logging.getLogger("relsynth").warning(
                         "target.structure clone needs a database source; creating the tables from the specification")
                 src = None

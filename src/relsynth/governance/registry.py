@@ -22,6 +22,7 @@ import contextlib
 import json
 import os
 import secrets as _secrets
+import stat
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -74,13 +75,26 @@ def chain_hash(prev: str, entry: dict) -> str:
 class Registry(Protocol):
     """What the governance layer needs from a registry backend."""
 
-    def put_blob(self, data: bytes) -> str: ...
-    def get_blob(self, digest: str) -> bytes: ...
-    def append(self, entry: dict) -> int: ...
-    def head(self) -> tuple[int, str]: ...
-    def entries(self, type_prefix: str | None = None) -> Iterator[dict]: ...
-    def locked(self): ...
-    def secret(self, name: str, create: bool = True) -> bytes: ...
+    def put_blob(self, data: bytes) -> str:
+        """Store bytes by content; return their digest."""
+
+    def get_blob(self, digest: str) -> bytes:
+        """The bytes stored under `digest`."""
+
+    def append(self, entry: dict) -> int:
+        """Append an entry to the hash chain; return its sequence number."""
+
+    def head(self) -> tuple[int, str]:
+        """(sequence number, hash) of the last entry."""
+
+    def entries(self, type_prefix: str | None = None) -> Iterator[dict]:
+        """The entries in order, optionally only those whose type starts with `type_prefix`."""
+
+    def locked(self):
+        """A context manager that holds the registry's write lock."""
+
+    def secret(self, name: str, create: bool = True) -> bytes:
+        """The registry's named secret key, created on first use when `create`."""
 
 
 class LocalRegistry:
@@ -104,7 +118,7 @@ class LocalRegistry:
             raise GovernanceError(f"{r} already holds a registry")
         for d in ("objects/sha256", "checkpoints", "keys", "secrets"):
             (r / d).mkdir(parents=True, exist_ok=True)
-        os.chmod(r / "secrets", 0o700)
+        os.chmod(r / "secrets", stat.S_IRWXU)       # owner only (0o700)
         cfg = {"schema": "relsynth.registry/1", "id": str(uuid.uuid4()), "created": now(),
                "root_key": {"id": owner.id, "name": owner.name, "public": owner.public.to_text(), "role": owner_role}}
         (r / "config.json").write_text(json.dumps(cfg, indent=1) + "\n", encoding="utf-8")

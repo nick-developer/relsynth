@@ -33,6 +33,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping
 
+import math
 import pandas as pd
 
 from .infer import FULL_PRECISION, CollectionProfile, Node
@@ -605,7 +606,8 @@ def _match_presence(lay, tl: TableLayout, groups: dict, frames, seed) -> dict:
 
 
 def _sort_key(v):
-    if v is None or (isinstance(v, float) and v != v):
+    """A sort key that orders missing values last and numbers before strings."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
         return (1, "")
     return (0, float(v)) if isinstance(v, (int, float)) else (0, str(v))
 
@@ -628,6 +630,7 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
     cols = {c.name: c for c in tl.columns}
 
     def value_at(path: list[str]):
+        """The value of the document at `path`, or _ABSENT."""
         key = ".".join(path)
         info = shapes.get(key)
         if info is None:
@@ -641,7 +644,7 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
         state = None
         if "tag" in info:
             state = r.get(info["tag"])
-            if state is None or (isinstance(state, float) and state != state):
+            if state is None or (isinstance(state, float) and math.isnan(state)):
                 state = "absent" if info["optional"] else (info["types"][0] if info["types"] else "null")
             if state == "absent":
                 return _ABSENT

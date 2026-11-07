@@ -11,7 +11,6 @@ kept small (minutes in total), so rate targets carry Monte Carlo slack.
 """
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 import time
@@ -53,11 +52,12 @@ _CH = {}
 
 
 def _chinook():
+    """The Chinook spec and tables, loaded once."""
     if "spec" not in _CH:
         import yaml
         from relsynth.data import load_tables
         from relsynth.spec import load_spec
-        raw = yaml.safe_load(open(ROOT / "realdata/chinook/spec.yaml"))
+        raw = yaml.safe_load((ROOT / "realdata/chinook/spec.yaml").read_text())
         raw["source"] = {"kind": "sqlite", "path": CHINOOK}
         spec = load_spec(raw)
         _CH["spec"], _CH["tables"] = spec, load_tables(spec)

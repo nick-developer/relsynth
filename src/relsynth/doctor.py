@@ -333,7 +333,6 @@ def diagnose(bundle) -> list[Issue]:
                                  {"path": "synthesis.copula.grid", "value": max(_syn(spec, "copula.grid", 64) // 2, 16)},
                                  {"path": "synthesis.marginals.dirichlet_prior", "value": _syn(spec, "marginals.dirichlet_prior", 1.0) * 4}]))
         elif metric == "unique_duplicate_rate":
-            t_ = area.split(":")[0]
             issues.append(Issue("D18", "error", "engine", area,
                                 "A declared unique key is broken in the synthetic data. Keys over two foreign keys, a "
                                 "fact's (anchor, partner) pair and filtered keys on facts are enforced; check that the "

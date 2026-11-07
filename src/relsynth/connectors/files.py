@@ -10,6 +10,7 @@ the whole table in memory.
 """
 from __future__ import annotations
 
+import math
 import logging
 from pathlib import Path
 
@@ -49,7 +50,7 @@ def parquet_frame(df: pd.DataFrame, tspec: dict | None = None) -> pd.DataFrame:
         if pd.api.types.is_object_dtype(out[c]) and c not in bincols:
             v = out[c].dropna()
             if len(v) and not v.map(lambda x: isinstance(x, str)).all():
-                out[c] = out[c].map(lambda x: None if x is None or (isinstance(x, float) and x != x) else str(x))
+                out[c] = out[c].map(lambda x: None if x is None or (isinstance(x, float) and math.isnan(x)) else str(x))
     return out
 
 

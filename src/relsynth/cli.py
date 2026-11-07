@@ -713,14 +713,19 @@ def cmd_generators(a, out):
 
 
 def cmd_compute(a, out):
+    """`relsynth compute`: the presets, the GPUs found and the plan for each GPU need."""
     from .compute import detect_gpus, presets, resolve
-    settings = {"preset": a.preset, "file": a.file}
+    # the user typed the file, so its own folder is the trusted root
+    file = os.path.realpath(a.file) if a.file else None
+    base = os.path.dirname(file) if file else None
+    settings = {"preset": a.preset, "file": file}
     found = detect_gpus()
-    out.put(presets=presets(a.file), gpus=found)
+    out.put(presets=presets(file, base), gpus=found)
     plans = {}
     for need in ("never", "optional", "required"):
         try:
-            plans[need] = resolve(settings, need, who=f"a generator with gpu: {need}", gpus=found).to_dict()
+            plans[need] = resolve(settings, need, who=f"a generator with gpu: {need}", base_dir=base,
+                                  gpus=found).to_dict()
         except ValueError as e:
             plans[need] = {"error": str(e)}
     out.put(plans=plans)

@@ -180,8 +180,8 @@ def render(res) -> str:
           f"| tuned | {J['hard_violations']} | {J['excess_failures']} | {J['failures']} | "
           f"{J['min_scorecard_pass_rate']} |", ""]
     L += ["## Hard constraints", "",
-          "A constraint is met when none of its checks fails on any seed. The bound is the 95% upper credible "
-          "bound of the violation rate given the seeds run (0 of n gives about 3/n).", "",
+          ("A constraint is met when none of its checks fails on any seed. The bound is the 95% upper credible "
+           "bound of the violation rate given the seeds run (0 of n gives about 3/n)."), "",
           "| Constraint | Met | Seeds violated | Rate bound (95%) | Seeds for a 5% / 1% bound | Reason |",
           "|---|---|---|---|---|---|"]
     for c, o in an["constraints"].items():
@@ -202,9 +202,9 @@ def render(res) -> str:
             L += [f"  conflicts: {'; '.join(o['conflicts'])}"]
     if an["undecided"]:
         L += ["", "### Undecided privacy checks", "",
-              "These checks' estimates are under their limits but their confidence intervals reach above them. No "
-              "generator setting narrows an interval; more attack and control rows do, or the population is too "
-              "small to decide.", ""] + [f"- `{x}`" for x in an["undecided"]]
+              ("These checks' estimates are under their limits but their confidence intervals reach above them. No "
+               "generator setting narrows an interval; more attack and control rows do, or the population is too "
+               "small to decide."), ""] + [f"- `{x}`" for x in an["undecided"]]
     L += ["", "## Statistical families", "",
           f"Calibrated targets (user decision of 2026-10-31): a family is met when its failures on each seed are at "
           f"most the {obj['null_quantile']} quantile of its null count. For a perfect model the expected number of "

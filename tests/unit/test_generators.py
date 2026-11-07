@@ -328,6 +328,7 @@ def test_compute_presets_and_resolution(monkeypatch):
 
 
 def test_compute_validation_and_user_file(tmp_path):
+    """Compute settings are validated and a user compute file is confined to its folder."""
     assert validate_compute({"preset": "gpu-auto", "overrides": {"precision": "fp8"}})
     assert validate_compute({"preset": "nope"})
     assert validate_compute({"preset": "cpu", "overrides": {"memory_limit": "lots"}})
@@ -335,7 +336,9 @@ def test_compute_validation_and_user_file(tmp_path):
     assert validate_compute({"preset": "cpu", "overrides": {"colour": "red"}})
     f = tmp_path / "compute.yaml"
     f.write_text("presets:\n  lab-a100:\n    device: gpu\n    gpus: 2\n    precision: bf16\n")
-    assert validate_compute({"preset": "lab-a100", "file": str(f)}) == []
+    # a spec without a folder may only name files below the working directory
+    assert any("outside" in e for e in validate_compute({"preset": "lab-a100", "file": str(f)}))
+    assert validate_compute({"preset": "lab-a100", "file": "compute.yaml"}, tmp_path) == []
     p = resolve({"preset": "lab-a100", "file": "compute.yaml"}, "optional", base_dir=tmp_path, gpus={"cuda": [0, 1]})
     assert p.device_ids == [0, 1] and p.precision == "bf16" and p.preset == "lab-a100"
 
@@ -466,3 +469,69 @@ def test_version_specifier_parse_is_linear():
     for odd in (">=\u00b2", "==1.\u2460", "==\u0661.0"):    # superscript, circled and Arabic-Indic digits
         with pytest.raises(GeneratorError):
             version_matches("1.0", odd)
+
+
+def test_cli_compute_file_in_a_subfolder(tmp_path, monkeypatch, capsys):
+    """`relsynth compute --file sub/compute.yaml` reads that file (the folder is not doubled)."""
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs" / "compute.yaml").write_text("presets:\n  lab:\n    device: cpu\n    threads: 3\n")
+    monkeypatch.chdir(tmp_path)
+    assert cli_main(["compute", "--preset", "lab", "--file", "configs/compute.yaml", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["presets"]["lab"]["threads"] == 3
+
+
+def test_cli_compute_file_through_a_symlink(tmp_path, monkeypatch, capsys):
+    """A --file path through a symlinked folder and `..` selects the file the operating system
+    opens: POSIX follows the link before `..` (real/configs), Windows applies `..` to the
+    path first (work/configs).  Both candidates exist, with different thread counts."""
+    import os
+    real = tmp_path / "real" / "configs"
+    real.mkdir(parents=True)
+    (real / "compute.yaml").write_text("presets:\n  lab:\n    device: cpu\n    threads: 5\n")
+    (tmp_path / "work" / "configs").mkdir(parents=True)
+    (tmp_path / "work" / "configs" / "compute.yaml").write_text("presets:\n  lab:\n    device: cpu\n    threads: 7\n")
+    try:
+        (tmp_path / "work" / "link").symlink_to(real, target_is_directory=True)
+    except OSError as e:                # Windows without the symlink privilege
+        pytest.skip(f"cannot create a symlink here: {e}")
+    monkeypatch.chdir(tmp_path / "work")
+    rel = os.path.join("link", "..", "configs", "compute.yaml")
+    with open(rel) as fh:               # what the operating system opens for this path
+        want = 5 if "threads: 5" in fh.read() else 7
+    assert want == (7 if os.name == "nt" else 5)
+    assert cli_main(["compute", "--preset", "lab", "--file", rel, "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["presets"]["lab"]["threads"] == want
+
+
+def test_compute_file_confinement_at_the_filesystem_root(tmp_path):
+    """With the filesystem root as the folder, a YAML file below it is accepted (the
+    containment check does not build a doubled separator such as `//`)."""
+    import os
+
+    from relsynth.compute import ComputeError, _compute_file
+    target = tmp_path / "compute.yaml"
+    target.write_text("presets: {}\n")
+    root = os.path.realpath(target).split(os.sep)[0] + os.sep   # "/" or the drive, e.g. "C:\\"
+    assert _compute_file(str(target), base_dir=root) == os.path.realpath(target)
+    assert _compute_file(os.path.relpath(target, root), base_dir=root) == os.path.realpath(target)
+    with pytest.raises(ComputeError, match="outside"):
+        _compute_file(str(target), base_dir=str(tmp_path / "elsewhere"))
+
+
+def test_compute_file_on_another_drive_is_outside(tmp_path, monkeypatch):
+    """On Windows, os.path.commonpath raises for paths on different drives: that file is
+    reported as outside the folder, not as a crash."""
+    import os
+
+    from relsynth import compute
+    from relsynth.compute import ComputeError, _compute_file
+    target = tmp_path / "compute.yaml"
+    target.write_text("presets: {}\n")
+
+    def other_drive(paths):
+        raise ValueError("Paths don't have the same drive")
+    monkeypatch.setattr(compute.os.path, "commonpath", other_drive)
+    with pytest.raises(ComputeError, match="outside"):
+        _compute_file(str(target), base_dir=os.fspath(tmp_path / "elsewhere"))

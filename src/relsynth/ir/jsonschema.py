@@ -113,7 +113,8 @@ def schema_text() -> str:
 def validate_json(doc: dict) -> list[str]:
     """Errors of a parsed document against the JSON Schema (needs the jsonschema
     package: pip install "relsynth[ir]"); [] when it is valid."""
-    import jsonschema
+    import importlib
+    jsonschema = importlib.import_module("jsonschema")   # the package, not this module of the same name
     v = jsonschema.Draft202012Validator(json_schema())
     return [f"{'/'.join(map(str, e.absolute_path)) or '(root)'}: {e.message}"
             for e in sorted(v.iter_errors(doc), key=lambda e: list(map(str, e.absolute_path)))]

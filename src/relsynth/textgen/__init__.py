@@ -32,7 +32,6 @@ from ..spec import SpecError
 
 METHODS = ("ngram", "lm", "pe")
 NEW_KEYS = {"method", "dp", "pii", "lm", "pe"}
-DP_KEYS = {"epsilon", "rho", "delta", "unit_column", "max_texts", "max_tokens", "max_keys", "clip", "selection_delta_share"}
 
 
 def is_extended(o: dict) -> bool:
@@ -105,11 +104,13 @@ class TextColumn:
             self.pii = PiiPipeline(rec)
 
     def fit(self, df, seg=None):
+        """Fit the text model of this column on df (with PII redaction and DP when set)."""
         texts = df[self.column].tolist()
         if self.pii is not None:
             texts, counts = self.pii.redact_all(texts)
             self.info["pii"] = {"recognizers": self.pii.names, "redacted": counts}
         d = self.o.get("dp")
+        rho = d_sel = delta = owners = acct = None      # set below when the column is DP
         if d:
             from ..dp.mechanisms import Accountant
             rho, d_sel, delta = dp_budget(d)

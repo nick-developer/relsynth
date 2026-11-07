@@ -3,12 +3,6 @@ src/relsynth/api.py: [attr-defined] "Connector" has no attribute "schema"
 src/relsynth/api.py: [union-attr] Item "None" of "Synthesizer | None" has no attribute "sample_log"
 src/relsynth/cli.py: [attr-defined] "StreamHandler[TextIO | Any]" has no attribute "_relsynth"
 src/relsynth/connectors/ddl.py: [arg-type] Argument "primary_key" to "Column" has incompatible type "Any | numpy.bool[builtins.bool] | builtins.bool"; expected "builtins.bool"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "FetchedValue | str | TextClause | ColumnElement[Any] | None"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "Literal['auto', 'ignore_fk'] | bool"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "bool"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "dict[Any, Any] | None"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "str | None"
-src/relsynth/connectors/ddl.py: [arg-type] Argument 4 to "Column" has incompatible type "**dict[str, bool | None]"; expected "type[TypeEngine[Any]] | TypeEngine[Any] | None"
 src/relsynth/connectors/ddl.py: [operator] Unsupported operand types for < ("int" and "None")
 src/relsynth/connectors/ddl.py: [operator] Unsupported operand types for >= ("int" and "None")
 src/relsynth/connectors/sql.py: [index] Invalid index type "str | None" for "ReadOnlyColumnCollection[str, Column[Any]]"; expected type "str | int"

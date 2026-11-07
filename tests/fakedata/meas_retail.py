@@ -61,7 +61,8 @@ def measures(d, truth):
 
 if __name__ == "__main__":
     tables, spec, truth = S.retail_dw()
-    out = pickle.load(open(sys.argv[1], "rb"))
+    with open(sys.argv[1], "rb") as fh:
+        out = pickle.load(fh)  # noqa: S301  # nosemgrep  # a file this test suite wrote itself
     mr, ms = measures(tables, truth), measures(out, truth)
     for k in mr:
         print(f"{k:50s} {mr[k]}  |  {ms[k]}")

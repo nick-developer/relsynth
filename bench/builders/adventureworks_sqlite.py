@@ -10,6 +10,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from sqlite_ddl import create_table, insert_rows
+
 src, out = Path(sys.argv[1]), Path(sys.argv[2])
 ddl = (src / "instawdbdw.sql").read_text(encoding="utf-8-sig", errors="replace")
 
@@ -55,17 +57,12 @@ if out.exists():
     out.unlink()
 con = sqlite3.connect(out)
 for t, d in tables.items():
-    parts = [f'"{c}" {ty}' + (" NOT NULL" if nn else "") for c, ty, nn, _ in d["cols"]]
-    if d["pk"]:
-        parts.append("PRIMARY KEY (" + ", ".join(f'"{c}"' for c in d["pk"]) + ")")
-    for u in d["uq"]:
-        parts.append("UNIQUE (" + ", ".join(f'"{c}"' for c in u) + ")")
-    for a, p, b in d["fk"]:
-        parts.append("FOREIGN KEY (" + ", ".join(f'"{c}"' for c in a) + f') REFERENCES "{p}" (' + ", ".join(f'"{c}"' for c in b) + ")")
-    con.execute(f'CREATE TABLE "{t}" (\n  ' + ",\n  ".join(parts) + "\n)")
+    create_table(con, t, [(c, ty, nn) for c, ty, nn, _ in d["cols"]], primary_key=d["pk"] or (),
+                 foreign_keys=d["fk"], unique=d["uq"])
 
 
 def conv(v, ty, raw):
+    """A CSV field as the Python value of SQLite type ty (empty is NULL)."""
     if v == "":
         return None
     if ty == "INTEGER":
@@ -96,7 +93,7 @@ for t, d in tables.items():
         if len(v) != n:          # tolerate a trailing separator
             v = (v + [""] * n)[:n]
         rows.append([conv(x, ty, raw) for x, (_, ty, _, raw) in zip(v, d["cols"])])
-    con.executemany(f'INSERT INTO "{t}" VALUES ({",".join("?" * n)})', rows)
+    insert_rows(con, t, [c for c, _, _, _ in d["cols"]], rows)
     print(f"{t:48s} {len(rows):8d} pk={d['pk']} fks={len(d['fk'])}")
 con.commit()
 print("fk check violations:", con.execute("PRAGMA foreign_key_check").fetchall()[:5])

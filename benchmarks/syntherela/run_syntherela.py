@@ -23,11 +23,12 @@ import argparse
 import io
 import json
 import time
-import urllib.request
 import zipfile
 from pathlib import Path
 
 import pandas as pd
+
+from relsynth._http import urlopen
 
 BUCKET = "https://sdv-datasets-public.s3.amazonaws.com/multi_table/{name}/{file}"
 DATASETS = {"Biodegradability": "Biodegradability", "CORA": "CORA", "IMDB": "imdb_MovieLens"}
@@ -36,13 +37,14 @@ CATEGORICAL = {("content", "word_cited_id")}
 
 
 def download(root: Path, name: str) -> Path:
+    """The folder of SyntheRela dataset `name` under root, downloaded once."""
     d = root / name
     if (d / "metadata.json").exists():
         return d
     d.mkdir(parents=True, exist_ok=True)
     for f in ("metadata.json", "data.zip"):
         url = BUCKET.format(name=name, file=f)
-        with urllib.request.urlopen(url, timeout=300) as r:  # noqa: S310  # nosec B310 - fixed https URL
+        with urlopen(url, timeout=300) as r:
             blob = r.read()
         if f.endswith(".zip"):
             with zipfile.ZipFile(io.BytesIO(blob)) as z:

@@ -35,7 +35,6 @@ Engine differences handled here:
 """
 from __future__ import annotations
 
-import logging
 import re
 
 import sqlalchemy as sa
@@ -43,7 +42,6 @@ import sqlalchemy as sa
 from .sqlfuncs import row_hash
 from .warehouse import WarehouseConnector, resolve_auth
 
-log = logging.getLogger("relsynth.connectors")
 
 SCOPES = ("https://www.googleapis.com/auth/bigquery", "https://www.googleapis.com/auth/cloud-platform")
 

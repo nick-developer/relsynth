@@ -111,6 +111,7 @@ SETTINGS = {
 
 
 def main():
+    """Print the metrics reference (docs/metrics-reference.md)."""
     lines = [INTRO.rstrip("\n")]
     for k, v in DEFAULTS.items():
         lines.append(f"| `{k}` | `{v!r}` | {SETTINGS[k]} |")
@@ -125,15 +126,15 @@ def main():
                       f"- Tolerance: {m['tolerance']}; null: {m['null']}.",
                       f"- Reference: {m['reference']}.", ""]
     lines += ["## Integrity", "",
-              "Integrity checks come from the 1.0 scorecard: foreign-key integrity, rule violations, unique-key "
-              "duplicates, tree cycles and rows the sampler removed. They are identities with no sampling noise, "
-              "so each must pass.", "",
+              ("Integrity checks come from the 1.0 scorecard: foreign-key integrity, rule violations, unique-key "
+               "duplicates, tree cycles and rows the sampler removed. They are identities with no sampling noise, "
+               "so each must pass."), "",
               "## Benchmark summaries", "",
-              "`benchmark.syntherela` holds the numbers SyntheRela (Hudovernik et al., TMLR 2026) reports, for "
-              "comparison with published results: cardinality similarity (1 - KS of per-parent child counts, per "
-              "relationship), k-hop trend scores (mean SDMetrics column-pair trend score per hop count) and "
-              "C2ST-Agg accuracy per parent table and its maximum. They are not checks. "
-              "See [benchmarks/syntherela](../benchmarks/syntherela/README.md) for relsynth's results.", ""]
+              ("`benchmark.syntherela` holds the numbers SyntheRela (Hudovernik et al., TMLR 2026) reports, for "
+               "comparison with published results: cardinality similarity (1 - KS of per-parent child counts, per "
+               "relationship), k-hop trend scores (mean SDMetrics column-pair trend score per hop count) and "
+               "C2ST-Agg accuracy per parent table and its maximum. They are not checks. "
+               "See [benchmarks/syntherela](../benchmarks/syntherela/README.md) for relsynth's results."), ""]
     (HERE / "metrics.md").write_text("\n".join(lines), encoding="utf-8")
 
 

@@ -28,6 +28,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+from .._http import urlopen
 from .untrusted import SYSTEM_RULE
 
 
@@ -35,7 +36,8 @@ class Backend(Protocol):
     name: str
     model: str
 
-    def complete(self, system: str, user: str, schema: dict) -> dict: ...
+    def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The model's answer to (system, user) as a dict that follows `schema`."""
 
 
 @dataclass
@@ -47,6 +49,7 @@ class RulesBackend:
     uses_model: bool = False
 
     def complete(self, system: str, user: str, schema: dict) -> dict:  # pragma: no cover - never called
+        """Never answers: the rules backend has no model, so this raises RuntimeError."""
         raise RuntimeError("the rules backend has no language model")
 
 
@@ -60,6 +63,7 @@ class ScriptedBackend:
     calls: list = field(default_factory=list)
 
     def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The scripted function's answer (a dict, or JSON text parsed to one); each call is recorded."""
         self.calls.append({"system": system, "user": user})
         out = self.fn(system, user, schema)
         return out if isinstance(out, dict) else json.loads(out)
@@ -98,6 +102,7 @@ class OpenAICompatBackend:
         return (urllib.parse.urlparse(self.base_url).hostname or "") in LOCAL_HOSTS
 
     def complete(self, system: str, user: str, schema: dict) -> dict:
+        """The model's answer as a dict that follows `schema` (OpenAI-compatible chat completions)."""
         body = {"model": self.model, "temperature": self.temperature, "seed": self.seed,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "response_format": {"type": "json_schema",
@@ -108,7 +113,7 @@ class OpenAICompatBackend:
         req = urllib.request.Request(self.base_url.rstrip("/") + "/chat/completions",  # noqa: S310
                                      data=json.dumps(body).encode(), headers=headers, method="POST")
         t0 = time.perf_counter()
-        with urllib.request.urlopen(req, timeout=self.timeout_s) as r:  # noqa: S310  # nosec B310 (scheme checked)
+        with urlopen(req, timeout=self.timeout_s) as r:
             doc = json.loads(r.read())
         self.calls += 1
         self.seconds += time.perf_counter() - t0

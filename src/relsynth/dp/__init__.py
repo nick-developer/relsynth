@@ -19,7 +19,6 @@ is reserved in the organisation's ledger before step 2 and settled after it.
 from __future__ import annotations
 
 import copy
-import logging
 import time
 from dataclasses import dataclass, field
 
@@ -28,7 +27,6 @@ from .config import DPConfig, parse, section
 from .mechanisms import Accountant, library
 from .relational import decode, fit, make_plan
 
-log = logging.getLogger("relsynth")
 
 __all__ = ["synthesize", "DPResult", "DPConfig", "parse", "section", "plan", "statement", "stage2_spec", "generator",
            "domain_override", "manifest_privacy", "epsilon_of_config"]

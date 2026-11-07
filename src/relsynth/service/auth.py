@@ -169,14 +169,15 @@ _DISCOVERY: dict[str, tuple[float, dict]] = {}
 
 
 def _discover(issuer: str) -> dict:
-    import urllib.request
+    """The OpenID configuration of `issuer`, cached for an hour."""
+    from .._http import urlopen
     hit = _DISCOVERY.get(issuer)
     if hit and time.time() - hit[0] < 3600:
         return hit[1]
     url = issuer.rstrip("/") + "/.well-known/openid-configuration"
     if not url.startswith(("https://", "http://")):
         raise AuthError("the OIDC issuer must be an http(s) URL")
-    with urllib.request.urlopen(url, timeout=10) as r:  # noqa: S310  # nosec B310 (scheme checked above)
+    with urlopen(url, timeout=10) as r:
         doc = json.loads(r.read())
     _DISCOVERY[issuer] = (time.time(), doc)
     return doc

@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from sqlite_ddl import create_table, insert_rows
 
 sql_dir, csv_dir, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 ddl = "\n".join((sql_dir / f).read_text(encoding="utf-8-sig", errors="replace")
@@ -28,9 +29,11 @@ TYPE = [(r"^(tinyint|smallint|int|bigint)$", "INTEGER"), (r"^bit$", "INTEGER"), 
 
 
 def sqltype(t):
+    """The SQLite type of a T-SQL column type t."""
     for pat, s in TYPE:
         if re.search(pat, t.lower()):
             return s
+    return "TEXT"                       # not reached: the last pattern matches every type
 
 
 tables = {}
@@ -56,12 +59,7 @@ con = sqlite3.connect(out)
 order = sorted(tables, key=lambda t: len(tables[t]["fk"]))
 for t in order:
     T = tables[t]
-    parts = [f'"{c}" {ty}{" NOT NULL" if nn else ""}' for c, ty, nn in T["cols"]]
-    if T["pk"]:
-        parts.append("PRIMARY KEY (" + ", ".join(f'"{c}"' for c in T["pk"]) + ")")
-    for cs, rt, rc in T["fk"]:
-        parts.append(f'FOREIGN KEY ({", ".join(cs)}) REFERENCES "{rt}" ({", ".join(rc)})')
-    con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')
+    create_table(con, t, T["cols"], primary_key=T["pk"] or (), foreign_keys=T["fk"])
     f = files.get(t.lower())
     if f is None:
         print(f"{t}: no CSV file")
@@ -83,9 +81,7 @@ for t in order:
     extra = [c for c in df.columns if c.lower() not in {n.lower() for n in names}]
     df = df[[lower[c.lower()] for c in names if c.lower() in lower]]
     df.columns = [c for c in names if c.lower() in lower]
-    con.executemany(f'INSERT INTO "{t}" ({", ".join(chr(34) + c + chr(34) for c in df.columns)}) VALUES '
-                    f'({", ".join("?" * df.shape[1])})',
-                    df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
+    insert_rows(con, t, list(df.columns), df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
     print(f"{t}: {len(df):,} rows, pk {T['pk']}, {len(T['fk'])} fks" +
           (f", missing columns {missing}" if missing else "") + (f", extra columns {extra}" if extra else ""))
 con.commit()

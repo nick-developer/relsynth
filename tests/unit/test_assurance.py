@@ -151,11 +151,13 @@ NETWORK_ALLOWED = {
     "relsynth/service/secrets.py": "the Vault server named by VAULT_ADDR",
     "relsynth/service/telemetry.py": "OpenTelemetry export, only when otel is turned on",
     "relsynth/agents/backends.py": "the model server the operator configures (local by default; remote needs https)",
+    "relsynth/_http.py": "the shared http(s)-only opener the modules above use; it opens nothing by itself",
 }
 NETWORK_MODULES = ("urllib.request", "http.client", "requests", "httpx", "aiohttp", "urllib3", "opentelemetry.exporter")
 
 
 def test_network_access_is_confined_to_named_modules():
+    """Only the listed modules import network libraries or the shared opener."""
     found = {}
     for path in sorted((ROOT / "src").rglob("*.py")):
         rel = path.relative_to(ROOT / "src").as_posix()
@@ -164,7 +166,8 @@ def test_network_access_is_confined_to_named_modules():
             if isinstance(node, ast.Import):
                 names = [a.name for a in node.names]
             elif isinstance(node, ast.ImportFrom) and node.module:
-                names = [node.module]
+                # the shared opener counts as network access for whoever imports it
+                names = ["urllib.request" if node.module in ("_http", "relsynth._http") else node.module]
             elif isinstance(node, ast.Attribute) and node.attr in ("create_connection", "connect") and \
                     isinstance(node.value, ast.Name) and node.value.id == "socket":
                 names = ["socket." + node.attr]

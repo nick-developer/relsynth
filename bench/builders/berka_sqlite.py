@@ -19,6 +19,7 @@ import zipfile
 from pathlib import Path
 
 import pandas as pd
+from sqlite_ddl import create_table
 
 data_zip, meta_path, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -42,7 +43,7 @@ out.unlink(missing_ok=True)
 con = sqlite3.connect(out)
 for t in sorted(meta["tables"], key=depth):
     tm, df = meta["tables"][t], frames[t]
-    parts = []
+    cols = []
     for c, cm in tm["columns"].items():
         st = cm["sdtype"]
         ty = SQLTYPE.get(st, "TEXT")
@@ -50,14 +51,12 @@ for t in sorted(meta["tables"], key=depth):
             ty = "TEXT"
         if st == "numerical" and pd.api.types.is_integer_dtype(df[c]):
             ty = "INTEGER"
-        parts.append(f'"{c}" {ty}{" NOT NULL" if c == tm.get("primary_key") else ""}')
+        cols.append((c, ty, c == tm.get("primary_key")))
         if st == "datetime":
             v = pd.to_datetime(df[c], errors="coerce", format=cm.get("datetime_format"))
             df[c] = v.dt.strftime("%Y-%m-%d").where(v.notna(), None)
-    parts.append(f'PRIMARY KEY ("{tm["primary_key"]}")')
-    for c, p, pk in fks.get(t, []):
-        parts.append(f'FOREIGN KEY ("{c}") REFERENCES "{p}" ("{pk}")')
-    con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')
+    create_table(con, t, cols, primary_key=[tm["primary_key"]],
+                 foreign_keys=[([c], p, [pk]) for c, p, pk in fks.get(t, [])])
     df[list(tm["columns"])].to_sql(t, con, if_exists="append", index=False, chunksize=50_000)
     print(f"{t}: {len(df)} rows")
 con.commit()

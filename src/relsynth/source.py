@@ -47,6 +47,7 @@ def _match(name, include, exclude):
 
 class Source:
     def __init__(self, source: dict, include=None, exclude=None, seed=7):
+        """A data source from its spec section, limited to the included tables."""
         self.source = source
         self.kind = source.get("kind", "csv")
         self.seed = seed
@@ -104,12 +105,12 @@ class Source:
             try:
                 uniques += [[str(c) for c in u["column_names"]] for u in insp.get_unique_constraints(t, schema=self.schema)]
             except NotImplementedError:
-                pass
+                pass                    # the dialect cannot list them
             try:
                 uniques += [[str(c) for c in ix["column_names"]] for ix in insp.get_indexes(t, schema=self.schema)
                             if ix.get("unique") and all(ix.get("column_names") or [None])]
             except NotImplementedError:
-                pass
+                pass                    # the dialect cannot list them
             uq = []
             for u in uniques:
                 if u and u != pk and u not in uq:

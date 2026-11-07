@@ -31,11 +31,14 @@ log = logging.getLogger("relsynth.runtime")
 def dumps(obj) -> bytes:
     """Pickle with cloudpickle when installed: a fitted model holds closures
     (its posterior draw functions), which the standard pickle refuses."""
+    # the object is the job's own fitted model; the bytes go only to this job's workers (process pipes, or
+    # SparkContext.broadcast, which may spill them to the cluster's local temporary files) and are read
+    # back only by the same job, never from outside it
     try:
         import cloudpickle
         return cloudpickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
     except ImportError:
-        return pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+        return pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)  # nosemgrep
 
 EXECUTORS = ("local", "process", "spark")
 

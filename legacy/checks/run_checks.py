@@ -107,6 +107,7 @@ def sample(syn, spec, scale=None):
 # ====================================================================== C00
 @check("C00", "Layer 1 algorithm checks still pass", "Layer 1 paper, Table 4")
 def c00():
+    """Layer 1 algorithm checks, rerun once when only timing checks failed."""
     p = ROOT.parent / "research" / "algorithms" / "validate_algorithms.py"
     import importlib.util
     if importlib.util.find_spec("datasketches") is None:
@@ -118,6 +119,7 @@ def c00():
     # so the script runs a second time only when all its failures are timing checks.
     timing = ("T4 ", "T9 ")
     for attempt in (1, 2):
+        rerun = attempt == 2
         out = subprocess.run([sys.executable, str(p)], capture_output=True, text=True, timeout=900).stdout
         last = [l for l in out.splitlines() if "checks passed" in l]
         n = last[-1].split()[0] if last else "0/14"
@@ -125,7 +127,7 @@ def c00():
         failed = [l[len("[FAIL] "):].split(":")[0] for l in out.splitlines() if l.startswith("[FAIL] ")]
         if a == b or not failed or not all(f.startswith(timing) for f in failed):
             break
-    detail = n + (f" (failed: {'; '.join(failed)})" if failed else "") + (" on the second run" if attempt == 2 else "")
+    detail = n + (f" (failed: {'; '.join(failed)})" if failed else "") + (" on the second run" if rerun else "")
     return [item("layer 1 validate_algorithms.py", detail, "14/14", a == b)]
 
 
@@ -446,6 +448,7 @@ def c14():
 
 @check("C15", "Rejection sampling for business rules gives the exact conditional law", "Prop. 14")
 def c15():
+    """Redraw-until-valid sampling follows the exact truncated law."""
     rng = np.random.default_rng(1)
     x = rng.standard_normal(200000)
     kept = x[x <= 0.5]                      # rule: x <= 0.5, applied by redrawing violators
@@ -459,7 +462,7 @@ def c15():
     k1 = ks_2samp(y, ref.rvs(60000, random_state=2)).statistic
     return [item("KS of redraw-until-valid sample vs exact truncated law", float(k1), f"<= {ks_crit(60000, 60000):.4f}",
                  k1 <= ks_crit(60000, 60000)),
-            item("acceptance rate = P(rule)", f"{len(kept) / len(x):.4f} vs {ref.cdf(0.5) if False else 0.6915:.4f}",
+            item("acceptance rate = P(rule)", f"{len(kept) / len(x):.4f} vs {0.6915:.4f}",
                  "within 0.005", abs(len(kept) / len(x) - 0.6915) <= 0.005)]
 
 
@@ -1385,6 +1388,7 @@ def c43():
 @check("C44", "Introspect on the sales warehouse (SQLite, declared keys): calendar, headers, offsets, lookups, "
        "identities, running balance, first purchase; same spec twice", "Prop. 42 (significance of discovered rules)")
 def c44():
+    """Introspection on the sales warehouse finds its calendar, headers, offsets, lookups and identities."""
     import sqlite3
     import tempfile
     from relsynth.introspect import introspect
@@ -1410,7 +1414,8 @@ def c44():
            "fact_inventory": "product_key INTEGER REFERENCES dim_product, date_key INTEGER REFERENCES dim_date, "
                              "units_in INTEGER, units_out INTEGER, units_balance INTEGER, PRIMARY KEY (product_key, date_key)"}
     for t, cols in ddl.items():
-        con.execute(f"CREATE TABLE {t} ({cols})")
+        # t and cols are the literal fixture DDL above, not data
+        con.execute(f"CREATE TABLE {t} ({cols})")  # nosemgrep
         df = tables[t]
         con.executemany(f"INSERT INTO {t} VALUES ({','.join('?' * df.shape[1])})",
                         df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
@@ -1578,7 +1583,8 @@ def _retail_db(tables, path):
             parts.append("PRIMARY KEY (" + ", ".join(pk[t]) + ")")
         for c, p in fk.get(t, []):
             parts.append(f'FOREIGN KEY ("{c}") REFERENCES "{p}" ("{pk[p][0]}")')
-        con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')
+        # names of the generated fixture tables (fixed by this check), not data
+        con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')  # nosemgrep
         con.executemany(f'INSERT INTO "{t}" VALUES ({", ".join("?" * df.shape[1])})',
                         df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
     con.commit()
@@ -1702,6 +1708,7 @@ def c48():
        "precision, computed-column cycles, file formats",
        "Props. 55-58; findings K03, K09, K14, K15")
 def c49():
+    """Dates, lookups, ratio factors and file formats round-trip as specified."""
     import tempfile
     from relsynth.data import normalise_frame, read_table_file
     from relsynth.expr import check_mask, derive_values
@@ -1736,13 +1743,13 @@ def c49():
     tmp = Path(tempfile.mkdtemp())
     pq = pd.DataFrame({"code": ["0101", "0202"], "ts": pd.to_datetime(["2020-01-01", "2020-01-02"]).tz_localize("UTC"),
                        "amt": [1.5, 2.0]})
-    ok_pq = True
+    ok_pq, pq_note = True, None
     try:
         pq.to_parquet(tmp / "t.parquet")
         back = normalise_frame(read_table_file(tmp / "t.parquet"))
         ok_pq = back["code"].tolist() == ["0101", "0202"] and back["ts"].dt.tz is None
     except ImportError:
-        pass
+        pq_note = "not run: pyarrow is not installed"
     (tmp / "c.csv").write_text("code,n\n0101,1\n0202,2\n")
     csv = read_table_file(tmp / "c.csv")
     return [item("add_days on ISO strings", dts[:2], "['2020-02-02', '2020-02-29']", dts[:2] == ["2020-02-02", "2020-02-29"]),
@@ -1753,7 +1760,7 @@ def c49():
                  lv == [0.9, 0.95, 1.0, 1.15] and note["snapped_rows"] == 3),
             item("cycle lookup <-> aggregate rejected", [e for e in cyc if "cycle" in e][:1], "one error",
                  any("cycle" in e for e in cyc)),
-            item("parquet: codes kept, time zones removed", ok_pq, True, ok_pq),
+            item("parquet: codes kept, time zones removed", pq_note or ok_pq, True, ok_pq),
             item("CSV codes with leading zeros kept as text", csv["code"].tolist(), "['0101', '0202']",
                  csv["code"].tolist() == ["0101", "0202"])]
 
@@ -1859,6 +1866,7 @@ def c51():
        "for sales staff) never reference the excluded rows, and keep their row counts",
        "Prop. anchorincl; AW finding (quotas linked to non-sales staff)")
 def c52():
+    """Anchor inclusion: quotas linked only to sales staff."""
     rng = np.random.default_rng(52)
     ne = 300
     sales = rng.random(ne) < 0.08
@@ -1867,7 +1875,7 @@ def c52():
                         "age": rng.normal(40, 9, ne).round(), "rate": rng.gamma(3, 10, ne).round(2)})
     days = pd.DataFrame({"dk": np.arange(1, 41), "q": np.tile([1, 2, 3, 4], 10)})
     se = emp.ek[sales].to_numpy()
-    rows = [(e, d) for e in se for d in np.sort(rng.choice(40, rng.integers(4, 13), replace=False)) + 1]
+    rows = [(e, d) for e in se for d in np.sort(rng.choice(np.arange(1, 41), rng.integers(4, 13), replace=False))]
     quota = pd.DataFrame(rows, columns=["ek", "dk"])
     quota.insert(0, "qk", np.arange(1, len(quota) + 1))
     quota["amt"] = rng.gamma(4, 1000, len(quota)).round()
@@ -2576,6 +2584,7 @@ def c66():
        "every spec drafted or written for the earlier tests still validates",
        "schema.py (v0.7)")
 def c67():
+    """Every spec in the repository passes the strict key check."""
     import glob
     import yaml
     from relsynth.schema import check_keys
@@ -2597,7 +2606,8 @@ def c67():
     bad, n = [], 0
     for f in files:
         try:
-            raw = yaml.safe_load(open(f))
+            with open(f) as fh:
+                raw = yaml.safe_load(fh)
         except Exception:  # noqa: BLE001
             continue
         if isinstance(raw, dict) and "tables" in raw:
@@ -2943,7 +2953,6 @@ def _export(name, M=3):
 @check("C72", "Exported model: verified, strict JSON, draws are the engine's datasets",
        "Props. 'Exported draw m is the parameter of dataset m' and 'Verification conditions'")
 def c72():
-    import json
     from relsynth.export import theta
     out = []
     for name in ("S4_tree", "S9_small_shop", "S10_order_dw"):
@@ -2970,11 +2979,11 @@ def c72():
 @check("C73", "Standalone replica: keys, sizes and fidelity",
        "Prop. 'The replica samples the core generative process'")
 def c73():
+    """The replica samples the core generative process of the exported model."""
     from relsynth import replica
     out = []
     for name in ("S9_small_shop", "S10_order_dw", "S11_retail_dw"):
         syn, d, res, tables = _export(name)
-        import json
         m = json.loads((d / "model.json").read_text())
         gen = replica.generate(m, "mean", 7, 1.0, {e: syn._copy_rows[e] for e in syn.copied})
         T = m["structure"]["tables"]
@@ -3007,7 +3016,7 @@ def c73():
     env = dict(os.environ, PYTHONPATH=str(ROOT), PYTHONDONTWRITEBYTECODE="1", RELSYNTH_QUIET="1")
     run = lambda *a: subprocess.run([sys.executable, "-P", *a], cwd=tmp, env=env, capture_output=True, text=True)
     r1 = run("-m", "relsynth", "run", "spec.yaml", "--out", "A", "--datasets", "2", "--no-privacy")
-    r2 = run("-m", "relsynth", "export-model", "spec.yaml", "--out", "M", "--formats", "json,py", "--no-replica-check")
+    run("-m", "relsynth", "export-model", "spec.yaml", "--out", "M", "--formats", "json,py", "--no-replica-check")
     r3 = run("M/run_model.py", "--out", str(tmp / "B"), "--datasets", "2")
     files = [(f, tmp / dst / f.name) for src, dst in (("A", "B"), ("A_2", "B_2"))
              for f in sorted((tmp / src).glob("*.csv"))]

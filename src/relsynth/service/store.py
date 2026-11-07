@@ -159,13 +159,14 @@ def _row(r) -> dict | None:
 
 
 def _dict(r) -> dict:
+    """A database row as a dict, with its JSON columns decoded."""
     d = dict(r._mapping)
     for k in ("source", "labels", "review", "params", "summary", "detail", "roles", "body"):
         if k in d and isinstance(d[k], str):
             try:
                 d[k] = json.loads(d[k])
             except ValueError:
-                pass
+                pass                    # a plain string column, not JSON
     return d
 
 

@@ -7,6 +7,9 @@
 * the matched source text (``snippet`` and ``contextRegion``) is removed, so a
   secret found by a secrets rule is never copied into the artefact or the log;
 * with ``--list``, each remaining result is printed as ``rule path:line`` only;
+* with ``--summary``, the remaining results are printed as a Markdown table
+  (rule, path, line) for the job summary, so the findings can be read without
+  access to the repository's Security tab;
 * with ``-`` the SARIF is read from stdin and only the cleaned document is written.
 """
 from __future__ import annotations
@@ -33,10 +36,19 @@ def clean(doc: dict) -> list[tuple[str, str, int]]:
     return found
 
 
+def _summary_safe(uri) -> str:
+    """uri for a summary row that `tee` also prints: no line break, no workflow
+    command marker (``::`` or the legacy ``##[``), no backtick and no unescaped
+    ``|`` (which would split the table row)."""
+    text = str(uri).replace("\r", " ").replace("\n", " ").replace("`", "'").replace("|", "\\|")
+    return text.replace("::", ":\u200b:").replace("##[", "#\u200b#[")
+
+
 def main(argv: list[str]) -> int:
-    """Clean the SARIF file named first; ``--list`` prints the remaining results."""
+    """Clean the SARIF file named first; ``--list`` or ``--summary`` prints the remaining results."""
     if not argv or (argv[0] == "-" and len(argv) < 2):
-        print("usage: sarif_clean.py FILE.sarif [--list] | sarif_clean.py - OUT.sarif", file=sys.stderr)
+        print("usage: sarif_clean.py FILE.sarif [--list|--summary] | sarif_clean.py - OUT.sarif",
+              file=sys.stderr)
         return 2
     if argv[0] == "-":                  # SARIF on stdin, cleaned in memory, written to OUT
         doc = json.loads(sys.stdin.read())
@@ -53,6 +65,13 @@ def main(argv: list[str]) -> int:
         for rule, uri, line in found:
             print(f"::error file={uri},line={line}::{rule}")
         print(f"{len(found)} finding(s)")
+    if "--summary" in argv[1:]:
+        print(f"### Semgrep: {len(found)} finding(s)\n")
+        if found:
+            print("| rule | path | line |\n|---|---|---|")
+            for rule, uri, line in sorted(found, key=lambda f: (f[1], f[2], f[0])):
+                safe = _summary_safe(uri)
+                print(f"| `{rule}` | `{safe}` | {line} |")
     return 0
 
 

@@ -8,6 +8,12 @@
 * Database URLs may name only hosts matching ``allowed_hosts`` (when set), which
   limits server-side request forgery from the workers' network position.
 * Credentials never go in the source section: they come from ``secret_ref``.
+
+What a tenant's spec may refer to (``spec_refusals``): nothing on the service's
+own file system.  Internal keys (``_base_dir``) and file references
+(``synthesis.settings_file`` other than a built-in ``preset:``, and
+``synthesis.compute.file``) would let a spec read files outside the tenant's
+area, so the service refuses them.
 """
 from __future__ import annotations
 
@@ -59,3 +65,36 @@ def check_source(src: dict, tenant: str, settings) -> dict:
             if not any(fnmatch.fnmatch(host, h.lower()) for h in hosts):
                 raise SourceRefused(f"host {host!r} is not in the allowed hosts")
     return src
+
+
+def _settings_presets() -> tuple:
+    """Names of the built-in settings presets (relsynth.settings is imported only when needed)."""
+    from ..settings import PRESETS
+    return tuple(PRESETS)
+
+
+def spec_refusals(raw: dict) -> list[str]:
+    """Why a tenant's spec cannot run on the service (empty when it can).
+
+    A spec reaches the service as text from a tenant, so it may not name files on
+    the service's machine: keys starting with ``_`` are internal (``_base_dir``
+    moves the folder relative paths resolve against), a settings file other than a
+    built-in ``preset:NAME`` and a compute file are paths the workers would read."""
+    out = [f"key {k!r} is internal and cannot be set in a spec" for k in raw if str(k).startswith("_")]
+    syn = raw.get("synthesis")
+    if syn is not None and not isinstance(syn, dict):
+        out.append("synthesis must be a mapping")
+    if not isinstance(syn, dict):
+        syn = {}
+    ref = syn.get("settings_file")
+    if ref is not None and not (isinstance(ref, str) and ref.startswith("preset:")
+                                and ref.split(":", 1)[1] in _settings_presets()):
+        out.append("synthesis.settings_file: the service accepts only a built-in preset:NAME, "
+                   "not a file on the service")
+    comp = syn.get("compute")
+    if not isinstance(comp, dict):
+        comp = {}
+    if comp.get("file") is not None:
+        out.append("synthesis.compute.file: the service does not read compute files; "
+                   "use a built-in preset with overrides")
+    return out
