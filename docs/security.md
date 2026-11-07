@@ -56,6 +56,10 @@ A table name becomes a file name in folder sources and targets, so it must be a 
 
 Tests: `test_inside_refuses_non_plain_names`, `test_symlinked_table_cannot_escape` and `test_file_table_names_cannot_escape_the_folder`.
 
+A spec saved through the service comes from a tenant, so it may not point the service at its own files: top-level keys starting with `_`, a `synthesis.settings_file` other than a built-in `preset:NAME`, and any `synthesis.compute.file` are refused when the spec is saved and again when a job runs.
+
+Tests: `test_spec_cannot_name_service_files` (6 forms).
+
 ## Data protection
 
 - **Nothing is copied.** Synthetic rows are drawn from a fitted model; only tables declared `mode: copy` (a calendar, a code list) are copied. Key values are generated in the source's format, so a synthetic key that equals a real key does not carry that real row's data. `test_synthetic_rows_are_not_copies` checks that fewer than 5% of synthetic rows match a real row on their high-cardinality attributes.

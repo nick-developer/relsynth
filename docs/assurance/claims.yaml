@@ -646,6 +646,16 @@ claims:
       - test: tests/unit/governance/test_policy_parity.py::test_engine_failure_denies
     note: Enforced by bandit B602-B607 in CI (no shell=True accepted); the four call sites are annotated with nosec B404 and a reason.
 
+  - id: SEC-16
+    doc: docs/security.md
+    area: security
+    quote: "top-level keys starting with `_`, a `synthesis.settings_file` other than a built-in `preset:NAME`, and any `synthesis.compute.file` are refused when the spec is saved and again when a job runs."
+    status: supported
+    evidence:
+      - test: tests/unit/service/test_service_api.py::test_spec_cannot_name_service_files
+      - code: src/relsynth/service/policy.py::spec_refusals
+    note: The test exercises the save path; the run-time check calls the same spec_refusals function from the worker.
+
   # ------------------------------------------------------------------ docs/governance/guide.md (T08)
 
   - id: GOV-01

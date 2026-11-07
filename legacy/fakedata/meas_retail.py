@@ -59,10 +59,22 @@ def measures(d, truth):
         m["latitude sd within country"] = c.groupby("Country").Latitude.std().round(3).to_dict()
     return m
 
+def read_folder(folder) -> dict:
+    """The CSV files of `folder`, one table per file; a file that resolves outside the
+    folder (a symbolic link to elsewhere, for example) is refused."""
+    root = Path(folder).resolve()
+    out = {}
+    for p in sorted(root.glob("*.csv")):
+        real = p.resolve()
+        if real.parent != root:
+            raise SystemExit(f"{p.name} resolves outside {root}")
+        out[p.stem] = pd.read_csv(real)
+    return out
+
 if __name__ == "__main__":
     tables, spec, truth = S.retail_dw()
     # a folder of synthetic CSV files, one per table (relsynth's csv target)
-    out = {p.stem: pd.read_csv(p) for p in sorted(Path(sys.argv[1]).glob("*.csv"))}
+    out = read_folder(sys.argv[1])
     mr, ms = measures(tables, truth), measures(out, truth)
     for k in mr:
         print(f"{k:50s} {mr[k]}  |  {ms[k]}")

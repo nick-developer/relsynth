@@ -278,3 +278,27 @@ def test_shared_opener_sanitises_urllib_refusals_after_the_origin_check():
     text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
     assert not any(s in text for s in ("s9", "s3", "/v1/x")), text
     assert err.__context__ is None and err.__cause__ is None
+
+
+def test_legacy_retail_measures_refuse_csv_links_outside_the_folder(tmp_path):
+    """meas_retail.read_folder reads the folder's CSV files but refuses one that is a
+    symbolic link to a file elsewhere."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "legacy" / "fakedata" / "meas_retail.py"
+    spec = importlib.util.spec_from_file_location("meas_retail_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    folder = tmp_path / "out"
+    folder.mkdir()
+    (folder / "Store.csv").write_text("StoreKey\n1\n")
+    assert list(mod.read_folder(folder)) == ["Store"]
+    secret = tmp_path / "secret.csv"
+    secret.write_text("password\nhunter2\n")
+    try:
+        (folder / "Orders.csv").symlink_to(secret)
+    except OSError as e:
+        pytest.skip(f"cannot create a symlink here: {e}")
+    with pytest.raises(SystemExit, match="outside"):
+        mod.read_folder(folder)

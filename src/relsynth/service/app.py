@@ -338,7 +338,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
 
     @app.post(T + "/projects/{pid}/specs", tags=["specs"], status_code=201)
     def create_spec(pid: str, body: SpecIn, tenant: str = Depends(tenant_of), p: Principal = Depends(principal)):
-        """Save a spec in a project; specs that name files on the service are refused (422)."""
+        """Save a spec in a project.  Refused (422): top-level keys starting with `_`, a
+        `synthesis.settings_file` other than a built-in `preset:NAME`, and any `synthesis.compute.file`."""
         need(p, tenant, "spec:write")
         get_or_404(st.project(tenant, pid), "project not found")
         if body.connection_id:
