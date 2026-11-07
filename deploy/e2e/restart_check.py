@@ -73,6 +73,10 @@ def main() -> int:
             _, r = erin.call("GET", f"{T}/runs/{run['id']}")
             if r["state"] == "running" and r["attempts"] == 1:
                 break
+            check("the killed run did not fail", r["state"] not in ("failed", "cancelled"),
+                  f"{r['state']} {r.get('error')}")
+            if not (r["state"] == "succeeded" and r["attempts"] == 1):
+                break                       # already picked up again: the wait below checks it
         print(f"run {run['id']} at scale {scale} finished before the kill ({r['state']}); retrying larger")
         if a.compose:
             subprocess.run(["docker", "compose", "-f", a.compose, "up", "-d", "worker"], check=True,  # noqa: S603, S607  # nosec B603 B607

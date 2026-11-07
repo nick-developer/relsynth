@@ -8,11 +8,15 @@ file and line are printed, never the line's text.
 from __future__ import annotations
 
 import os
+import re
 import sys
+
+# Semgrep's own forms: nosem or nosemgrep after a # or // comment marker, any case
+_SUPPRESSION = re.compile(r"(?:#|//)\s*nosem(?:grep)?\b", re.IGNORECASE)
 
 
 def added_suppressions(diff: str) -> list[tuple[str, int]]:
-    """(path, line) of every added line in a unified diff that contains ``# nosemgrep``."""
+    """(path, line) of every added line in a unified diff that carries a Semgrep suppression comment."""
     out, path, line = [], None, 0
     for raw in diff.splitlines():
         if raw.startswith("+++ "):
@@ -27,7 +31,7 @@ def added_suppressions(diff: str) -> list[tuple[str, int]]:
             plus = raw.split(" ")[2]                     # +start[,count]
             line = int(plus[1:].split(",")[0])
         elif raw.startswith("+") and path is not None:
-            if "# nosemgrep" in raw:
+            if _SUPPRESSION.search(raw):
                 out.append((path, line))
             line += 1
     return out

@@ -48,17 +48,19 @@ jobs:
       - run: pip install --require-hashes --no-deps -r .github/requirements/semgrep.txt
       - name: semgrep (all findings to code scanning)
         run: |
-          semgrep scan --metrics=off --sarif -o semgrep-raw.sarif \
+          set -o pipefail
+          semgrep scan --metrics=off --sarif \
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
-            --exclude tests --exclude bench/data
+            --exclude tests --exclude bench/data \
+            | python .github/scripts/sarif_clean.py - semgrep-clean.sarif
           # drop findings suppressed in source (# nosemgrep next to a reviewed # nosec reason):
           # semgrep keeps them in SARIF and code scanning would open alerts for them.
           # Strip the matched source text too, so a secret found by p/secrets is not
           # copied into the uploaded SARIF (code scanning shows the line from the repository)
-          # only a cleaned file is ever named semgrep.sarif, the one the upload step sends
-          python .github/scripts/sarif_clean.py semgrep-raw.sarif
-          mv semgrep-raw.sarif semgrep.sarif
+          # the raw SARIF is never written to disk: it is cleaned in memory, and only a
+          # cleaned file is ever named semgrep.sarif, the one the upload step sends
+          mv semgrep-clean.sarif semgrep.sarif
       - name: semgrep (new ERROR findings fail the pull request)
         if: github.event_name == 'pull_request'
         env:
@@ -66,12 +68,13 @@ jobs:
         run: |
           # the findings go to a file and only rule, path and line reach the log,
           # never the matched text (a p/secrets finding would print the secret)
+          set -o pipefail
           rc=0
-          semgrep scan --metrics=off --error --severity ERROR --baseline-commit "$BASE_SHA" \
-            --sarif -o gate.sarif \
+          semgrep scan --metrics=off --error --severity ERROR --baseline-commit "$BASE_SHA" --sarif \
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
-            --exclude tests --exclude bench/data || rc=$?
+            --exclude tests --exclude bench/data \
+            | python .github/scripts/sarif_clean.py - gate.sarif || rc=$?
           python .github/scripts/sarif_clean.py gate.sarif --list
           exit "$rc"
       - name: semgrep (new suppressions, for the reviewer)

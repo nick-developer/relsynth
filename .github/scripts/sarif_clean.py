@@ -6,7 +6,8 @@
   alerts for them;
 * the matched source text (``snippet`` and ``contextRegion``) is removed, so a
   secret found by a secrets rule is never copied into the artefact or the log;
-* with ``--list``, each remaining result is printed as ``rule path:line`` only.
+* with ``--list``, each remaining result is printed as ``rule path:line`` only;
+* with ``-`` the SARIF is read from stdin and only the cleaned document is written.
 """
 from __future__ import annotations
 
@@ -34,9 +35,14 @@ def clean(doc: dict) -> list[tuple[str, str, int]]:
 
 def main(argv: list[str]) -> int:
     """Clean the SARIF file named first; ``--list`` prints the remaining results."""
-    if not argv:
-        print("usage: sarif_clean.py FILE.sarif [--list]", file=sys.stderr)
+    if not argv or (argv[0] == "-" and len(argv) < 2):
+        print("usage: sarif_clean.py FILE.sarif [--list] | sarif_clean.py - OUT.sarif", file=sys.stderr)
         return 2
+    if argv[0] == "-":                  # SARIF on stdin, cleaned in memory, written to OUT
+        doc = json.loads(sys.stdin.read())
+        clean(doc)
+        Path(argv[1]).write_text(json.dumps(doc), encoding="utf-8")
+        return 0
     path = Path(argv[0])
     if not path.exists():
         return 0
