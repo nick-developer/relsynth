@@ -51,6 +51,25 @@ def significant(share, chance, n, alpha=ALPHA) -> bool:
 
 
 # ---------------------------------------------------------------- values
+def parse_dates(s):
+    """pd.to_datetime(s, errors="coerce", format="mixed"), also for values with
+    different UTC offsets: pandas 3 raises on those and pandas 2 returns objects
+    that cannot be subtracted, so they are converted to UTC and the offset dropped.
+    Values that parse to one datetime type are returned as pandas parses them."""
+    import warnings
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)      # pandas 2: mixed offsets
+            d = pd.to_datetime(s, errors="coerce", format="mixed")
+        if not (isinstance(d, pd.Series) and d.dtype == object):
+            return d
+    except ValueError as e:
+        if "timezone" not in str(e).lower().replace("time zone", "timezone"):
+            raise
+    d = pd.to_datetime(s, errors="coerce", format="mixed", utc=True)
+    return d.dt.tz_localize(None) if isinstance(d, pd.Series) else d.tz_localize(None)
+
+
 def is_dateish(s: pd.Series) -> bool:
     if pd.api.types.is_datetime64_any_dtype(s):
         return True
@@ -63,7 +82,7 @@ def is_dateish(s: pd.Series) -> bool:
         return True
     if head.map(lambda x: isinstance(x, str)).mean() > 0.95 and head.astype(str).str.len().median() >= 8 and \
             head.astype(str).str.match(r"^\d{4}-\d{2}-\d{2}").mean() > 0.95:
-        return pd.to_datetime(head, errors="coerce", format="mixed").notna().mean() > 0.95
+        return parse_dates(head).notna().mean() > 0.95
     return False
 
 
@@ -94,7 +113,7 @@ def canon(s, as_date=None) -> np.ndarray:
     out = np.empty(len(s), dtype=object)
     na = s.isna().to_numpy()
     if as_date:
-        d = pd.to_datetime(s, errors="coerce", format="mixed")
+        d = parse_dates(s)
         x = ((d - pd.Timestamp("1970-01-01")) / pd.Timedelta(days=1)).to_numpy(dtype=float)
         ok = np.isfinite(x)
         out[ok] = np.round(x[ok], 6)
