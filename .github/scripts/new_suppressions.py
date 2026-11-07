@@ -15,6 +15,30 @@ import sys
 _SUPPRESSION = re.compile(r"(?:#|//)\s*nosem(?:grep)?\b", re.IGNORECASE)
 
 
+_ESCAPES = {"a": 7, "b": 8, "t": 9, "n": 10, "v": 11, "f": 12, "r": 13, '"': 34, "\\": 92}
+
+
+def _unquote(body: str) -> str:
+    """Undo git's C quoting of a path: escapes and octal bytes become bytes, every
+    other character stays as its UTF-8 bytes, and the result is decoded as UTF-8."""
+    out, i = bytearray(), 0
+    while i < len(body):
+        ch = body[i]
+        if ch == "\\" and i + 1 < len(body):
+            nxt = body[i + 1]
+            if nxt in "01234567" and i + 3 < len(body) + 1 and all(c in "01234567" for c in body[i + 1:i + 4]):
+                out.append(int(body[i + 1:i + 4], 8) & 0xFF)
+                i += 4
+                continue
+            if nxt in _ESCAPES:
+                out.append(_ESCAPES[nxt])
+                i += 2
+                continue
+        out += ch.encode("utf-8")
+        i += 1
+    return out.decode("utf-8", "replace")
+
+
 def added_suppressions(diff: str) -> list[tuple[str, int]]:
     """(path, line) of every added line in a unified diff that carries a Semgrep suppression comment."""
     out, path, line = [], None, 0
@@ -22,10 +46,9 @@ def added_suppressions(diff: str) -> list[tuple[str, int]]:
         if raw.startswith("+++ "):
             # the workflow runs git diff with core.quotePath=false and explicit a/ b/ prefixes;
             # a path with special characters still arrives in C quotes, which are undone here
-            name = raw[4:]
-            if name.startswith('"') and name.endswith('"'):
-                name = name[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape").encode(
-                    "latin-1").decode("utf-8", "replace")
+            name = raw[4:].rstrip("\t")      # git ends the header with a tab when the path has spaces
+            if len(name) >= 2 and name.startswith('"') and name.endswith('"'):
+                name = _unquote(name[1:-1])
             path = name[2:] if name.startswith("b/") else None
         elif raw.startswith("@@"):
             plus = raw.split(" ")[2]                     # +start[,count]
