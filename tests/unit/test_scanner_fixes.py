@@ -63,7 +63,7 @@ def test_create_table_refuses_unknown_types():
 
 
 def test_opener_refuses_cross_origin_redirects():
-    """A redirect to another host, port or scheme is refused, so credentials never follow it."""
+    """A request with credentials is not redirected to another host, port or scheme."""
     import urllib.error
     import urllib.request
 
@@ -72,11 +72,31 @@ def test_opener_refuses_cross_origin_redirects():
     req = urllib.request.Request("https://vault.example:8200/v1/x", headers={"X-Vault-Token": "t"})
     for target in ("http://vault.example:8200/v1/y", "https://evil.example/v1/y",
                    "https://vault.example:9000/y", "ftp://vault.example/v1/y"):
-        with pytest.raises(urllib.error.HTTPError, match="another origin"):
+        with pytest.raises(urllib.error.HTTPError, match="refused"):
             h.redirect_request(req, None, 302, "Found", {}, target)
     same = h.redirect_request(req, None, 302, "Found", {}, "https://VAULT.example:8200/v1/y")
     assert same.full_url.endswith("/v1/y")
     assert _http._origin("https://a.example/x") == _http._origin("https://a.example:443/y")
+
+
+def test_plain_downloads_follow_cdn_redirects_but_never_downgrade():
+    """A request without credentials may move to another https host, never to http;
+    an API key or a password in the URL counts as credentials."""
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    h = _http._SameOriginRedirect()
+    plain = urllib.request.Request("https://github.com/o/r/releases/download/v1/x.zip")
+    moved = h.redirect_request(plain, None, 302, "Found", {}, "https://release-assets.githubusercontent.com/x")
+    assert moved.full_url.startswith("https://release-assets.githubusercontent.com/")
+    with pytest.raises(urllib.error.HTTPError, match="from https"):
+        h.redirect_request(plain, None, 302, "Found", {}, "http://release-assets.githubusercontent.com/x")
+    for req in (urllib.request.Request("https://api.example/v1", headers={"Authorization": "Bearer k"}),
+                urllib.request.Request("https://api.example/v1", headers={"X-Api-Key": "k"}),
+                urllib.request.Request("https://u:p@api.example/v1")):
+        with pytest.raises(urllib.error.HTTPError, match="credentials"):
+            h.redirect_request(req, None, 302, "Found", {}, "https://other.example/v1")
 
 
 def test_opener_errors_never_carry_credentials():
