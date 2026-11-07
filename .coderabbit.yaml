@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit AI review.  Takes effect once the CodeRabbit GitHub App is installed
+# on this repository (https://github.com/apps/coderabbitai).  It reviews; it never
+# approves or merges: branch protection and the CI gate stay the authority.
+language: en-GB
+early_access: false
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: [main]
+  path_filters:
+    - "!bench/data/**"
+    - "!docs/proofs/*.pdf"
+    - "!**/*.parquet"
+    - "!**/*.sqlite"
+  path_instructions:
+    - path: "src/relsynth/service/**"
+      instructions: >-
+        Multi-tenant service. Check every endpoint for tenant isolation and role
+        checks (auth.py RBAC table), secrets passed only by reference, nothing about a
+        source or credential written to disk or logs, path inputs confined with
+        realpath + prefix checks, and an audit record for every state change.
+    - path: "src/relsynth/{privacy,dp,governance}/**"
+      instructions: >-
+        Privacy-critical code. Check that sensitivity and contribution bounds match
+        the proofs in docs/proofs, that randomness for DP noise comes from the
+        documented sampler, that the accountant is charged before data is read, and
+        that any changed sentence registered in docs/assurance/claims.yaml is updated.
+    - path: "src/relsynth/**/*.py"
+      instructions: >-
+        Default output must stay byte-identical for a seed unless the PR says why.
+        Flag user-controlled values reaching file paths, regular expressions,
+        subprocess, SQL text or YAML/pickle loading.
+    - path: ".github/workflows/**"
+      instructions: >-
+        Actions pinned to commit SHAs (see .github/zizmor.yml for exceptions),
+        least-privilege permissions per job, persist-credentials: false, no
+        ${{ }} expressions of event data inside run blocks (pass them through env).
+    - path: "deploy/**"
+      instructions: >-
+        Non-root, read-only root filesystem, no capabilities, Pod Security
+        restricted; Helm hooks may not depend on non-hook release resources.
+    - path: "tests/**"
+      instructions: >-
+        Tests must not skip or loosen a statistical check to pass; seeds fixed.
+  tools:
+    ruff: { enabled: true }
+    shellcheck: { enabled: true }
+    actionlint: { enabled: true }
+    hadolint: { enabled: true }
+    yamllint: { enabled: true }
+    gitleaks: { enabled: true }
+    semgrep: { enabled: true }
+    markdownlint: { enabled: true }
+    checkov: { enabled: true }
+chat:
+  auto_reply: true
+knowledge_base:
+  learnings: { scope: local }

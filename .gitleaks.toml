@@ -1,0 +1,19 @@
+# gitleaks configuration (security.yml): the default rules, minus test fixtures
+# and the documented demo credentials of the local compose/kind stacks.
+title = "relsynth gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "test fixtures and documented demo credentials"
+paths = [
+  '''^tests/''',
+  '''^bench/data/''',
+  '''^deploy/compose/keycloak/''',
+  '''^deploy/e2e/''',
+  '''^docs/proofs/''',
+]
+regexes = [
+  '''Demo-Passw0rd''',
+]

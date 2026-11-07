@@ -16,12 +16,29 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 | `build` | sdist and wheel, `twine check`, a clean-environment install with every extra, and a CycloneDX SBOM of that install | 1 min |
 | `sign` | dry run of the release signature: the wheel, sdist and SBOM are signed with Sigstore under this workflow's identity and verified (pull requests from this repository and pushes; not on forks) | 1 min |
 
-The suite also runs weekly, so that new dependency releases and new advisories in pip-audit are caught when nothing changed in the repository. Actions are pinned to commit SHAs, and Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) proposes updates weekly. Repository CodeQL (default setup) adds code scanning for Python and Actions.
+The suite also runs weekly, so that new dependency releases and new advisories in pip-audit are caught when nothing changed in the repository. Actions are pinned to commit SHAs, and Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) proposes updates weekly. Code scanning runs in two more workflows; see [Security scanning](#security-scanning).
 
 More workflows run outside the required gate:
 - [`service-e2e.yml`](../../.github/workflows/service-e2e.yml), when the service, the Helm chart or the images change, weekly and by hand: the service end to end on docker compose and on a real Kubernetes cluster (kind), with SSO, a run, approval, download, audit, tenant isolation, `helm test`, Pod Security `restricted`, and a worker lost mid-run ([deployment](../service/deployment.md)).
 - [`mutation.yml`](../../.github/workflows/mutation.yml), weekly: the sampled mutation score of the core engine ([testing](../testing.md#mutation-testing)).
 - [`pypi_upload.yml`](../../.github/workflows/pypi_upload.yml), on a published release: the whole gate, then build, SBOM, signatures, provenance and the upload ([supply chain](supply-chain.md)).
+
+## Security scanning
+
+Every finding goes to Security > Code scanning (SARIF) and annotates the pull request.
+
+| Workflow / job | What it checks | Fails the pull request on |
+|---|---|---|
+| `codeql` (`codeql.yml`) | CodeQL for Python, GitHub Actions and the UI's JavaScript with the `security-extended` and `security-and-quality` suites ([config](../../.github/codeql/codeql-config.yml); tests are left out) | alerts at or above the severity set in the branch rule |
+| `security / semgrep` | Semgrep rule packs `p/python`, `p/security-audit`, `p/secrets`, `p/dockerfile`, `p/github-actions` | new ERROR findings only (`--baseline-commit`), so older findings are triaged in code scanning |
+| `security / gitleaks` | secrets in the commits of the pull request or push; the whole history on the weekly run ([allowlist](../../.gitleaks.toml): test fixtures and the documented demo credentials) | any secret |
+| `security / zizmor` | workflow security: template injection, unpinned actions, credential persistence, permissions ([policy](../../.github/zizmor.yml)) | high-severity, high-confidence findings |
+| `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
+| `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
+
+`codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. All five run weekly as well.
+
+[CodeRabbit](https://coderabbit.ai) reviews pull requests with the instructions in [`.coderabbit.yaml`](../../.coderabbit.yaml) (tenant isolation and secrets in the service, privacy-critical code against the proofs and the claim register, workflow hardening) once its GitHub App is installed on the repository. It comments; it does not approve or merge.
 
 ## The type ratchet
 

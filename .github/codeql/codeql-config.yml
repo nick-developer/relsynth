@@ -1,0 +1,14 @@
+# CodeQL configuration (see .github/workflows/codeql.yml)
+name: relsynth CodeQL config
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Tests, benchmarks and examples are scanned by bandit/semgrep too, but their
+# fixtures (fake credentials, temporary paths) would bury real findings here.
+paths-ignore:
+  - tests
+  - bench/data
+  - "**/__pycache__"
+  - docs/proofs
