@@ -1494,6 +1494,7 @@
     ]
    },
    "post": {
+    "description": "Save a spec in a project; specs that name files on the service are refused (422).",
     "operationId": "create_spec_api_v1_t__tenant__projects__pid__specs_post",
     "parameters": [
      {
