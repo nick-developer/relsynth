@@ -26,6 +26,9 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **MongoDB pushdown**: exact type and length counts from one `$group` pipeline and a `$sample` for the rest of the profile.
 - **Acceptance runner** `benchmarks/documents/run_documents.py` (MongoDB sample datasets and a StackExchange dump, downloaded with SHA-256 pins, never committed) and CI job `documents` with a MongoDB 7 service.
 - Research spike on a direct document generator (`docs/research/document-generator-spike.md`): no-go for now; parent-conditioned element columns proposed as the follow-up.
+- `relsynth autotune --workers N`: the seeds of a candidate run in parallel processes, with the same records and search path as one worker.
+- `tools/autotune_bench.py` and the `autotune` workflow: autotune on a bench database (AdventureWorks with its G1-G14 identities as hard constraints) on GitHub runners; the report and a per-candidate summary go to the job log, and a later run resumes the search. First results: [docs/research/autotune-adventureworks.md](docs/research/autotune-adventureworks.md).
+- The `autotune` workflow searches 4.5 hours by default, so the held-out confirmation fits the 6-hour job limit.
 
 ### Changed
 
@@ -36,6 +39,11 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 - The text TSTR metric of the scorecard no longer builds a dense class x word table for a condition with very many levels (it needed 32 GB on a Contoso DP run); above 50 M cells it uses an inverted index with the same model. Smaller tables, and so every earlier result, are unchanged.
 - The scorecard's naive Bayes accepts labels that mix strings and nulls, and an empty seed table keeps its columns in check enforcement.
+- Scorecard: a check rule the source itself breaks (rate above 0) passes within three binomial standard errors of the source rate instead of at the source rate exactly; an exact rule stays exact.
+- `structure.structural_prior` is bounded by 0.999 in the settings registry (the spec refuses 1), so autotune no longer proposes a value every run fails on.
+- Autotune history: the fingerprint includes an engine signature (relsynth source hash and numpy/pandas/scipy/numba/duckdb/SQLAlchemy/pyarrow versions), so runs made under another engine or library version are not reused. On AdventureWorks a pandas 2.3 incumbent made every pandas 3.1 candidate look like a DimProduct privacy regression.
+- Autotune report: a trade-off is reported only when the change in failures is beyond seed noise (one check per seed and twice its paired standard error).
+- Autotune tries a rejected set of `relsynth doctor` fixes block by block, so one fix that breaks a constraint no longer blocks the others.
 
 ## 2.0.0 (2026-10-31)
 Release 2.0 is the first release of the enterprise roadmap: IR 2.0, generator plug-ins, MySQL/MariaDB, cloud warehouses, Iceberg and Delta Lake, privacy attacks, differential privacy, governance, time series, partitioned generation, engine settings with autotune, and the service platform. **Draws for the same seed change** on databases with link tables (see Changed). The proofs PDF is rebuilt with all 2.0 propositions; the partitioned-runtime propositions are renumbered 950–954 (they clashed with DP's 900–904).

@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       dataset: { description: "bench dataset", default: "adventureworks" }
-      hours: { description: "search hours (the job's limit is 6)", default: "5" }
+      hours: { description: "search hours (the job's limit is 6; the held-out confirmation needs about 1 more)", default: "4.5" }
       runs: { description: "budget: runs (one candidate on one seed)", default: "42" }
       seeds: { description: "search seeds", default: "1,2,3" }
       holdout: { description: "held-out seeds", default: "11,12" }
@@ -87,7 +87,7 @@ jobs:
         env:
           RELSYNTH_QUIET: "1"
           DATASET: ${{ inputs.dataset || 'adventureworks' }}
-          HOURS: ${{ inputs.hours || '5' }}
+          HOURS: ${{ inputs.hours || '4.5' }}
           RUNS: ${{ matrix.part.runs || inputs.runs || '42' }}
           SEEDS: ${{ inputs.seeds || '1,2,3' }}
           HOLDOUT: ${{ matrix.part.holdout || inputs.holdout || '11,12' }}
