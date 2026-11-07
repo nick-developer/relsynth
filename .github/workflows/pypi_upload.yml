@@ -79,9 +79,11 @@ jobs:
             --of JSON -o meta/relsynth.cdx.json /tmp/v/bin/python
           python tools/sbom_serial.py meta/relsynth.cdx.json "$(ls dist/*.whl)"
       - name: Sigstore signatures
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           python -m sigstore sign dist/*.whl dist/*.tar.gz meta/relsynth.cdx.json
-          python -m sigstore verify identity --cert-identity "https://github.com/${{ github.workflow_ref }}" \
+          python -m sigstore verify identity --cert-identity "https://github.com/${WORKFLOW_REF}" \
             --cert-oidc-issuer https://token.actions.githubusercontent.com \
             dist/*.whl dist/*.tar.gz meta/relsynth.cdx.json
           mv dist/*.sigstore.json meta/

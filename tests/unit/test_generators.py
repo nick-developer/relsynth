@@ -431,3 +431,35 @@ def test_cart_leaf_weights_are_a_bayesian_bootstrap(snow):
     Wv = W[:, mask].sum(1)
     assert Wv.var() == pytest.approx(c * (n - c) / (n * n * (n + 1)), rel=0.15) if c < n else True
     assert np.allclose(g.posterior_draw(rng, mode="mean").weights[0][leaf], 1.0 / n)
+
+
+def test_compute_file_stays_in_the_spec_folder(tmp_path):
+    """synthesis.compute.file comes from a spec, which the service stores for
+    tenants: it may not name a file outside the spec's folder (CodeQL
+    py/path-injection)."""
+    spec_dir = tmp_path / "spec"
+    spec_dir.mkdir()
+    (spec_dir / "lab.yaml").write_text("presets: {lab: {device: cpu}}\n")
+    (tmp_path / "outside.yaml").write_text("presets: {x: {device: cpu}}\n")
+    assert "lab" in presets("lab.yaml", spec_dir)
+    for bad in ("../outside.yaml", str(tmp_path / "outside.yaml")):
+        with pytest.raises(ComputeError, match="outside the spec's folder"):
+            presets(bad, spec_dir)
+    (spec_dir / "link.yaml").symlink_to(tmp_path / "outside.yaml")
+    with pytest.raises(ComputeError, match="outside the spec's folder"):
+        presets("link.yaml", spec_dir)
+    with pytest.raises(ComputeError, match="not a .yaml"):
+        presets("/etc/passwd", spec_dir)
+
+
+def test_version_specifier_parse_is_linear():
+    """No backtracking regular expression on a specifier (CodeQL py/polynomial-redos)."""
+    import time
+    t0 = time.perf_counter()
+    with pytest.raises(GeneratorError):
+        version_matches("1.0", "==" + " " * 150 + "x")
+    with pytest.raises(GeneratorError, match="longer than 200"):
+        version_matches("1.0", "==" + " " * 5000 + "x")
+    assert time.perf_counter() - t0 < 0.5
+    assert version_matches("1.2.3", "== 1.2.*") and not version_matches("1.3", "==1.2.*")
+    assert version_matches("2.0", ">=1.0, <3") and version_matches("1.4", "~=1.2")

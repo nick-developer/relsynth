@@ -4,6 +4,14 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Security
+
+- **The service no longer writes a job's description to disk.** The worker passed the job (source section, spec, parameters) to the job process in a `job.json` file in the work directory; it now goes over the process's stdin, and credential keys are removed from the source section before it leaves the worker (CodeQL `py/clear-text-storage-sensitive-data`). `python -m relsynth.service.runner -` reads stdin; a file argument still works for development.
+- **`synthesis.compute.file` is confined to the spec's folder.** A spec could name any file on the machine as its compute presets (`../`, absolute paths, symlinks); the file must now be a `.yaml`/`.yml` file inside the folder of the spec (CodeQL `py/path-injection`). `relsynth compute --file` from the command line is unchanged apart from the suffix check.
+- **Generator version specifiers are parsed without a backtracking regular expression** and limited to 200 characters (CodeQL `py/polynomial-redos`).
+- The release workflow passes `github.workflow_ref` to the Sigstore step through an environment variable instead of expanding it in the script (zizmor `template-injection`).
+- **More code scanning in CI**: CodeQL advanced setup with the `security-extended` and `security-and-quality` suites for Python, Actions and JavaScript (`codeql.yml`); a `security` workflow with Semgrep, gitleaks, zizmor and dependency review, all reporting to code scanning; a CodeRabbit review configuration (`.coderabbit.yaml`). See [docs/development/ci.md](docs/development/ci.md#security-scanning).
+
 ### Added
 
 - **Agents** (`relsynth.agents`, `relsynth agent review|apply|explain|doctor|draft|eval`, guide `docs/agents.md`; roadmap T16). Agents draft and explain; people decide. `review` answers the `review:` items of an introspected draft with evidence measured on every row and proposes the change each answer implies (add or remove a relationship, remove a rule); `apply --by` applies the answers a person accepts. `explain` words quality, privacy and scorecard reports; `doctor` turns findings into proposals (privacy settings only as advice to the privacy officer); `draft contract` and `draft policy` write an ODCS contract and an organisation policy with every budget empty. Backends: deterministic rules (default) or an OpenAI-compatible model server on the same machine (Ollama, vLLM); a remote server needs `allow_remote`, https, and gets aggregates only.

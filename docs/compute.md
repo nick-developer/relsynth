@@ -78,3 +78,6 @@ presets:
 
 Name the file with `synthesis.compute.file: lab-compute.yaml` and the preset with `preset: lab-a100`. Fields you
 leave out come from the built-in preset of the same name, or else from `cpu`.
+The file must be a `.yaml` or `.yml` file inside the spec's folder (or a subfolder): a path that leaves
+the folder, by `..`, an absolute path or a symlink, is refused, because a spec can come from someone else
+(the service stores its tenants' specs).
