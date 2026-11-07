@@ -119,6 +119,67 @@ def test_opener_errors_never_carry_credentials():
     assert "evil.example" in text
 
 
+def test_refused_redirect_error_keeps_no_target_or_body():
+    """A refused redirect's HTTPError drops Location, cookies and the body (which may repeat the target)."""
+    import email.message
+    import io
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    headers = email.message.Message()
+    headers["Location"] = "https://u:pw2@evil.example/y?token=s4"
+    headers["Set-Cookie"] = "sid=s5"
+    headers["Content-Type"] = "text/html"
+    body = io.BytesIO(b"<a href='https://evil.example/y?token=s4'>moved</a>")
+    req = urllib.request.Request("https://vault.example/v1/x", headers={"X-Vault-Token": "t0"})
+    with pytest.raises(urllib.error.HTTPError) as e:
+        _http._SameOriginRedirect().redirect_request(req, body, 302, "Found", headers, headers["Location"])
+    err = e.value
+    assert err.headers.get("Location") is None and err.headers.get("Set-Cookie") is None
+    assert err.headers.get("Content-Type") == "text/html"
+    assert err.read() == b"" and body.closed
+    text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())}"
+    assert not any(s in text for s in ("pw2", "s4", "s5", "t0", "/v1/x")), text
+
+
+def _e2e_flow():
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parents[2] / "deploy" / "e2e" / "e2e_flow.py"
+    spec = importlib.util.spec_from_file_location("e2e_flow_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_e2e_flow_refuses_every_redirect():
+    """The e2e script's requests all carry a bearer token or password: no redirect is followed,
+    neither to another host nor to http, and the error names no URL, token or body."""
+    import io
+    import urllib.error
+    import urllib.request
+
+    mod = _e2e_flow()
+    h = mod._NoRedirect()
+    req = urllib.request.Request("https://api.example/api/v1/t/a/runs?x=s3",
+                                 headers={"Authorization": "Bearer tok1"})
+    for target in ("https://evil.example/y?token=s4", "http://api.example/api/v1/t/a/runs",
+                   "https://api.example/elsewhere"):
+        body = io.BytesIO(b"moved to " + target.encode())
+        with pytest.raises(urllib.error.HTTPError, match="redirect refused") as e:
+            h.redirect_request(req, body, 302, "Found", {"Location": target}, target)
+        err = e.value
+        text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
+        assert not any(s in text for s in ("tok1", "s3", "s4", "evil", "/api/v1")), text
+        assert body.closed
+    assert any(isinstance(x, mod._NoRedirect) for x in mod._OPENER.handlers)
+    assert not any(type(x) is urllib.request.HTTPRedirectHandler for x in mod._OPENER.handlers)
+    with pytest.raises(ValueError) as e:
+        mod._open(urllib.request.Request("file:///etc/passwd"), timeout=1)
+    assert "passwd" not in str(e.value)
+
+
 def test_semgrep_summary_paths_cannot_issue_workflow_commands():
     """A file name with ::, ##[ or a line break prints as text in the Semgrep summary."""
     import importlib.util

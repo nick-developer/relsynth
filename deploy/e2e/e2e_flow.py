@@ -14,6 +14,7 @@ standard library, so it runs from any machine or pod with Python.
 from __future__ import annotations
 
 import argparse
+import email.message
 import io
 import json
 import sys
@@ -33,19 +34,33 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         sys.exit(1)
 
 
-# http(s) only: this script runs without relsynth installed, so it carries the same
-# opener as relsynth._http (no file://, ftp:// or data: handler, even after a redirect)
+# http(s) only: this script runs without relsynth installed, so it carries its own opener
+# (no file://, ftp:// or data: handler).  Every request here carries a bearer token or a
+# password, and neither the service API nor the token endpoint redirects, so a redirect
+# is refused outright: it could forward the credentials to another host or over http.
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Refuse every redirect, with no URL, header or body in the error."""
+        if fp is not None:
+            fp.close()
+        parts = urllib.parse.urlsplit(req.full_url)
+        raise urllib.error.HTTPError(f"{parts.scheme}://{parts.hostname}", code,
+                                     "redirect refused: these requests carry credentials",
+                                     email.message.Message(), io.BytesIO(b""))
+
+
 _OPENER = urllib.request.OpenerDirector()
 for _h in (urllib.request.ProxyHandler(), urllib.request.UnknownHandler(), urllib.request.HTTPHandler(),
            urllib.request.HTTPSHandler(), urllib.request.HTTPDefaultErrorHandler(),
-           urllib.request.HTTPRedirectHandler(), urllib.request.HTTPErrorProcessor()):
+           _NoRedirect(), urllib.request.HTTPErrorProcessor()):
     _OPENER.add_handler(_h)
 
 
 def _open(req: urllib.request.Request, timeout: float):
-    """Open an http(s) request; any other scheme raises ValueError."""
-    if urllib.parse.urlsplit(req.full_url).scheme.lower() not in ("http", "https"):
-        raise ValueError(f"only http(s) URLs: {req.full_url[:200]}")
+    """Open an http(s) request; any other scheme raises ValueError (naming only the scheme)."""
+    scheme = urllib.parse.urlsplit(req.full_url).scheme.lower()
+    if scheme not in ("http", "https"):
+        raise ValueError(f"only http(s) URLs can be opened, not {scheme or 'a URL without a scheme'}")
     return _OPENER.open(req, timeout=timeout)
 
 

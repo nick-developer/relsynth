@@ -14,6 +14,8 @@ from https to http.  Proxies come from the environment as with
 """
 from __future__ import annotations
 
+import email.message
+import io
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
@@ -49,6 +51,23 @@ def _has_credentials(req: urllib.request.Request) -> bool:
     return bool(names & CREDENTIAL_HEADERS) or "@" in urlsplit(req.full_url).netloc
 
 
+# response headers left out of a refused redirect's HTTPError: the target URL (which may carry
+# credentials or tokens in its user, path or query) and cookies the response tried to set
+_DROPPED_HEADERS = frozenset({"location", "uri", "content-location", "set-cookie", "set-cookie2"})
+
+
+def _refused(req, code, msg, headers, fp) -> urllib.error.HTTPError:
+    """An HTTPError for a refused redirect that names only the origin: its headers keep
+    no target URL or cookie, and its body (which may repeat the target) is dropped."""
+    kept = email.message.Message()
+    for name, value in (headers.items() if headers is not None else ()):
+        if name.lower() not in _DROPPED_HEADERS:
+            kept[name] = value
+    if fp is not None:
+        fp.close()
+    return urllib.error.HTTPError(_where(req.full_url), code, msg, kept, io.BytesIO(b""))
+
+
 class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
     """Never downgrade https to http; keep requests with credentials on their origin."""
 
@@ -56,12 +75,10 @@ class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
         """The redirected request, or HTTPError when the redirect could leak the request's credentials."""
         old, new = _origin(req.full_url), _origin(newurl)
         if old[0] == "https" and new[0] != "https":
-            raise urllib.error.HTTPError(_where(req.full_url), code,
-                                         f"redirect from https to {_where(newurl)} refused", headers, fp)
+            raise _refused(req, code, f"redirect from https to {_where(newurl)} refused", headers, fp)
         if new != old and _has_credentials(req):
-            raise urllib.error.HTTPError(_where(req.full_url), code,
-                                         f"redirect with credentials to another origin refused: {_where(newurl)}",
-                                         headers, fp)
+            raise _refused(req, code, f"redirect with credentials to another origin refused: {_where(newurl)}",
+                           headers, fp)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
