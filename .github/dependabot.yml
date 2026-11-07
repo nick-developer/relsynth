@@ -10,3 +10,8 @@ updates:
     directory: /
     schedule: { interval: weekly }
     commit-message: { prefix: "build" }
+  # base images are pinned by digest; these updates move the digests
+  - package-ecosystem: docker
+    directories: ["/", "/deploy/docker"]
+    schedule: { interval: weekly }
+    commit-message: { prefix: "build" }
