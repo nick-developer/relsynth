@@ -70,7 +70,8 @@ def test_opener_refuses_cross_origin_redirects():
     from relsynth import _http
     h = _http._SameOriginRedirect()
     req = urllib.request.Request("https://vault.example:8200/v1/x", headers={"X-Vault-Token": "t"})
-    for target in ("http://vault.example:8200/v1/y", "https://evil.example/v1/y", "https://vault.example:9000/y"):
+    for target in ("http://vault.example:8200/v1/y", "https://evil.example/v1/y",
+                   "https://vault.example:9000/y", "ftp://vault.example/v1/y"):
         with pytest.raises(urllib.error.HTTPError, match="another origin"):
             h.redirect_request(req, None, 302, "Found", {}, target)
     same = h.redirect_request(req, None, 302, "Found", {}, "https://VAULT.example:8200/v1/y")

@@ -469,3 +469,13 @@ def test_version_specifier_parse_is_linear():
     for odd in (">=\u00b2", "==1.\u2460", "==\u0661.0"):    # superscript, circled and Arabic-Indic digits
         with pytest.raises(GeneratorError):
             version_matches("1.0", odd)
+
+
+def test_cli_compute_file_in_a_subfolder(tmp_path, monkeypatch, capsys):
+    """`relsynth compute --file sub/compute.yaml` reads that file (the folder is not doubled)."""
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs" / "compute.yaml").write_text("presets:\n  lab:\n    device: cpu\n    threads: 3\n")
+    monkeypatch.chdir(tmp_path)
+    assert cli_main(["compute", "--preset", "lab", "--file", "configs/compute.yaml", "--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["presets"]["lab"]["threads"] == 3
