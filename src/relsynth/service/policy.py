@@ -8,6 +8,12 @@
 * Database URLs may name only hosts matching ``allowed_hosts`` (when set), which
   limits server-side request forgery from the workers' network position.
 * Credentials never go in the source section: they come from ``secret_ref``.
+
+What a tenant's spec may refer to (``spec_refusals``): nothing on the service's
+own file system.  Internal keys (``_base_dir``) and file references
+(``synthesis.settings_file`` other than a built-in ``preset:``, and
+``synthesis.compute.file``) would let a spec read files outside the tenant's
+area, so the service refuses them.
 """
 from __future__ import annotations
 
@@ -59,3 +65,23 @@ def check_source(src: dict, tenant: str, settings) -> dict:
             if not any(fnmatch.fnmatch(host, h.lower()) for h in hosts):
                 raise SourceRefused(f"host {host!r} is not in the allowed hosts")
     return src
+
+
+def spec_refusals(raw: dict) -> list[str]:
+    """Why a tenant's spec cannot run on the service (empty when it can).
+
+    A spec reaches the service as text from a tenant, so it may not name files on
+    the service's machine: keys starting with ``_`` are internal (``_base_dir``
+    moves the folder relative paths resolve against), a settings file other than a
+    built-in ``preset:NAME`` and a compute file are paths the workers would read."""
+    out = [f"key {k!r} is internal and cannot be set in a spec" for k in raw if str(k).startswith("_")]
+    syn = raw.get("synthesis") if isinstance(raw.get("synthesis"), dict) else {}
+    ref = syn.get("settings_file")
+    if ref is not None and not str(ref).startswith("preset:"):
+        out.append("synthesis.settings_file: the service accepts only a built-in preset:NAME, "
+                   "not a file on the service")
+    comp = syn.get("compute") if isinstance(syn.get("compute"), dict) else {}
+    if comp.get("file") is not None:
+        out.append("synthesis.compute.file: the service does not read compute files; "
+                   "use a built-in preset with overrides")
+    return out

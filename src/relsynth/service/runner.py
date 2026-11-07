@@ -72,6 +72,11 @@ def main(argv: list[str]) -> int:
         else:
             p = job.get("params", {})
             raw = yaml.safe_load(job["spec"]) or {}
+            # the API refuses such specs; a job queued before that check is refused here too
+            from relsynth.service.policy import spec_refusals
+            refused = spec_refusals(raw)
+            if refused:
+                raise rs.SpecError("; ".join(refused))
             raw["source"] = src
             fmt = p.get("format", "csv")
             raw["target"] = {"kind": fmt, "path": str(out / "data")}
