@@ -44,7 +44,6 @@ src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
 src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
 src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
 src/relsynth/marginals.py: [attr-defined] "Marginal" has no attribute "p_null"
-src/relsynth/pipeline.py: [assignment] Incompatible types in assignment (expression has type "list[Any]", target has type "float")
 src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample"
 src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample_log"
 src/relsynth/pipeline.py: [union-attr] Item "None" of "Any | None" has no attribute "sample_log"

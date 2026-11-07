@@ -17,6 +17,7 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .data import coerce, write_tables
 from .diagnostics import build_bundle, write_bundle
@@ -131,14 +132,17 @@ def _prepare_spec(spec_or_path, scale=None, datasets=None, mode=None, pushdown=N
 
 
 def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=True, tables=None, datasets=None,
-            mode=None, pushdown=None, seed=None, write=True, evaluate_data=True, fit_data=None) -> PipelineRun:
+            mode=None, pushdown=None, seed=None, write=True, evaluate_data=True, fit_data=None,
+            privacy_check=False) -> PipelineRun:
     """Run the pipeline.  Failed steps are recorded (bundle errors and
     PipelineRun.exceptions) and the steps that depend on them are skipped.
 
     tables: source tables already in memory (instead of reading the spec's source);
     fit_data: a relsynth.pushdown.FitData already loaded; out: output folder or
     target section (default: the spec's target); write=False keeps the data in
-    memory only."""
+    memory only; privacy_check: also run the quick DOMIAS check on a proxy release
+    after every file is written (relsynth.privacy.quick; True follows the spec's
+    synthesis.evaluation.privacy_check, False skips it)."""
     errors, exceptions, written = [], [], []
     t0 = time.time()
     spec = _prepare_spec(spec_or_path, scale, datasets, mode, pushdown, seed)
@@ -197,7 +201,16 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
                 step(f"write {i + 1}", lambda: write_tables(spec, extra, tgt))
                 written.append(tgt)
         syn.sample_log = first_log
-    extra_b = {"wall_seconds": round(time.time() - t0, 1)}
+    extra_b: dict[str, Any] = {"wall_seconds": round(time.time() - t0, 1)}
+    if privacy_check and real is not None and fake is not None \
+            and spec["synthesis"]["evaluation"].get("privacy_check", True):
+        # after every write, on its own seeded streams: the release is the same without it (Prop. 1741)
+        from .privacy.quick import quick_check
+        try:
+            extra_b["privacy_check"] = quick_check(spec, real, stats=stats)
+        except Exception as e:  # noqa: BLE001 - the check informs; it never fails a run
+            log.warning("privacy check failed: %r", e)
+            extra_b["privacy_check"] = {"status": "error", "reason": repr(e)[:500]}
     if fit is not None and hasattr(fit, "plan"):
         if fit.notes:
             extra_b["load_notes"] = list(fit.notes)

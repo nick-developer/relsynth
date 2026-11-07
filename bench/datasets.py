@@ -190,7 +190,9 @@ class Dataset:
     note: str = ""
     tags: list = field(default_factory=list)
     quality: dict = field(default_factory=dict)     # 2.0 quality report settings (cost budget); None: not run
-    privacy: dict | None = None                     # privacy attacks: {"shadow": {...}}; None: not run
+    # privacy attacks: {"shadow": {...}, "generators": [...]}; None: not run.  generators: the other
+    # generator plug-ins attacked with the same settings (G5: every built-in generator has privacy rows)
+    privacy: dict | None = None
     repro: bool = False                             # synthesise each seed twice and compare the files
     overrides: tuple = ()                           # spec overrides of this variant (e.g. a scale)
 
@@ -277,6 +279,8 @@ def _bi_checks(location: str, syn_dir: Path) -> dict:
 AW_QUALITY = {"null_splits": 5, "multi_splits": 3}
 # The shadow-model membership attack where one release fit is cheap (one person table): a quarter of
 # relsynth's default shadows; DOMIAS and the Anonymeter attacks run everywhere privacy runs.
+# every built-in generator plug-in (relsynth.generators); the spec's own is attacked first
+ALL_GENERATORS = ("copula", "cart", "independent")
 SHADOW_SMALL = {"enabled": True, "n_train": 16, "n_test": 16, "shadow_size": 500, "targets_vulnerable": 5,
                 "targets_random": 5, "n_jobs": os.cpu_count() or 1}
 
@@ -293,10 +297,10 @@ DATASETS = {
                                _contoso_checks, note="Contoso V2 100k, raw Parquet files; checks T1-T17"),
     "berka": Dataset("berka", lambda: f"sqlite:{build_berka()}", _spec("berka"), _sqlite_checks("berka"),
                      note="Berka / PKDD'99 Czech bank (SyntheRela 'financial', 8 tables, 1.08M rows); checks F1-F16",
-                     privacy={"shadow": {"enabled": False}}),
+                     privacy={"shadow": {"enabled": False}, "generators": ALL_GENERATORS}),
     "acs": Dataset("acs", lambda: f"sqlite:{build_acs()}", _spec("acs"), _sqlite_checks("acs"),
                    note="ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns); checks A1-A14",
-                   privacy={"shadow": SHADOW_SMALL}, repro=True),
+                   privacy={"shadow": SHADOW_SMALL, "generators": ALL_GENERATORS}, repro=True),
     # the scale rule: Chinook drawn at twice its size; the quality report normalises fan-out by the scale
     "chinook_x2": Dataset("chinook_x2", lambda: f"sqlite:{build_chinook()}", _spec("chinook"),
                           note="Chinook at synthesis.scale 2 (scale rule, integrity at another size)",

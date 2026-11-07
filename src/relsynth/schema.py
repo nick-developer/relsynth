@@ -520,6 +520,11 @@ SYNTH_DOC = {
                              "Each limit is the larger of its tolerance and its sampling limit.",
     "evaluation.assoc_max_rows": "Rows sampled for the association metrics.",
     "evaluation.discriminator_rows": "Rows sampled per side for the discriminator AUC.",
+    "evaluation.privacy_check": "Run the quick membership privacy check after `relsynth run` / `relsynth.run` (a proxy "
+                                "release fitted on a third of a sample of people; docs/privacy.md). Never changes "
+                                "the synthetic data.",
+    "evaluation.privacy_check_people": "People sampled for the quick privacy check (a third fit the proxy, a third "
+                                       "are unseen, a third are the attacker's reference).",
     "per_table": "Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}.",
     "settings_file": "A settings file merged under this block (a path relative to the spec, or preset:fast / "
                      "preset:thorough). The spec's own keys win. See docs/settings.md.",

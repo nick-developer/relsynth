@@ -94,7 +94,7 @@ split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS
 ### `rs.run`
 
 ```python
-run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True, settings=None) -> RunResult
+run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True, settings=None, privacy_check: bool = True) -> RunResult
 ```
 
 The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
@@ -104,6 +104,9 @@ spec's target); datasets: independent posterior draws to write; mode: 'draw'
 raise_errors=False returns a RunResult with `errors` instead of raising (the
 bundle explains them; see doctor).  settings: engine settings over the
 spec's synthesis block (relsynth.Settings, a mapping or a settings file).
+privacy_check: the quick DOMIAS check on a proxy release (on unless False or
+the spec's synthesis.evaluation.privacy_check is false); its result is
+RunResult.privacy_check and the bundle's privacy_check field.
 
 ### `rs.verify`
 
@@ -382,7 +385,7 @@ to_csv(self, folder: str | Path) -> Path
 #### `SyntheticData.to_dict`
 
 ```python
-to_dict(self) -> dict[str, DataFrame]
+to_dict(self) -> dict[str, pandas.DataFrame]
 ```
 
 #### `SyntheticData.to_parquet`
@@ -468,7 +471,7 @@ to_json(self, path: str | Path | None = None) -> str
 One pipeline run: the synthetic data, the model, the scorecard, the
 diagnostics bundle (for `doctor`) and the errors of failed steps.
 
-Properties: `ok`.
+Properties: `ok`, `privacy_check`.
 
 #### `RunResult.save_bundle`
 
@@ -535,7 +538,7 @@ A copy of the spec with every patch applied.
 #### `Synthesizer.fit`
 
 ```python
-fit(self, tables: dict[str, DataFrame], stats=None)
+fit(self, tables: dict[str, pandas.DataFrame], stats=None)
 ```
 
 Fit the model.  `stats` (pushdown) maps fact tables given as uniform

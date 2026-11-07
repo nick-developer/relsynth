@@ -384,7 +384,8 @@ def cmd_run(a, out):
     target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
-              privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False)
+              privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False,
+              privacy_check=not a.no_privacy_check)
     out.put(bundle=a.bundle, seconds=round(time.time() - t0, 1),
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
@@ -395,6 +396,10 @@ def cmd_run(a, out):
         _scorecard_lines(out, res.report)
         if a.report:
             Path(a.report).write_text(res.report.to_markdown(), encoding="utf-8")
+    if res.privacy_check is not None:
+        from .privacy.quick import line as privacy_line
+        out.put(privacy_check=res.privacy_check)
+        out.line(privacy_line(res.privacy_check))
     if a.bundle:
         out.line(f"diagnostics bundle -> {a.bundle}")
     if res.errors:
@@ -806,6 +811,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--bundle", default="diagnostics_bundle.json", help="diagnostics bundle path ('' for none)")
     s.add_argument("--report", help="also write the scorecard as Markdown")
     s.add_argument("--no-privacy", action="store_true", help="skip distance-to-closest-record checks")
+    s.add_argument("--no-privacy-check", action="store_true",
+                   help="skip the quick membership privacy check on a proxy release (docs/privacy.md)")
     s.add_argument("--no-write", action="store_true", help="score only; write no synthetic data")
     s.add_argument("--datasets", type=int, help="number of synthetic datasets (independent posterior draws)")
     s.add_argument("--mode", choices=["draw", "mean"], help="posterior draw (default) or posterior means")

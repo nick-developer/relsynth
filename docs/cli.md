@@ -147,12 +147,13 @@ Fit, sample, write and score.
 usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--out OUT]
                     [--target TARGET] [--target-schema TARGET_SCHEMA]
                     [--target-password-env TARGET_PASSWORD_ENV] [--target-url-env TARGET_URL_ENV]
-                    [--bundle BUNDLE] [--report REPORT] [--no-privacy] [--no-write]
-                    [--datasets DATASETS] [--mode {draw,mean}] [--pushdown {auto,on,off}]
-                    [--seed SEED] [--fail-under SHARE] [--registry REGISTRY] [--context CONTEXT]
-                    [--release-target RELEASE_TARGET] [--source-id SOURCE_ID] [--key KEY]
-                    [--privacy-report PRIVACY_REPORT] [--assess] [--privacy-config PRIVACY_CONFIG]
-                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
+                    [--bundle BUNDLE] [--report REPORT] [--no-privacy] [--no-privacy-check]
+                    [--no-write] [--datasets DATASETS] [--mode {draw,mean}]
+                    [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE]
+                    [--registry REGISTRY] [--context CONTEXT] [--release-target RELEASE_TARGET]
+                    [--source-id SOURCE_ID] [--key KEY] [--privacy-report PRIVACY_REPORT]
+                    [--assess] [--privacy-config PRIVACY_CONFIG] [--dp] [--epsilon EPSILON]
+                    [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
                     [--dp-statement DP_STATEMENT] [--json]
                     [--log-level {debug,info,warning,error}]
                     spec
@@ -172,6 +173,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
 | `--bundle` BUNDLE |  | `diagnostics_bundle.json` | diagnostics bundle path ('' for none) |
 | `--report` REPORT |  |  | also write the scorecard as Markdown |
 | `--no-privacy` |  |  | skip distance-to-closest-record checks |
+| `--no-privacy-check` |  |  | skip the quick membership privacy check on a proxy release (docs/privacy.md) |
 | `--no-write` |  |  | score only; write no synthetic data |
 | `--datasets` DATASETS |  |  | number of synthetic datasets (independent posterior draws) |
 | `--mode` draw\|mean |  |  | posterior draw (default) or posterior means |

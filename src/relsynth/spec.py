@@ -59,7 +59,9 @@ DEFAULT_SYNTHESIS = {
     "detection": {"group_effect_share": 0.95, "scd_stable_share": 0.99, "scd_max_versions": 50},
     # the scorecard: fixed tolerances (relsynth.evaluate.THRESHOLDS, overridable per key) and the
     # rows the association and discriminator metrics use
-    "evaluation": {"thresholds": {}, "assoc_max_rows": 20000, "discriminator_rows": 5000},
+    "evaluation": {"thresholds": {}, "assoc_max_rows": 20000, "discriminator_rows": 5000,
+                   # the quick DOMIAS check of `relsynth run` (relsynth.privacy.quick) and its sample of people
+                   "privacy_check": True, "privacy_check_people": 3000},
     # per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}} (relsynth.settings)
     "per_table": {},
     # a settings file merged under this block (relsynth.settings; relative to the spec)
