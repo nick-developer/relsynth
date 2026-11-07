@@ -226,8 +226,10 @@ class TableGenerator:
     def serialize(self) -> bytes:
         """A model file: a JSON header (generator, model version, contract
         version, SHA-256 of the payload) and the pickled state."""
-        # the state is the generator's own fitted arrays and parameters (its __getstate__ hooks are
-        # relsynth code); the risk is in reading a model file, so load() demands trusted=True and the SHA-256
+        # the state is the generator's own fitted arrays and parameters; for a plug-in generator its
+        # serialisation hooks are the plug-in's code, which runs here, so installed plug-ins must be
+        # trusted.  The risk is in reading a model file: load() demands trusted=True (the SHA-256 in the
+        # header only detects corruption, it does not make a file trustworthy)
         payload = pickle.dumps(self.state(), protocol=pickle.HIGHEST_PROTOCOL)  # nosemgrep
         head = {"format": "relsynth-generator", "contract": CONTRACT_VERSION, "generator": self.name,
                 "version": self.version, "class": f"{type(self).__module__}.{type(self).__qualname__}",
