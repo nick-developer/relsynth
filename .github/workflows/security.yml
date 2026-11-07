@@ -48,7 +48,7 @@ jobs:
       - run: pip install --require-hashes --no-deps -r .github/requirements/semgrep.txt
       - name: semgrep (all findings to code scanning)
         run: |
-          semgrep scan --metrics=off --sarif -o semgrep.sarif \
+          semgrep scan --metrics=off --sarif -o semgrep-raw.sarif \
             --config p/python --config p/security-audit --config p/secrets \
             --config p/dockerfile --config p/github-actions --config .semgrep/ \
             --exclude tests --exclude bench/data
@@ -56,7 +56,9 @@ jobs:
           # semgrep keeps them in SARIF and code scanning would open alerts for them.
           # Strip the matched source text too, so a secret found by p/secrets is not
           # copied into the uploaded SARIF (code scanning shows the line from the repository)
-          python .github/scripts/sarif_clean.py semgrep.sarif
+          # only a cleaned file is ever named semgrep.sarif, the one the upload step sends
+          python .github/scripts/sarif_clean.py semgrep-raw.sarif
+          mv semgrep-raw.sarif semgrep.sarif
       - name: semgrep (new ERROR findings fail the pull request)
         if: github.event_name == 'pull_request'
         env:
