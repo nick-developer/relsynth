@@ -222,3 +222,56 @@ def test_legacy_ident_check_quotes_database_metadata():
     assert (p, c, pc) == (parent, key, key)
     assert sorted(pd.read_sql(f"select {mod._q(c)} from {mod._q(t)}", con)[c]) == [1, 2, 2]
     assert mod._q('a"b') == '"a""b"'
+
+
+@pytest.mark.parametrize("target", ["file://user:pw9@host/etc/passwd?token=s9", "data:text/plain,s9",
+                                    "ftp://user:pw9@files.example/x?token=s9"])
+def test_redirect_to_another_scheme_is_refused_before_urllib_echoes_it(target):
+    """urllib's own check for a non-http(s) target raises an HTTPError holding the target URL,
+    its headers and the body; both openers refuse it first, through http_error_302 itself."""
+    import email.message
+    import io
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    for handler in (_http._SameOriginRedirect(), _e2e_flow()._NoRedirect()):
+        for code in (301, 302, 303, 307):
+            headers = email.message.Message()
+            headers["Location"] = target
+            body = io.BytesIO(b"see " + target.encode())
+            req = urllib.request.Request("https://api.example/v1/x?t=s3", headers={"Authorization": "Bearer tok1"})
+            with pytest.raises(urllib.error.HTTPError) as e:
+                getattr(handler, f"http_error_{code}")(req, body, code, "Found", headers)
+            err = e.value
+            text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
+            assert not any(s in text for s in ("pw9", "s9", "passwd", "tok1", "s3", "/v1/x")), text
+            assert body.closed
+
+
+def test_shared_opener_sanitises_urllib_refusals_after_the_origin_check():
+    """A redirected POST (refused by urllib itself) and a redirect loop give errors without the
+    target, the request's path or query, or the response body."""
+    import email.message
+    import io
+    import urllib.error
+    import urllib.request
+
+    from relsynth import _http
+    h = _http._SameOriginRedirect()
+    headers = email.message.Message()
+    headers["Location"] = "https://api.example/next?token=s9"
+    post = urllib.request.Request("https://api.example/v1/x?t=s3", data=b"{}")
+    with pytest.raises(urllib.error.HTTPError, match="POST") as e:
+        h.http_error_307(post, io.BytesIO(b"s9"), 307, "Temporary Redirect", headers)   # 307 keeps POST: urllib refuses
+    err = e.value
+    text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
+    assert not any(s in text for s in ("s9", "s3", "/v1/x")), text
+
+    loop = urllib.request.Request("https://api.example/v1/x?t=s3")
+    loop.redirect_dict = {"https://api.example/next?token=s9": h.max_repeats}
+    with pytest.raises(urllib.error.HTTPError, match="loop") as e:
+        h.http_error_302(loop, io.BytesIO(b"s9"), 302, "Found", headers)
+    err = e.value
+    text = f"{err} {err.filename} {err.msg} {dict(err.headers.items())} {err.read()!r}"
+    assert not any(s in text for s in ("s9", "s3", "/v1/x")), text

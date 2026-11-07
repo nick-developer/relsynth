@@ -39,14 +39,20 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 # password, and neither the service API nor the token endpoint redirects, so a redirect
 # is refused outright: it could forward the credentials to another host or over http.
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        """Refuse every redirect, with no URL, header or body in the error."""
+    def http_error_302(self, req, fp, code, msg, headers):
+        """Refuse every redirect (whatever its target scheme), with no URL, header or body in the error."""
         if fp is not None:
             fp.close()
         parts = urllib.parse.urlsplit(req.full_url)
         raise urllib.error.HTTPError(f"{parts.scheme}://{parts.hostname}", code,
                                      "redirect refused: these requests carry credentials",
                                      email.message.Message(), io.BytesIO(b""))
+
+    http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Never reached (every redirect status is refused above); refuses too, for safety."""
+        return self.http_error_302(req, fp, code, msg, headers)
 
 
 _OPENER = urllib.request.OpenerDirector()
