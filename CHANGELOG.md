@@ -16,6 +16,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 ### Tests
 
 - **Three claims now have tests of their own.** A diagnostics bundle, a verify report and profile output hold no identifier value and at most a few summary values of each continuous column (SEC-10 and README RM-27 move from partial to supported); every statement sent to a SQLite source by introspect, profile, run (pushdown off and on) and verify is a `SELECT` or a read-only reflection `PRAGMA`, and the source file is unchanged (new claim SEC-17); `doctor --apply` refuses a DP spec (DP-12). The register holds 148 claims.
+- **Module-level import cycles fail a test** (`tests/unit/test_import_graph.py`). The 76 CodeQL `py/cyclic-import` notes all ran through imports deferred into functions, which cannot fail at import time; the note is now filtered out in the CodeQL config, the test guards the cycles that can fail, and `py/unsafe-cyclic-import` stays on.
 
 ## 2.1.0 (2026-11-07)
 ### Security

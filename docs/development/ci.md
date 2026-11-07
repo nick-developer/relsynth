@@ -36,6 +36,8 @@ CodeQL, Semgrep and zizmor findings go to Security > Code scanning (SARIF) and a
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
 | `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
 
+CodeQL's `py/cyclic-import` note is filtered out in the config: its cycles run through imports deferred into functions (optional drivers, heavy modules, callbacks into the engine), which cannot fail at import time. `tests/unit/test_import_graph.py` fails instead when the module-level imports form a cycle, and `py/unsafe-cyclic-import` stays on.
+
 `codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. CodeQL, Semgrep, gitleaks and zizmor run weekly as well; dependency-review runs on pull requests only.
 
 [CodeRabbit](https://coderabbit.ai) reviews every pull request with [`.coderabbit.yaml`](../../.coderabbit.yaml). It comments; it does not approve or merge.
