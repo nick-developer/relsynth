@@ -80,8 +80,9 @@ jobs:
       - name: semgrep (new suppressions, for the reviewer)
         # a "# nosemgrep" hides a finding from the gate and from code scanning, so every one
         # the pull request adds is annotated on its line and listed in the job summary;
-        # each needs a reason next to it and the owner's review (docs/development/ci.md)
-        if: github.event_name == 'pull_request'
+        # each needs a reason next to it and the owner's review (docs/development/ci.md);
+        # always(): it also runs when the gate above failed on a new ERROR finding
+        if: always() && github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
