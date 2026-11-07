@@ -31,6 +31,34 @@ spec change, and what in autotune itself needed fixing.
 - The statistical families stay unmet, and settings will not close them. 22 of the 43 excess failures per seed are
   one family, `novel_combination_rate`, and no setting moved it.
 
+### Runs 5 and 6: one environment (pandas 3.1), current engine
+
+Runs 1 and 2 above used pandas 2.3. With history keyed by engine and library versions (fix 6), runs 5 and 6
+searched from scratch: run 5 on the PR head, run 6 on main after #41, #42 and #44 merged. Both took the same path,
+so the search itself is reproducible.
+
+| | Hard violations | Excess per seed (search 1-3) | Held-out 11-12 |
+|---|---|---|---|
+| spec as given | 0 on seeds 1-3 | 44.7 | DimProduct DCR 0.40 < 0.5 on seed 12 |
+| `structure.structural_prior: 0.999` (accepted on the search seeds) | 0 on seeds 1-3 | 42.7 | DimProduct DCR 0.45 < 0.5 on seed 11 |
+
+- Under pandas 3.1 the result changes. `structural_prior: 0.999` was accepted on the search seeds (2.0 fewer excess
+  failures per seed, se 1.15), but the held-out seeds did **not** confirm it. `segments.default_cap: 16` was not
+  reached before the budget ran out. Recommended setting for AdventureWorks today: the defaults.
+- **The DimProduct privacy margin is thin even with the defaults.** The DCR ratio (synthetic-to-real 5th percentile
+  distance over real-to-real) is 0.58, 0.54, 0.63, 0.64 and 0.40 on seeds 1, 2, 3, 11 and 12. So the defaults fail
+  the hard limit on 1 seed in 5. Each move that gives DimProduct a finer model pushes it lower:
+  `marginals.joint_max_levels: 128` (0.29-0.56), `beta_prior: 1.0` (0.42-0.81), the doctor's 16 segments per
+  dimension (0.09-0.18). This is the main finding of the clean runs. DimProduct has 606 rows and many near-unique
+  attribute combinations, so a model that fits it more closely reproduces real products. That needs engine work
+  (see Next), not tuning. The DCR check stays a hard constraint.
+- The unmet families and systematic checks are the same as in runs 1 and 2: `novel_combination_rate` (22 per seed),
+  Freight/TaxAmt and UnitsBalance `marginal_ks`, the order codes typed as categoricals (`marginal_tvd` 0.97), and
+  `cardinality_ks` of the product and reseller links.
+- Cost: one AdventureWorks fit with three in parallel takes about 30 minutes on a GitHub runner. A 5-hour search
+  plus the held-out confirmation does not fit the 6-hour job limit (run 5 was cut off during the confirmation), so
+  the workflow's default search time is now 4.5 hours (run 6: 31 runs in 5.6 hours).
+
 ## What settings fixed, and what needs an engine or spec change
 
 | Family (failures per seed) | Systematic checks (values; limit) | Settings tried | Verdict |
@@ -109,8 +137,11 @@ not as a real trade-off. A fourth run names the failing check and its values per
 
 ## Next
 
-- Run 5 (fresh, pandas 3.1): baseline and `segments.default_cap: 16` on the same environment, then the doctor's parts
-  and the `facts.*` settings for `cardinality_ks`. This report is updated when it finishes.
+- Engine: protect small dimensions. DimProduct's DCR ratio is near the 0.5 limit at the defaults. Options to study:
+  cap segments by rows per segment for small tables, pool the copula toward the global fit, or post-check DCR per
+  dimension and redraw rows that sit closer to a real row than real rows sit to each other.
+- Tune again after that, with `segments.default_cap`, the doctor's parts and the `facts.*` settings for
+  `cardinality_ks`, which the budget did not reach.
 - Engine work, which the settings cannot replace: cross-parent support for hop pairs (`novel_combination_rate`), the
   rounding of derived amounts, and the opening level of cumulative rules.
 - Spec or introspect: type order-level codes such as CarrierTrackingNumber as identifiers.
