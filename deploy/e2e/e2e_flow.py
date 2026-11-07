@@ -33,6 +33,22 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         sys.exit(1)
 
 
+# http(s) only: this script runs without relsynth installed, so it carries the same
+# opener as relsynth._http (no file://, ftp:// or data: handler, even after a redirect)
+_OPENER = urllib.request.OpenerDirector()
+for _h in (urllib.request.ProxyHandler(), urllib.request.UnknownHandler(), urllib.request.HTTPHandler(),
+           urllib.request.HTTPSHandler(), urllib.request.HTTPDefaultErrorHandler(),
+           urllib.request.HTTPRedirectHandler(), urllib.request.HTTPErrorProcessor()):
+    _OPENER.add_handler(_h)
+
+
+def _open(req: urllib.request.Request, timeout: float):
+    """Open an http(s) request; any other scheme raises ValueError."""
+    if urllib.parse.urlsplit(req.full_url).scheme.lower() not in ("http", "https"):
+        raise ValueError(f"only http(s) URLs: {req.full_url[:200]}")
+    return _OPENER.open(req, timeout=timeout)
+
+
 class Client:
     def __init__(self, api: str, token: str):
         self.api, self.token = api.rstrip("/"), token
@@ -43,7 +59,7 @@ class Client:
                                      headers={"Authorization": f"Bearer {self.token}",
                                               "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310  # nosec B310
+            with _open(req, timeout=60) as r:
                 data = r.read()
                 return r.status, (data if raw else json.loads(data or b"null"))
         except urllib.error.HTTPError as e:
@@ -57,7 +73,7 @@ class Client:
 def login(token_url: str, client_id: str, user: str, password: str) -> str:
     data = urllib.parse.urlencode({"grant_type": "password", "client_id": client_id, "username": user,
                                    "password": password, "scope": "openid"}).encode()
-    with urllib.request.urlopen(urllib.request.Request(token_url, data=data), timeout=30) as r:  # noqa: S310  # nosec B310
+    with _open(urllib.request.Request(token_url, data=data), timeout=30) as r:  # noqa: S310 (http(s) only)
         return json.loads(r.read())["access_token"]
 
 

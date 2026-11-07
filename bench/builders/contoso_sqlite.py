@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from sqlite_ddl import create_table
 
 sql_dir, csv_dir, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 ddl = "\n".join((sql_dir / f).read_text(encoding="utf-8-sig", errors="replace")
@@ -56,12 +57,7 @@ con = sqlite3.connect(out)
 order = sorted(tables, key=lambda t: len(tables[t]["fk"]))
 for t in order:
     T = tables[t]
-    parts = [f'"{c}" {ty}{" NOT NULL" if nn else ""}' for c, ty, nn in T["cols"]]
-    if T["pk"]:
-        parts.append("PRIMARY KEY (" + ", ".join(f'"{c}"' for c in T["pk"]) + ")")
-    for cs, rt, rc in T["fk"]:
-        parts.append(f'FOREIGN KEY ({", ".join(cs)}) REFERENCES "{rt}" ({", ".join(rc)})')
-    con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')
+    create_table(con, t, T["cols"], primary_key=T["pk"] or (), foreign_keys=T["fk"])
     f = files.get(t.lower())
     if f is None:
         print(f"{t}: no CSV file")

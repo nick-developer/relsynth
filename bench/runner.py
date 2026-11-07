@@ -19,8 +19,9 @@ import subprocess
 import sys
 import tempfile
 import time
-import xml.etree.ElementTree as ET  # noqa: S405 (parses the junit file pytest just wrote)
 from pathlib import Path
+
+import defusedxml.ElementTree as ET  # XML without entity expansion or external entities
 
 from .datasets import DATASETS, available, is_private, private_store, say
 
@@ -203,7 +204,7 @@ def run_fake(shard: str | None = None) -> dict:
         rec["seconds"] = round(time.time() - t0, 1)
         checks = []
         if junit.exists():
-            for tc in ET.parse(junit).getroot().iter("testcase"):  # noqa: S314
+            for tc in ET.parse(junit).getroot().iter("testcase"):
                 m = re.search(r"\[(C\d+)\]", tc.get("name", ""))
                 if not m:
                     continue

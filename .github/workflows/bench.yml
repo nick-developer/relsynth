@@ -125,8 +125,6 @@ jobs:
           git add bench/baseline.json bench/history/
           git commit -s -m "chore(bench): baseline from bench run $RUN" \
             -m "Built by bench.yml (rebuild_baseline) from the records of run $RUN on GitHub-hosted runners."
-          # the token goes in a header for this one command (as actions/checkout does), never into
-          # .git/config, so no later step or uploaded artifact can carry it
-          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
-          echo "::add-mask::$auth"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:$BRANCH"
+          # the token is given to this one command and never written to .git/config, so no
+          # later step or uploaded artifact can carry it (GitHub masks it in the log)
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$BRANCH"

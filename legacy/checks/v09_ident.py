@@ -199,7 +199,7 @@ def t_names_need_values():
         con = sqlite3.connect(CHINOOK)
         bad = []
         for (t,) in con.execute("select name from sqlite_master where type='table'"):
-            for row in con.execute(f"pragma foreign_key_list('{t}')"):
+            for row in con.execute("select * from pragma_foreign_key_list(?)", (t,)):
                 p, c, pc = row[2], row[3], row[4]
                 a = pd.read_sql(f'select "{c}" from "{t}"', con)[c].dropna().astype(np.int64).unique()
                 k = np.sort(pd.read_sql(f'select "{pc}" from "{p}"', con)[pc].astype(np.int64).unique())

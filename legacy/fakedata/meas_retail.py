@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-import sys, pickle
+import sys
 import numpy as np, pandas as pd
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,7 +61,8 @@ def measures(d, truth):
 
 if __name__ == "__main__":
     tables, spec, truth = S.retail_dw()
-    out = pickle.load(open(sys.argv[1], "rb"))
+    # a folder of synthetic CSV files, one per table (relsynth's csv target)
+    out = {p.stem: pd.read_csv(p) for p in sorted(Path(sys.argv[1]).glob("*.csv"))}
     mr, ms = measures(tables, truth), measures(out, truth)
     for k in mr:
         print(f"{k:50s} {mr[k]}  |  {ms[k]}")

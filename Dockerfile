@@ -7,15 +7,14 @@
 # CSV / Parquet files) at /work.  Credentials come from environment variables.
 #
 # The base image is pinned by the digest of its multi-arch index (Dependabot's docker
-# updates move the digest); python:3.12-slim-bookworm when the digest was taken.
-ARG PYTHON=python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
-FROM ${PYTHON} AS build
+# updates move the digest and the tag together).
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS build
 WORKDIR /src
 COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY src ./src
 RUN pip install --no-cache-dir build==1.2.2 && python -m build --wheel --outdir /dist
 
-FROM ${PYTHON}
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 LABEL org.opencontainers.image.title="relsynth" \
       org.opencontainers.image.source="https://github.com/nick-developer/relsynth" \
       org.opencontainers.image.licenses="Apache-2.0"

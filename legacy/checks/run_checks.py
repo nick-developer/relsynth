@@ -1410,7 +1410,8 @@ def c44():
            "fact_inventory": "product_key INTEGER REFERENCES dim_product, date_key INTEGER REFERENCES dim_date, "
                              "units_in INTEGER, units_out INTEGER, units_balance INTEGER, PRIMARY KEY (product_key, date_key)"}
     for t, cols in ddl.items():
-        con.execute(f"CREATE TABLE {t} ({cols})")
+        # t and cols are the literal fixture DDL above, not data
+        con.execute(f"CREATE TABLE {t} ({cols})")  # nosemgrep
         df = tables[t]
         con.executemany(f"INSERT INTO {t} VALUES ({','.join('?' * df.shape[1])})",
                         df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
@@ -1578,7 +1579,8 @@ def _retail_db(tables, path):
             parts.append("PRIMARY KEY (" + ", ".join(pk[t]) + ")")
         for c, p in fk.get(t, []):
             parts.append(f'FOREIGN KEY ("{c}") REFERENCES "{p}" ("{pk[p][0]}")')
-        con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')
+        # names of the generated fixture tables (fixed by this check), not data
+        con.execute(f'CREATE TABLE "{t}" ({", ".join(parts)})')  # nosemgrep
         con.executemany(f'INSERT INTO "{t}" VALUES ({", ".join("?" * df.shape[1])})',
                         df.astype(object).where(df.notna(), None).itertuples(index=False, name=None))
     con.commit()

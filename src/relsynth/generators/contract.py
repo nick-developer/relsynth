@@ -226,7 +226,8 @@ class TableGenerator:
     def serialize(self) -> bytes:
         """A model file: a JSON header (generator, model version, contract
         version, SHA-256 of the payload) and the pickled state."""
-        payload = pickle.dumps(self.state(), protocol=pickle.HIGHEST_PROTOCOL)
+        # writing a pickle runs no code; reading one does, so load() demands trusted=True and the SHA-256
+        payload = pickle.dumps(self.state(), protocol=pickle.HIGHEST_PROTOCOL)  # nosemgrep
         head = {"format": "relsynth-generator", "contract": CONTRACT_VERSION, "generator": self.name,
                 "version": self.version, "class": f"{type(self).__module__}.{type(self).__qualname__}",
                 "sha256": hashlib.sha256(payload).hexdigest()}

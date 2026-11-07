@@ -18,6 +18,7 @@ import zipfile
 from pathlib import Path
 
 import pandas as pd
+from sqlite_ddl import create_table
 
 src, out = Path(sys.argv[1]), Path(sys.argv[2])
 with zipfile.ZipFile(src) as z:
@@ -33,9 +34,8 @@ df.insert(0, "pid", range(1, len(df) + 1))
 
 out.unlink(missing_ok=True)
 con = sqlite3.connect(out)
-cols = ", ".join(f'"{c}" {"TEXT" if c == "PUMA" else "INTEGER" if str(df[c].dtype) == "Int64" else "REAL"}'
-                 + (" NOT NULL" if c == "pid" else "") for c in df.columns)
-con.execute(f'CREATE TABLE acs ({cols}, PRIMARY KEY ("pid"))')
+create_table(con, "acs", [(c, "TEXT" if c == "PUMA" else "INTEGER" if str(df[c].dtype) == "Int64" else "REAL",
+                         c == "pid") for c in df.columns], primary_key=["pid"])
 df.to_sql("acs", con, if_exists="append", index=False)
 con.commit()
 con.close()

@@ -16,10 +16,11 @@ import shutil
 import sqlite3
 import subprocess
 import sys
-import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from relsynth._http import urlopen
 
 HERE = Path(__file__).resolve().parent
 CACHE = Path(os.environ.get("RELSYNTH_BENCH_CACHE", HERE / ".cache"))
@@ -74,7 +75,7 @@ def download(name: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     say(f"downloading {url}")
     tmp = path.with_suffix(path.suffix + ".part")
-    with urllib.request.urlopen(url, timeout=600) as r, open(tmp, "wb") as f:  # noqa: S310 (pinned https URLs)
+    with urlopen(url, timeout=600) as r, open(tmp, "wb") as f:
         shutil.copyfileobj(r, f)
     got = sha256(tmp)
     if got != digest:

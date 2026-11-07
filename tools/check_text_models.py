@@ -13,10 +13,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import urllib.request
 from pathlib import Path
 
 import yaml
+
+from relsynth._http import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 # register licence -> hub license tag
@@ -25,7 +26,7 @@ HUB = {"Apache-2.0": "apache-2.0", "MIT": "mit", "Llama 3.2 Community License": 
 
 
 def hub_licence(model_id: str) -> str | None:
-    with urllib.request.urlopen(f"https://huggingface.co/api/models/{model_id}", timeout=60) as r:  # noqa: S310
+    with urlopen(f"https://huggingface.co/api/models/{model_id}", timeout=60) as r:
         info = json.load(r)
     lic = (info.get("cardData") or {}).get("license")
     if not lic:

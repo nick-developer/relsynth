@@ -261,7 +261,7 @@ def test_openai_backend_speaks_chat_completions(monkeypatch):
         msg = {"verdict": "unsure", "parent": None, "confidence": 0.1, "evidence": [], "explanation": "x"}
         return R(json.dumps({"choices": [{"message": {"content": "```json\n" + json.dumps(msg) + "\n```"}}]}).encode())
 
-    monkeypatch.setattr("urllib.request.urlopen", fake)
+    monkeypatch.setattr("relsynth.agents.backends.urlopen", fake)
     b = agents.OpenAICompatBackend(model="tiny")
     out = b.complete("sys", "user", {"type": "object"})
     assert out["verdict"] == "unsure" and sent["url"].endswith("/chat/completions")

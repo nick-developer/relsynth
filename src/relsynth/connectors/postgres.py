@@ -131,9 +131,12 @@ class PostgresConnector(SqlConnector):
         qual = con.dialect.identifier_preparer.format_table(tbl)
         args = {"t": qual, "c": col}
         interval = (getattr(self, "timescale", None) or {}).get("chunk_interval")
-        stmt = "SELECT create_hypertable(CAST(:t AS regclass), by_range(:c" + \
-            (", CAST(:i AS interval)" if interval else "") + "), if_not_exists => TRUE)"
+        # fixed statements: the table, column and interval are bound parameters
         if interval:
             args["i"] = str(interval)
-        con.execute(sa.text(stmt), args)
+            stmt = sa.text("SELECT create_hypertable(CAST(:t AS regclass), by_range(:c, CAST(:i AS interval)), "
+                           "if_not_exists => TRUE)")
+        else:
+            stmt = sa.text("SELECT create_hypertable(CAST(:t AS regclass), by_range(:c), if_not_exists => TRUE)")
+        con.execute(stmt, args)
         log.info("%s: TimescaleDB hypertable on %s", tbl.name, col)
