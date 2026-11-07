@@ -492,3 +492,18 @@ def test_cli_compute_file_through_a_symlink(tmp_path, monkeypatch, capsys):
     assert cli_main(["compute", "--preset", "lab", "--file", "link/../configs/compute.yaml", "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
     assert doc["presets"]["lab"]["threads"] == 5
+
+
+def test_compute_file_confinement_at_the_filesystem_root(tmp_path):
+    """With the filesystem root as the folder, a YAML file below it is accepted (the
+    containment check does not build a doubled separator such as `//`)."""
+    import os
+
+    from relsynth.compute import ComputeError, _compute_file
+    target = tmp_path / "compute.yaml"
+    target.write_text("presets: {}\n")
+    root = os.path.realpath(target).split(os.sep)[0] + os.sep   # "/" or the drive, e.g. "C:\\"
+    assert _compute_file(str(target), base_dir=root) == os.path.realpath(target)
+    assert _compute_file(os.path.relpath(target, root), base_dir=root) == os.path.realpath(target)
+    with pytest.raises(ComputeError, match="outside"):
+        _compute_file(str(target), base_dir=str(tmp_path / "elsewhere"))
