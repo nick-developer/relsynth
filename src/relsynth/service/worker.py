@@ -78,6 +78,17 @@ def _signal(p: subprocess.Popen, kill: bool) -> None:
             p.terminate()
 
 
+
+def _feed(stdin, data: bytes) -> None:
+    """Write the job description to the job process's stdin and close it.  A child that
+    exits or is killed first ends the write with a broken pipe; its exit code reports it."""
+    if stdin is None:
+        return
+    with contextlib.suppress(OSError, ValueError):
+        stdin.write(data)
+    with contextlib.suppress(OSError, ValueError):
+        stdin.close()
+
 class Worker:
     def __init__(self, settings: Settings, store: Store, artifacts: Artifacts, name: str | None = None):
         self.s, self.store, self.art = settings, store, artifacts
@@ -118,6 +129,7 @@ class Worker:
 
     # one attempt -------------------------------------------------------------
     def _execute(self, job: dict) -> str:
+        """Run one attempt of `job` in a fresh work folder, then delete the folder; return the final state."""
         tid, rid = job["tenant_id"], job["id"]
         work = Path(self.s.data_dir).resolve() / "work" / tid / f"{rid}-{job['attempts']}"
         shutil.rmtree(work, ignore_errors=True)
@@ -128,9 +140,10 @@ class Worker:
                 payload = self._payload(job, work, env)
             except Exception as e:  # noqa: BLE001  bad connection or secret: final, with a reason
                 return self._final(job, "failed", 2, f"cannot prepare the job: {e}")
-            (work / "job.json").write_text(json.dumps(payload), encoding="utf-8")
-            os.chmod(work / "job.json", 0o600)
-            code, cancelled, timed_out, lost = self._spawn(job, work, env)
+            # the job description goes to the job process on its stdin and is never written
+            # to disk: it names the source, and nothing about a source belongs at rest in
+            # the work directory (the secret itself travels only in the child's environment)
+            code, cancelled, timed_out, lost = self._spawn(job, work, env, json.dumps(payload))
             if lost:
                 log.warning("lost the lease on %s; another worker owns it now", rid)
                 return "lost"
@@ -157,6 +170,11 @@ class Worker:
             shutil.rmtree(work, ignore_errors=True)       # plaintext outputs never outlive the attempt
 
     def _payload(self, job: dict, work: Path, env: dict) -> dict:
+        """The job description for the job process, after the tenant and source policy checks.
+
+        The resolved secret goes only into `env`; credential keys are removed from the
+        source section, so the description never carries a credential.
+        """
         tid = job["tenant_id"]
         con = self.store.connection(tid, job["connection_id"]) if job["connection_id"] else None
         spec = self.store.spec(tid, job["spec_id"]) if job["spec_id"] else None
@@ -174,20 +192,31 @@ class Worker:
                 env[cfg["api_key_env"]] = os.environ[cfg["api_key_env"]]
         else:
             cfg = None
-        return {"kind": job["kind"], "source": con["source"], "has_secret": bool(con.get("secret_ref")),
+        from .policy import CREDENTIAL_KEYS
+        source = {k: v for k, v in con["source"].items() if k not in CREDENTIAL_KEYS}
+        return {"kind": job["kind"], "source": source, "has_secret": bool(con.get("secret_ref")),
                 "agent_backend": cfg,
                 "secret_is_url": bool((con.get("labels") or {}).get("secret_is_url")),
                 "spec": spec["body"] if spec else None, "params": job.get("params") or {},
                 "out_dir": str(work / "out")}
 
-    def _spawn(self, job: dict, work: Path, env: dict) -> tuple[int, bool, bool, bool]:
+    def _spawn(self, job: dict, work: Path, env: dict, payload: str) -> tuple[int, bool, bool, bool]:
+        """Start the job process with rlimits in its own session, send `payload` on its stdin
+        and supervise it (lease, heartbeat, cancel, timeout)."""
         tid, rid = job["tenant_id"], job["id"]
         env["TMPDIR"] = env["TEMP"] = env["TMP"] = str(work)
         # POSIX: own session plus rlimits; Windows (development only): no limits, plain terminate/kill
         extra: dict = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)} if os.name == "nt"
                        else {"preexec_fn": _limits(self.s.job_memory_mb, self.s.job_cpu_s)})
-        p = subprocess.Popen([sys.executable, "-m", "relsynth.service.runner", str(work / "job.json")],  # noqa: S603  # nosec B603
-                             cwd=work, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **extra)
+        p = subprocess.Popen([sys.executable, "-m", "relsynth.service.runner", "-"],  # noqa: S603  # nosec B603
+                             cwd=work, env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, **extra)
+        # the payload is fed from a thread: a child that never reads would block a write
+        # of a large spec, and the watchdog below (deadline, heartbeat, cancel) must keep
+        # running; killing the child ends the write with a broken pipe
+        feeder = threading.Thread(target=_feed, args=(p.stdin, payload.encode("utf-8")),
+                                  name=f"stdin-{rid}", daemon=True)
+        feeder.start()
         deadline = time.time() + self.s.job_timeout_s
         cancelled = timed_out = lost = False
         next_beat = time.time() + self.s.heartbeat_s
@@ -211,7 +240,9 @@ class Worker:
                 except subprocess.TimeoutExpired:
                     _signal(p, kill=True)
                 break
-        return (p.wait(), cancelled, timed_out, lost)
+        code = p.wait()
+        feeder.join(5)
+        return (code, cancelled, timed_out, lost)
 
     def _store_outputs(self, job: dict, out: Path, result: dict) -> None:
         tid, rid = job["tenant_id"], job["id"]

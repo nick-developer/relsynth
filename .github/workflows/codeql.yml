@@ -1,0 +1,50 @@
+# Code scanning with CodeQL (advanced setup).  Replaces the repository's default
+# setup: switch default setup off (Settings > Code security > CodeQL analysis >
+# "Switch to advanced") before this workflow runs, or GitHub rejects its results.
+#
+# Query suites: security-extended (more security queries than the default,
+# including lower-precision ones) and security-and-quality (also maintainability
+# and correctness).  Findings appear under Security > Code scanning and on pull
+# requests; the branch rule decides which severities block a merge.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"          # weekly, for new queries on unchanged code
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write      # upload the SARIF results
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, actions, javascript-typescript]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          category: /language:${{ matrix.language }}

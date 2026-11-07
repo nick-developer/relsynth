@@ -68,3 +68,24 @@ def test_run_survives_worker_kill(settings, store: Store, shop):
     assert sorted(names) == sorted(set(names)) and "customer.csv" in names
     acts = [e["action"] for e in store.audit_log("acme")]
     assert acts.count("run.started") == 2 and acts.count("run.succeeded") == 1
+
+
+def test_payload_feed_does_not_block_the_watchdog():
+    """A job process that never reads its stdin must not hold the worker: the payload
+    is fed from a thread, and killing the child ends the write."""
+    import threading
+
+    from relsynth.service.worker import _feed
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],  # noqa: S603
+                         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        t = threading.Thread(target=_feed, args=(p.stdin, b"x" * 4_000_000), daemon=True)
+        t0 = time.monotonic()
+        t.start()
+        t.join(0.5)
+        assert t.is_alive() and time.monotonic() - t0 < 2     # the write is blocked, the caller is not
+    finally:
+        p.kill()
+        p.wait()
+    t.join(5)
+    assert not t.is_alive()                                     # the kill ended the write

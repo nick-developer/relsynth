@@ -38,18 +38,30 @@ def _cmp(a, b):
     return (a > b) - (a < b)
 
 
+_DIGITS = frozenset("0123456789")
+_OPS = ("==", "!=", ">=", "<=", "~=", ">", "<")   # two-character operators first
+
+
 def version_matches(version: str, spec: str | None) -> bool:
     """True when version satisfies a comma-separated specifier such as
     ``>=1.0,<2``, ``==1.2``, ``!=1.3`` or ``~=1.2`` (compatible release)."""
     if spec is None or str(spec).strip() in ("", "*"):
         return True
+    if len(str(spec)) > 200:
+        raise GeneratorError("version specifier is longer than 200 characters")
     v = _vtuple(version)
     for clause in str(spec).split(","):
         clause = clause.strip()
-        m = re.fullmatch(r"(==|!=|>=|<=|~=|>|<)?\s*([0-9][0-9.]*)(\.\*)?", clause)
-        if not m:
+        # parsed without a backtracking regular expression: the specifier comes from a spec
+        op = next((o for o in _OPS if clause.startswith(o)), "")
+        rest = clause[len(op):].lstrip()
+        star = rest.endswith(".*")
+        if star:
+            rest = rest[:-2]
+        # ASCII digits only: str.isdigit() accepts "²" or "①", which _vtuple would read as 0
+        if not (rest[:1] in _DIGITS and all(ch in _DIGITS or ch == "." for ch in rest)):
             raise GeneratorError(f"version specifier {clause!r} is not understood (use e.g. '>=1.0,<2' or '==1.2')")
-        op, w, star = m.group(1) or "==", _vtuple(m.group(2)), m.group(3)
+        op, w = op or "==", _vtuple(rest)
         if star and op in ("==", "!="):
             hit = v[: len(w)] == w
             if (op == "==") != hit:

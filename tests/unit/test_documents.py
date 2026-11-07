@@ -347,3 +347,27 @@ def test_docs_check_gates_on_invalid_documents(tmp_path, shop):
     write_json_documents([{**docs[0], "unexpected_field": 1}] + docs[1:], bad / "customers.jsonl")
     assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{good}", "--splits", "2"]) == 0
     assert main(["docs", "check", f"jsonl:{real}", f"jsonl:{bad}", "--splits", "2"]) == 1
+
+
+def test_sqlite_export_quotes_names_from_documents(tmp_path):
+    """Field paths become SQLite names; an embedded quote must not change the DDL
+    written by write_sqlite (before the fix it raised or ran the injected text)."""
+    import sqlite3
+
+    from relsynth.documents.relational import _q, write_sqlite
+    assert _q('a"b') == '"a""b"'
+    hostile = 'x" TEXT); DROP TABLE "evil'
+    docs = [{"_id": i, hostile: f"v{i}", "tags": [{'q"t': i}]} for i in range(5)]
+    profs = {'c"s': profile_collection('c"s', docs)}
+    lay = build_layout(profs, [])
+    frames = shred(lay, {'c"s': docs})
+    db = write_sqlite(lay, frames, tmp_path / "out.sqlite")
+    con = sqlite3.connect(db)
+    try:
+        tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert set(lay.tables) == tables and 'c"s' in tables
+        table = _q('c"s')
+        cols = {r[1] for r in con.execute("PRAGMA table_info(" + table + ")")}
+    finally:
+        con.close()
+    assert any(hostile in c for c in cols)

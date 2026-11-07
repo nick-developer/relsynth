@@ -40,7 +40,7 @@ import pandas as pd
 from .data import canonical_keys, is_stringlike
 from .discovery import Discovery
 from .profiling import (MIN_ROWS, MIN_SHARE, algebraic_rules, canon, choose_rules, cumulative_rule, decimals,
-                        equality, fd_profile, is_dateish, sequence_share, significant)
+                        equality, fd_profile, is_dateish, parse_dates, sequence_share, significant)
 from .source import Source
 
 PII_NAMES = {
@@ -96,7 +96,7 @@ def table_stem(t: str) -> str:
 
 
 def _has_time(s):
-    s = pd.to_datetime(s, errors="coerce", format="mixed").dropna()
+    s = parse_dates(s).dropna()
     return bool(len(s) and ((s.dt.hour != 0) | (s.dt.minute != 0) | (s.dt.second != 0)).mean() > 0.0)
 
 
@@ -139,7 +139,7 @@ def _infer_type(name, s: pd.Series, sqltype="", person=False, rows=None, party=F
     if sv.str.contains(r"^[\w.+-]+@[\w-]+\.[\w.]+$").mean() > 0.8:
         return {"type": "pii", "pii": {"generator": "email"}}, "values look like emails"
     if is_dateish(s):
-        parsed = pd.to_datetime(sv, errors="coerce", format="mixed")
+        parsed = parse_dates(sv)
         return ({"type": "datetime"} if _has_time(parsed) else {"type": "date"}), "values parse as dates"
     num = pd.to_numeric(sv, errors="coerce")
     zeros = sv.str.strip().str.match(r"^[+-]?0\d")
@@ -362,7 +362,7 @@ class _Profiler(Discovery):
             for c in df.columns:
                 if c == self.pks[t] or not is_dateish(df[c]) or df[c].isna().any() or not df[c].is_unique:
                     continue
-                d = pd.to_datetime(df[c], errors="coerce", format="mixed")
+                d = parse_dates(df[c])
                 span = (d.max() - d.min()).days + 1
                 if span > 0 and len(df) / span >= 0.95 and (d.dt.normalize() == d).all():
                     self.calendar[t] = c

@@ -60,13 +60,31 @@ class ComputePlan:
         return asdict(self)
 
 
+def _compute_file(file, base_dir=None) -> str:
+    """The path of a compute file named in a spec, confined to the spec's folder.
+
+    A spec can come from someone else (the service stores tenants' specs), so
+    ``synthesis.compute.file`` may not reach outside the folder of the spec
+    (``..``, absolute paths and symlinks are resolved before the check) and
+    must be a YAML file.  Without a spec folder (``relsynth compute --file``,
+    typed by the user) only the suffix is checked."""
+    name = str(file)
+    if not name.lower().endswith((".yaml", ".yml")):
+        raise ComputeError(f"synthesis.compute.file: {name} is not a .yaml or .yml file")
+    if not base_dir:
+        return os.path.realpath(name)
+    root = os.path.realpath(str(base_dir))
+    full = os.path.realpath(os.path.join(root, name))
+    if not (full == root or full.startswith(root + os.sep)):
+        raise ComputeError(f"synthesis.compute.file: {name} lies outside the spec's folder {root}")
+    return full
+
+
 def presets(file=None, base_dir=None) -> dict:
     """The built-in presets, updated by the presets of `file` (if given)."""
     out = yaml.safe_load(PRESET_FILE.read_text())["presets"]
     if file:
-        p = Path(file)
-        if not p.is_absolute() and base_dir:
-            p = Path(base_dir) / p
+        p = Path(_compute_file(file, base_dir))
         if not p.exists():
             raise ComputeError(f"synthesis.compute.file: {p} not found")
         extra = yaml.safe_load(p.read_text()) or {}
