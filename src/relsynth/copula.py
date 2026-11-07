@@ -128,9 +128,9 @@ def chain_converged(draws, trace_ld, rhat_target, eps=MCSE_Z):
     rld, mld = split_rhat(trace_ld), batch_mcse(trace_ld)
     long = len(D) >= MCSE_MIN_DRAWS
     bad = ~((rh <= rhat_target) | (long & (mz <= eps)))
-    bad_ld = not (rld <= rhat_target or (long and mld <= 2 * p * eps))
+    ld_ok = bool(rld <= rhat_target) or bool(long and mld <= 2 * p * eps)
     worst = np.argsort(-np.nan_to_num(rh * bad, nan=0.0))[: min(3, int(bad.sum()))]
-    n_bad = int(bad.sum()) + int(bad_ld)
+    n_bad = int(bad.sum()) + (0 if ld_ok else 1)
     return n_bad == 0, {"mcse_z_max": float(np.nanmax(mz)) if len(mz) else 0.0,
                         "unconverged_entries": n_bad,
                         "unconverged_pairs": [[int(iu[0][k]), int(iu[1][k])] for k in worst]}

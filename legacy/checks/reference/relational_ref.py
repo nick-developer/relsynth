@@ -1314,7 +1314,6 @@ def dispersion_alpha(totals, z, K, mu_k, threshold):
         if len(t) < 30:        # a dispersion estimate from fewer rows is too noisy to act on
             continue
         m, v = t.mean(), t.var(ddof=1)
-        mu = mu_k[k] if mu_k is not None else m
         D[k] = v / max(m, 1e-9)
         if D[k] > threshold and v > m:
             alpha[k] = max(m ** 2 / (v - m), 0.05)
