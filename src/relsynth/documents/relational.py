@@ -35,6 +35,11 @@ def target_column(lay: Layout, table: str, path: str) -> str:
 
 
 def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
+    """Write the shredded tables to a new SQLite file with every key declared.
+
+    Names come from the documents, so every identifier is quoted with `_q`; values
+    are bound by pandas.  An existing file at `path` is replaced.
+    """
     path = Path(path)
     if path.exists():
         path.unlink()
@@ -51,19 +56,20 @@ def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
                 elif c == PARENT and tl.parent is not None:
                     p = lay.tables[tl.parent]
                     ty = _SQL_TYPE.get(p.id_type, "TEXT") if p.id_column != ROW_ID else "INTEGER"
-                    fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{tl.parent}" ("{p.id_column}")')
+                    fks.append(f"FOREIGN KEY ({_q(c)}) REFERENCES {_q(tl.parent)} ({_q(p.id_column)})")
                 elif col is not None and col.role == "ref" and col.ref is not None:
                     ty = _SQL_TYPE.get(col.type, "TEXT")
                     tcol = target_column(lay, col.ref["table"], col.ref["path"])
-                    fks.append(f'FOREIGN KEY ("{c}") REFERENCES "{col.ref["table"]}" ("{tcol}")')
+                    fks.append(f"FOREIGN KEY ({_q(c)}) REFERENCES {_q(col.ref['table'])} ({_q(tcol)})")
                 elif col is not None:
                     ty = _SQL_TYPE.get(col.type, "TEXT") if col.role not in ("tag", "key") else "TEXT"
                 else:
                     ty = "INTEGER"
-                cols.append(f'"{c}" {ty}' + (" PRIMARY KEY" if c == tl.id_column else ""))
-            uniq = [f'UNIQUE ("{target_column(lay, name, r["to_path"])}")' for r in lay.references
+                cols.append(f"{_q(c)} {ty}" + (" PRIMARY KEY" if c == tl.id_column else ""))
+            uniq = [f"UNIQUE ({_q(target_column(lay, name, r['to_path']))})" for r in lay.references
                     if r["to"] == name and target_column(lay, name, r["to_path"]) != tl.id_column]
-            con.execute(f'CREATE TABLE "{name}" ({", ".join(cols + sorted(set(uniq)) + fks)})')
+            # every name is quoted by _q: field paths come from the documents, so a name can hold a quote
+            con.execute(f"CREATE TABLE {_q(name)} ({', '.join(cols + sorted(set(uniq)) + fks)})")  # nosemgrep
             out = df.copy()
             for c in out.columns:
                 if pd.api.types.is_bool_dtype(out[c]) or out[c].map(lambda v: isinstance(v, bool)).any():
@@ -75,6 +81,11 @@ def write_sqlite(lay: Layout, frames: dict[str, pd.DataFrame], path) -> Path:
     finally:
         con.close()
     return path
+
+
+def _q(name) -> str:
+    """A quoted SQLite identifier (embedded double quotes doubled)."""
+    return '"' + str(name).replace('"', '""') + '"'
 
 
 def _parents_first(lay: Layout) -> list[str]:

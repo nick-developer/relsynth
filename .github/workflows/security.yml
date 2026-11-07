@@ -1,0 +1,147 @@
+# Security scanners beyond CodeQL (codeql.yml) and the lint job's ruff S rules,
+# bandit and pip-audit (ci.yml).  Semgrep and zizmor upload SARIF to Security >
+# Code scanning, so their findings sit next to CodeQL's and annotate pull requests;
+# gitleaks and dependency-review fail their job and report in its log.
+#
+#   semgrep            Python, security-audit, secrets, Dockerfile and Actions rule packs,
+#                      plus the project rules in .semgrep/ (also used by CodeRabbit)
+#                      (pull requests fail on new ERROR findings only: --baseline-commit)
+#   gitleaks           secrets in the commits of a pull request or push
+#   zizmor             GitHub Actions workflow security (template injection,
+#                      unpinned actions, credential persistence, excessive permissions)
+#   dependency-review  new dependencies with known vulnerabilities (high or critical)
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # v8.21.2, pinned by the digest of its multi-arch index
+  GITLEAKS_IMAGE: zricethezav/gitleaks@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      # every package, semgrep's dependencies included, checked against its SHA-256
+      - run: pip install --require-hashes --no-deps -r .github/requirements/semgrep.txt
+      - name: semgrep (all findings to code scanning)
+        run: |
+          set -o pipefail
+          semgrep scan --metrics=off --sarif \
+            --config p/python --config p/security-audit --config p/secrets \
+            --config p/dockerfile --config p/github-actions --config .semgrep/ \
+            --exclude tests --exclude bench/data \
+            | python .github/scripts/sarif_clean.py - semgrep-clean.sarif
+          # drop findings suppressed in source (# nosemgrep next to a reviewed # nosec reason):
+          # semgrep keeps them in SARIF and code scanning would open alerts for them.
+          # Strip the matched source text too, so a secret found by p/secrets is not
+          # copied into the uploaded SARIF (code scanning shows the line from the repository)
+          # the raw SARIF is never written to disk: it is cleaned in memory, and only a
+          # cleaned file is ever named semgrep.sarif, the one the upload step sends
+          mv semgrep-clean.sarif semgrep.sarif
+      - name: semgrep (new ERROR findings fail the pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # the findings go to a file and only rule, path and line reach the log,
+          # never the matched text (a p/secrets finding would print the secret)
+          set -o pipefail
+          rc=0
+          semgrep scan --metrics=off --error --severity ERROR --baseline-commit "$BASE_SHA" --sarif \
+            --config p/python --config p/security-audit --config p/secrets \
+            --config p/dockerfile --config p/github-actions --config .semgrep/ \
+            --exclude tests --exclude bench/data \
+            | python .github/scripts/sarif_clean.py - gate.sarif || rc=$?
+          python .github/scripts/sarif_clean.py gate.sarif --list
+          exit "$rc"
+      - name: semgrep (new suppressions, for the reviewer)
+        # a "# nosemgrep" hides a finding from the gate and from code scanning, so every one
+        # the pull request adds is annotated on its line and listed in the job summary;
+        # each needs a reason next to it and the owner's review (docs/development/ci.md);
+        # always(): it also runs when the gate above failed on a new ERROR finding
+        if: always() && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git -c core.quotePath=false diff -U0 --src-prefix=a/ --dst-prefix=b/ "$BASE_SHA"...HEAD \
+            -- . ':!tests' ':!bench/data' | python .github/scripts/new_suppressions.py
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        if: always() && hashFiles('semgrep.sarif') != ''
+        with: { sarif_file: semgrep.sarif, category: semgrep }
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - name: gitleaks (commits of this pull request or push)
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) range="$BASE_SHA..HEAD" ;;
+            push) range="$BEFORE..HEAD"; git cat-file -e "$BEFORE" 2>/dev/null || range="HEAD~1..HEAD" ;;
+            *) range="" ;;                                   # schedule and manual runs: whole history
+          esac
+          # least privilege: caller's uid, read-only root and checkout, no capabilities
+          docker run --rm --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp -e HOME=/tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --network none -v "$PWD:/repo:ro" -w /repo "$GITLEAKS_IMAGE" git /repo \
+            --config /repo/.gitleaks.toml --redact --verbose --exit-code 1 \
+            ${range:+--log-opts="$range"}
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install --require-hashes --no-deps -r .github/requirements/zizmor.txt
+      - name: zizmor (report)
+        run: zizmor --offline --format sarif .github/workflows > zizmor.sarif || true
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with: { sarif_file: zizmor.sarif, category: zizmor }
+      - name: zizmor (high-severity findings fail)
+        run: zizmor --offline --min-severity high --min-confidence high .github/workflows
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        with:
+          fail-on-severity: high

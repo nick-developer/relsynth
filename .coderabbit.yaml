@@ -1,0 +1,255 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit AI review for relsynth.  CodeRabbit reviews and runs the linters
+# below; it never approves or merges.  Branch protection, the CI gate
+# (ci.yml), CodeQL (codeql.yml) and the security workflow (security.yml) stay
+# the authority.  Security review focus, in order:
+#   1. tenants' data, secrets and specs in the service (relsynth.service)
+#   2. the privacy guarantees (DP, privacy attacks, governance, text) against
+#      their proofs and the claim register
+#   3. untrusted input everywhere else: specs, documents, files, database
+#      metadata, model files, agent output
+#   4. supply chain: workflows, images, Helm chart, dependencies
+language: en-GB
+tone_instructions: >-
+  Be direct and specific. For every security finding give the input that
+  reaches the sink, the impact, and the fix; label it critical, major or minor.
+early_access: false
+
+reviews:
+  profile: assertive              # more findings, including security nits
+  auto_approvals:
+    enabled: false                # findings are comments; the CI gate blocks merges
+  high_level_summary: true
+  review_status: true
+  commit_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  poem: false
+  changed_files_summary: true
+  suggested_labels: true
+  auto_apply_labels: false
+  labeling_instructions:
+    - label: security
+      instructions: >-
+        The PR touches authentication, authorisation, secrets, encryption,
+        path or input handling, subprocess or SQL construction, deserialisation,
+        workflows, Dockerfiles or the Helm chart.
+    - label: privacy
+      instructions: >-
+        The PR touches DP, privacy attacks, governance, PII handling or text
+        generation, or any sentence registered in docs/assurance/claims.yaml.
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: [main]
+    ignore_title_keywords: ["WIP", "DO NOT REVIEW"]
+  path_filters:
+    - "!bench/data/**"
+    - "!docs/proofs/*.pdf"
+    - "!**/*.parquet"
+    - "!**/*.sqlite"
+    - "!**/*.ipynb"
+    - "!src/relsynth/data/**/*.csv"
+
+  pre_merge_checks:
+    title:
+      mode: warning
+      requirements: "Conventional Commits: type(scope): summary, imperative, at most 72 characters."
+    description:
+      mode: warning
+    custom_checks:
+      - name: "No secrets at rest or in logs"
+        mode: error
+        instructions: >-
+          Fail if the change writes a credential (password, token, API key,
+          private key, master key, a secret resolved from secret_ref, or a
+          database URL that can contain a password) to a file, a log message, an
+          exception message, an audit record, a job description, a report, a
+          SARIF/JSON artefact or a test snapshot, or adds a hard-coded credential
+          outside tests/ and the documented demo realm in deploy/compose/keycloak.
+          Secrets may only travel as references (secret_ref) and, resolved, in
+          the job process environment (RELSYNTH_SVC_SOURCE_SECRET).
+      - name: "Tenant isolation and authorisation in the service"
+        mode: error
+        instructions: >-
+          For every new or changed endpoint, query or file path in
+          src/relsynth/service: fail unless the tenant comes from the verified
+          token and is checked with the RBAC table in auth.py, every store query
+          filters by tenant_id, artefact paths stay below
+          <data_dir>/tenants/<tenant>, connections pass policy.check_source,
+          state changes write an audit record, and downloads respect the release
+          and approval rules (release.py). The agent role must stay read and
+          propose only.
+      - name: "Untrusted input reaches a dangerous sink"
+        mode: error
+        instructions: >-
+          Treat specs, IR documents, connection sections, document collections,
+          CSV/Parquet/JSON files, database metadata (table and column names),
+          generator model files, agent and LLM output, and HTTP request bodies as
+          untrusted. Fail if such a value reaches, without validation: a file
+          path (needs realpath plus a prefix check against an allowed root),
+          SQL text (identifiers quoted with the dialect quoting, values bound or
+          passed through sql_literal), a subprocess argument list or shell,
+          eval/exec, yaml.load without a SafeLoader subclass, pickle/joblib, a
+          regular expression built from the value, an outbound URL (SSRF: check
+          allowed_hosts), or a template rendered as HTML.
+      - name: "Privacy guarantees match the proofs"
+        mode: error
+        instructions: >-
+          For changes in src/relsynth/dp, privacy, governance or textgen: fail if
+          a sensitivity or contribution bound, a noise scale, a privacy-accountant
+          charge or a composition step changes without the matching proposition
+          in docs/proofs and its check in the science suite; if noise is drawn
+          from Python's random module or an unseeded or shared RNG instead of the
+          documented samplers; if data is read before the budget is reserved; or
+          if a sentence registered in docs/assurance/claims.yaml changes without
+          updating the register.
+      - name: "Workflow and deployment hardening"
+        mode: warning
+        instructions: >-
+          For .github/workflows, Dockerfiles, deploy/ and the Helm chart: actions
+          pinned to a full commit SHA with a version comment; least-privilege
+          permissions per job; persist-credentials: false unless the job pushes;
+          no ${{ }} expansion of event data inside run blocks (pass it through
+          env); pull_request_target never checks out PR code; containers run as
+          non-root with a read-only root filesystem, no capabilities and
+          RuntimeDefault seccomp; images and binaries pinned by version and,
+          where downloaded, checked against a SHA-256.
+
+  path_instructions:
+    - path: "src/relsynth/service/**"
+      instructions: |
+        Multi-tenant service handling customers' production data. Review as a security engineer:
+        - Authentication: only verified OIDC tokens (signature, issuer, audience, expiry, algorithm allow-list
+          from settings); dev auth only when RELSYNTH_SVC_ALLOW_DEV_AUTH is set; no token or claim logged.
+        - Authorisation: RBAC table in auth.py is the single source; check role and tenant before any read;
+          separation of duties for approvals; the agent role cannot approve or decide.
+        - Tenant isolation: tenant_id filter on every query; IDs validated (_safe_id, TENANT_RE); artefacts
+          encrypted per tenant (crypto.py, AES-256-GCM); no cross-tenant cache or file reuse.
+        - Secrets: references only (secrets.py schemes); resolved secret only in the job environment; never in
+          job descriptions, logs, errors, audit details or reports.
+        - Jobs: one process per attempt, rlimits, process group, lease and heartbeat; outputs deleted after the
+          attempt; plaintext only in the work emptyDir.
+        - Input: request size limits, path confinement (policy.check_source), allowed_kinds and allowed_hosts
+          (SSRF), Pydantic models with explicit types.
+        - Audit: every state change and refusal audited, hash chain intact.
+        - Web UI (service/ui): output encoding, no inline event handlers, CSP-compatible, PKCE flow.
+    - path: "src/relsynth/{dp,privacy,governance}/**"
+      instructions: |
+        Privacy-critical code; the guarantees are proven in docs/proofs and stated in docs/dp.md and docs/privacy.md.
+        - Sensitivity and per-person contribution bounds must match the proofs (Props. 900-906, 1300-1306).
+        - Noise from the documented samplers only (OpenDP or the numpy Generator streams), never `random`.
+        - zCDP accountant charged and the budget reserved before any data is read; lifetime caps per privacy domain.
+        - Floating-point attacks: discrete samplers where the proofs require them.
+        - Governance: manifests signed and hash-chained; policy decisions from OPA or the parity-tested built-in engine.
+        - Any changed sentence registered in docs/assurance/claims.yaml must update the register.
+    - path: "src/relsynth/textgen/**"
+      instructions: |
+        Synthetic text can leak training text. Check the PII layer runs before training, DP-GD and Private Evolution
+        keep their epsilon accounting, the leakage audit (canaries, n-gram overlap) still runs, and no model weights
+        or real text are written to the repository or the wheel.
+    - path: "src/relsynth/agents/**"
+      instructions: |
+        Agents propose, people decide. Treat model output as untrusted data: closed verdicts, typed changes, no
+        execution of model text, scopes by role (k >= 10 for values), remote model servers only with allow_remote
+        and https, prompt-injection cases covered by the agent test suite.
+    - path: "src/relsynth/{connectors/**,pushdown/**,documents/**,source.py,data.py,introspect.py}"
+      instructions: |
+        Database and file connectors read untrusted metadata. Quote identifiers with the dialect's quoting,
+        bind values or use sql_literal, never build SQL from names with plain f-strings; confine file paths;
+        no credentials in URLs logged or stored; TLS verification on by default.
+    - path: "src/relsynth/{ir/**,generators/**,spec.py,compute.py,settings.py}"
+      instructions: |
+        Specs and IR documents may come from other people. YAML through read_yaml/_SpecLoader only (aliases
+        refused); files named in a spec confined to the spec's folder; no regular expression built from spec
+        text without a length limit; generator model files are code (pickle): loaded only with trusted=True
+        and a SHA-256 check.
+    - path: "src/relsynth/runtime/**"
+      instructions: |
+        Pickle is used only between processes of the same job (process and Spark executors). Flag any path
+        where pickled bytes could come from outside the job, from a file, or over the network.
+    - path: "src/relsynth/**/*.py"
+      instructions: |
+        Default output must stay byte-identical for a seed unless the PR says why (tools/identity_check.py).
+        Flag broad `except Exception` that hides security errors, `assert` used for validation, missing
+        timeouts on network calls, and new `# nosec` / `# nosemgrep` / `# noqa: S` without a reason.
+    - path: ".github/workflows/**"
+      instructions: |
+        Actions pinned to full commit SHAs with a version comment (zizmor enforces it, .github/zizmor.yml);
+        least-privilege `permissions` per job; `persist-credentials: false` unless the job pushes; no `${{ }}`
+        of event data inside `run:` (use env); no `pull_request_target` with a checkout of PR code; secrets
+        never echoed; third-party binaries pinned and checksum-verified.
+    - path: "{Dockerfile,deploy/docker/**}"
+      instructions: |
+        Base images pinned; non-root user (uid 10001); no secrets in layers or build args; minimal packages;
+        HEALTHCHECK present; offline builds from the wheelhouse keep hashes.
+    - path: "deploy/helm/**"
+      instructions: |
+        Pod Security restricted: runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities,
+        allowPrivilegeEscalation false, seccomp RuntimeDefault; automountServiceAccountToken false; NetworkPolicy
+        default deny with explicit egress; secrets only by existingSecret; Helm hooks must not depend on non-hook
+        release resources; mount paths must not make the runtime create root-owned parents of writable dirs.
+    - path: "deploy/{compose,e2e}/**"
+      instructions: |
+        Demo and test stacks: credentials only from generated secrets or the documented demo realm; nothing
+        published on 0.0.0.0 that is not needed for the test.
+    - path: "tests/**"
+      instructions: |
+        Tests must not skip, loosen or quarantine a statistical or security check to pass; seeds fixed; fake
+        credentials obviously fake; security fixes come with a regression test that fails before the fix.
+    - path: "{pyproject.toml,requirements*.txt,constraints*.txt}"
+      instructions: |
+        New dependencies: licence compatible with Apache-2.0 (tools/check_licenses.py), maintained, no known
+        vulnerabilities (pip-audit); optional extras for heavy or network-facing packages.
+    - path: "docs/**"
+      instructions: |
+        Security and privacy statements must be backed by a proof, check, test or measured report and
+        registered in docs/assurance/claims.yaml; no overclaiming ("anonymous", "cannot be re-identified").
+
+  tools:
+    ruff:
+      enabled: true
+    semgrep:
+      enabled: true
+      config_file: .semgrep/relsynth.yml
+    gitleaks:
+      enabled: true
+    checkov:
+      enabled: true
+    osvScanner:
+      enabled: true
+    actionlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    hadolint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 900000
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: local
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "SECURITY.md"
+      - "CONTRIBUTING.md"
+      - "docs/security.md"
+      - "docs/development/ci.md"

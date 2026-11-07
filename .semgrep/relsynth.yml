@@ -1,0 +1,159 @@
+# Project Semgrep rules: run by the security workflow (semgrep job) and by
+# CodeRabbit (.coderabbit.yaml).  They encode relsynth's own security rules:
+# the service handles tenants' secrets and specs, the privacy code relies on
+# its random sources, and nothing about a source may reach disk or logs.
+rules:
+  - id: relsynth-yaml-unsafe-load
+    languages: [python]
+    severity: ERROR
+    message: yaml.load without SafeLoader can build arbitrary Python objects from a spec; use yaml.safe_load.
+    metadata: {cwe: "CWE-502: Deserialization of Untrusted Data", category: security}
+    patterns:
+      - pattern: yaml.load(...)
+      - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=yaml.CSafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=_SpecLoader, ...)   # spec.py: a SafeLoader subclass that also refuses aliases
+
+  - id: relsynth-pickle-load
+    languages: [python]
+    severity: ERROR
+    message: Unpickling runs code from the file; specs, models and artefacts must use JSON, YAML (safe) or Parquet.
+    metadata: {cwe: "CWE-502: Deserialization of Untrusted Data", category: security}
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: cloudpickle.load(...)
+      - pattern: cloudpickle.loads(...)
+      - pattern: joblib.load(...)
+
+  - id: relsynth-shell-true
+    languages: [python]
+    severity: ERROR
+    message: subprocess with shell=True; pass an argument list (bandit B602-B607 are enforced too).
+    metadata: {cwe: "CWE-78: OS Command Injection", category: security}
+    pattern-either:
+      - pattern: subprocess.$F(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: relsynth-eval-exec
+    languages: [python]
+    severity: ERROR
+    message: eval/exec on a value; rules and expressions go through relsynth.expr, which parses a fixed grammar.
+    metadata: {cwe: "CWE-95: Eval Injection", category: security}
+    patterns:
+      - pattern-either:
+          - pattern: eval($X, ...)
+          - pattern: exec($X, ...)
+      - pattern-not: eval("...", ...)
+      - pattern-not: exec("...", ...)
+
+  - id: relsynth-tls-verify-off
+    languages: [python]
+    severity: ERROR
+    message: TLS certificate verification switched off.
+    metadata: {cwe: "CWE-295: Improper Certificate Validation", category: security}
+    pattern-either:
+      - pattern: requests.$F(..., verify=False, ...)
+      - pattern: httpx.$F(..., verify=False, ...)
+      - pattern: httpx.Client(..., verify=False, ...)
+      - pattern: ssl._create_unverified_context(...)
+
+  - id: relsynth-jwt-no-verify
+    languages: [python]
+    severity: ERROR
+    message: A JWT decoded without verifying its signature, expiry or audience; the service accepts only verified OIDC tokens.
+    metadata: {cwe: "CWE-347: Improper Verification of Cryptographic Signature", category: security}
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: 'jwt.decode(..., options={..., "verify_exp": False, ...}, ...)'
+      - pattern: 'jwt.decode(..., options={..., "verify_aud": False, ...}, ...)'
+      - pattern: jwt.decode(..., verify=False, ...)
+
+  - id: relsynth-secret-in-log
+    languages: [python]
+    severity: ERROR
+    message: A credential is passed to a logger or print; log a reference (secret_ref) or a fingerprint instead.
+    metadata: {cwe: "CWE-532: Insertion of Sensitive Information into Log File", category: security}
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.$LEVEL(..., $ARG, ...)
+          - pattern: print(..., $ARG, ...)
+      - metavariable-regex:
+          metavariable: $LEVEL
+          regex: ^(debug|info|warning|error|exception|critical)$
+      - metavariable-regex:
+          metavariable: $ARG
+          regex: (?i)^[a-z_.]*(password|passwd|secret|token|api_key|private_key|master_key)[a-z_]*$
+
+  - id: relsynth-secret-to-disk
+    languages: [python]
+    severity: ERROR
+    message: A credential is written to a file; secrets live in the secret store and reach a job process only through its environment.
+    metadata: {cwe: "CWE-312: Cleartext Storage of Sensitive Information", category: security}
+    patterns:
+      - pattern-either:
+          - pattern: $P.write_text($ARG, ...)
+          - pattern: $P.write_bytes($ARG, ...)
+          - pattern: $F.write($ARG)
+      - metavariable-regex:
+          metavariable: $ARG
+          regex: (?i)^[a-z_.]*(password|passwd|secret|token|api_key|private_key)[a-z_]*$
+
+  - id: relsynth-weak-random-in-privacy-code
+    languages: [python]
+    severity: ERROR
+    message: The random module in privacy or DP code; noise must come from the documented samplers (numpy Generator streams or OpenDP), whose guarantees the proofs assume.
+    metadata: {category: security, references: ["docs/dp.md", "docs/proofs"]}
+    paths:
+      include: ["src/relsynth/dp/", "src/relsynth/privacy/", "src/relsynth/governance/", "src/relsynth/textgen/"]
+    pattern-either:
+      - pattern: random.$F(...)
+      - pattern: numpy.random.seed(...)
+      - pattern: np.random.seed(...)
+
+  - id: relsynth-weak-hash-for-security
+    languages: [python]
+    severity: WARNING
+    message: MD5/SHA-1 for something that may be security-relevant; use SHA-256, or pass usedforsecurity=False for a non-security fingerprint.
+    metadata: {cwe: "CWE-328: Use of Weak Hash", category: security}
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+      - pattern-not: hashlib.$H(..., usedforsecurity=False, ...)
+
+  - id: relsynth-tempfile-mktemp
+    languages: [python]
+    severity: ERROR
+    message: tempfile.mktemp is racy; use mkstemp, NamedTemporaryFile or TemporaryDirectory.
+    metadata: {cwe: "CWE-377: Insecure Temporary File", category: security}
+    pattern: tempfile.mktemp(...)
+
+  - id: relsynth-sql-string-building
+    languages: [python]
+    severity: WARNING
+    message: SQL text built from a value with an f-string or format; quote identifiers with the dialect's quoting and bind values as parameters.
+    metadata: {cwe: "CWE-89: SQL Injection", category: security}
+    pattern-either:
+      - pattern: $CONN.execute(f"...", ...)
+      - pattern: $CONN.execute("..." % $X, ...)
+      - pattern: $CONN.execute("...".format(...), ...)
+      - pattern: sqlalchemy.text(f"...")
+      - pattern: sa.text(f"...")
+
+  - id: relsynth-service-path-from-request
+    languages: [python]
+    severity: WARNING
+    message: A filesystem path in the service built from a request or stored value without the realpath + prefix check of policy.check_source.
+    metadata: {cwe: "CWE-22: Path Traversal", category: security}
+    paths:
+      include: ["src/relsynth/service/"]
+    patterns:
+      - pattern-either:
+          - pattern: open($PATH, ...)
+          - pattern: Path($PATH).read_text(...)
+          - pattern: Path($PATH).read_bytes(...)
+      - pattern-inside: |
+          def $FUNC(..., body: $T, ...):
+            ...

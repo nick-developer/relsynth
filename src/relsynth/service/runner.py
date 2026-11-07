@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""One job, in its own process: ``python -m relsynth.service.runner <job.json>``.
+"""One job, in its own process: ``python -m relsynth.service.runner -`` reads the
+job description (JSON) from stdin; ``runner <job.json>`` reads it from a file
+(development only).  The worker uses stdin, so nothing about the job's source
+is written to disk.
 
 The worker starts this process per job, so a job's memory, CPU and wall-clock
 limits apply to it alone, cancellation is a signal to its process group, and
@@ -31,7 +34,11 @@ def source_section(src: dict, has_secret: bool, secret_is_url: bool) -> dict:
 
 
 def main(argv: list[str]) -> int:
-    job = json.loads(Path(argv[0]).read_text(encoding="utf-8"))
+    """Run one job attempt.  The job description is read from stdin (no argument or ``-``);
+    a file path is accepted for local debugging only.  The source secret, if any, comes
+    from the process environment and is never part of the description."""
+    raw = sys.stdin.read() if not argv or argv[0] == "-" else Path(argv[0]).read_text(encoding="utf-8")
+    job = json.loads(raw)
     out = Path(job["out_dir"])
     out.mkdir(parents=True, exist_ok=True)
     src = source_section(job["source"], job.get("has_secret", False), job.get("secret_is_url", False))

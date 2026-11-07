@@ -37,8 +37,9 @@ def run(cmd: list[str], **kw) -> None:
 
 
 def version() -> str:
+    """The package version, read from the repository's own ``_version.py``."""
     ns: dict = {}
-    exec((ROOT / "src/relsynth/_version.py").read_text(), ns)  # noqa: S102  # nosec B102 (our own version file)
+    exec((ROOT / "src/relsynth/_version.py").read_text(), ns)  # noqa: S102  # nosec B102 (our own version file)  # nosemgrep
     return ns["__version__"]
 
 
