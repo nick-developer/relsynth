@@ -43,7 +43,7 @@ def _index(keys):
 
 def computed_columns(spec) -> dict[str, dict[str, str]]:
     """{table: {column: 'lookup' | 'derive' | 'aggregate'}}"""
-    out = {t: {} for t in spec["tables"]}
+    out: dict = {t: {} for t in spec["tables"]}
     for t, ts in spec["tables"].items():
         for c, cs in ts["columns"].items():
             if cs["type"] == "lookup":

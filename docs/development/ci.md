@@ -50,7 +50,7 @@ A `# nosemgrep` comment marks a call site that a project rule flags, but that wa
 
 ## The type ratchet
 
-relsynth 1.0 was written without a type checker; mypy reports 77 errors on it, nearly all attributes set dynamically on model objects. Fixing them at once would touch the engine for no change in behaviour. Instead, `tools/mypy_ratchet.py` fails when mypy reports an error (file, code and message, ignoring line numbers) that the baseline does not hold. A change that fixes errors runs `python tools/mypy_ratchet.py --update` and commits the smaller baseline.
+relsynth 1.0 was written without a type checker; mypy reported 77 errors on it, nearly all attributes set dynamically on model objects (29 remain in 2.2.0). Fixing them at once would touch the engine for no change in behaviour. Instead, `tools/mypy_ratchet.py` fails when mypy reports an error (file, code and message, ignoring line numbers) that the baseline does not hold. A change that fixes errors runs `python tools/mypy_ratchet.py --update` and commits the smaller baseline.
 
 ## Coverage
 

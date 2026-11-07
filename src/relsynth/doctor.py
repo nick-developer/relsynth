@@ -250,7 +250,7 @@ def diagnose(bundle) -> list[Issue]:
             issues.append(Issue("D09", "error", "engine", area, "Synthetic foreign keys point to missing parents. This is an engine bug.", {"value": val}))
         elif metric in ("cardinality_ks", "cardinality_mean_rel_err"):
             d = rel.get(area, {})
-            r = next((r for r in spec.get("relationships", []) if r.get("name") == area), {})
+            r: dict = next((r for r in spec.get("relationships", []) if r.get("name") == area), {})
             parent, child = r.get("parent"), r.get("child")
             patches = []
             dr, ds = d.get("dispersion_real", 0) or 0, d.get("dispersion_syn", 0) or 0

@@ -9,6 +9,10 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 - **`relsynth[spark]` exists.** The spark executor of the partitioned runtime told users to `pip install 'relsynth[spark]'`, but the package had no such extra. It now installs PySpark and cloudpickle; cloudpickle is needed because the fitted model holds closures, which the standard pickle cannot send to Spark tasks. CI runs the spark executor's identity test through the extra.
 - **Dependabot now moves the service image's base digest.** `deploy/docker/Dockerfile.service` kept its digest in a build argument (`ARG PYTHON=...`), which Dependabot's docker updates do not read. The digest is now on a `FROM` line of its own (stage `python-upstream`) and `PYTHON` names that stage by default; `--build-arg PYTHON=<mirror image>` still works for air-gapped builds, and BuildKit then does not pull the upstream image.
 
+### Changed
+
+- **mypy baseline down from 68 to 29 errors** (`tools/mypy-baseline.txt`). The fixes are annotations only (empty containers, and the attributes the engine sets on `Marginal`, `Entity` and `PairRel`); the synthetic output is byte-identical on every fake scenario and the quickstart (`tools/identity_check.py`, 24 runs).
+
 ## 2.1.0 (2026-11-07)
 ### Security
 
