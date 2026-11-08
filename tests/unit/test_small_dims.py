@@ -203,3 +203,26 @@ def test_near_copy_redraw_never_trades_a_valid_row_for_a_violation(tmp_path, mon
     assert log["near_copies"]["product"].get("restored_after_rules", 0) > 0
     out = dict(d)["product"]
     assert log["rule_violations"]["product"]["weight < 30"] == int((out["weight"] >= 30).sum())
+
+
+def test_guard_skips_small_or_narrow_tables(tmp_path):
+    """The guard is not built for a table of fewer than 50 rows, nor for one with
+    fewer than three sampled distance columns (claim PRV-32)."""
+    spec = _catalogue(tmp_path)
+    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    assert m.synthesizer._near_copy_guard("product") is not None
+    # two sampled distance columns only
+    narrow = copy.deepcopy(spec)
+    cols = narrow["tables"]["product"]["columns"]
+    for c in ("cost", "weight", "size", "line"):
+        cols.pop(c)
+    m2, _ = _run(narrow, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    assert m2.synthesizer._near_copy_guard("product") is None
+    # fewer than 50 rows
+    src = tmp_path / "small"
+    (src / "src").mkdir(parents=True)
+    pd.read_csv(tmp_path / "src" / "product.csv").head(40).to_csv(src / "src" / "product.csv", index=False)
+    small = copy.deepcopy(spec)
+    small["source"]["path"] = str(src / "src")
+    m3, _ = _run(small, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    assert m3.synthesizer._near_copy_guard("product") is None

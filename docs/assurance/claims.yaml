@@ -1113,7 +1113,8 @@ claims:
     doc: README.md
     area: statistics
     quote:
-      - "With default settings the output is unchanged byte for byte."
+      - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
+      - "Release 2.2 changes one default (`marginals.segment_prior_rows`, 20); setting it to 0 restores the 2.1 output."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -1121,6 +1122,8 @@ claims:
       - test: tests/unit/test_runtime.py::test_default_runtime_keeps_the_1_0_sampler
       - test: tests/unit/test_generators.py::test_copula_is_the_default_and_naming_it_changes_nothing
       - test: tests/unit/test_autotune.py::test_systematic_versus_sporadic
+      - test: tests/unit/test_small_dims.py::test_segment_prior_is_wired_and_guard_off_by_default
+      - check: C1720
       - code: tools/identity_check.py
 
   - id: RM-25
@@ -1855,6 +1858,7 @@ claims:
     evidence:
       - test: tests/unit/test_small_dims.py::test_settings_are_registered_with_defaults
       - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
+      - test: tests/unit/test_small_dims.py::test_guard_skips_small_or_narrow_tables
       - code: src/relsynth/engine.py::Synthesizer::_near_copy_guard
 
   - id: PRV-33
