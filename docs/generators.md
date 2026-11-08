@@ -64,10 +64,13 @@ generator, its model version, its package and package version, its options and i
 | `bins` | 32 | Candidate thresholds per numeric predictor (quantiles). |
 | `max_rows` | 50000 | Rows a tree is fitted on (a seeded uniform sample beyond that). |
 | `min_gain` | 1e-8 | Smallest relative impurity decrease for a split (rpart `cp`). |
-| `smoothing` | `none` | `density` adds Gaussian kernel noise to numbers drawn from a leaf (synthpop `smoothing`), so that no observed number is released exactly. |
+| `smoothing` | `density` | `density` adds Gaussian kernel noise to numbers drawn from a leaf (synthpop `smoothing`), so that no observed number is released exactly; `none` releases the donors' numbers (the default before 2.2.0). |
 
 **Privacy.** None of the built-in generators gives a formal privacy guarantee (`privacy_cost().dp` is false).
-`cart` without smoothing releases observed values of each column, as synthpop's CART does by default. The copula's
+`cart` smooths the numbers it draws by default; with `smoothing: none` it releases observed values of each column, as
+synthpop's CART does by default, and on the ACS benchmark a number seen once (such as the largest one) was then singled
+out (univariate singling-out risk 0.53 against a limit of 0.10; 0.003 with smoothing, `docs/assurance/evidence/G5/cart_acs.json`).
+Categories are still drawn from the leaf's observed rows. The copula's
 continuous marginals are a Bayesian bootstrap of the observed values too. Measure every release with the privacy
 attacks (`relsynth.privacy`). Differential privacy comes with T07: a generator then declares `dp: input` or
 `dp: output` and is given a budget.

@@ -3,10 +3,18 @@
 All notable user-visible changes are recorded here, following [Keep a Changelog 1.1](https://keepachangelog.com/en/1.1.0/). relsynth uses [Semantic Versioning](https://semver.org/); see [CONTRIBUTING.md](CONTRIBUTING.md) for what counts as the public API.
 
 ## Unreleased
+### Changed
+
+- **`cart` smooths numbers by default** (`smoothing: density`, was `none`). Without smoothing, cart releases the numbers of its donor rows exactly, so a value seen once in the source (the largest income, say) appears in the release; the new per-generator benchmark caught it on ACS (univariate singling-out risk 0.53 against a limit of 0.10, internal verdict `fail`), and with smoothing the risk is 0.003 and the verdict `review` (`docs/assurance/evidence/G5/cart_acs.json`). Cart output changes for specs that do not set the option; `generator: {name: cart, options: {smoothing: none}}` restores the old draws. Saved cart models keep the option they were fitted with.
+
 ### Added
 
 - **`relsynth run` ends with a quick privacy check by default** (G5, T06 decision 4; not in DP mode, and skipped without a privacy unit of at least 50 people or when the unit's tables were fitted by pushdown). It fits the spec's generator on a third of up to 3000 people of the privacy unit and runs two membership attacks against people the proxy never saw: DOMIAS and a population-calibrated closest-distance attack, which catches copied people that DOMIAS's kernel density misses. One line is printed (`privacy check: PASS - membership DOMIAS AUC ... vs limit 0.65 (internal) ...`) and the result goes into the diagnostics bundle and the `--json` output as `privacy_check`; the exit code and the scorecard are unchanged. The check runs after every file is written on its own seeded stream, so the synthetic files are byte-identical with and without it (Props. 1740-1741, checks C1740-C1741). Turn it off with `--no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`; `synthesis.evaluation.privacy_check_people` sets the sample. See [docs/privacy.md](docs/privacy.md#the-quick-check-in-every-relsynth-run).
 - **The benchmark attacks every built-in generator.** The privacy suite of ACS and Berka now runs once per generator plug-in (copula, cart, independent) with the same settings; the rows of the other generators carry the generator in their ids (`privacy[cart]:...`, `goal:privacy_internal[cart]`), so the copula rows keep their baseline. Every bench run also tracks the quick check's AUCs (`metric:privacy_check_domias_auc`, `metric:privacy_check_closest_distance_auc`).
+
+### Fixed
+
+- The `compare` and `baseline` jobs of `bench.yml` install the package: `bench/datasets.py` imports `relsynth` since 2.1.0, and both jobs had failed with `ModuleNotFoundError` on every bench run since then.
 
 ## 2.1.0 (2026-11-07)
 ### Security

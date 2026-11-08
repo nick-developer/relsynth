@@ -436,6 +436,29 @@ def test_cart_leaf_weights_are_a_bayesian_bootstrap(snow):
     assert np.allclose(g.posterior_draw(rng, mode="mean").weights[0][leaf], 1.0 / n)
 
 
+def _exact_share(model, table, col, n=2000):
+    """Share of synthetic values of a numeric column that equal an observed value exactly."""
+    tm = model.synthesizer.tm[table]
+    j = tm.cols.index(col)
+    seen = pd.Series(tm.codecs[j].decode(tm.X[j])).dropna().astype(float).round(9)
+    groups = np.asarray(sorted(tm.generator.fitted_groups()))
+    out = tm.sample(groups[np.arange(n) % len(groups)], np.random.default_rng(5))
+    v = pd.to_numeric(out[col], errors="coerce").dropna().astype(float).round(9)
+    return float(v.isin(set(seen)).mean())
+
+
+def test_cart_smooths_numbers_by_default(snow):
+    """Without smoothing, cart releases observed numbers exactly (a value seen once, such as the
+    largest one, is then singled out: ACS, docs/assurance/evidence/G5/cart_acs.json)."""
+    model, _ = _run(_with(snow, generator="cart"))
+    assert model.synthesizer.tm["sales"].generator.opts["smoothing"] == "density"
+    s = _with(snow, generator="cart")
+    s["tables"]["sales"]["generator"] = {"name": "cart", "options": {"smoothing": "none"}}
+    raw, _ = _run(s)
+    assert _exact_share(raw, "sales", "amount") > 0.95
+    assert _exact_share(model, "sales", "amount") < 0.2
+
+
 def test_compute_file_stays_in_the_spec_folder(tmp_path):
     """synthesis.compute.file comes from a spec, which the service stores for
     tenants: it may not name a file outside the spec's folder (CodeQL
