@@ -1,0 +1,43 @@
+%=====================================================================
+\section{Small dimensions: segment shrinkage and the near-copy guard (v2.2)}\label{sec:g3small}
+% numbered from 1720 (gap plan G3 range); the shared counter is restored at the end
+\newcounter{savedpropgthree}\setcounter{savedpropgthree}{\value{proposition}}
+A small dimension (AdventureWorks \texttt{DimProduct}, 606 rows) is fitted by many latent segments of few rows: its strata give 24 segments of 6 to 49 rows, none large enough for its own copula (\texttt{copula.min\_rows}), so every segment already uses the pooled copula and only its marginals are its own. With the Dirichlet weight $a_0=0.25$ (\texttt{marginals.dirichlet\_prior}) a segment marginal is close to the empirical law of its rows, and synthetic rows land closer to real rows than real rows are to each other (\texttt{dcr\_ratio} 0.40--0.65 at the defaults, limit 0.5). This section gives the two remedies of \texttt{relsynth} 2.2 (guide \texttt{docs/privacy.md}, section ``Small dimensions''; code \texttt{relsynth/generators/copula.py}, \texttt{relsynth/nearcopy.py}). Each proposition is tested by a check in \texttt{tests/science/test\_small\_dims\_checks.py} (C1720--C1723).
+
+\setcounter{proposition}{1719}
+\begin{proposition}[Segment shrinkage]\label{prop:segshrink}
+Let a segment of an entity table have $n$ rows, empirical law $e$ of a column, and let $F_0$ be the table's marginal of that column. With $a=\max(a_0,\texttt{segment\_prior\_rows})$, the segment marginal is the posterior $\mathrm{DP}(a+n,\,(aF_0+ne)/(a+n))$ for a continuous column and $\mathrm{Dir}(c+ap_0)$ for a discrete one ($c$ the level counts, $p_0$ the table's level probabilities). (a) Its posterior predictive is $w\,e+(1-w)F_0$ with $w=n/(n+a)$: a synthetic value comes from the segment's own rows with probability $w$. (b) The number of random numbers drawn does not depend on $a$, so changing $a$ changes values, not the random stream.
+\end{proposition}
+\begin{proof}
+(a) For the discrete case $E[p]=(c+ap_0)/(n+a)=w\,e+(1-w)p_0$. For the continuous case the code draws $V\sim\mathrm{Beta}(n,a)$, Bayesian-bootstrap weights on the $n$ rows and equal weights on the quantile knots of $F_0$ (the representation of the DP posterior in Prop.~\ref{prop:dp}); $E[V]=n/(n+a)=w$. (b) One Dirichlet (discrete) or one Beta plus one Dirichlet over the $n$ rows (continuous) is drawn per segment and column whatever $a$ is.
+\end{proof}
+\noindent Check C1720 draws 20{,}000 posterior marginals of a segment for $a\in\{0.25,10,20\}$ and compares the share of predictive mass on the segment's own atoms with $w$, and replays one fit with two values of $a$ to show that the generator's random state ends at the same place.
+
+\setcounter{proposition}{1720}
+\begin{proposition}[Large segments are unchanged]\label{prop:seglarge}
+In the notation of Prop.~\ref{prop:segshrink}, the total variation distance between the predictive laws under $a$ and under $a_0<a$ is $\frac{n(a-a_0)}{(n+a)(n+a_0)}\,\mathrm{TV}(e,F_0)\le\frac{a-a_0}{n+a}$.
+\end{proposition}
+\begin{proof}
+Both predictives are mixtures $w e+(1-w)F_0$ with weights $w_a=n/(n+a)$ and $w_{a_0}=n/(n+a_0)$, so their difference is $(w_{a_0}-w_a)(e-F_0)$ and its total variation is $|w_{a_0}-w_a|\,\mathrm{TV}(e,F_0)$, with $w_{a_0}-w_a=n(a-a_0)/((n+a)(n+a_0))\le(a-a_0)/(n+a)$ and $\mathrm{TV}\le1$.
+\end{proof}
+\noindent With the default of 20 rows a segment of 2{,}000 rows moves by at most 1\%, a segment of 30 rows by up to 40\%. Fact tables are not shrunk: their segments are blocks of the relational model, not groups of records. Check C1721 computes both sides for random $e$, $F_0$, $n$ and $a$.
+
+\setcounter{proposition}{1721}
+\begin{proposition}[The near-copy guard]\label{prop:ncguard}
+Let $d$ be the metric of \texttt{relsynth.nearcopy} on a table's real rows $X$, $\nu(x)$ the distance from $x\in X$ to its nearest real row at a positive distance, and $B=\{s:\ 0<d(s,x^*)<\rho\,\nu(x^*)\}\cup\{s=x^*:\ x^*\text{ has no twin in }X\}$, $x^*$ the nearest real row to $s$. A row drawn from its segment law $P_g$ and redrawn while it lies in $B$, at most $R$ times, (a) has law $P_g(\cdot\mid B^c)$ when it is accepted, (b) is accepted with probability $1-P_g(B)^{R+1}$, and (c) when no row of the table falls in $B$ the guard draws no random number and the table is unchanged.
+\end{proposition}
+\begin{proof}
+(a) and (b) are rejection sampling with independent proposals from $P_g$: the accepted draw has the conditional law and the number of rejections is geometric. (c) The redraw loop starts only when some row is in $B$.
+\end{proof}
+\noindent Rows that are still in $B$ after $R$ rounds are kept and counted in the sample log (\texttt{near\_copies}). Check C1722 runs the guard on a fitted table, checks every accepted row against $B$ by brute force, compares the accepted law with $P_g(\cdot\mid B^c)$ on a one-dimensional example, and checks (c) byte for byte.
+
+\setcounter{proposition}{1722}
+\begin{proposition}[The guard is not a privacy guarantee]\label{prop:ncnotdp}
+Let $M$ be any generator whose law has positive density on a neighbourhood of a record $x$, and $M_B$ the same generator followed by the guard with $R=\infty$. For the neighbouring tables $X$ and $X\cup\{x\}$ (with $x$ not a twin of a row of $X$ and $\nu(x)>0$), $M_B(X)$ puts positive probability on the ball $\{s: d(s,x)<\rho\nu(x)\}$ minus the guard regions of $X$, and $M_B(X\cup\{x\})$ puts none there, unless that set is empty. So $M_B$ is not $\varepsilon$-differentially private for any finite $\varepsilon$, and the absence of synthetic rows around a real record is evidence of the record.
+\end{proposition}
+\begin{proof}
+Under $X\cup\{x\}$ every synthetic row whose nearest real row is $x$ and lies within $\rho\nu(x)$ of it is in $B$ and is never accepted; a row nearer to another real row than to $x$ lies outside that ball. Under $X$ the same set is outside $B$ (the rows of $X$ are farther than their own guard radii, by the choice of the set) and has positive probability by the density assumption. A ratio of probabilities $p/0$ is unbounded.
+\end{proof}
+\noindent This is the hole that Ganev and De Cristofaro \cite{ganev2023dcr} use to reconstruct records from outputs filtered by distance to closest record. relsynth therefore reports the guard as a distance rule, never as privacy: \texttt{relsynth privacy} (Section~\ref{sec:v25}) remains the test and DP mode (Section~\ref{sec:v25dp}) the guarantee, and the scorecard marks the \texttt{dcr\_ratio} of a guarded table as not independent of the generation. Check C1723 builds the example in one dimension and finds the empty ball.
+
+\setcounter{proposition}{\value{savedpropgthree}}
