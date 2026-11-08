@@ -4353,6 +4353,8 @@ class Synthesizer:
         nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)),
                         int(self.cfg["rules"]["max_rejection_rounds"]) // 2)
         rounds = 0
+        fb_vals = {c: np.empty(len(df), dtype=object) for c in tm.out_cols} if ncg is not None else {}
+        has_fb = np.zeros(len(df), bool)
         nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
 
         def touched(frame):
@@ -4363,7 +4365,7 @@ class Synthesizer:
             cur = frame[ncg.cols].astype(object).where(frame[ncg.cols].notna(), None)
             return redrawn | (cur.to_numpy() != nc_base.to_numpy()).any(axis=1)
 
-        def attr_bad(frame):
+        def attr_bad(frame, nc=True):
             ok = np.ones(len(frame), bool)
             res_ = self._resolver(t, frame, out)
             for r_ in arules + xrules:
@@ -4372,7 +4374,7 @@ class Synthesizer:
                 sub = frame[u].astype(object)
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
-            if ncg is not None and redrawn.any() and rounds < nc_rounds:
+            if nc and ncg is not None and redrawn.any() and rounds < nc_rounds:
                 ri = np.flatnonzero(touched(frame))
                 ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
@@ -4383,6 +4385,14 @@ class Synthesizer:
             rounds = 0
             while bad.any() and rounds < self.cfg["rules"]["max_rejection_rounds"] and tm.out_cols:
                 idx = np.flatnonzero(bad)
+                if ncg is not None:
+                    # rows redrawn only for being near copies keep their rule- and
+                    # key-valid values as a fallback (restored below if the budget ends
+                    # on a redraw that breaks a rule)
+                    ok_rule = idx[~attr_bad(df, nc=False)[idx]]
+                    for c in tm.out_cols:
+                        fb_vals[c][ok_rule] = df[c].astype(object).to_numpy()[ok_rule]
+                    has_fb[ok_rule] = True
                 redrawn[idx] = True
                 gv = getattr(self, "_given", {}).get(t)
                 new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None)
@@ -4397,6 +4407,21 @@ class Synthesizer:
                 df = self._computed(t, df, out)
                 bad = attr_bad(df)
                 rounds += 1
+            if ncg is not None and has_fb.any():
+                back = np.flatnonzero(attr_bad(df, nc=False) & has_fb)
+                if len(back):
+                    for c in tm.out_cols:
+                        col = df[c].astype(object).to_numpy(copy=True)
+                        col[back] = fb_vals[c][back]
+                        try:
+                            df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
+                        except (TypeError, ValueError):
+                            df[c] = col
+                    _mark_fresh(df, back)
+                    df = self._computed(t, df, out)
+                    self.sample_log.setdefault("near_copies", {}).setdefault(t, {
+                        "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0,
+                        "ratio": ncg.rho})["restored_after_rules"] = int(len(back))
             anch = [r for r in self.fk[t] if r.get("anchor") and r["anchor"] in df.columns]
             if redrawn.any() and anch and z is not None:
                 # rows whose attributes were redrawn: their anchored links (the area of

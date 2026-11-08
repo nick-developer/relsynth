@@ -186,3 +186,20 @@ def test_rule_redraws_are_guarded_and_kept_counts_emitted_rows(tmp_path):
     assert r.get("redrawn_by_rules", 0) > 0
     g = syn._near_copy_guard("product")
     assert r["kept"] == int(g.near_copies(dict(d)["product"]).sum())
+
+
+def test_near_copy_redraw_never_trades_a_valid_row_for_a_violation(tmp_path, monkeypatch):
+    """With a short rule budget (2 rounds, near-copy budget 1), a row redrawn only
+    for being a near copy and then drawn into a rule violation gets its rule-valid
+    values back: the guard adds no rule violations."""
+    import relsynth.nearcopy as nc
+    spec = _catalogue(tmp_path)
+    spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
+    # every redrawn row counts as a near copy, so rule-valid rows of round 1 are redrawn
+    monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+                rules__max_rejection_rounds=2)
+    log = m.synthesizer.sample_log
+    assert log["near_copies"]["product"].get("restored_after_rules", 0) > 0
+    out = dict(d)["product"]
+    assert log["rule_violations"]["product"]["weight < 30"] == int((out["weight"] >= 30).sum())
