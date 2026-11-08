@@ -843,6 +843,12 @@ def decode(spec: dict, model: DPModel) -> dict:
         else:
             par = P.parent_rel["parent"]
             deg = out[par][f"#{t}"].to_numpy(dtype=int)
+            if len(deg) and not deg.any():
+                # every parent drew no rows (a noisy degree histogram of a small table): keep one row,
+                # as a root table keeps max(n_hat, 1), so stage 2 has a table to fit (post-processing)
+                deg = deg.copy()
+                deg[rng.integers(len(deg))] = 1
+                out[par][f"#{t}"] = deg
             parent_idx = np.repeat(np.arange(len(deg)), deg)
             n = len(parent_idx)
             known = np.column_stack([zs[par][c][parent_idx] for c in M.parent_coords]) \

@@ -113,6 +113,27 @@ def test_end_to_end_statement_and_charges(star):
     assert pv["mode"] == "dp" and pv["_run_id"] == "01RUN" and pv["charges"][0]["kind"] == "zcdp"
 
 
+def test_a_child_table_keeps_a_row_when_every_parent_draws_none(star, monkeypatch):
+    """A noisy degree histogram of a small table can give every parent degree 0.  The
+    seed keeps one row, as a root table keeps max(n_hat, 1), so stage 2 has a table to fit."""
+    pytest.importorskip("opendp")
+    import numpy as np
+
+    import relsynth.dp.relational as R
+    real_fit = R.fit
+
+    def fit(*a, **kw):
+        model = real_fit(*a, **kw)
+        model.tables["customer"].marg["#sales"].draw = lambda z, rng: np.zeros(len(z))
+        return model
+    seeds = []
+    monkeypatch.setattr(dp, "fit", fit)
+    monkeypatch.setattr(dp, "decode", lambda spec, model: seeds.append(R.decode(spec, model)) or seeds[-1])
+    t, s = star
+    dp.synthesize(_spec(s, epsilon=1.0), tables=t, write=False, evaluate=False)
+    assert len(seeds[0]["sales"]) == 1 and len(seeds[0]["customer"]) > 1
+
+
 def test_domain_override_uses_the_domains_unit_and_delta(star):
     _, s = star
 
