@@ -159,6 +159,7 @@ claims:
       - check: C1700
       - test: tests/unit/test_privacy.py::test_assess_reports_a_split_that_shares_rows
       - test: tests/unit/test_privacy.py::test_judge_keeps_a_shared_row_split_at_review_with_dp
+      - test: tests/unit/test_privacy.py::test_record_isolation_evaluates_a_training_subset_of_the_controls_size
       - report: docs/assurance/evidence/T06/repro_anonymeter.json
 
   - id: PRV-12
@@ -538,10 +539,14 @@ claims:
   - id: DP-25
     doc: docs/dp.md
     area: privacy-formal
-    quote: "C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time."
+    quote:
+      - "C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time."
+      - "No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all."
     status: supported
     evidence:
       - check: C1705
+      - check: C1703
+      - report: docs/assurance/evidence/G1/aw_two_units.json
 
   - id: DP-26
     doc: docs/dp.md

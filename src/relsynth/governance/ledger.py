@@ -21,7 +21,9 @@ A domain with several privacy units keeps one account per unit: every
 account alone (RFC-G1-01, Prop. 1704).  Entries of a one-unit domain carry no
 unit, as before.  When the policy changes a domain's units, no spend is lost:
 entries without a unit count against every unit's account, and entries of
-several units all count against a domain that has one unit again.
+several units all count against a domain that has one unit again.  A run caught
+mid-flight by such a change is still touched, settled or refunded, with entries
+that name its reservation's own unit and run id.
 
 Non-DP releases of a domain are recorded as `ledger.nondp` entries: they spend
 nothing, but every DP statement of the domain then says that other releases
@@ -54,6 +56,8 @@ class RunState:
     touched: bool = False
     settled: tuple | None = None          # (rho, delta)
     released: bool = False
+    unit: str | None = None               # the unit its entries name (None: written for a one-unit domain)
+    key: str = ""                         # the run id its entries name
 
     @property
     def charged(self) -> tuple[float, float]:
@@ -126,7 +130,8 @@ class Ledger:
             elif eu is not None and eu != unit and k != "ledger.nondp":
                 continue
             if k == "ledger.reserve":
-                st.runs[run] = RunState(run, domain, float(e["rho"]), float(e["delta"]), e["time"])
+                st.runs[run] = RunState(run, domain, float(e["rho"]), float(e["delta"]), e["time"], unit=eu,
+                                        key=e["run"])
             elif k == "ledger.touch" and run in st.runs:
                 st.runs[run].touched = True
             elif k == "ledger.settle" and run in st.runs:
@@ -136,6 +141,22 @@ class Ledger:
             elif k == "ledger.nondp":
                 st.nondp.append(run)
         return st
+
+    @staticmethod
+    def _find(sd: DomainState, run: str, unit: str | None) -> RunState | None:
+        """The reservation of `run` in this account, also one written before the policy changed the
+        domain's units: a reservation of a unit, seen from a domain with one unit again, is keyed
+        `run@unit`.  Later entries of that run name the reservation's own unit and run id, so the
+        log's lifecycle and its verification stay the same across the change (Prop. 1704)."""
+        if run in sd.runs:
+            return sd.runs[run]
+        if unit is not None and f"{run}@{unit}" in sd.runs:
+            return sd.runs[f"{run}@{unit}"]
+        hits = [k for k in sd.runs if k.startswith(run + "@")]
+        if len(hits) > 1:
+            raise PrivacyError(f"run {run} reserved for several units before the policy changed the units of "
+                               f"domain {sd.domain!r}: name the unit ({', '.join(sorted(h.split('@', 1)[1] for h in hits))})")
+        return sd.runs[hits[0]] if hits else None
 
     def _check_caps(self, domain: str, rho: float, delta: float, st: DomainState, now: datetime) -> list[str]:
         caps = self.policy.caps(domain, st.unit)
@@ -190,6 +211,9 @@ class Ledger:
         """Reserve for several units at once ({unit: (rho, delta)}): every unit's
         caps are checked first, so a refusal reserves nothing (Prop. 1704)."""
         now = now or datetime.now(timezone.utc)
+        for u, (r, d) in plan.items():           # every figure first: a bad one must not leave others reserved
+            if not (r >= 0 and math.isfinite(r) and d >= 0 and math.isfinite(d)):
+                raise PrivacyError(f"bad reservation for {u}: rho={r} delta={d}")
         with self.reg.locked():
             why = []
             for u, (r, d) in plan.items():
@@ -204,15 +228,14 @@ class Ledger:
     def touch(self, domain: str, run: str, unit: str | None = None) -> int:
         """Record that the run is about to read real data: from now on no refund."""
         with self.reg.locked():
-            st = self.state(domain, unit)
-            if run not in st.runs:
+            rs = self._find(self.state(domain, unit), run, unit)
+            if rs is None:
                 raise PrivacyError(f"run {run} has no reservation in domain {domain!r}; reserve before reading data")
-            return self.reg.append(self._entry("ledger.touch", domain, run, st.unit))
+            return self.reg.append(self._entry("ledger.touch", domain, rs.key, rs.unit))
 
     def settle(self, domain: str, run: str, rho: float, delta: float = 0.0, unit: str | None = None) -> int:
         with self.reg.locked():
-            sd = self.state(domain, unit)
-            st = sd.runs.get(run)
+            st = self._find(self.state(domain, unit), run, unit)
             if st is None:
                 raise PrivacyError(f"run {run} has no reservation in domain {domain!r}")
             if st.released or st.settled is not None:
@@ -220,21 +243,20 @@ class Ledger:
             if rho > st.reserved_rho + _EPS or delta > st.reserved_delta + _EPS:
                 raise PrivacyError(f"run {run} spent rho {rho:.6g}, delta {delta:g}: more than it reserved "
                                    f"(rho {st.reserved_rho:.6g}, delta {st.reserved_delta:g})")
-            return self.reg.append(self._entry("ledger.settle", domain, run, sd.unit, rho=dec(rho),
+            return self.reg.append(self._entry("ledger.settle", domain, st.key, st.unit, rho=dec(rho),
                                                delta=dec(delta, 30)))
 
     def release(self, domain: str, run: str, unit: str | None = None) -> int:
         """Refund a reservation; refused once the run has touched data."""
         with self.reg.locked():
-            sd = self.state(domain, unit)
-            st = sd.runs.get(run)
+            st = self._find(self.state(domain, unit), run, unit)
             if st is None:
                 raise PrivacyError(f"run {run} has no reservation in domain {domain!r}")
             if st.touched:
                 raise PrivacyError(f"run {run} read real data: its reservation cannot be refunded (Prop. 802)")
             if st.released or st.settled is not None:
                 raise PrivacyError(f"run {run} is already {st.state}")
-            return self.reg.append(self._entry("ledger.release", domain, run, sd.unit))
+            return self.reg.append(self._entry("ledger.release", domain, st.key, st.unit))
 
     def nondp(self, domain: str, run: str) -> int:
         return self.reg.append({"type": "ledger.nondp", "domain": domain, "run": run})

@@ -533,3 +533,53 @@ def test_c1706_spend_survives_a_change_of_the_domains_units(tmp_path):
     led = G.Ledger(reg, one)
     assert abs(led.state("customers").charged()[0] - 0.08) < 1e-12      # 0.04 + 0.03 + 0.01, never less
     assert G.verify_registry(reg) == []
+
+
+def test_c1706_in_flight_reservations_survive_a_change_of_the_domains_units(tmp_path):
+    """Prop. 1704(a) for runs caught mid-flight by a policy change: a reservation
+    made under the old units can still be touched, settled or refunded under the
+    new ones; its entries keep the reservation's own unit and run id, so the
+    registry verifies, and the run stays charged until it settles."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, one = _gov_registry(tmp_path, {"entity": "Customer"})
+    _, two = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    # one unit -> two units: a unit-less reservation is settled from a unit's account
+    G.Ledger(reg, one).reserve("customers", "a", 0.05)
+    G.Ledger(reg, one).reserve("customers", "b", 0.02)
+    led = G.Ledger(reg, two)
+    for u in ("customer", "employee"):
+        assert abs(led.state("customers", u).charged()[0] - 0.07) < 1e-12     # in flight: charged as reserved
+    led.touch("customers", "a", unit="customer")
+    led.settle("customers", "a", 0.03, unit="employee")
+    led.release("customers", "b", unit="customer")                          # never touched: refunded
+    for u in ("customer", "employee"):
+        assert abs(led.state("customers", u).charged()[0] - 0.03) < 1e-12
+    assert G.verify_registry(reg) == []
+    # two units -> one unit: each unit's reservation is found by its run id (and unit when both hold one)
+    led.reserve_units("customers", "c", {"customer": (0.04, 0.0), "employee": (0.01, 0.0)})
+    led.reserve_units("customers", "d", {"customer": (0.02, 0.0)})
+    led = G.Ledger(reg, one)
+    assert abs(led.state("customers").charged()[0] - 0.10) < 1e-12           # 0.03 + 0.04 + 0.01 + 0.02
+    with pytest.raises(PrivacyError, match="name the unit"):
+        led.touch("customers", "c")
+    led.touch("customers", "c", unit="customer")
+    led.settle("customers", "c", 0.02, unit="customer")
+    led.release("customers", "c", unit="employee")
+    led.touch("customers", "d")
+    led.settle("customers", "d", 0.01)
+    assert abs(led.state("customers").charged()[0] - 0.06) < 1e-12           # 0.03 + 0.02 + 0.01
+    assert G.verify_registry(reg) == []
+
+
+def test_c1706_a_bad_figure_reserves_nothing(tmp_path):
+    """Prop. 1704: every figure of a plan is checked before any is written."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, two = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    led = G.Ledger(reg, two)
+    with pytest.raises(PrivacyError, match="bad reservation for employee"):
+        led.reserve_units("customers", "r", {"customer": (0.01, 0.0), "employee": (float("nan"), 0.0)})
+    assert all("r" not in led.state("customers", u).runs for u in ("customer", "employee"))
