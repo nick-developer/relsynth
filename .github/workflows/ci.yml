@@ -513,6 +513,11 @@ jobs:
       - run: pytest -m databricks tests/integration -q
       # the spark executor of the partitioned runtime, installed through the relsynth[spark] extra
       - run: JAVA_HOME="$JAVA_HOME_17_X64" RELSYNTH_TEST_SPARK_REQUIRED=1 pytest -m slow tests/unit/test_runtime.py -k spark -q
+      # the lint job audits the dev environment, which has no Spark; audit what the spark extra installed
+      - name: pip-audit (the spark extra)
+        run: |
+          pip freeze | grep -iE '^(pyspark|py4j|cloudpickle)==' > "$RUNNER_TEMP/spark-reqs.txt"
+          pip-audit --no-deps --disable-pip -r "$RUNNER_TEMP/spark-reqs.txt"
 
   # Snowflake through its real connector and dialect, against fakesnow (its REST
   # protocol over DuckDB; tests/emulators/snowflake). fakesnow 0.12 speaks the
