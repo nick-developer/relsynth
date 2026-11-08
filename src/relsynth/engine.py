@@ -2541,6 +2541,7 @@ class Synthesizer:
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
             df = self.tm[e].sample(z, rng)
+            df = self._guard_near_copies(e, df, z, rng)
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
             ko = T[e].get("key_order")
@@ -2622,6 +2623,56 @@ class Synthesizer:
             from .timeseries.hooks import sample_series
             ext = sample_series(self, ext, ctx["prng"], ctx["index"], ctx["mode"])
         return ext
+
+    def _near_copy_guard(self, e):
+        """The near-copy guard of entity e (relsynth.nearcopy), built on first use
+        from the fitted source rows; None when the guard does not apply: off, a
+        table the evaluation's distance check does not cover (fewer than 50 rows,
+        fewer than 3 distance columns, privacy: false), or more than
+        privacy.near_copy_max_rows rows."""
+        cache = self.__dict__.setdefault("_nc_guards", {})
+        if e in cache:
+            return cache[e]
+        pcfg = self.cfg.get("privacy") or {}
+        T = self.spec["tables"]
+        real = getattr(self, "_tables_for_fit", {}).get(e)
+        g = None
+        if pcfg.get("near_copy", "off") != "off" and real is not None and T[e].get("privacy", True) \
+                and 50 <= len(real) <= int(pcfg.get("near_copy_max_rows", 100_000)):
+            from .nearcopy import NearCopyGuard, guard_columns
+            keycols = {(r["child"], c) for r in self.spec["relationships"]
+                       for c in (r["child_key"] if r.get("composite") else [r["child_key"]])}
+            out_cols = set(self.tm[e].out_cols)
+            cols = [c for c in guard_columns(T[e], real, keycols, e) if c in out_cols]
+            if len(cols) >= 3:
+                g = NearCopyGuard(real, T[e], cols, rho=float(pcfg.get("near_copy_ratio", 1.0)))
+        cache[e] = g
+        return g
+
+    def _guard_near_copies(self, e, df, z, rng):
+        """Redraw, from their own segments, the rows that are near copies of a real
+        row (Prop. 1722); rows still near copies after privacy.near_copy_rounds
+        rounds are kept and counted in the sample log.  No random number is drawn
+        when no row is a near copy, so such tables are unchanged."""
+        g = self._near_copy_guard(e)
+        if g is None or not len(df):
+            return df
+        bad = np.flatnonzero(g.near_copies(df))
+        first = len(bad)
+        rounds = int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20))
+        r = 0
+        while len(bad) and r < rounds:
+            new = self.tm[e].sample(np.asarray(z)[bad], rng)
+            new.index = df.index[bad]
+            df.loc[df.index[bad], new.columns] = new
+            still = g.near_copies(df.iloc[bad])
+            bad = bad[still]
+            r += 1
+        if first:
+            self.sample_log.setdefault("near_copies", {})[e] = {
+                "rows": int(len(df)), "near_copies": first, "redrawn": first - int(len(bad)),
+                "kept": int(len(bad)), "rounds": r, "ratio": g.rho}
+        return df
 
     def _stratum_keys(self, e, z, out):
         """Strata are rows of small copied parents and segments are nested in them,

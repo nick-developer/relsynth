@@ -22,6 +22,12 @@ SOFT_VIOLATIONS = {"offset", "model"}
 AGGREGATES = {"count", "sum", "min", "max", "mean", "exists", "count_distinct"}
 PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 
+# G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
+# segment marginal of an entity table, and the near-copy guard
+SEGMENT_PRIOR_ROWS = 0.0
+NEAR_COPY = "off"
+
+
 DEFAULT_SYNTHESIS = {
     "seed": 7,
     # one posterior draw of every parameter per dataset (mode draw), or posterior
@@ -39,7 +45,7 @@ DEFAULT_SYNTHESIS = {
     "marginals": {"bayesian_bootstrap": True, "dirichlet_prior": 0.25,
                   "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
-                  "fd_sample_rows": 50000},
+                  "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
@@ -65,7 +71,10 @@ DEFAULT_SYNTHESIS = {
     # a settings file merged under this block (relsynth.settings; relative to the spec)
     "settings_file": None,
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
-    "privacy": {"suppress_small_counts": 5, "dp": None},
+    # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
+    # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
+    "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
+                "near_copy_rounds": 20, "near_copy_max_rows": 100_000},
     # fit large fact tables from statistics computed in the database and a bounded
     # uniform sample (relsynth.pushdown); auto: facts with at least min_rows rows
     "pushdown": {"mode": "auto", "min_rows": 1_000_000, "sample_rows": 500_000},
