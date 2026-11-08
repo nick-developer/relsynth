@@ -171,6 +171,8 @@ def test_sample_is_uniform_reproducible_and_sized(sqlite_stats, tmp_path):
 
 
 def test_lazy_frame_stats_loads_only_needed_columns():
+    """Lazy statistics load a column on first use and keep it whole (every row) for later
+    statistics; SEC-10 states that the pandas engine keeps these columns with the model."""
     calls = []
     df = _frame(200)
 
@@ -180,7 +182,9 @@ def test_lazy_frame_stats_loads_only_needed_columns():
     fs = FrameStats.lazy(loader, n_rows=len(df))
     fs.notnull("a")
     fs.group_counts(["a", "b"])
-    assert calls == [["a"], ["b"]]
+    fs.notnull("a")
+    assert calls == [["a"], ["b"]]                      # cached, not loaded again
+    assert {c: len(v) for c, v in fs._cache.items()} == {"a": len(df), "b": len(df)}
 
 
 # ---------------------------------------------------------------- MySQL / MariaDB (no server)

@@ -591,6 +591,7 @@ claims:
       - prop: prop:hashsample
       - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
       - test: tests/unit/test_pushdown.py::test_header_split_without_unique_key_agrees
+      - test: tests/unit/test_sqlfuncs_stats.py::test_lazy_frame_stats_loads_only_needed_columns
 
   - id: SEC-11
     doc: docs/security.md
