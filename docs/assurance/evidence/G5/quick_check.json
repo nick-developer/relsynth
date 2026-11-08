@@ -1,0 +1,169 @@
+{
+  "what": "quick privacy check of relsynth run (G5)",
+  "machine": {
+    "cpus": 4,
+    "python": "3.13.18"
+  },
+  "known_answers_one_table": {
+    "copy_all": {
+      "runs": 10,
+      "fail_share": 1.0,
+      "domias_auc": 0.63,
+      "closest_distance_auc": 1.0,
+      "domias_tpr_at_fpr_0.01": 0.028,
+      "closest_distance_tpr_at_fpr_0.01": 1.0
+    },
+    "copy_20pct": {
+      "runs": 10,
+      "fail_share": 1.0,
+      "domias_auc": 0.525,
+      "closest_distance_auc": 0.596,
+      "domias_tpr_at_fpr_0.01": 0.013,
+      "closest_distance_tpr_at_fpr_0.01": 0.208
+    },
+    "copy_5pct": {
+      "runs": 10,
+      "fail_share": 0.0,
+      "domias_auc": 0.505,
+      "closest_distance_auc": 0.517,
+      "domias_tpr_at_fpr_0.01": 0.01,
+      "closest_distance_tpr_at_fpr_0.01": 0.06
+    },
+    "population": {
+      "runs": 10,
+      "fail_share": 0.0,
+      "domias_auc": 0.498,
+      "closest_distance_auc": 0.492,
+      "domias_tpr_at_fpr_0.01": 0.009,
+      "closest_distance_tpr_at_fpr_0.01": 0.01
+    }
+  },
+  "bench": {
+    "chinook": {
+      "status": "review",
+      "unit": "Customer",
+      "people": {
+        "total": 59,
+        "members": 19,
+        "non_members": 20,
+        "reference": 20
+      },
+      "attacks": {
+        "domias": {
+          "identified": true,
+          "auc": 0.5921052631578948,
+          "auc_ci": [
+            0.4080498847761097,
+            0.7761606415396799
+          ]
+        },
+        "closest_distance": {
+          "identified": true,
+          "auc": 0.7684210526315789,
+          "auc_ci": [
+            0.6059353930082736,
+            0.9309067122548842
+          ]
+        }
+      },
+      "reason": null,
+      "seconds": 4.1
+    },
+    "berka": {
+      "status": "pass",
+      "unit": "client",
+      "people": {
+        "total": 5369,
+        "members": 1000,
+        "non_members": 1000,
+        "reference": 1000
+      },
+      "attacks": {
+        "domias": {
+          "identified": true,
+          "auc": 0.5069165,
+          "auc_ci": [
+            0.48159378240646017,
+            0.5322392175935399
+          ],
+          "tpr_at_fpr_0.01": 0.01
+        },
+        "closest_distance": {
+          "identified": true,
+          "auc": 0.5127455,
+          "auc_ci": [
+            0.48741561028482616,
+            0.5380753897151738
+          ],
+          "tpr_at_fpr_0.01": 0.014
+        }
+      },
+      "reason": null,
+      "seconds": 22.2
+    },
+    "acs": {
+      "status": "pass",
+      "unit": "acs",
+      "people": {
+        "total": 27253,
+        "members": 1000,
+        "non_members": 1000,
+        "reference": 1000
+      },
+      "attacks": {
+        "domias": {
+          "identified": true,
+          "auc": 0.5038385000000001,
+          "auc_ci": [
+            0.4785142455761814,
+            0.5291627544238188
+          ],
+          "tpr_at_fpr_0.01": 0.02
+        },
+        "closest_distance": {
+          "identified": true,
+          "auc": 0.5295635,
+          "auc_ci": [
+            0.5042829052688403,
+            0.5548440947311596
+          ],
+          "tpr_at_fpr_0.01": 0.008
+        }
+      },
+      "reason": null,
+      "seconds": 33.2
+    },
+    "contoso_sqlite": {
+      "status": "pass",
+      "unit": "Customer",
+      "people": {
+        "total": 104990,
+        "members": 1000,
+        "non_members": 1000,
+        "reference": 1000
+      },
+      "attacks": {
+        "domias": {
+          "identified": true,
+          "auc": 0.5195429999999999,
+          "auc_ci": [
+            0.4942475527129113,
+            0.5448384472870884
+          ],
+          "tpr_at_fpr_0.01": 0.018
+        },
+        "closest_distance": {
+          "identified": true,
+          "auc": 0.523967,
+          "auc_ci": [
+            0.49868073220845616,
+            0.5492532677915438
+          ],
+          "tpr_at_fpr_0.01": 0.006
+        }
+      },
+      "reason": null,
+      "seconds": 37.6
+    }
+  }
+}

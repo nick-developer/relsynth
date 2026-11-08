@@ -24,7 +24,7 @@ The report never shows a real key. People are named by keyed hashes (`P-3f2a…`
 `relsynth run` (and `relsynth.run`) ends with a quick membership check and prints one line:
 
 ```
-privacy check: PASS - membership DOMIAS AUC 0.520 [0.494, 0.545], distance AUC 0.507 [0.482, 0.532] vs limit 0.65 (internal), proxy fitted on 1000 of 104990 people in Customer, 38.1 s
+privacy check: PASS - membership DOMIAS AUC 0.520 [0.494, 0.545], distance AUC 0.524 [0.499, 0.549] vs limit 0.65 (internal), proxy fitted on 1000 of 104990 people in Customer, 37.6 s
 ```
 
 The written release was fitted on every person, so it has nobody unseen to compare with. The check samples up to `synthesis.evaluation.privacy_check_people` people (3000) of the privacy unit, fits the same generator with the same settings on a third of them (the members), and asks whether two attacks tell those members from a third the proxy never saw, using the last third as the attacker's population data:
@@ -42,7 +42,7 @@ The proxy keeps only the unit, the tables it owns and the tables those reach thr
 | `skipped` | no privacy unit was found (name one in `privacy.yaml` for `relsynth privacy`), fewer than 50 people, or the unit's tables were fitted from in-database statistics and a sample (pushdown), which does not hold every row of a person |
 | `error` | the proxy could not be fitted; the reason is in the bundle and the run is unaffected |
 
-Turn it off with `relsynth run --no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`. It costs about one fit of a third of the sampled people plus the shared tables they reach, measured with `bench/specs` on 4 cores: Chinook 5 s, Berka 21 s, ACS 35 s, Contoso V2 100k 38 s (its shared tables, 100k currency rates among them, dominate the fit).
+Turn it off with `relsynth run --no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`. It costs about one fit of a third of the sampled people plus the shared tables they reach, measured with `bench/specs` on 4 cores: Chinook 4 s, Berka 22 s, ACS 33 s, Contoso V2 100k 38 s (`benchmarks/privacy/quick_check_evidence.py`) (its shared tables, 100k currency rates among them, dominate the fit).
 
 This is a smoke test, not an assessment: two attacks, the internal context only, a proxy fitted on fewer people than the release. It never replaces `relsynth privacy` (every criterion, shadow models, every context), and a release outside the organisation still needs differential privacy.
 
