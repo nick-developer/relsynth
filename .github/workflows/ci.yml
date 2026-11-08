@@ -569,7 +569,7 @@ jobs:
         run: |
           python -m venv /tmp/v && /tmp/v/bin/pip install "$(ls dist/*.whl)[all]"
           /tmp/v/bin/relsynth version --json
-      - name: CycloneDX SBOM of the installed wheel with every extra
+      - name: CycloneDX SBOM of the wheel installed with the [all] extra (connectors)
         run: |
           cyclonedx-py environment --pyproject pyproject.toml --mc-type library --output-reproducible \
             --of JSON -o dist/relsynth.cdx.json /tmp/v/bin/python
