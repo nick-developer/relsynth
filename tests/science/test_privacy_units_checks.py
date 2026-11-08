@@ -598,3 +598,27 @@ def test_c1706_run_ids_cannot_collide_with_replay_keys(tmp_path):
     with pytest.raises(PrivacyError, match="contain '@'"):
         G.Ledger(reg, two).reserve_units("customers", "r@customer", {"customer": (0.01, 0.0)})
     assert G.Ledger(reg, one).state("customers").runs == {}
+
+
+def test_c1706_an_old_run_id_with_at_never_hides_spend(tmp_path):
+    """Prop. 1704(d) for registries written before run ids were restricted: a
+    unit-less reservation named `r@customer` and a later customer reservation `r`
+    stay two charges after the domain returns to one unit."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, one = _gov_registry(tmp_path, {"entity": "Customer"})
+    _, two = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    old = G.Ledger(reg, one)
+    reg.append(old._entry("ledger.reserve", "customers", "r@customer", None, rho="0.03", delta="0"))
+    reg.append(old._entry("ledger.touch", "customers", "r@customer", None))
+    led = G.Ledger(reg, two)
+    led.reserve_units("customers", "r", {"customer": (0.02, 0.0)})
+    led.touch("customers", "r", unit="customer")
+    led.settle("customers", "r", 0.01, unit="customer")
+    led = G.Ledger(reg, one)
+    st = led.state("customers")
+    assert len(st.runs) == 2 and abs(st.charged()[0] - 0.04) < 1e-12        # 0.03 in flight + 0.01 settled
+    led.settle("customers", "r@customer", 0.025)
+    assert abs(led.state("customers").charged()[0] - 0.035) < 1e-12
+    assert G.verify_registry(reg) == []

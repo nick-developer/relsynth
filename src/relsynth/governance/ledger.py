@@ -116,6 +116,7 @@ class Ledger:
     def state(self, domain: str, unit: str | None = None) -> DomainState:
         unit = self._unit(domain, unit)
         st = DomainState(domain, unit)
+        ids: dict = {}                        # (unit, run id) of a reservation -> its key in st.runs
         for rec in self.reg.entries("ledger."):
             e = rec["entry"]
             if e.get("domain") != domain:
@@ -129,17 +130,28 @@ class Ledger:
                 run = f"{run}@{eu}"
             elif eu is not None and eu != unit and k != "ledger.nondp":
                 continue
-            if k == "ledger.reserve":
-                st.runs[run] = RunState(run, domain, float(e["rho"]), float(e["delta"]), e["time"], unit=eu,
-                                        key=e["run"])
-            elif k == "ledger.touch" and run in st.runs:
-                st.runs[run].touched = True
-            elif k == "ledger.settle" and run in st.runs:
-                st.runs[run].settled = (float(e["rho"]), float(e["delta"]))
-            elif k == "ledger.release" and run in st.runs:
-                st.runs[run].released = True
-            elif k == "ledger.nondp":
+            if k == "ledger.nondp":
                 st.nondp.append(run)
+                continue
+            ident = (eu, e["run"])
+            if k == "ledger.reserve":
+                # each reservation keeps its own key, even if an older run id looks like a replay key
+                key, i = run, 2
+                while key in st.runs:
+                    key, i = f"{run}#{i}", i + 1
+                ids[ident] = key
+                st.runs[key] = RunState(key, domain, float(e["rho"]), float(e["delta"]), e["time"], unit=eu,
+                                        key=e["run"])
+                continue
+            rs = st.runs.get(ids.get(ident, ""))
+            if rs is None:
+                continue
+            if k == "ledger.touch":
+                rs.touched = True
+            elif k == "ledger.settle":
+                rs.settled = (float(e["rho"]), float(e["delta"]))
+            elif k == "ledger.release":
+                rs.released = True
         return st
 
     @staticmethod
@@ -155,15 +167,14 @@ class Ledger:
         domain's units: a reservation of a unit, seen from a domain with one unit again, is keyed
         `run@unit`.  Later entries of that run name the reservation's own unit and run id, so the
         log's lifecycle and its verification stay the same across the change (Prop. 1704)."""
-        if run in sd.runs:
-            return sd.runs[run]
-        if unit is not None and f"{run}@{unit}" in sd.runs:
-            return sd.runs[f"{run}@{unit}"]
-        hits = [k for k in sd.runs if k.startswith(run + "@")]
+        hits = [s for s in sd.runs.values() if s.key == run]
+        if len(hits) > 1 and unit is not None:
+            hits = [s for s in hits if s.unit == unit] or hits
         if len(hits) > 1:
             raise PrivacyError(f"run {run} reserved for several units before the policy changed the units of "
-                               f"domain {sd.domain!r}: name the unit ({', '.join(sorted(h.split('@', 1)[1] for h in hits))})")
-        return sd.runs[hits[0]] if hits else None
+                               f"domain {sd.domain!r}: name the unit "
+                               f"({', '.join(sorted(str(s.unit) for s in hits))})")
+        return hits[0] if hits else None
 
     def _check_caps(self, domain: str, rho: float, delta: float, st: DomainState, now: datetime) -> list[str]:
         caps = self.policy.caps(domain, st.unit)
@@ -207,7 +218,7 @@ class Ledger:
         now = now or datetime.now(timezone.utc)
         with self.reg.locked():
             st = self.state(domain, unit)
-            if run in st.runs:
+            if any(s.key == run for s in st.runs.values()):
                 raise PrivacyError(f"run {run} already holds a reservation")
             why = self._check_caps(domain, rho, delta, st, now)
             if why:
@@ -227,7 +238,7 @@ class Ledger:
             why = []
             for u, (r, d) in plan.items():
                 st = self.state(domain, u)
-                if run in st.runs:
+                if any(s.key == run for s in st.runs.values()):
                     raise PrivacyError(f"run {run} already holds a reservation for {u}")
                 why += self._check_caps(domain, r, d, st, now)
             if why:
@@ -296,8 +307,8 @@ class Ledger:
         domain (and unit); if `run` is already charged it is not counted twice."""
         st = self.state(domain, unit)
         caps = self.policy.caps(domain, st.unit)
-        if run in st.runs:
-            st.runs.pop(run)
+        for k in [k for k, v in st.runs.items() if v.key == run]:
+            st.runs.pop(k)
         r, _ = st.charged()
         out = {"domain": domain, "delta": caps.delta, "run_rho": run_rho, "domain_rho_after": r + run_rho,
                "lifetime_rho_cap": caps.lifetime_rho, "lifetime_epsilon_cap": caps.lifetime_epsilon,
