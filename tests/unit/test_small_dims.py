@@ -117,11 +117,11 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Both settings are opt-in: shrinkage 0 and the guard off reproduce 2.1."""
-    m, base = _run(shop, marginals__segment_prior_rows=20.0)
-    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
-    m0, _ = _run(shop)
-    assert m0.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0   # opt-in: 2.1 output by default
+    """Shape-mode shrinkage (40 rows) is on by default, the guard is off, and
+    shrinkage 0 gives other values on the same random stream."""
+    m, base = _run(shop)
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 40.0
+    assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
     _, zero = _run(shop, marginals__segment_prior_rows=0.0)

@@ -436,8 +436,10 @@ SYNTH_DOC = {
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",
     "marginals.segment_prior_rows": "Prior weight, in rows, of an entity table's marginal in each segment's marginal "
                                     "(hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own "
-                                    "distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens "
-                                    "the link between their segments and the facts.",
+                                    "distribution). 0 = off (2.1 output); see segment_prior_mode for which columns and prior.",
+    "marginals.segment_prior_mode": "What segment_prior_rows shrinks: table (every column toward the table's "
+                                    "marginal), numeric (number columns only), shape (number columns only, the table's "
+                                    "shape moved to the segment's median and spread, so the segment keeps its location).",
     "marginals.joint_min_cramers_v": "Association that joins two categoricals.",
     "facts.min_group_rows": "Rows below which a block borrows the coarser dimension's marginals.",
     "facts.frailty": "auto | on | off: heavy-tailed rows per parent (gamma frailty).",

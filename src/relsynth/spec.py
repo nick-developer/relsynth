@@ -24,7 +24,7 @@ PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 
 # G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
 # segment marginal of an entity table, and the near-copy guard
-SEGMENT_PRIOR_ROWS = 0.0
+SEGMENT_PRIOR_ROWS = 40.0
 NEAR_COPY = "off"
 
 
@@ -45,7 +45,8 @@ DEFAULT_SYNTHESIS = {
     "marginals": {"bayesian_bootstrap": True, "dirichlet_prior": 0.25,
                   "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
-                  "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS},
+                  "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS,
+                  "segment_prior_mode": "shape"},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",

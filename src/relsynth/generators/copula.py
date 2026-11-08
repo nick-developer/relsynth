@@ -37,22 +37,27 @@ class SegmentMarginals(TableGenerator):
         self.coarse_m = {}
         min_rows = ccfg["min_rows"]
         # prior weight, in rows, of the table's (or coarse group's) marginal in each
-        # segment's marginal (G3, Prop. 1720; opt-in, default 0): a = max(dirichlet_prior, segment_prior_rows)
+        # segment's marginal (G3, Props. 1720 and 1724): a = max(dirichlet_prior, segment_prior_rows);
+        # marginals.segment_prior_mode picks the columns and the prior (default shape: number
+        # columns only, the parent's shape at the segment's median and spread)
         a_seg = max(mcfg["dirichlet_prior"], self._segment_prior())
         kw_seg = {**kw, "dirichlet_a": a_seg}
+        mode = str(mcfg.get("segment_prior_mode", "table"))
+        kw_seg_of = (lambda cd: kw_seg if mode == "table" else
+                     (kw if cd.kind == "discrete" else {**kw_seg, "shift_prior": mode == "shape"}))
         if parent:
             cg = np.array([parent.get(g, -1) for g in groups]) if n else np.array([])
             for c in np.unique(cg):
                 if c < 0:
                     continue
                 idx = cg == c
-                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw_seg)
+                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw_seg_of(cd))
                                     for cd, x, gm in zip(d.codecs, d.X, self.global_m)]
         for g in np.unique(groups):
             idx = groups == g
             prior = self.coarse_m.get(parent.get(g, -1), self.global_m)
             self.group_n[g] = int(idx.sum())
-            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw_seg)
+            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw_seg_of(cd))
                                for cd, x, pm in zip(d.codecs, d.X, prior)]
 
     def _segment_prior(self):

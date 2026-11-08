@@ -25,20 +25,20 @@ All numbers are `DimProduct` `dcr_ratio` (limit 0.5) and the AdventureWorks scor
 - **Marginal shrinkage** (`marginals.segment_prior_rows`) raises the weight of the table marginal in each segment's Dirichlet / Dirichlet-process posterior to that many rows. It is the hierarchical prior relsynth already has, made stronger for small segments. Segments of thousands of rows move by at most `rows / n` in total variation (Prop. 1721), and the random stream is unchanged (Prop. 1720). It works on every draw.
 - **Near-copy guard** (`privacy.near_copy`). It redraws rows that sit closer to a real row than that row's nearest distinct neighbour. Alone it is unreliable (0.52 on two draws), because the evaluation's metric ranks real and synthetic rows together and looks only at positive distances. It also rewrote rows in six AdventureWorks tables (24% of `ProspectiveBuyer`, 5% of `DimCustomer`), and on Chinook it broke `Track` associations on 4 of 5 seeds. Redrawing until it succeeds, it is not differentially private for any ε (Prop. 1723); with finite rounds it gives no DP guarantee of its own, and in DP mode it is post-processing of the seed database. It makes the DCR item of a guarded table circular. It ships as an opt-in safety net, off by default.
 
-**Choice:** marginal shrinkage with 20 rows was the first choice for the default, on entity tables only. The full validation below and the science suite changed that: both settings ship opt-in, and the 2.1 output stays the default (see "Science checks").
+**Choice:** marginal shrinkage with 20 rows was the first choice for the default, on entity tables only. The full validation below and the science suite showed that it weakens the dimension-fact links (see "Science checks"), so release 2.2 uses **shape-mode shrinkage with 40 rows** by default (see "Shape mode"), approved by Cod3r on 2026-11-08. The guard is opt-in.
 
 **Cost.** Over the four paired draws the AdventureWorks scorecard drops by 3 items on average out of 1,257. The draw-to-draw spread at the defaults is about ±5. The items that fail more often are systematic: `FactInternetSales` joined product prices (`ListPrice`, `DealerPrice`, `StandardCost` `join_ks`, 3 of 4 draws), `StartDate` `join_ks`, and the `FactInternetSales` discriminator. Internet sales are concentrated on a few products. When those products' prices are shrunk toward the catalogue, the price distribution weighted by sales moves. This is the price of not reproducing small product families. A deployment that needs these joins exactly can set `marginals.segment_prior_rows: 0` (the 2.1 behaviour), or set it per table under `per_table`.
 
 ## Other golden databases
 
-| Database | Defaults 2.1 | Shrinkage 20 | Guard on (with shrinkage) |
+| Database | Defaults 2.1 | Table-mode shrinkage 20 | Guard on (with shrinkage) |
 |---|---|---|---|
 | Chinook, 5 seeds, scorecard | 142/142 on every seed | 142/142 on every seed | 142/142 on seed 1, 141/142 on seeds 2-5 (`Track` association) |
 | Chinook `Track` DCR | 1.63-1.79 | 1.83-2.10 | 2.83-3.35 |
 
 Contoso and Berka run in the CI bench job of the pull request.
 
-## Validation of shrinkage 20 (AdventureWorks, 5 seeds)
+## Validation of table-mode shrinkage 20 (AdventureWorks, 5 seeds)
 
 Five full fits per setting (seeds 1, 2, 3, 11, 12), each fitted and sampled once with the same seed, scored on the 1,267-item AdventureWorks scorecard. "2.1" is `marginals.segment_prior_rows: 0`.
 
@@ -53,7 +53,7 @@ Five full fits per setting (seeds 1, 2, 3, 11, 12), each fitted and sampled once
 
 The DCR ratio of `DimProduct` is at least 0.96 on every seed (limit 0.5), against 0.50-0.65 at the 2.1 defaults. The scorecard cost on full fits is larger than on the paired re-samples above: 7.8 items on average (0.6% of 1,267), at most 13. The other dimension tables keep DCR ratios of at least 0.97 (`DimReseller`, seed 12).
 
-With shrinkage on, `tools/identity_check.py` reports every scenario as different, as expected. With `marginals.segment_prior_rows: 0`, now the default, it reproduces `main` byte for byte on all 24 runs.
+With shrinkage on, `tools/identity_check.py` reports every scenario as different, as expected. With `marginals.segment_prior_rows: 0` it reproduces 2.1 byte for byte on all 24 runs.
 
 ## Science checks
 
@@ -65,10 +65,33 @@ With shrinkage 20 on by default, three fake-data checks of the science suite fai
 | C19 doctor: planted problems left after tuning | none | `D02 customer` |
 | C43 sales warehouse: bike share in segment A / C orders, target 0.60 / 0.03 ± 0.08 | pass | 0.51 / 0.04 |
 
-The Berka bench also failed one calibrated item (`order` association, 0.155 against a limit of 0.15). The cause is the same as the AdventureWorks price joins: the segments of a dimension carry what the facts depend on (which products sell, at what price), and shrinking each segment toward the table weakens exactly that link. Shrinkage that keeps each segment's location and shrinks only its shape is a possible next step; it has not been tried.
+The Berka bench also failed one calibrated item (`order` association, 0.155 against a limit of 0.15). The cause is the same as the AdventureWorks price joins: the segments of a dimension carry what the facts depend on (which products sell, at what price), and shrinking each segment toward the table weakens exactly that link. Shape mode, below, keeps each segment's location and shrinks only its shape.
 
-## Open items and decisions for Cod3r
+## Shape mode (the default)
 
-- **Default (decision).** Both settings are opt-in in this change, so the default output is byte-identical with 2.1 and the `DimProduct` margin at the defaults is unchanged (0.50-0.65). Turning shrinkage on by default needs Cod3r's approval and the science checks above revised or a variant that keeps the segment links.
-- The autotune rerun the gap plan asks for (`segments.default_cap`, the doctor's parts, `facts.*`) needs the CI autotune workflow (4.5 hours). It is best started after this pull request merges. `marginals.segment_prior_rows` is registered as tunable.
+`marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the table's distribution moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the table's), clipped to the table's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. The segment's median does not move, so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
+
+The first version did not clip to the table's range and failed C48: shifted dates left the range of a keyed lookup (an exchange rate per order date, 0.990 of rows matched instead of 1). Clipping fixed it.
+
+**Science checks** with shape mode: C09, C19, C43 and C48 pass at 20 and at 40 rows. The full suite passes apart from C75 `t_unique_moves_fast` and C76. C76 needs the layer 2 data and fails the same way at 2.1 in this container (it is skipped in CI). C75 finds one duplicate of a link key after the moves; the same check fails on 4 of 8 synthesis seeds at 2.1 (0, 0, 1, 2, 0, 1, 0, 1 duplicates for seeds 1-8), so it is an existing engine issue that the seed of the check happened to miss.
+
+**AdventureWorks**, the same five seeds as above (DimProduct DCR / scorecard of 1,267):
+
+| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 (default) |
+|---|---|---|---|---|
+| 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.847 / 1215 |
+| 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.136 / 1203 |
+| 3 | 0.576 / 1214 | 1.010 / 1201 | 1.000 / 1211 | 1.244 / 1200 |
+| 11 | 0.549 / 1207 | 0.963 / 1198 | 0.737 / 1199 | 1.019 / 1193 |
+| 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 0.972 / 1199 |
+| Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.044 / 1202.0 |
+
+Shape 40 keeps `DimProduct` at 0.85 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40.
+
+`tools/identity_check.py` reports every scenario as different at the new default, by design (approved). With `marginals.segment_prior_rows: 0` it reproduces 2.1 byte for byte.
+
+## Open items
+
+- Chinook, Contoso and Berka with shape mode run in the CI bench job of the pull request.
+- The autotune rerun the gap plan asks for (`segments.default_cap`, the doctor's parts, `facts.*`) needs the CI autotune workflow (4.5 hours). It is best started after this pull request merges. `marginals.segment_prior_rows` and `marginals.segment_prior_mode` are registered as tunable.
 - `dcr_ratio` remains a guard, not a privacy test (T06). The privacy attacks (`relsynth privacy`) on AdventureWorks have not been rerun for this change.

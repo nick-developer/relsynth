@@ -1312,7 +1312,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "The small-dimension settings of release 2.2 (`marginals.segment_prior_rows`, `privacy.near_copy`) are off by default and keep that output."
+      - "Release 2.2 changes one default on purpose (shape-mode segment shrinkage, `marginals.segment_prior_rows: 40`); setting it to 0 restores the 2.1 output."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -2017,17 +2017,18 @@ claims:
   - id: PRV-20
     doc: docs/privacy.md
     area: statistics
-    quote: "Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`)."
+    quote: "Two settings deal with this (Props. 1720-1724 in `docs/proofs/sec_g3_smalldims.tex`)."
     status: supported
     evidence:
       - prop: prop:segshrink
+      - prop: prop:segshape
       - prop: prop:ncguard
       - report: docs/research/small-dimensions.md
 
   - id: PRV-21
     doc: docs/privacy.md
     area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720)"
+    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the prior (Prop. 1720)"
     status: supported
     evidence:
       - prop: prop:segshrink
@@ -2108,6 +2109,20 @@ claims:
       - test: tests/unit/test_small_dims.py::test_guard_encoding_is_fitted_on_real_rows_only
       - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
       - code: src/relsynth/evaluate.py
+
+  - id: PRV-35
+    doc: docs/privacy.md
+    area: statistics
+    quote:
+      - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the table's distribution moved to the segment's median and scaled to its interquartile range, inside the table's range: the segment keeps its median (Prop. 1724), so what the fact tables read from it (which products sell, at what price) stays in place, and only the exact values of its few rows are smoothed."
+      - "With `table`, every column is shrunk toward the table's own distribution; this also moves each segment toward the table and weakens the joins (with 20 rows the fake-data science checks C09, C19 and C43 fail, and the AdventureWorks scorecard loses 7.8 of 1,267 items on average)."
+      - "Shrinkage lowers how often a segment reproduces its own values; it does not rule out exact copies."
+    status: supported
+    evidence:
+      - prop: prop:segshape
+      - check: C1724
+      - report: docs/research/small-dimensions.md
+      - code: src/relsynth/marginals.py::Marginal::fit
 
   - id: PRV-30
     doc: docs/privacy.md

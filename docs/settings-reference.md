@@ -48,7 +48,8 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `marginals.discrete_int_max` | int | `30` | 0 … 1e+07 |  | Integer columns with at most this many distinct values are modelled as discrete. |
 | `marginals.max_obs` | int | `20000` | 10 … 1e+09 | yes (log) | Observations kept per continuous marginal (a seeded subsample above it). |
 | `marginals.fd_sample_rows` | int | `50000` | 100 … 1e+10 |  | Rows of the seeded subsample on which functional dependencies are tested. |
-| `marginals.segment_prior_rows` | float | `0.0` | 0 … 200 | yes | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens the link between their segments and the facts. |
+| `marginals.segment_prior_rows` | float | `40.0` | 0 … 200 | yes | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1 output); see segment_prior_mode for which columns and prior. |
+| `marginals.segment_prior_mode` | choice | `shape` | table, numeric, shape | yes | What segment_prior_rows shrinks: table (every column toward the table's marginal), numeric (number columns only), shape (number columns only, the table's shape moved to the segment's median and spread, so the segment keeps its location). |
 | `facts.min_group_rows` | int | `30` | 0 … 1e+09 | yes (log) | Rows below which a block borrows the coarser dimension's marginals. |
 | `facts.frailty` | choice | `auto` | auto, on, off | yes | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | float | `1.5` | 1 … 1e+06 | yes (log) | Dispersion index above which frailty is used. |

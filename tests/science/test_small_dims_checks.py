@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Checks C1720-C1723: small-dimension privacy (gap plan G3;
-docs/proofs/sec_g3_smalldims.tex, Props. 1720-1723), tested on the shipped
+"""Checks C1720-C1724: small-dimension privacy (gap plan G3;
+docs/proofs/sec_g3_smalldims.tex, Props. 1720-1724), tested on the shipped
 code (`marginals.segment_prior_rows`, `relsynth.nearcopy`, the engine's guard).
 
     pytest -m science tests/science/test_small_dims_checks.py
@@ -69,6 +69,36 @@ def test_c1720_segment_shrinkage_weight_and_stream():
             mass.append((m.from_uniform(np.linspace(0, 1, 2001)[1:-1]) >= 50.0).mean())
         w = len(own) / (len(own) + a)
         assert abs(np.mean(mass) - w) < 0.03, (a, np.mean(mass), w)
+
+
+# --------------------------------------------------------------------- C1724
+def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
+    """Prop. 1724: in shape mode the predictive median of a continuous segment is
+    its sample median (b), every value lies in the table's range or on the
+    segment's own values (c), and the random stream does not change (d)."""
+    rng = np.random.default_rng(7)
+    vals = rng.gamma(2.0, size=4000)
+    cc = Codec("y", {"type": "float"}, pd.Series(vals))
+    top = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
+    lo, hi = top.knots_v[0], top.knots_v[-1]
+    u = np.linspace(0, 1, 20001)[1:-1]
+    for own in (np.array([6.1, 6.4, 6.6, 7.0, 7.2, 7.9]),          # right tail of the table
+                np.array([0.20, 0.25, 0.3]),                       # left tail, three rows
+                np.array([3.0] * 5)):                              # identical values
+        for a in (20.0, 40.0):
+            m = Marginal.fit(cc, own, rng, prior=top, dirichlet_a=a, grid=512, bootstrap=False,
+                             shift_prior=True)
+            v = m.from_uniform(u)
+            assert abs(np.median(v) - np.median(own)) < 0.02 * (hi - lo), (own, a, np.median(v))
+            assert v.min() >= min(lo, own.min()) - 1e-9 and v.max() <= max(hi, own.max()) + 1e-9
+            # the table-mode prior moves the median toward the table's
+            t = Marginal.fit(cc, own, rng, prior=top, dirichlet_a=a, grid=512, bootstrap=False)
+            if own.std() > 0:
+                assert abs(np.median(t.from_uniform(u)) - np.median(own)) > abs(np.median(v) - np.median(own))
+        s0, s1 = np.random.default_rng(3), np.random.default_rng(3)
+        Marginal.fit(cc, own, s0, prior=top, dirichlet_a=40.0, shift_prior=True)
+        Marginal.fit(cc, own, s1, prior=top, dirichlet_a=40.0)
+        assert s0.random() == s1.random()
 
 
 # --------------------------------------------------------------------- C1721
