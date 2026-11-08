@@ -64,10 +64,10 @@ generator, its model version, its package and package version, its options and i
 | `bins` | 32 | Candidate thresholds per numeric predictor (quantiles). |
 | `max_rows` | 50000 | Rows a tree is fitted on (a seeded uniform sample beyond that). |
 | `min_gain` | 1e-8 | Smallest relative impurity decrease for a split (rpart `cp`). |
-| `smoothing` | `density` | `density` adds Gaussian kernel noise to numbers drawn from a leaf (synthpop `smoothing`), so that no observed number is released exactly; `none` releases the donors' numbers (the default before 2.2.0). |
+| `smoothing` | `density` | `density` adds Gaussian kernel noise to continuous values drawn from a leaf (synthpop `smoothing`), with a bandwidth from the leaf's values; a leaf whose values do not vary gets none, numbers coded as discrete (few distinct values) are not smoothed, and rounding on decode can land on an observed value. `none` releases the donors' numbers (the default before 2.2.0). |
 
 **Privacy.** None of the built-in generators gives a formal privacy guarantee (`privacy_cost().dp` is false).
-`cart` smooths the numbers it draws by default; with `smoothing: none` it releases observed values of each column, as
+`cart` smooths the continuous values it draws by default (not discrete ones); with `smoothing: none` it releases observed values of each column, as
 synthpop's CART does by default, and on the ACS benchmark a number seen once (such as the largest one) was then singled
 out (univariate singling-out risk 0.53 against a limit of 0.10; 0.003 with smoothing, `docs/assurance/evidence/G5/cart_acs.json`).
 Categories are still drawn from the leaf's observed rows. The copula's

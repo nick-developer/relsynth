@@ -5,7 +5,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 ## Unreleased
 ### Changed
 
-- **`cart` smooths numbers by default** (`smoothing: density`, was `none`). Without smoothing, cart releases the numbers of its donor rows exactly, so a value seen once in the source (the largest income, say) appears in the release; the new per-generator benchmark caught it on ACS (univariate singling-out risk 0.53 against a limit of 0.10, internal verdict `fail`), and with smoothing the risk is 0.003 and the verdict `review` (`docs/assurance/evidence/G5/cart_acs.json`). Cart output changes for specs that do not set the option; `generator: {name: cart, options: {smoothing: none}}` restores the old draws. Saved cart models keep the option they were fitted with.
+- **`cart` smooths continuous values by default** (`smoothing: density`, was `none`; discrete codes are drawn as before). Without smoothing, cart releases the numbers of its donor rows exactly, so a value seen once in the source (the largest income, say) appears in the release; the new per-generator benchmark caught it on ACS (univariate singling-out risk 0.53 against a limit of 0.10, internal verdict `fail`), and with smoothing the risk is 0.003 and the verdict `review` (`docs/assurance/evidence/G5/cart_acs.json`). Cart output changes for specs that do not set the option; `generator: {name: cart, options: {smoothing: none}}` restores the old draws. Saved cart models keep the option they were fitted with.
 
 ### Added
 
