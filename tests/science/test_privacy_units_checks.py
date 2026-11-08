@@ -583,3 +583,18 @@ def test_c1706_a_bad_figure_reserves_nothing(tmp_path):
     with pytest.raises(PrivacyError, match="bad reservation for employee"):
         led.reserve_units("customers", "r", {"customer": (0.01, 0.0), "employee": (float("nan"), 0.0)})
     assert all("r" not in led.state("customers", u).runs for u in ("customer", "employee"))
+
+
+def test_c1706_run_ids_cannot_collide_with_replay_keys(tmp_path):
+    """Prop. 1704(d): a run id may not contain '@', so a reservation named like
+    the replay key `run@unit` of another can never overwrite it across a change."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, one = _gov_registry(tmp_path, {"entity": "Customer"})
+    _, two = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    with pytest.raises(PrivacyError, match="contain '@'"):
+        G.Ledger(reg, one).reserve("customers", "r@customer", 0.01)
+    with pytest.raises(PrivacyError, match="contain '@'"):
+        G.Ledger(reg, two).reserve_units("customers", "r@customer", {"customer": (0.01, 0.0)})
+    assert G.Ledger(reg, one).state("customers").runs == {}

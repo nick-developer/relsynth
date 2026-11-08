@@ -143,6 +143,13 @@ class Ledger:
         return st
 
     @staticmethod
+    def _check_run_id(run: str) -> None:
+        """'@' is kept for the replay key `run@unit` of a domain whose units changed, so no run id
+        may hold it: two reservations then never share a key (Prop. 1704(d))."""
+        if not run or "@" in run:
+            raise PrivacyError(f"run id {run!r} may not be empty or contain '@'")
+
+    @staticmethod
     def _find(sd: DomainState, run: str, unit: str | None) -> RunState | None:
         """The reservation of `run` in this account, also one written before the policy changed the
         domain's units: a reservation of a unit, seen from a domain with one unit again, is keyed
@@ -196,6 +203,7 @@ class Ledger:
             raise PrivacyError(f"domain {domain!r} is not in the organisation policy; a DP run needs a domain")
         if not (rho >= 0 and math.isfinite(rho) and delta >= 0):
             raise PrivacyError(f"bad reservation rho={rho} delta={delta}")
+        self._check_run_id(run)
         now = now or datetime.now(timezone.utc)
         with self.reg.locked():
             st = self.state(domain, unit)
@@ -211,6 +219,7 @@ class Ledger:
         """Reserve for several units at once ({unit: (rho, delta)}): every unit's
         caps are checked first, so a refusal reserves nothing (Prop. 1704)."""
         now = now or datetime.now(timezone.utc)
+        self._check_run_id(run)
         for u, (r, d) in plan.items():           # every figure first: a bad one must not leave others reserved
             if not (r >= 0 and math.isfinite(r) and d >= 0 and math.isfinite(d)):
                 raise PrivacyError(f"bad reservation for {u}: rho={r} delta={d}")
