@@ -123,3 +123,13 @@ def test_cli_refuses_tune_and_export_model_on_a_dp_spec(star, tmp_path, capsys):
     for argv in (["tune", str(p)], ["export-model", str(p)], ["verify", str(p)]):
         assert main(argv) == 2, argv
         assert "outside the DP accounting" in capsys.readouterr().err
+
+
+def test_stage2_keeps_the_near_copy_guard_on_the_seed(star):
+    """docs/privacy.md (small dimensions): in DP mode the near-copy guard runs in
+    stage 2, which is fitted on the seed database only, so it is post-processing."""
+    _, s = star
+    spec = _spec(s)
+    spec["synthesis"]["privacy"]["near_copy"] = "auto"
+    s2 = dp.stage2_spec(spec)
+    assert s2["synthesis"]["privacy"]["near_copy"] == "auto" and "dp" not in s2["synthesis"]["privacy"]

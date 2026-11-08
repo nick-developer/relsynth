@@ -24,9 +24,11 @@ What this does and does not mean (Prop. 1723): after the guard no synthetic row
 of the table is closer, in this metric, to a real record than that record's
 nearest distinct real neighbour (times rho), unless the rounds ran out, which
 the sample log reports.  It is a rule about distances, not a privacy guarantee:
-it gives no differential privacy, its decisions read the real rows, and an
-attacker who knows the rule learns that no synthetic row sits inside a real
-record's ball (Ganev & De Cristofaro 2023 reconstruct records from such holes).
+it adds no differential privacy of its own, and when it redraws until it
+succeeds an attacker who knows the rule learns that no synthetic row sits inside
+a real record's ball (Prop. 1723; Ganev & De Cristofaro 2023 reconstruct
+records from such holes).  In DP mode the engine is fitted on the DP seed
+database, so the guard reads seed rows and is post-processing of the DP release.
 The membership and attribute-inference attacks of ``relsynth privacy`` (T06)
 remain the privacy test, and DP mode (``synthesis.privacy.dp``) the guarantee.
 The DCR check that reads the same distances is no longer independent evidence

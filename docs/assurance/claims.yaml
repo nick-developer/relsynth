@@ -1841,11 +1841,29 @@ claims:
   - id: PRV-25
     doc: docs/privacy.md
     area: privacy-formal
-    quote: "Someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε for a guard that redraws until it succeeds, given a generator that can produce rows near the record."
+    quote: "If the guard redraws until it succeeds, someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε, given a generator that can produce rows near the record."
     status: limitation
     evidence:
       - prop: prop:ncnotdp
       - check: C1723
+
+  - id: PRV-30
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "Prop. 1723 does not cover that case, and the guard gives no differential-privacy guarantee of its own."
+    status: limitation
+    evidence:
+      - prop: prop:ncnotdp
+
+  - id: PRV-31
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "In DP mode (`synthesis.privacy.dp`) the engine is fitted on the DP seed database, so the guard measures distances to seed rows and is post-processing of the DP release: the DP guarantee stands, and the guard adds nothing to it."
+    status: supported
+    evidence:
+      - prop: prop:post
+      - test: tests/unit/dp/test_dp.py::test_stage2_keeps_the_near_copy_guard_on_the_seed
+      - code: src/relsynth/dp/__init__.py::synthesize
 
   - id: PRV-26
     doc: docs/privacy.md
