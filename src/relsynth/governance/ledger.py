@@ -19,7 +19,9 @@ A domain with several privacy units keeps one account per unit: every
 `ledger.*` entry of such a domain names its `unit`, and each unit's caps
 (its own `unit_budgets` entry, or the domain's budget) apply to that unit's
 account alone (RFC-G1-01, Prop. 1704).  Entries of a one-unit domain carry no
-unit, as before.
+unit, as before.  When the policy changes a domain's units, no spend is lost:
+entries without a unit count against every unit's account, and entries of
+several units all count against a domain that has one unit again.
 
 Non-DP releases of a domain are recorded as `ledger.nondp` entries: they spend
 nothing, but every DP statement of the domain then says that other releases
@@ -112,9 +114,17 @@ class Ledger:
         st = DomainState(domain, unit)
         for rec in self.reg.entries("ledger."):
             e = rec["entry"]
-            if e.get("domain") != domain or (e.get("unit") != unit and e["type"] != "ledger.nondp"):
+            if e.get("domain") != domain:
                 continue
+            eu = e.get("unit")
             k, run = e["type"], e["run"]
+            # an account never forgets spend recorded before the policy changed the domain's units:
+            # entries written without a unit (one-unit domain) count against every unit's account, and
+            # after a return to one unit every unit's entries count against the domain (Prop. 1704)
+            if eu is not None and unit is None:
+                run = f"{run}@{eu}"
+            elif eu is not None and eu != unit and k != "ledger.nondp":
+                continue
             if k == "ledger.reserve":
                 st.runs[run] = RunState(run, domain, float(e["rho"]), float(e["delta"]), e["time"])
             elif k == "ledger.touch" and run in st.runs:

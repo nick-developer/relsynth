@@ -157,6 +157,8 @@ claims:
       - prop: prop:puctrl
       - check: C601
       - check: C1700
+      - test: tests/unit/test_privacy.py::test_assess_reports_a_split_that_shares_rows
+      - test: tests/unit/test_privacy.py::test_judge_keeps_a_shared_row_split_at_review_with_dp
       - report: docs/assurance/evidence/T06/repro_anonymeter.json
 
   - id: PRV-12
@@ -504,6 +506,7 @@ claims:
     quote:
       - "Each unit has its own accountant, and its statistics read only its own tables, so the run is (ε, δ)-DP for one customer with all their rows and, separately, for one employee with all their rows (Prop. 1703)."
       - "The budgets do not add up across units, because the units' tables are disjoint."
+      - "A person who is both a customer and an employee is protected for each role separately: their total loss is at most the sum of the two units' ε (and δ), not either one alone, and the statement says so (Prop. 1703)."
       - "The plan refuses, before any read, a table that holds data of two units and a link between two units' data (drop it with drop_columns)."
     status: supported
     evidence:
@@ -530,18 +533,7 @@ claims:
       - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
       - test: tests/unit/governance/test_multi_unit.py::test_governed_two_unit_run_reserves_settles_and_records
       - test: tests/unit/governance/test_multi_unit.py::test_domain_override_accepts_the_domains_units
-
-  - id: DP-27
-    doc: docs/governance/guide.md
-    area: privacy-formal
-    quote:
-      - "A domain whose sources hold several populations (customers and employees) names them all: unit: {entities: [DimCustomer, DimEmployee]}."
-      - "A DP run of such a domain protects every unit its source holds, and is decided once per unit (dp.md, section 8)."
-    status: supported
-    evidence:
-      - prop: prop:multigov
-      - test: tests/unit/governance/test_multi_unit.py::test_policy_names_several_units_and_budgets_per_unit
-      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
+      - check: C1706
 
   - id: DP-25
     doc: docs/dp.md
@@ -560,6 +552,18 @@ claims:
       - report: docs/assurance/evidence/G1/aw_two_units.json
 
   # ------------------------------------------------------------------ docs/security.md
+
+  - id: DP-27
+    doc: docs/governance/guide.md
+    area: privacy-formal
+    quote:
+      - "A domain whose sources hold several populations (customers and employees) names them all: unit: {entities: [DimCustomer, DimEmployee]}."
+      - "A DP run of such a domain protects every unit its source holds, and is decided once per unit (dp.md, section 8)."
+    status: supported
+    evidence:
+      - prop: prop:multigov
+      - test: tests/unit/governance/test_multi_unit.py::test_policy_names_several_units_and_budgets_per_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
 
   - id: SEC-01
     doc: docs/security.md

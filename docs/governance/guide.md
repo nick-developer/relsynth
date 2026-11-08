@@ -36,9 +36,9 @@ A domain whose sources hold several populations (customers and employees) names 
 domains:
   retail:
     unit: {entities: [DimCustomer, DimEmployee]}
-    budget: {delta: 1.0e-9, lifetime: {epsilon: 6.0}, per_release: {epsilon_max: 2.0}}
+    budget: {accounting: zcdp, delta: 1.0e-9, lifetime: {epsilon: 6.0}, per_release: {epsilon_max: 2.0}}
     unit_budgets:
-      DimEmployee: {delta: 1.0e-9, lifetime: {epsilon: 3.0}, per_release: {epsilon_max: 1.0}}
+      DimEmployee: {accounting: zcdp, delta: 1.0e-9, lifetime: {epsilon: 3.0}, per_release: {epsilon_max: 1.0}}
 ```
 
 A DP run of such a domain protects every unit its source holds, and is decided once per unit ([dp.md](../dp.md), section 8).

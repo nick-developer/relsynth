@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Checks C1700-C1705: privacy units with composite keys and several units
+"""Checks C1700-C1706: privacy units with composite keys and several units
 (gap plan G1; docs/proofs section v2.6, Props. 1700-1704).
 
 C1700  ownership comes from the IR: composite links are followed, and a row
@@ -15,6 +15,9 @@ C1704  refusals before any read: a table holding both units' data, a link
        between the units' data, and a governed run with a unit its domain lacks.
 C1705  the same replay on AdventureWorks DW, customers and employees (needs the
        bench cache; skipped without it).
+C1706  governed releases with two units: each unit's account is charged exactly
+       its own spends and stays within its own caps, a refusal reserves nothing,
+       and no spend is lost when the policy changes the domain's units.
 
     pytest -m science tests/science/test_privacy_units_checks.py
 """
@@ -435,3 +438,98 @@ def test_c1705_adventureworks_customers_and_employees(monkeypatch):
            ("DimEmployee", int(reps.index[0])), ("DimEmployee", int(t["DimEmployee"]["EmployeeKey"].iloc[0]))]
     worst = _replay_two_units(spec, t, rem, monkeypatch)
     assert worst["FactInternetSalesReason: marginals"] > 0.0, worst
+
+
+# ---------------------------------------------------------------- C1706
+def _gov_registry(tmp_path, unit):
+    """A registry with the example policy; domain `customers` has the given unit block, and
+    employees get their own, smaller budget when they are a unit."""
+    import yaml
+
+    from relsynth import governance as G
+    doc = yaml.safe_load((ROOT / "docs" / "governance" / "examples" / "org-policy.yaml").read_text())
+    d = doc["domains"]["customers"]
+    d["unit"] = unit
+    if "entities" in unit:
+        d["unit_budgets"] = {"employee": {"accounting": "zcdp", "delta": 1.0e-9, "lifetime": {"epsilon": 3.0},
+                                          "per_release": {"epsilon_max": 1.5}}}
+    owner = G.Signer.generate("Dana DPO")
+    reg = (G.LocalRegistry(tmp_path / "registry") if (tmp_path / "registry").exists()
+           else G.LocalRegistry.create(tmp_path / "registry", owner, "dpo"))
+    return reg, G.policy.load(doc)
+
+
+def test_c1706_governed_releases_charge_each_unit_its_own_spend(tmp_path):
+    """Prop. 1704(a): over many governed releases each unit's account is charged
+    exactly the spends of that unit's runs (settled figure, a crashed run's full
+    reservation, nothing for a refunded run), stays within that unit's caps, and a
+    refusal for one unit reserves nothing in any account."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, pol = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    led = G.Ledger(reg, pol)
+    caps = {u: pol.caps("customers", u) for u in ("customer", "employee")}
+    size = {"customer": 0.08 * caps["customer"].per_release_rho, "employee": 0.6 * caps["employee"].per_release_rho}
+    rng = np.random.default_rng(1706)
+    want = {"customer": 0.0, "employee": 0.0}
+    refused = {"customer": 0, "employee": 0}
+    for i in range(120):
+        held = ["customer", "employee"] if i % 3 else ["customer"]      # some sources hold customers only
+        plan = {u: (size[u], 0.0) for u in held}
+        before = {u: led.state("customers", u).charged()[0] for u in want}
+        try:
+            led.reserve_units("customers", f"r{i}", plan)
+        except PrivacyError as e:
+            for u in held:
+                refused[u] += f"for {u}" in str(e) or f"customers/{u}" in str(e)
+            assert {u: led.state("customers", u).charged()[0] for u in want} == before    # nothing reserved
+            assert all(f"r{i}" not in led.state("customers", u).runs for u in want)
+            continue
+        fate = rng.choice(["settle", "crash", "refund"], p=[0.7, 0.15, 0.15])
+        for u in held:
+            if fate == "refund":
+                led.release("customers", f"r{i}", unit=u)
+                continue
+            led.touch("customers", f"r{i}", unit=u)
+            if fate == "crash":
+                want[u] += size[u]                                       # charged its full reservation
+            else:
+                spent = float(size[u] * rng.uniform(0.5, 1.0))           # the accountant's figure
+                led.settle("customers", f"r{i}", spent, unit=u)
+                want[u] += spent
+    for u, c in caps.items():
+        got = led.state("customers", u).charged()[0]
+        assert abs(got - want[u]) < 1e-9, (u, got, want[u])     # the log keeps 12 significant digits
+        assert got <= c.lifetime_rho + 1e-12 and got <= (c.period_rho or np.inf) + 1e-12
+        assert abs(led.summary("customers", unit=u)["rho"] - got) < 1e-9
+    # the employees' smaller budget ran out first; releases of customers alone went on until theirs did
+    assert refused["employee"] > 0 and refused["customer"] > 0
+    assert G.verify_registry(reg) == []
+
+
+def test_c1706_spend_survives_a_change_of_the_domains_units(tmp_path):
+    """Prop. 1704(a) across policy versions: spend recorded while the domain had
+    one unit counts against every unit's account after it gains a second, and
+    every unit's spend counts against the domain when it has one unit again."""
+    pytest.importorskip("cryptography")
+    pytest.importorskip("jsonschema")
+    from relsynth import governance as G
+    reg, one = _gov_registry(tmp_path, {"entity": "Customer"})
+    led = G.Ledger(reg, one)
+    led.reserve("customers", "a", 0.05)
+    led.touch("customers", "a")
+    led.settle("customers", "a", 0.04)
+    _, two = _gov_registry(tmp_path, {"entities": ["customer", "employee"]})
+    led = G.Ledger(reg, two)
+    for u in ("customer", "employee"):
+        assert abs(led.state("customers", u).charged()[0] - 0.04) < 1e-12
+    led.reserve_units("customers", "b", {"customer": (0.03, 0.0), "employee": (0.02, 0.0)})
+    for u, s in (("customer", 0.03), ("employee", 0.01)):
+        led.touch("customers", "b", unit=u)
+        led.settle("customers", "b", s, unit=u)
+    assert abs(led.state("customers", "customer").charged()[0] - 0.07) < 1e-12
+    assert abs(led.state("customers", "employee").charged()[0] - 0.05) < 1e-12
+    led = G.Ledger(reg, one)
+    assert abs(led.state("customers").charged()[0] - 0.08) < 1e-12      # 0.04 + 0.03 + 0.01, never less
+    assert G.verify_registry(reg) == []

@@ -278,6 +278,20 @@ def test_assess_reports_a_split_that_shares_rows(star, monkeypatch):
     _validate(json.loads(json.dumps({k: v for k, v in rep.items() if not k.startswith("_")}, default=str)))
 
 
+def test_judge_keeps_a_shared_row_split_at_review_with_dp():
+    """Prop. 1700(d): DP does not lift the review of a split whose control and
+    training people share rows, even for an external context."""
+    from relsynth.privacy.assess import judge
+    th = {"risk": 0.1, "attribute_leakage": 0.05, "mia_auc": 0.65, "mia_tpr_at_fpr_0.01": 0.1, "record_auc": 0.85}
+    rep = {"attacks": {"record_isolation": [], "linkage": [], "inference": [], "attribute_inference": [],
+                       "membership": {}},
+           "vulnerable_records": [], "release": {"dp": {"epsilon": 1.0, "delta": 1e-6}}, "split_shared_rows": 7}
+    out = judge(rep, "partner", {"thresholds": th, "external": True})
+    assert out["verdict"] == "review" and out["sign_off"]["required"]
+    assert [c["attack"] for c in out["checks"]] == ["split_shared_rows"]
+    assert judge({**rep, "split_shared_rows": 0}, "partner", {"thresholds": th, "external": True})["verdict"] == "pass"
+
+
 def test_assess_with_dp_is_not_blocked(star):
     t, s = star
     cfg = {"unit": "customer", "release": {"dp": {"epsilon": 1.0, "delta": 1e-6, "cumulative_epsilon": 2.0}},
