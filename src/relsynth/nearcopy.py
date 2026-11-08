@@ -65,33 +65,52 @@ def _num(s: pd.Series) -> np.ndarray:
     return pd.to_numeric(s, errors="coerce").to_numpy(dtype=float)
 
 
-def nearest(A: np.ndarray, B: np.ndarray, exclude_self: bool = False, positive: bool = False):
+def nearest(A: np.ndarray, B: np.ndarray, exclude_self: bool = False, positive: bool = False,
+            max_cells: int = 4_000_000):
     """(index, distance) of each row of A's nearest row of B.  exclude_self: A is
-    B and a row is not its own neighbour; positive: only rows at a distance > 0
-    count (inf when there is none).  Distances to the chosen row are recomputed
-    by subtraction, so exact copies have distance exactly 0."""
+    B and a row is not its own neighbour (an exact twin of it still is);
+    positive: only rows at a distance > 0 count (inf when there is none).
+    Distances to the chosen row are recomputed by subtraction, so exact copies
+    have distance exactly 0.
+
+    The search runs over the distinct rows of B, in blocks of at most max_cells
+    distances (about 32 MB), so memory is bounded whatever the table size; time
+    is O(|A| |distinct B| p), which privacy.near_copy_max_rows bounds."""
     n = len(A)
     j_out = np.zeros(n, dtype=np.int64)
     d_out = np.full(n, np.inf)
     if not len(B):
         return j_out, d_out
-    bb = (B * B).sum(1)
-    for i in range(0, n, 1024):
-        a = A[i:i + 1024]
-        D = np.maximum((a * a).sum(1)[:, None] + bb[None] - 2 * a @ B.T, 0.0)
-        if exclude_self:
-            D[np.arange(len(a)), i + np.arange(len(a))] = np.inf
+    U, first, inv, cnt = np.unique(B, axis=0, return_index=True, return_inverse=True, return_counts=True)
+    inv = np.asarray(inv).reshape(-1)
+    # a second occurrence of each distinct row (its twin), for exclude_self
+    order = np.argsort(inv, kind="stable")
+    starts = np.concatenate([[0], np.cumsum(cnt)[:-1]])
+    second = np.where(cnt > 1, order[np.minimum(starts + 1, len(order) - 1)], -1)
+    uu = (U * U).sum(1)
+    step = max(1, int(max_cells) // max(1, len(U)))
+    for i in range(0, n, step):
+        a = A[i:i + step]
+        rows = np.arange(len(a))
+        D = np.maximum((a * a).sum(1)[:, None] + uu[None] - 2 * a @ U.T, 0.0)
+        # exact ties computed by subtraction (the expansion above is inexact)
+        same = np.zeros_like(D, dtype=bool)
+        for q in np.flatnonzero((D < 1e-9).any(1)):
+            close = np.flatnonzero(D[q] < 1e-9)
+            same[q, close] = ((U[close] - a[q]) ** 2).sum(1) == 0
         if positive:
-            # exact ties computed by subtraction (the expansion above is inexact)
-            same = np.zeros_like(D, dtype=bool)
-            cand = np.flatnonzero((D < 1e-9).any(1))
-            for q in cand:
-                close = np.flatnonzero(D[q] < 1e-9)
-                same[q, close] = ((B[close] - a[q]) ** 2).sum(1) == 0
             D[same] = np.inf
-        j = D.argmin(1)
-        d = np.sqrt(((a - B[j]) ** 2).sum(1))
-        d[~np.isfinite(D[np.arange(len(a)), j])] = np.inf
+        elif exclude_self:
+            own = inv[i:i + len(a)]
+            D[rows[cnt[own] == 1], own[cnt[own] == 1]] = np.inf   # a unique row is not its own neighbour
+        k = D.argmin(1)
+        d = np.sqrt(((a - U[k]) ** 2).sum(1))
+        d[~np.isfinite(D[rows, k])] = np.inf
+        j = first[k]
+        if exclude_self:
+            # the chosen row is the row itself: report its twin
+            selfpick = j == i + rows
+            j[selfpick] = np.where(second[k[selfpick]] >= 0, second[k[selfpick]], j[selfpick])
         j_out[i:i + len(a)], d_out[i:i + len(a)] = j, d
     return j_out, d_out
 

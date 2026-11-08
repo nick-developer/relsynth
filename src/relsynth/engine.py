@@ -2639,7 +2639,7 @@ class Synthesizer:
         real = getattr(self, "_tables_for_fit", {}).get(e)
         g = None
         if pcfg.get("near_copy", "off") != "off" and real is not None and T[e].get("privacy", True) \
-                and 50 <= len(real) <= int(pcfg.get("near_copy_max_rows", 100_000)):
+                and 50 <= len(real) <= int(pcfg.get("near_copy_max_rows", 20_000)):
             from .nearcopy import NearCopyGuard, guard_columns
             keycols = {(r["child"], c) for r in self.spec["relationships"]
                        for c in (r["child_key"] if r.get("composite") else [r["child_key"]])}
@@ -4348,6 +4348,15 @@ class Synthesizer:
         # near copies, so the guard joins the rejection for those rows only
         ncg = self._near_copy_guard(t) if T["role"] != "fact" and (arules or akeys) else None
         redrawn = np.zeros(len(df), bool)
+        nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
+
+        def touched(frame):
+            # rows redrawn here, and rows whose guard columns changed through them
+            # (a group effect recomputed by _computed)
+            if nc_base is None:
+                return redrawn
+            cur = frame[ncg.cols].astype(object).where(frame[ncg.cols].notna(), None)
+            return redrawn | (cur.to_numpy() != nc_base.to_numpy()).any(axis=1)
 
         def attr_bad(frame):
             ok = np.ones(len(frame), bool)
@@ -4359,7 +4368,7 @@ class Synthesizer:
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
             if ncg is not None and redrawn.any():
-                ri = np.flatnonzero(redrawn)
+                ri = np.flatnonzero(touched(frame))
                 ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
         if arules or akeys:
@@ -4409,6 +4418,7 @@ class Synthesizer:
                 log_nc = self.sample_log.setdefault("near_copies", {}).setdefault(t, {
                     "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0, "ratio": ncg.rho})
                 log_nc["redrawn_by_rules"] = int(redrawn.sum())
+                log_nc["changed_by_rules"] = int(touched(df).sum())
                 log_nc["kept"] = int(ncg.near_copies(df).sum())
         if T["role"] == "fact" and cons.get("key_rules") and t not in self.fact_entity:
             # rows still invalid after the per-row redraws of _refill: removed and reported

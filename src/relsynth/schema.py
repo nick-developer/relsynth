@@ -496,7 +496,8 @@ SYNTH_DOC = {
                                "this times that row's nearest-distinct-neighbour distance.",
     "privacy.near_copy_rounds": "Redraws of a near copy before it is kept and counted in the sample log.",
     "privacy.near_copy_max_rows": "Largest entity table the near-copy guard runs on (it compares every synthetic "
-                                  "row with every real row).",
+                                  "row with every distinct real row, in memory-bounded blocks; time grows with the "
+                                  "square of the rows).",
     "privacy.dp": "Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, "
                   "spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent.",
     "pushdown.mode": "auto | on | off: fit eligible fact tables from exact statistics computed where the data lives "

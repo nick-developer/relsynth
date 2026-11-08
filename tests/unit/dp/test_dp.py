@@ -133,3 +133,36 @@ def test_stage2_keeps_the_near_copy_guard_on_the_seed(star):
     spec["synthesis"]["privacy"]["near_copy"] = "auto"
     s2 = dp.stage2_spec(spec)
     assert s2["synthesis"]["privacy"]["near_copy"] == "auto" and "dp" not in s2["synthesis"]["privacy"]
+
+
+def test_dp_guard_reads_the_seed_rows_not_the_real_ones(star, monkeypatch):
+    """In DP mode every near-copy guard is built from the decoded seed database:
+    the rows it receives are the seed's, never the real tables."""
+    pytest.importorskip("opendp")
+    import relsynth.nearcopy as nc
+    t, s = star
+    seeds, seen = {}, []
+    real_decode = dp.decode
+
+    def spy_decode(spec, model):
+        db = real_decode(spec, model)
+        seeds.update(db)
+        return db
+    real_init = nc.NearCopyGuard.__init__
+
+    def spy_init(self, real, tspec, cols, rho=1.0):
+        seen.append((real, list(cols)))
+        real_init(self, real, tspec, cols, rho)
+    monkeypatch.setattr(dp, "decode", spy_decode)
+    monkeypatch.setattr(nc.NearCopyGuard, "__init__", spy_init)
+    spec = _spec(s, epsilon=1.0, spec_is_public=True)
+    spec["synthesis"]["privacy"]["near_copy"] = "auto"
+    dp.synthesize(spec, tables=t, write=False, evaluate=False)
+    assert seen, "the scenario must build at least one guard"
+    for real, cols in seen:
+        match = [n for n, df in seeds.items() if len(df) == len(real) and set(cols) <= set(df.columns)
+                 and all(sorted(map(str, df[c])) == sorted(map(str, real[c])) for c in cols)]
+        assert match, "a guard was built from rows that are not a seed table"
+        orig = [n for n in match if n in t and len(t[n]) == len(real)
+                and all(sorted(map(str, t[n][c])) == sorted(map(str, real[c])) for c in cols)]
+        assert not orig, "a guard was built from the real rows"

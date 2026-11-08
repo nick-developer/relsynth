@@ -736,7 +736,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `privacy.near_copy` | `off` | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
 | `privacy.near_copy_ratio` | `1.0` | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
 | `privacy.near_copy_rounds` | `20` | Redraws of a near copy before it is kept and counted in the sample log. |
-| `privacy.near_copy_max_rows` | `100000` | Largest entity table the near-copy guard runs on (it compares every synthetic row with every real row). |
+| `privacy.near_copy_max_rows` | `20000` | Largest entity table the near-copy guard runs on (it compares every synthetic row with every distinct real row, in memory-bounded blocks; time grows with the square of the rows). |
 | `pushdown.mode` | `auto` | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | `1000000` | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | `500000` | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |

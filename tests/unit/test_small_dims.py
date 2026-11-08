@@ -37,6 +37,7 @@ def test_settings_are_registered_with_defaults():
               "privacy.near_copy_rounds", "privacy.near_copy_max_rows"):
         assert k in registry()
     assert DEFAULT_SYNTHESIS["privacy"]["near_copy_ratio"] == 1.0
+    assert DEFAULT_SYNTHESIS["privacy"]["near_copy_max_rows"] == 20_000
 
 
 def test_nearest_exact_and_positive():
@@ -45,6 +46,28 @@ def test_nearest_exact_and_positive():
     assert d.tolist() == [0.0, 0.0, 5.0]
     j, d = nearest(B, B, exclude_self=True, positive=True)
     assert d.tolist() == [5.0, 5.0, 5.0] and j.tolist() == [2, 2, 0]
+
+
+def test_nearest_matches_brute_force_in_small_blocks():
+    """The block search over distinct rows gives the brute-force distances, never
+    picks the row itself under exclude_self, and stays exact with blocks of a few
+    cells (memory bound)."""
+    rng = np.random.default_rng(0)
+    for _ in range(100):
+        B = rng.integers(0, 3, (rng.integers(1, 40), 3)).astype(float)
+        A = rng.integers(0, 3, (rng.integers(1, 30), 3)).astype(float)
+        for ex, pos, AA in [(False, False, A), (False, True, A), (True, False, B), (True, True, B)]:
+            j, d = nearest(AA, B, exclude_self=ex, positive=pos, max_cells=7)
+            D = np.sqrt(((AA[:, None] - B[None]) ** 2).sum(2))
+            if ex:
+                np.fill_diagonal(D, np.inf)
+            if pos:
+                D[D == 0] = np.inf
+            np.testing.assert_allclose(d, D.min(1))
+            fin = np.isfinite(d)
+            np.testing.assert_allclose(np.sqrt(((AA[fin] - B[j[fin]]) ** 2).sum(1)), d[fin])
+            if ex:
+                assert (j[fin] != np.arange(len(AA))[fin]).all()
 
 
 def test_guard_rules():

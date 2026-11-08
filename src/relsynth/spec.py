@@ -74,7 +74,7 @@ DEFAULT_SYNTHESIS = {
     # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
     # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
     "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
-                "near_copy_rounds": 20, "near_copy_max_rows": 100_000},
+                "near_copy_rounds": 20, "near_copy_max_rows": 20_000},
     # fit large fact tables from statistics computed in the database and a bounded
     # uniform sample (relsynth.pushdown); auto: facts with at least min_rows rows
     "pushdown": {"mode": "auto", "min_rows": 1_000_000, "sample_rows": 500_000},
