@@ -243,6 +243,47 @@ def test_kept_counts_emitted_rows_after_a_group_effect(tmp_path):
     assert log["kept"] == int(g.near_copies(out).sum())
 
 
+@pytest.mark.parametrize("nc_rounds,max_rounds,expect", [(1, 10, 1), (3, 4, 2), (5, 20, 5)])
+def test_near_copy_rejection_respects_both_round_limits(tmp_path, monkeypatch, nc_rounds, max_rounds, expect):
+    """Every row counts as a near copy, so the near-copy rejection would run in every
+    rule round: it runs in min(near_copy_rounds, max_rejection_rounds // 2) rounds."""
+    import relsynth.nearcopy as nc
+    spec = _catalogue(tmp_path)
+    spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
+    monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
+    m, _ = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=nc_rounds,
+                marginals__segment_prior_rows=0.0, rules__max_rejection_rounds=max_rounds)
+    assert m.synthesizer.sample_log["near_copies"]["product"]["near_copy_rule_rounds"] == expect
+
+
+def test_group_effect_rows_join_the_near_copy_recheck(tmp_path):
+    """Rule redraws change a group's shared price, so rows that were not redrawn
+    change too; those rows are part of the near-copy recheck (changed_by_rules)."""
+    spec = _catalogue(tmp_path)
+    spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
+    spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
+    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    log = m.synthesizer.sample_log["near_copies"]["product"]
+    assert log["changed_by_rules"] > log["redrawn_by_rules"] > 0
+
+
+def test_guard_encoding_is_fitted_on_real_rows_only(tmp_path):
+    """The guard ranks numbers and picks levels among the real rows; the scorecard's
+    design ranks real and synthetic rows together, so the two encodings differ."""
+    from relsynth.evaluate import _design
+    from relsynth.nearcopy import NearCopyGuard
+    tspec = {"columns": {"x": {"type": "float"}, "c": {"type": "categorical"}}}
+    real = pd.DataFrame({"x": np.arange(10.0), "c": list("ab") * 5})
+    syn = pd.DataFrame({"x": np.arange(100.0, 110.0), "c": ["z"] * 10})
+    g = NearCopyGuard(real, tspec, ["x", "c"])
+    eg = g.encode(syn)
+    assert np.unique(eg, axis=0).shape[0] == 1          # all above every real value, level z unknown
+    assert not eg[:, 3:].any()                            # z is not one of the real levels
+    es = _design([real, syn], tspec, ["x", "c"])[10:]
+    assert np.unique(es, axis=0).shape[0] == 10          # ranked among real and synthetic rows
+    np.testing.assert_array_equal(g.encode(real), NearCopyGuard(real, tspec, ["x", "c"]).X)
+
+
 def test_guard_skips_small_or_narrow_tables(tmp_path):
     """The guard is not built for a table of fewer than 50 rows, nor for one with
     fewer than three sampled distance columns (claim PRV-32)."""

@@ -1873,6 +1873,8 @@ claims:
     evidence:
       - test: tests/unit/test_small_dims.py::test_rule_redraws_are_guarded_and_kept_counts_emitted_rows
       - test: tests/unit/test_small_dims.py::test_kept_counts_emitted_rows_after_a_group_effect
+      - test: tests/unit/test_small_dims.py::test_near_copy_rejection_respects_both_round_limits
+      - test: tests/unit/test_small_dims.py::test_group_effect_rows_join_the_near_copy_recheck
       - test: tests/unit/test_small_dims.py::test_near_copy_redraw_never_trades_a_valid_row_for_a_violation
       - test: tests/unit/test_small_dims.py::test_restored_rows_keep_their_hidden_draws
       - code: src/relsynth/engine.py::Synthesizer::_finish
@@ -1884,7 +1886,7 @@ claims:
       - "It uses the distance check's encoding (rank scores of numbers and one-hot codes of the 20 most frequent levels of each categorical, so two rows that differ only in rarer levels look the same to it), but fits the ranks and levels on the real rows only, while the scorecard fits them on real and synthetic rows together; the two distances, and so the guard's decisions and the scorecard's ratio, can differ."
     status: supported
     evidence:
-      - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
+      - test: tests/unit/test_small_dims.py::test_guard_encoding_is_fitted_on_real_rows_only
       - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
       - code: src/relsynth/evaluate.py
 

@@ -4353,6 +4353,7 @@ class Synthesizer:
         nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)),
                         int(self.cfg["rules"]["max_rejection_rounds"]) // 2)
         rounds = 0
+        nc_active = set()                # rule rounds in which the near-copy rejection ran
         fb_vals = {}                     # whole rows, hidden draws included (restored as they were)
         has_fb = np.zeros(len(df), bool)
         nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
@@ -4375,6 +4376,7 @@ class Synthesizer:
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
             if nc and ncg is not None and redrawn.any() and rounds < nc_rounds:
+                nc_active.add(rounds)
                 ri = np.flatnonzero(touched(frame))
                 ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
@@ -4462,6 +4464,7 @@ class Synthesizer:
                 if redrawn.any():
                     log_nc["redrawn_by_rules"] = int(redrawn.sum())
                     log_nc["changed_by_rules"] = int(touched(df).sum())
+                    log_nc["near_copy_rule_rounds"] = len(nc_active)
                 log_nc["kept"] = kept_final
             elif not log_all:
                 self.sample_log.pop("near_copies")
