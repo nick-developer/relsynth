@@ -205,8 +205,9 @@ the records to `bench/history/`, builds `bench/baseline.json` and pushes a
 signed-off commit to that branch; it never writes to main. A push made with the
 workflow's token starts no other workflow, so push a further commit (or re-run
 CI) before the pull request is reviewed. The current baseline was built this way
-from bench run 41168715489 (seven parallel jobs on GitHub-hosted runners, about
-2 h 40 min wall time, Contoso the longest job).
+from the records of bench run 42454454955 (GitHub-hosted runners, one job per
+database), reused by run 42474261019 with `records_from_run`; it adds the
+`privacy[cart]` and `privacy[independent]` rows of ACS and Berka.
 
 The pull request says why the numbers moved. A baseline built on a different
 machine from the previous one says so in its description.
