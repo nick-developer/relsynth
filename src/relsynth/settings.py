@@ -188,7 +188,7 @@ META: dict[str, dict] = dict([
     _p("marginals.max_obs", type="int", low=10, high=1e9, tunable=True, scale="log", affects=_FID_MARG,
        direction={f: +1 for f in _FID_MARG}),
     _p("marginals.fd_sample_rows", type="int", low=100, high=1e10),
-    _p("marginals.segment_prior_rows", type="float", low=0, high=1e9, tunable=True, scale="log",
+    _p("marginals.segment_prior_rows", type="float", low=0, high=200, tunable=True, scale="linear",
        affects=_FID_ASSOC + _FID_MARG + _JOIN + _PRIV,
        direction={f: -1 for f in _FID_ASSOC + _FID_MARG + _JOIN} | {f: +1 for f in _PRIV}),
     _p("facts.min_group_rows", type="int", low=0, high=1e9, tunable=True, scale="log", affects=_JOIN + _FID_ASSOC,

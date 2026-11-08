@@ -117,8 +117,11 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    m, base = _run(shop)
+    """Both settings are opt-in: shrinkage 0 and the guard off reproduce 2.1."""
+    m, base = _run(shop, marginals__segment_prior_rows=20.0)
     assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
+    m0, _ = _run(shop)
+    assert m0.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0   # opt-in: 2.1 output by default
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
     _, zero = _run(shop, marginals__segment_prior_rows=0.0)
@@ -201,8 +204,43 @@ def test_near_copy_redraw_never_trades_a_valid_row_for_a_violation(tmp_path, mon
                 rules__max_rejection_rounds=2)
     log = m.synthesizer.sample_log
     assert log["near_copies"]["product"].get("restored_after_rules", 0) > 0
+    # restored rows keep their hidden draws, so they pass the rules and keys again
+    assert log["near_copies"]["product"]["restored_still_bad"] == 0
     out = dict(d)["product"]
     assert log["rule_violations"]["product"]["weight < 30"] == int((out["weight"] >= 30).sum())
+
+
+def test_restored_rows_keep_their_hidden_draws(tmp_path, monkeypatch):
+    """A rule on a column with its own distribution (a hidden draw): restored rows
+    get back the draw they passed with, not a fresh one, so none fails again."""
+    import relsynth.nearcopy as nc
+    spec = _catalogue(tmp_path)
+    src = tmp_path / "src" / "product.csv"
+    df = pd.read_csv(src)
+    df["promo"] = np.random.default_rng(0).uniform(0, 1, len(df)).round(3)
+    df.to_csv(src, index=False)
+    spec["tables"]["product"]["columns"]["promo"] = {"type": "float",
+                                                     "distribution": {"kind": "uniform", "min": 0, "max": 1}}
+    spec["rules"] = [{"table": "product", "type": "check", "expr": "promo < 0.5"}]
+    monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+                rules__max_rejection_rounds=2)
+    log = m.synthesizer.sample_log["near_copies"]["product"]
+    assert log.get("restored_after_rules", 0) > 0
+    assert log["restored_still_bad"] == 0
+
+
+def test_kept_counts_emitted_rows_after_a_group_effect(tmp_path):
+    """No rule redraw, but a group effect (one price per line) rewrites guarded
+    columns after the guard: `kept` is the near-copy count of the emitted rows."""
+    spec = _catalogue(tmp_path)
+    spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
+    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    out = dict(d)["product"]
+    assert out.groupby("line")["price"].nunique().max() == 1          # the group effect applied
+    g = m.synthesizer._near_copy_guard("product")
+    log = m.synthesizer.sample_log.get("near_copies", {}).get("product", {"kept": 0})
+    assert log["kept"] == int(g.near_copies(out).sum())
 
 
 def test_guard_skips_small_or_narrow_tables(tmp_path):

@@ -4353,7 +4353,7 @@ class Synthesizer:
         nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)),
                         int(self.cfg["rules"]["max_rejection_rounds"]) // 2)
         rounds = 0
-        fb_vals = {c: np.empty(len(df), dtype=object) for c in tm.out_cols} if ncg is not None else {}
+        fb_vals = {}                     # whole rows, hidden draws included (restored as they were)
         has_fb = np.zeros(len(df), bool)
         nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
 
@@ -4390,7 +4390,9 @@ class Synthesizer:
                     # key-valid values as a fallback (restored below if the budget ends
                     # on a redraw that breaks a rule)
                     ok_rule = idx[~attr_bad(df, nc=False)[idx]]
-                    for c in tm.out_cols:
+                    for c in df.columns:
+                        if c not in fb_vals:
+                            fb_vals[c] = np.empty(len(df), dtype=object)
                         fb_vals[c][ok_rule] = df[c].astype(object).to_numpy()[ok_rule]
                     has_fb[ok_rule] = True
                 redrawn[idx] = True
@@ -4410,18 +4412,24 @@ class Synthesizer:
             if ncg is not None and has_fb.any():
                 back = np.flatnonzero(attr_bad(df, nc=False) & has_fb)
                 if len(back):
-                    for c in tm.out_cols:
+                    # the whole stashed row, with its hidden draws and their flag, so the
+                    # recompute reproduces the rule-valid values instead of drawing again
+                    for c in fb_vals:
+                        if c not in df.columns:
+                            continue
                         col = df[c].astype(object).to_numpy(copy=True)
                         col[back] = fb_vals[c][back]
                         try:
                             df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
                         except (TypeError, ValueError):
                             df[c] = col
-                    _mark_fresh(df, back)
                     df = self._computed(t, df, out)
-                    self.sample_log.setdefault("near_copies", {}).setdefault(t, {
+                    log_r = self.sample_log.setdefault("near_copies", {}).setdefault(t, {
                         "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0,
-                        "ratio": ncg.rho})["restored_after_rules"] = int(len(back))
+                        "ratio": ncg.rho})
+                    log_r["restored_after_rules"] = int(len(back))
+                    # rechecked after the recompute (rules and keys): expected 0
+                    log_r["restored_still_bad"] = int(attr_bad(df, nc=False)[back].sum())
             anch = [r for r in self.fk[t] if r.get("anchor") and r["anchor"] in df.columns]
             if redrawn.any() and anch and z is not None:
                 # rows whose attributes were redrawn: their anchored links (the area of

@@ -682,7 +682,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.discrete_int_max` | `30` | Integer columns with at most this many distinct values are modelled as discrete. |
 | `marginals.max_obs` | `20000` | Observations kept per continuous marginal (a seeded subsample above it). |
 | `marginals.fd_sample_rows` | `50000` | Rows of the seeded subsample on which functional dependencies are tested. |
-| `marginals.segment_prior_rows` | `20.0` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). Protects small dimensions from near copies. |
+| `marginals.segment_prior_rows` | `0.0` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens the link between their segments and the facts. |
 | `facts.min_group_rows` | `30` | Rows below which a block borrows the coarser dimension's marginals. |
 | `facts.frailty` | `auto` | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | `1.5` | Dispersion index above which frailty is used. |

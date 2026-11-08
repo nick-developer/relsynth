@@ -37,7 +37,7 @@ class SegmentMarginals(TableGenerator):
         self.coarse_m = {}
         min_rows = ccfg["min_rows"]
         # prior weight, in rows, of the table's (or coarse group's) marginal in each
-        # segment's marginal (G3, Prop. 1720): a = max(dirichlet_prior, segment_prior_rows)
+        # segment's marginal (G3, Prop. 1720; opt-in, default 0): a = max(dirichlet_prior, segment_prior_rows)
         a_seg = max(mcfg["dirichlet_prior"], self._segment_prior())
         kw_seg = {**kw, "dirichlet_a": a_seg}
         if parent:

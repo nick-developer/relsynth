@@ -1114,7 +1114,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "Release 2.2 changes one default (`marginals.segment_prior_rows`, 20); setting it to 0 restores the 2.1 output."
+      - "The small-dimension settings of release 2.2 (`marginals.segment_prior_rows`, `privacy.near_copy`) are off by default and keep that output."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -1826,7 +1826,7 @@ claims:
   - id: PRV-23
     doc: docs/privacy.md
     area: privacy-measured
-    quote: "An exact copy of a real row that no other real row shares also counts."
+    quote: "An exact copy of a real row that no other real row shares in the guard's encoding also counts (two real rows that differ only in rare levels share an encoding, so a copy of either is not flagged as exact)."
     status: supported
     evidence:
       - test: tests/unit/test_small_dims.py::test_guard_rules
@@ -1864,11 +1864,29 @@ claims:
   - id: PRV-33
     doc: docs/privacy.md
     area: privacy-measured
-    quote: "Rows that are redrawn later to satisfy an attribute rule or a unique key, and rows whose values change through them (a group effect), are checked again in the same rejection, for at most `privacy."
+    quote:
+      - "Rows that are redrawn later to satisfy an attribute rule or a unique key, and rows whose values change through them (a group effect), are checked again in the same rejection, for at most `privacy.near_copy_rounds` rounds and half of `rules.max_rejection_rounds`, so the remaining rounds enforce the rules alone."
+      - "`kept` counts the near copies among the rows emitted, recounted after the rule redraws and group effects of the last step."
+      - "For an entity with a version history (SCD type 2), it is counted before the versions are added."
+      - "A row redrawn only for being a near copy that ends the rule budget breaking a rule gets its earlier rule-valid row back, hidden draws included, and the log counts those rows (`restored_after_rules`)."
     status: supported
     evidence:
       - test: tests/unit/test_small_dims.py::test_rule_redraws_are_guarded_and_kept_counts_emitted_rows
+      - test: tests/unit/test_small_dims.py::test_kept_counts_emitted_rows_after_a_group_effect
+      - test: tests/unit/test_small_dims.py::test_near_copy_redraw_never_trades_a_valid_row_for_a_violation
+      - test: tests/unit/test_small_dims.py::test_restored_rows_keep_their_hidden_draws
       - code: src/relsynth/engine.py::Synthesizer::_finish
+
+  - id: PRV-34
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "It uses the distance check's encoding (rank scores of numbers and one-hot codes of the 20 most frequent levels of each categorical, so two rows that differ only in rarer levels look the same to it), but fits the ranks and levels on the real rows only, while the scorecard fits them on real and synthetic rows together; the two distances, and so the guard's decisions and the scorecard's ratio, can differ."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
+      - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
+      - code: src/relsynth/evaluate.py
 
   - id: PRV-30
     doc: docs/privacy.md
