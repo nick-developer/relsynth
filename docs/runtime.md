@@ -50,7 +50,7 @@ The reason of every `structure` and `whole` fact is in the run report.
 |---|---|---|
 | `local` | Testing, debugging | One partition after the other in this process |
 | `process` | One machine with several cores | Linux forks the workers, which share the model and the entities without copying them; elsewhere they are spawned and the model is pickled once per worker (`cloudpickle` when installed) |
-| `spark` | A cluster: Databricks, EMR, HDInsight, Synapse, Kubernetes | Uses the active `SparkSession`, or starts `local[workers]` (`master` to choose another). The model and entities go to the executors once, as a broadcast variable; each partition is a task. Needs `pip install 'relsynth[spark]'` (PySpark and cloudpickle) and Java 17+ |
+| `spark` | A cluster: Databricks, EMR, HDInsight, Synapse, Kubernetes | Uses the active `SparkSession`, or starts `local[workers]` (`master` to choose another). The model and entities go to the executors once, as a broadcast variable; each partition is a task. Needs `pip install 'relsynth[spark]'` (PySpark and cloudpickle) and Java 17+. On a cluster, the workers need relsynth and its dependencies installed too, with the same Python minor version as the driver (cloudpickle requires it) |
 
 Ray is not included; the choice is recorded in [ADR 0003](adr/0003-distributed-runtime.md).
 

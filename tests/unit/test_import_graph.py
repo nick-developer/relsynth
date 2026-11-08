@@ -18,6 +18,7 @@ SRC = Path(__file__).resolve().parents[2] / "src"
 
 
 def _modules() -> dict[str, Path]:
+    """Every module of the relsynth package by dotted name (a package by its own name)."""
     out = {}
     for p in (SRC / "relsynth").rglob("*.py"):
         parts = p.relative_to(SRC).with_suffix("").parts
@@ -26,6 +27,7 @@ def _modules() -> dict[str, Path]:
 
 
 def _targets(mod: str, node: ast.Import | ast.ImportFrom, is_pkg: bool, mods: dict) -> set[str]:
+    """The relsynth modules one import statement of `mod` loads (relative imports resolved)."""
     if isinstance(node, ast.Import):
         names = [a.name for a in node.names]
     else:
@@ -40,6 +42,8 @@ def _targets(mod: str, node: ast.Import | ast.ImportFrom, is_pkg: bool, mods: di
 
 
 def _module_level_imports(mod: str, path: Path, mods: dict) -> set[str]:
+    """The relsynth modules `mod` imports when it is imported: function bodies and
+    TYPE_CHECKING blocks are skipped."""
     deps: set[str] = set()
     stack: list[ast.AST] = list(ast.parse(path.read_text(encoding="utf-8")).body)
     while stack:
@@ -100,11 +104,13 @@ def _cycles(graph: dict[str, set[str]]) -> list[list[str]]:
 
 
 def test_cycle_finder_finds_a_cycle():
+    """The cycle finder reports a three-module cycle and nothing on a chain."""
     assert _cycles({"a": {"b"}, "b": {"c"}, "c": {"a"}, "d": {"a"}}) == [["a", "b", "c"]]
     assert _cycles({"a": {"b"}, "b": set()}) == []
 
 
 def test_module_level_imports_have_no_cycle():
+    """No cycle among the module-level imports of src/relsynth."""
     mods = _modules()
     assert "relsynth.engine" in mods and "relsynth.connectors" in mods
     graph = {m: _module_level_imports(m, p, mods) for m, p in mods.items()}

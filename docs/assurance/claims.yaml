@@ -583,7 +583,7 @@ claims:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
       - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
     status: supported
-    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103). The row test searches bundle, verify report and profile for every identifier value and every continuous value of the star scenario; only a few summary values (minimum, maximum, quantiles) may appear.
+    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
       - test: tests/unit/test_security.py::test_bundles_verify_reports_and_profiles_hold_no_rows
       - test: tests/unit/test_security.py::test_bundle_holds_no_password

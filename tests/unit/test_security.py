@@ -166,15 +166,42 @@ def test_synthetic_rows_are_not_copies(star_sqlite):
 
 # ---------------------------------------------------------------- what leaves the source
 def _row_leaks(text: str, tables: dict) -> dict:
-    """Source values found in `text`: every identifier value, and the continuous values
-    (as Python writes a float) that appear verbatim."""
+    """Source values found in `text`, in any format (JSON, Markdown, CSV).
+
+    customer_id: identifier values found anywhere, quoted or not ("C000001" cannot occur by chance).
+    rows: rows of product and sales whose integer key cannot be searched alone (1, 2, ... occur as
+    counts), found as the row's own fields side by side: its continuous value, its key and its
+    category or channel within 120 characters of each other.
+    <table>.<column>: continuous values (as Python writes a float) that appear verbatim."""
     import re
     nums = set(re.findall(r"-?\d+\.\d+(?:e-?\d+)?", text))
-    out = {"customer_id": [v for v in tables["customer"]["customer_id"] if f'"{v}"' in text]}
+    out: dict = {"customer_id": [v for v in tables["customer"]["customer_id"] if v in text], "rows": []}
     for t, c in (("customer", "income"), ("product", "price"), ("sales", "amount")):
         vals = tables[t][c].dropna().unique()
         out[f"{t}.{c}"] = [v for v in vals if repr(float(v)) in nums]
+    for t, key, c, label in (("product", "product_id", "price", "category"), ("sales", "sale_id", "amount", "channel")):
+        df = tables[t]
+        for v in out[f"{t}.{c}"]:
+            for row in df[df[c] == v].itertuples(index=False):
+                r = row._asdict()
+                for m in re.finditer(re.escape(repr(float(v))), text):
+                    window = text[max(m.start() - 120, 0):m.end() + 120]
+                    if re.search(rf"(?<![\d.]){r[key]}(?![\d.])", window) and str(r[label]) in window:
+                        out["rows"].append((t, r[key]))
     return out
+
+
+def test_row_leak_finder_finds_dumped_rows(star_sqlite):
+    """The finder itself: a row dumped as JSON or as a Markdown table line is reported."""
+    from conftest import scenario
+    tables, _, _ = scenario("S2_star")
+    p, s_ = tables["product"].iloc[7], tables["sales"].iloc[11]
+    dumped = (json.dumps({k: (v.item() if hasattr(v, "item") else v) for k, v in p.items()})
+              + f"\n| {s_.sale_id} | {s_.customer_id} | {s_.product_id} | {s_.quantity} | {float(s_.amount)!r} | {s_.channel} |")
+    leaks = _row_leaks(dumped, tables)
+    assert ("product", p.product_id) in leaks["rows"] and ("sales", s_.sale_id) in leaks["rows"]
+    assert s_.customer_id in leaks["customer_id"]
+    assert _row_leaks("count 12 mean 54.2", tables)["rows"] == []
 
 
 def test_bundles_verify_reports_and_profiles_hold_no_rows(star_sqlite, tmp_path):
@@ -195,8 +222,9 @@ def test_bundles_verify_reports_and_profiles_hold_no_rows(star_sqlite, tmp_path)
     for name, text in texts.items():
         leaks = _row_leaks(text, tables)
         assert leaks["customer_id"] == [], (name, leaks["customer_id"][:5])
+        assert leaks["rows"] == [], (name, leaks["rows"][:5])
         for col, hit in leaks.items():
-            if col != "customer_id":
+            if col not in ("customer_id", "rows"):
                 assert len(hit) <= 5, (name, col, len(hit))
 
 
@@ -233,5 +261,5 @@ def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
         if head == "PRAGMA":
             assert st.split(None, 1)[1].split("(")[0].split(".")[-1] in reflection, st
         else:
-            assert head in ("SELECT", "WITH"), st
+            assert head == "SELECT", st          # WITH is refused too: SQLite allows WITH ... UPDATE
     assert hashlib.sha256(db.read_bytes()).hexdigest() == before
