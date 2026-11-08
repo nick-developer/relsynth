@@ -507,7 +507,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[dev,spark]" "pyspark==3.5.3"
+      - run: pip install -e ".[dev,spark]" "pyspark==3.5.8"
       # Java 17 is on the runner image already (JAVA_HOME_17_X64)
       - run: JAVA_HOME="$JAVA_HOME_17_X64" tests/emulators/databricks/start.sh
       - run: pytest -m databricks tests/integration -q

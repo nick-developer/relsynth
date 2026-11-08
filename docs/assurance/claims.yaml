@@ -660,7 +660,7 @@ claims:
   - id: SEC-17
     doc: docs/security.md
     area: security
-    quote: "Only `SELECT` is issued against a source; pushdown statistics are plain aggregate queries"
+    quote: "Only `SELECT` queries (and, on SQLite, the read-only `PRAGMA`s of schema reflection) are issued against a source; pushdown statistics are plain aggregate queries"
     status: supported
     evidence:
       - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
@@ -1167,6 +1167,8 @@ claims:
     status: supported
     evidence:
       - claim: SEC-10
+      - test: tests/unit/test_security.py::test_cli_profile_lists_values_only_with_top
+      - test: tests/unit/test_api.py::test_clone_profile_ping
 
   - id: RM-28
     doc: README.md

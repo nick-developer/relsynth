@@ -2,7 +2,7 @@
 # A local stand-in for a Databricks SQL warehouse (tests only): Apache Spark's
 # Thrift server with Delta Lake, behind thrift_proxy.py, which adapts the
 # Databricks SQL connector's protocol (see its docstring).  Needs Java 17+ and
-#   pip install "pyspark==3.5.3" "relsynth[databricks]"
+#   pip install "pyspark==3.5.8" "relsynth[databricks]"
 # Then:
 #   export RELSYNTH_TEST_DATABRICKS_URL="databricks://token:rs-emulator-token@localhost?http_path=cliservice&catalog=spark_catalog"
 #   export RELSYNTH_TEST_DATABRICKS_CONNECT_ARGS='{"_connection_uri": "http://localhost:10002/cliservice", "catalog": null, "schema": null, "enable_telemetry": false}'

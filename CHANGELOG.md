@@ -6,7 +6,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Fixed
 
-- **`relsynth[spark]` exists.** The spark executor of the partitioned runtime told users to `pip install 'relsynth[spark]'`, but the package had no such extra. It now installs PySpark and cloudpickle; cloudpickle is needed because the fitted model holds closures, which the standard pickle cannot send to Spark tasks. CI runs the spark executor's identity test through the extra.
+- **`relsynth[spark]` exists.** The spark executor of the partitioned runtime told users to `pip install 'relsynth[spark]'`, but the package had no such extra. It now installs PySpark (3.5.8 or later for CVE-2026-32773, and not 4.0.0, following the Spark security advisories) and cloudpickle; cloudpickle is needed because the fitted model holds closures, which the standard pickle cannot send to Spark tasks. CI runs the spark executor's identity test through the extra.
 - **Dependabot now moves the service image's base digest.** `deploy/docker/Dockerfile.service` kept its digest in a build argument (`ARG PYTHON=...`), which Dependabot's docker updates do not read. The digest is now on a `FROM` line of its own (stage `python-upstream`) and `PYTHON` names that stage by default; `--build-arg PYTHON=<mirror image>` still works for air-gapped builds, and BuildKit then does not pull the upstream image.
 
 ### Changed
@@ -15,7 +15,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Tests
 
-- **Three claims now have tests of their own.** A diagnostics bundle, a verify report and profile output hold no identifier value and at most a few summary values of each continuous column (SEC-10 and README RM-27 move from partial to supported); every statement sent to a SQLite source by introspect, profile, run (pushdown off and on) and verify is a `SELECT` or a read-only reflection `PRAGMA`, and the source file is unchanged (new claim SEC-17); `doctor --apply` refuses a DP spec (DP-12). The register holds 148 claims.
+- **Three claims now have tests of their own.** A diagnostics bundle, a verify report and profile output hold no identifier value and at most a few summary values of each continuous column (SEC-10 and README RM-27 move from partial to supported); every statement sent to a SQLite source by introspect, profile, run (pushdown off and on) and verify is a `SELECT` or a read-only reflection `PRAGMA`, and the source file is unchanged (new claim SEC-17; docs/security.md now names the reflection PRAGMAs); `relsynth profile` lists frequent values only with `--top` (RM-27); `doctor --apply` refuses a DP spec (DP-12). The register holds 148 claims.
 - **Module-level import cycles fail a test** (`tests/unit/test_import_graph.py`). The 76 CodeQL `py/cyclic-import` notes all ran through imports deferred into functions, which cannot fail at import time; the note is now filtered out in the CodeQL config, the test guards the cycles that can fail, and `py/unsafe-cyclic-import` stays on.
 
 ## 2.1.0 (2026-11-07)

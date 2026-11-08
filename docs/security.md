@@ -10,7 +10,7 @@ relsynth reads production databases and writes data that is meant to be shared. 
 | Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows | Bayesian synthesis (no row is copied), memorisation guards for text, privacy attacks per person ([privacy.md](privacy.md)), optional differential privacy ([dp.md](dp.md)), and aggregate-only bundles |
 | The machine running relsynth | A malicious spec (YAML tricks, rule expressions, regexes) or a malicious file name | Safe YAML loading, a sandboxed expression language, regex vetting, and confined paths |
 | The target database | SQL injection through table or column names or values | SQLAlchemy Core with quoted identifiers and bound values everywhere |
-| The source database | Accidental writes, or heavy load | Only `SELECT` is issued against a source; pushdown statistics are plain aggregate queries |
+| The source database | Accidental writes, or heavy load | Only `SELECT` queries (and, on SQLite, the read-only `PRAGMA`s of schema reflection) are issued against a source; pushdown statistics are plain aggregate queries |
 
 ## Credentials
 

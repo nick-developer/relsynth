@@ -228,6 +228,18 @@ def test_bundles_verify_reports_and_profiles_hold_no_rows(star_sqlite, tmp_path)
                 assert len(hit) <= 5, (name, col, len(hit))
 
 
+def test_cli_profile_lists_values_only_with_top(star_sqlite, tmp_path):
+    """RM-27: `relsynth profile` writes counts only; frequent values need an explicit --top N."""
+    from relsynth.cli import main
+    _, db = star_sqlite
+    plain, top = tmp_path / "plain.json", tmp_path / "top.json"
+    assert main(["profile", "--source", f"sqlite:{db}", "--tables", "customer", "--output", str(plain)]) == 0
+    assert main(["profile", "--source", f"sqlite:{db}", "--tables", "customer", "--top", "3", "--output", str(top)]) == 0
+    cols = json.loads(plain.read_text())["customer"]["columns"]
+    assert cols and all("top" not in c for c in cols.values())
+    assert any(c.get("top") for c in json.loads(top.read_text())["customer"]["columns"].values())
+
+
 def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
     """docs/security.md: only SELECT is issued against a source (and, on SQLite, the read-only
     PRAGMAs of SQLAlchemy's schema reflection), with and without pushdown, for introspect,
