@@ -660,12 +660,12 @@ claims:
   - id: SEC-17
     doc: docs/security.md
     area: security
-    quote: "Only `SELECT` queries (and, on SQLite, the read-only `PRAGMA`s of schema reflection) are issued against a source; pushdown statistics are plain aggregate queries"
-    status: supported
+    quote: "relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown statistics are plain aggregate queries"
+    status: partial
     evidence:
       - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
       - prop: prop:pdsuff
-    note: The test records every statement SQLAlchemy sends to a SQLite source during introspect, profile, run (pushdown off and on) and verify; all are SELECT or the read-only PRAGMAs of schema reflection, and the source file is unchanged. Other dialects share the same connector code but are not instrumented.
+    note: Measured on SQLite only. The test hooks sqlite3's trace callback on every connection to the source, so it sees statements sent through SQLAlchemy and straight on the DBAPI cursor, during introspect, profile, run (pushdown off and on) and verify; all are SELECT, PRAGMAs that only read (schema reflection, the isolation level) or the connection's PRAGMA foreign_keys=ON, and the source file is unchanged. The server dialects share the connector code but their statements (MySQL SHOW and SET time_zone included) are not recorded, hence partial.
 
   # ------------------------------------------------------------------ docs/governance/guide.md (T08)
 

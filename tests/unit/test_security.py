@@ -241,24 +241,31 @@ def test_cli_profile_lists_values_only_with_top(star_sqlite, tmp_path):
 
 
 def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
-    """docs/security.md: only SELECT is issued against a source (and, on SQLite, the read-only
-    PRAGMAs of SQLAlchemy's schema reflection), with and without pushdown, for introspect,
-    profile, run and verify; the source file is byte for byte unchanged."""
+    """docs/security.md: relsynth never writes to a source.  Every statement that reaches the
+    SQLite source, through SQLAlchemy or straight on the DBAPI cursor (sqlite3's trace hook
+    sees both), is a SELECT, a PRAGMA that only reads (schema reflection, the isolation level)
+    or the connection's `PRAGMA foreign_keys=ON`, with and without pushdown, for introspect,
+    profile, run and verify; the source file is unchanged."""
     import hashlib
+    from pathlib import Path
 
     from sqlalchemy import event
-    from sqlalchemy.engine import Engine
+    from sqlalchemy.pool import Pool
     spec, db = star_sqlite
     spec = {**spec, "target": {"kind": "csv", "path": str(tmp_path / "out")}}
     before = hashlib.sha256(db.read_bytes()).hexdigest()
-    reflection = ("table_info", "table_xinfo", "index_list", "index_info", "foreign_key_list")
+    # schema reflection, and SQLAlchemy reading the isolation level when a connection opens
+    reflection = ("table_info", "table_xinfo", "index_list", "index_info", "foreign_key_list",
+                  "read_uncommitted")
     seen: list[str] = []
 
-    def listen(conn, cursor, statement, params, context, executemany):
-        if conn.engine.url.database == str(db):
-            seen.append(statement.strip())
+    def trace(dbapi_con, _rec):
+        """Record every statement run on a new connection to the source file."""
+        files = [r[2] for r in dbapi_con.execute("PRAGMA database_list").fetchall()]
+        if str(db.resolve()) in {str(Path(f).resolve()) for f in files if f}:
+            dbapi_con.set_trace_callback(lambda st: seen.append(st.strip()))
 
-    event.listen(Engine, "before_cursor_execute", listen)
+    event.listen(Pool, "connect", trace, insert=True)     # before the connector's own setup
     try:
         rs.introspect(spec["source"])
         rs.profile(spec["source"])
@@ -266,12 +273,15 @@ def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
             rs.run(spec, privacy=False, pushdown=mode)
         rs.verify(spec, draws=2, stability=False, privacy=False, pushdown="on")
     finally:
-        event.remove(Engine, "before_cursor_execute", listen)
+        event.remove(Pool, "connect", trace)
     assert seen, "no statement reached the source"
+    assert "PRAGMA foreign_keys=ON" in seen               # the DBAPI-level statements are seen
     for st in seen:
         head = st.split(None, 1)[0].upper()
+        if st == "PRAGMA foreign_keys=ON":
+            continue                                      # session setting, writes nothing
         if head == "PRAGMA":
-            assert st.split(None, 1)[1].split("(")[0].split(".")[-1] in reflection, st
+            assert "=" not in st and st.split(None, 1)[1].split("(")[0].split(".")[-1] in reflection, st
         else:
             assert head == "SELECT", st          # WITH is refused too: SQLite allows WITH ... UPDATE
     assert hashlib.sha256(db.read_bytes()).hexdigest() == before

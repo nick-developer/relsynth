@@ -49,10 +49,13 @@ def _targets(mod: str, node: ast.Import | ast.ImportFrom, is_pkg: bool, mods: di
 
 
 def _type_checking(test: ast.expr) -> bool | None:
-    """True for `TYPE_CHECKING` (or `typing.TYPE_CHECKING`), False for its negation, None otherwise."""
+    """True for `TYPE_CHECKING` (or `typing.TYPE_CHECKING`, `typing_extensions.TYPE_CHECKING`),
+    False for its negation, None otherwise (an unrelated `x.TYPE_CHECKING` is a runtime test)."""
     def is_tc(e: ast.expr) -> bool:
+        """Whether `e` names the TYPE_CHECKING constant."""
         return (isinstance(e, ast.Name) and e.id == "TYPE_CHECKING") or \
-            (isinstance(e, ast.Attribute) and e.attr == "TYPE_CHECKING")
+            (isinstance(e, ast.Attribute) and e.attr == "TYPE_CHECKING"
+             and isinstance(e.value, ast.Name) and e.value.id in ("typing", "typing_extensions"))
     if is_tc(test):
         return True
     if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not) and is_tc(test.operand):
@@ -134,11 +137,14 @@ def test_graph_follows_runtime_branches_and_packages(tmp_path):
     a submodule also runs its package's __init__ (unless that package holds the importer)."""
     mods = {"relsynth": None, "relsynth.a": None, "relsynth.p": None, "relsynth.p.c": None, "relsynth.b": None}
     def deps(src: str, mod: str = "relsynth.a") -> set[str]:
+        """The module-level imports of `src` read as module `mod`."""
         path = tmp_path / "case.py"
         path.write_text(src, encoding="utf-8")
         return _module_level_imports(mod, path, mods)
     assert deps("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from . import b\n") == set()
     assert deps("from typing import TYPE_CHECKING\nif not TYPE_CHECKING:\n    from . import b\n") == {"relsynth.b"}
+    assert deps("import typing\nif typing.TYPE_CHECKING:\n    from . import b\n") == set()
+    assert deps("from . import p\nif p.TYPE_CHECKING:\n    from . import b\n") == {"relsynth.p", "relsynth.b"}
     assert deps("from .p import c\n") == {"relsynth.p", "relsynth.p.c"}
     assert deps("from relsynth.p import c\n", mod="relsynth.p.x") == {"relsynth.p.c"}
 
