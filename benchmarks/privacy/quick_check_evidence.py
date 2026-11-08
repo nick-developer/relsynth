@@ -49,13 +49,14 @@ def known_answers(seeds: int) -> dict:
         for name, frac in (("copy_all", 1.0), ("copy_20pct", 0.2), ("copy_5pct", 0.05), ("population", 0.0)):
             r = Q.quick_check(spec, db, seed=rep, unit="patient", people=3000,
                               generator=lambda tb, sd, f=frac: release(tb, sd, f))
-            rows[name].append({"status": r["status"], **{f"{a}_auc": v["auc"] for a, v in r["attacks"].items()},
-                               **{f"{a}_tpr_at_fpr_0.01": v.get("tpr_at_fpr_0.01") for a, v in r["attacks"].items()}})
+            att = r.get("attacks") or {}          # absent when the check was skipped or failed
+            rows[name].append({"status": r["status"], **{f"{a}_auc": v.get("auc") for a, v in att.items()},
+                               **{f"{a}_tpr_at_fpr_0.01": v.get("tpr_at_fpr_0.01") for a, v in att.items()}})
     out = {}
     for name, rs in rows.items():
         df = pd.DataFrame(rs)
         out[name] = {"runs": len(df), "fail_share": float((df["status"] == "fail").mean()),
-                     **{c: round(float(df[c].mean()), 3) for c in df.columns if c != "status"}}
+                     **{c: round(float(pd.to_numeric(df[c]).mean()), 3) for c in df.columns if c != "status"}}
     return out
 
 

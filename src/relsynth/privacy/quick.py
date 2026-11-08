@@ -40,6 +40,8 @@ SEED_OFFSET = 7417      # the check's own stream: never the release's seed itsel
 
 
 def _status(ci, limit) -> str:
+    """pass when the interval's upper end is within the limit, fail when even
+    its lower end is above it, review otherwise (as relsynth.privacy.assess)."""
     lo, hi = ci
     if hi <= limit:
         return "pass"
@@ -49,6 +51,7 @@ def _status(ci, limit) -> str:
 
 
 def _skipped(reason: str, t0: float, **extra) -> dict:
+    """A result for a check that could not run, with its reason and time."""
     return {"status": "skipped", "reason": reason, "seconds": round(time.time() - t0, 2), **extra}
 
 
@@ -152,9 +155,12 @@ def quick_check(spec, tables: dict, *, seed: int | None = None, people: int | No
             try:
                 syn = _quiet(relsynth_generator(ps), {t: train_db[t] for t in ps["tables"]}, fit_seed)
                 out["proxy_tables"] = sorted(ps["tables"])
-            except Exception:  # noqa: BLE001 - a cut-down spec the engine refuses: fit the whole one
+            except Exception as e:  # noqa: BLE001 - a cut-down spec the engine refuses: fit the whole one
                 if ps is s:
                     raise
+                # recorded by exception type only: a message could carry a credential
+                out["proxy_fallback"] = f"the cut-down spec failed ({type(e).__name__}); the whole spec was fitted"
+                out.pop("proxy_tables", None)
                 syn = _quiet(relsynth_generator(s), train_db, fit_seed)
         P = U.profiles(s, u, sample_db, dedupe=True)
         kinds = dict(P.attrs.get("kinds", {}))
@@ -167,7 +173,9 @@ def quick_check(spec, tables: dict, *, seed: int | None = None, people: int | No
         attacks = {"domias": mia.domias(*args, level=level, seed=int(rng.integers(2**31 - 1))),
                    "closest_distance": closest_distance(*args, level=level, seed=int(rng.integers(2**31 - 1)))}
     except Exception as e:  # noqa: BLE001 - a quick check that cannot run is reported, never fatal
-        return {**out, "status": "error", "reason": repr(e)[:500], "seconds": round(time.time() - t0, 2)}
+        # the exception type only: a generator's message could carry a credential or a connection URL
+        return {**out, "status": "error", "reason": f"the check could not run ({type(e).__name__})",
+                "seconds": round(time.time() - t0, 2)}
     checks: list[dict[str, Any]] = []
     summary: dict[str, dict[str, Any]] = {}
     for name, d in attacks.items():
@@ -208,7 +216,7 @@ def closest_distance(members: pd.DataFrame, non_members: pd.DataFrame, syn: pd.D
     to the closest reference person over that to the closest synthetic profile
     (large = the release holds someone unusually like x).  It catches copied
     and near-copied people that a kernel density smooths away (DOMIAS on one
-    table of 1000 copied people: AUC 0.62); Prop. 1740 applies to it as to
+    table of 1000 copied people: AUC 0.63); Prop. 1740 applies to it as to
     DOMIAS, since the score depends on the person, the release and the
     reference only."""
     from .encode import Encoder, column_kinds, kneighbors
@@ -218,8 +226,8 @@ def closest_distance(members: pd.DataFrame, non_members: pd.DataFrame, syn: pd.D
     rng = np.random.default_rng(seed)
     q = pd.concat([members, non_members])
     _, ds = kneighbors(enc, q, syn, 1, rng=rng)
-    _, dr = kneighbors(enc, q, ref, 2, rng=rng)
-    # a reference person is never their own neighbour (members and non-members are not in ref)
+    # members and non-members are not in ref, so the closest reference person is never the person
+    _, dr = kneighbors(enc, q, ref, 1, rng=rng)
     score = np.log(dr[:, 0] + 1e-9) - np.log(ds[:, 0] + 1e-9)
     y = np.r_[np.ones(len(members)), np.zeros(len(non_members))]
     s_m, s_n = score[: len(members)], score[len(members):]

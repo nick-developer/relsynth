@@ -253,7 +253,7 @@ claims:
   - id: PRV-41
     doc: docs/privacy.md
     area: privacy-measured
-    quote: "It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.62 and this attack 1.00; 20% copies fail through its TPR at FPR 1%)."
+    quote: "It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.63 and this attack 1.00, means over 10 seeds; 20% copies fail through its TPR at FPR 1%)."
     status: supported
     evidence:
       - check: C1740
@@ -272,6 +272,8 @@ claims:
       - prop: prop:qcident
       - check: C1741
       - test: tests/unit/test_privacy_quick.py::test_run_adds_the_check_and_keeps_the_release_identical
+      - report: .github/workflows/ci.yml
+      - code: tools/identity_check.py::main
 
   - id: PRV-43
     doc: docs/privacy.md
@@ -280,6 +282,25 @@ claims:
     status: supported
     evidence:
       - test: tests/unit/test_privacy_quick.py::test_quick_check_skips_without_unit_too_few_people_or_pushdown
+
+  - id: PRV-45
+    doc: docs/privacy.md
+    area: security
+    quote:
+      - "| error | the proxy could not be fitted; the bundle names the exception type (never its message, which could hold a credential) and the run is unaffected |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_reports_generator_errors_without_raising
+      - test: tests/unit/test_privacy_quick.py::test_pipeline_error_keeps_only_the_exception_type
+
+  - id: PRV-46
+    doc: docs/privacy.md
+    area: scope
+    quote: "Runs in differential privacy mode (--dp, --epsilon) have no quick check: their guarantee is the DP statement, and relsynth privacy audits it."
+    status: limitation
+    evidence:
+      - code: src/relsynth/cli.py::cmd_run_dp
+      - test: tests/unit/test_privacy_quick.py::test_dp_specs_never_reach_the_quick_check
 
   - id: PRV-44
     doc: docs/privacy.md
@@ -1846,7 +1867,7 @@ claims:
   - id: RM-60
     doc: README.md
     area: privacy-measured
-    quote: "Every relsynth run ends with a quick membership check on a proxy release and prints one privacy line; it never changes the synthetic files."
+    quote: "By default relsynth run ends with a quick membership check on a proxy release and prints one privacy line (except in DP mode, or when it is skipped: see docs/privacy.md); it never changes the synthetic files."
     status: supported
     evidence:
       - claim: PRV-42

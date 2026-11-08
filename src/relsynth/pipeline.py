@@ -206,11 +206,13 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
             and spec["synthesis"]["evaluation"].get("privacy_check", True):
         # after every write, on its own seeded streams: the release is the same without it (Prop. 1741)
         from .privacy.quick import quick_check
+        log.info("privacy check: fitting a proxy release (turn off with --no-privacy-check)")
         try:
             extra_b["privacy_check"] = quick_check(spec, real, stats=stats)
         except Exception as e:  # noqa: BLE001 - the check informs; it never fails a run
-            log.warning("privacy check failed: %r", e)
-            extra_b["privacy_check"] = {"status": "error", "reason": repr(e)[:500]}
+            # the exception type only: its message could carry a credential or a connection URL
+            log.warning("privacy check failed (%s)", type(e).__name__)
+            extra_b["privacy_check"] = {"status": "error", "reason": f"the check could not run ({type(e).__name__})"}
     if fit is not None and hasattr(fit, "plan"):
         if fit.notes:
             extra_b["load_notes"] = list(fit.notes)

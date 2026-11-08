@@ -111,7 +111,7 @@ something:
 | Membership inference | `privacy:membership\|domias_*` everywhere privacy runs; shadow-model LiRA and classifier where a fit is cheap | ACS (shadows), Berka, Contoso |
 | External releases need DP | `goal:privacy_partner_needs_dp`, `goal:privacy_public_needs_dp` (blocked without DP) | ACS, Berka, Contoso |
 | Every built-in generator attacked (G5) | `privacy[cart]:*`, `privacy[independent]:*` and their goals | ACS, Berka |
-| Quick check of every run (G5) | `metric:privacy_check_domias_auc`, `metric:privacy_check_closest_distance_auc` (tracked for R4) from the bundle's `privacy_check` | every database with a privacy unit of at least 50 people |
+| Quick check of every run (G5) | `metric:privacy_check_domias_auc`, `metric:privacy_check_closest_distance_auc` (tracked for R4) from the bundle's `privacy_check` | every database with a privacy unit of at least 50 people whose tables are loaded whole (not pushdown) |
 | Detecting a leak at all | positive controls C600–C606 in the statistical suite | `fake` |
 | Generation cost | `metric:cpu_seconds_per_million_rows`, `metric:peak_memory_mib` (notes only) | all |
 

@@ -85,9 +85,24 @@ def test_quick_check_reports_generator_errors_without_raising(shop):
     t, s = shop
 
     def broken(tables, seed):
-        raise RuntimeError("boom")
+        raise RuntimeError("cannot reach postgresql://admin:s3cret@db.internal/prod")
     r = Q.quick_check(s, t, seed=1, unit="customer", generator=broken)
-    assert r["status"] == "error" and "boom" in r["reason"]
+    assert r["status"] == "error" and "RuntimeError" in r["reason"]
+    # a generator's message can hold a credential: only the exception type is kept
+    assert "s3cret" not in str(r) and "postgresql://" not in str(r)
+
+
+def test_pipeline_error_keeps_only_the_exception_type(monkeypatch, caplog):
+    from relsynth.pipeline import execute
+    t, s = _person_shop()
+
+    def boom(*a, **k):
+        raise ValueError("password=hunter2")
+    monkeypatch.setattr(Q, "quick_check", boom)
+    with caplog.at_level("DEBUG"):
+        r = execute(s, tables=t, write=False, privacy_check=True)
+    assert r.bundle["privacy_check"] == {"status": "error", "reason": "the check could not run (ValueError)"}
+    assert "hunter2" not in caplog.text and not r.errors
 
 
 def test_proxy_spec_keeps_lookup_tables_and_drops_unrelated(shop):
@@ -164,3 +179,14 @@ def test_bench_lists_every_builtin_generator_for_acs_and_berka():
     assert set(ALL_GENERATORS) <= set(default_registry().names())
     for name in ("acs", "berka"):
         assert tuple(DATASETS[name].privacy["generators"]) == ALL_GENERATORS
+
+
+def test_dp_specs_never_reach_the_quick_check():
+    """DP runs go through relsynth.dp (cmd_run_dp); the ordinary pipeline, which
+    holds the quick check, refuses a spec in DP mode."""
+    from relsynth.errors import PrivacyError
+    from relsynth.pipeline import execute
+    t, s = _person_shop()
+    s.setdefault("synthesis", {}).setdefault("privacy", {})["dp"] = {"epsilon": 1.0, "unit": "customer"}
+    with pytest.raises(PrivacyError):
+        execute(s, tables=t, write=False, privacy_check=True)

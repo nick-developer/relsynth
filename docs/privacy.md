@@ -30,7 +30,7 @@ privacy check: PASS - membership DOMIAS AUC 0.520 [0.494, 0.545], distance AUC 0
 The written release was fitted on every person, so it has nobody unseen to compare with. The check samples up to `synthesis.evaluation.privacy_check_people` people (3000) of the privacy unit, fits the same generator with the same settings on a third of them (the members), and asks whether two attacks tell those members from a third the proxy never saw, using the last third as the attacker's population data:
 
 - **DOMIAS** (van Breugel et al. 2023): the synthetic density over the population density at the person;
-- **closest distance**: the Gower distance from the person to the closest population person over the distance to the closest synthetic profile. It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.62 and this attack 1.00; 20% copies fail through its TPR at FPR 1%).
+- **closest distance**: the Gower distance from the person to the closest population person over the distance to the closest synthetic profile. It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.63 and this attack 1.00, means over 10 seeds; 20% copies fail through its TPR at FPR 1%).
 
 Each attack's AUC and its TPR at FPR 1% are judged like the internal context of the full report (limits 0.65 and 0.10, on the upper end of the 95% interval): `pass`, `review` (the limit lies inside the interval) or `fail`. Under a release that ignores who is a member, a false `fail` is rare (Prop. 1740, check C1740), and the check never changes the synthetic files: it runs after every file is written, on its own seeded random stream (Prop. 1741, check C1741; the CI job `identity` compares the files byte for byte).
 
@@ -40,9 +40,11 @@ The proxy keeps only the unit, the tables it owns and the tables those reach thr
 |---|---|
 | `pass`, `review`, `fail` | as above; for `review` and `fail` run `relsynth privacy` for the full assessment |
 | `skipped` | no privacy unit was found (name one in `privacy.yaml` for `relsynth privacy`), fewer than 50 people, or the unit's tables were fitted from in-database statistics and a sample (pushdown), which does not hold every row of a person |
-| `error` | the proxy could not be fitted; the reason is in the bundle and the run is unaffected |
+| `error` | the proxy could not be fitted; the bundle names the exception type (never its message, which could hold a credential) and the run is unaffected |
 
-Turn it off with `relsynth run --no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`. It costs about one fit of a third of the sampled people plus the shared tables they reach, measured with `bench/specs` on 4 cores: Chinook 4 s, Berka 22 s, ACS 33 s, Contoso V2 100k 38 s (`benchmarks/privacy/quick_check_evidence.py`) (its shared tables, 100k currency rates among them, dominate the fit).
+Runs in differential privacy mode (`--dp`, `--epsilon`) have no quick check: their guarantee is the DP statement, and `relsynth privacy` audits it.
+
+Turn it off with `relsynth run --no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`. It costs about one fit of a third of the sampled people plus the shared tables they reach, measured with `bench/specs` on 4 cores: Chinook 4 s, Berka 22 s, ACS 33 s and Contoso V2 100k 38 s, where its shared tables (100k currency rates among them) dominate the fit; `benchmarks/privacy/quick_check_evidence.py` reproduces the numbers.
 
 This is a smoke test, not an assessment: two attacks, the internal context only, a proxy fitted on fewer people than the release. It never replaces `relsynth privacy` (every criterion, shadow models, every context), and a release outside the organisation still needs differential privacy.
 

@@ -45,7 +45,7 @@ smaller variance, so the Clopper--Pearson interval is not exact here but errs on
 proposition bounds false alarms, it does not say that a pass means no risk. Check C1740 draws a release of 1000 people
 from the same population but outside the database, 30 times: each attack's AUC interval covered $\tfrac12$ in at least
 85\% of the runs and at most 10\% of runs failed any of the four checks; a release that copies its members failed in
-every run (closest-distance AUC $1.00$, while DOMIAS gave $0.62$, which is why both attacks run), and one that copies 20\%
+every run (closest-distance AUC $1.00$, while DOMIAS gave $0.63$ on average, which is why both attacks run), and one that copies 20\%
 of them failed in at least 80\% of runs through the closest-distance TPR at FPR $0.01$ (about $0.21$).
 
 \begin{proposition}[The check does not change the release]\label{prop:qcident}
