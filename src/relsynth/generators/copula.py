@@ -59,7 +59,7 @@ class SegmentMarginals(TableGenerator):
         """Prior weight, in rows, of the table's marginal in each segment's
         marginal (marginals.segment_prior_rows); entity tables only, since the
         segments of a fact table are blocks of the relational model, not records."""
-        if getattr(self.data, "role", "entity") != "entity":
+        if getattr(self.data, "role", None) != "entity":
             return 0.0
         return float(self.data.cfg["marginals"].get("segment_prior_rows", 0) or 0)
 

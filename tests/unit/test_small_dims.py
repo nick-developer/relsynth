@@ -105,12 +105,48 @@ def test_segment_prior_is_wired_and_guard_off_by_default(shop):
     assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
 
 
-def test_guard_redraws_and_logs(shop):
-    m, d = _run(shop, privacy__near_copy="auto")
+def _catalogue(d):
+    """A product list in families (30 models x 10 variants sharing price, cost and line)."""
+    rng = np.random.default_rng(12)
+    rows = []
+    for m in range(30):
+        price = float(np.round(rng.lognormal(5, 1), 2))
+        line = rng.choice(list("MRTS"))
+        for v in range(10):
+            rows.append({"id": len(rows) + 1, "price": price, "cost": round(price * 0.6, 2),
+                         "weight": float(np.round(rng.normal(10 + m, 0.3), 2)),
+                         "color": rng.choice(["red", "black", "silver", "blue"]), "size": str(38 + 2 * (v % 5)),
+                         "line": line})
+    (d / "src").mkdir()
+    pd.DataFrame(rows).to_csv(d / "src" / "product.csv", index=False)
+    cols = {"id": "id", "price": "float", "cost": "float", "weight": "float", "color": "categorical",
+            "size": "categorical", "line": "categorical"}
+    return {"version": 1, "name": "catalogue", "source": {"kind": "csv", "path": str(d / "src")},
+            "target": {"kind": "csv", "path": str(d / "out")},
+            "tables": {"product": {"role": "entity", "primary_key": "id",
+                                   "columns": {c: {"type": t} for c, t in cols.items()}}},
+            "relationships": [], "rules": []}
+
+
+def test_guard_redraws_and_logs(tmp_path):
+    spec = _catalogue(tmp_path)
+    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
     log = m.synthesizer.sample_log.get("near_copies", {})
-    for t, r in log.items():
-        assert r["near_copies"] == r["redrawn"] + r["kept"] and r["rows"] >= 50
-    # with ratio 0 and no unique copies nothing is redrawn and nothing random is drawn
-    m0, d0 = _run(shop, privacy__near_copy="auto", privacy__near_copy_ratio=0.0)
-    assert all(r["near_copies"] == r["kept"] + r["redrawn"] for r in
-               m0.synthesizer.sample_log.get("near_copies", {}).values())
+    assert set(log) == {"product"}
+    r = log["product"]
+    assert r["near_copies"] > 0 and r["near_copies"] == r["redrawn"] + r["kept"] and r["rows"] == 300
+    # dtypes survive the redraw
+    _, off = _run(spec, privacy__near_copy="off", marginals__segment_prior_rows=0.0)
+    assert dict(d)["product"].dtypes.to_dict() == dict(off)["product"].dtypes.to_dict()
+
+
+def test_constant_real_table_flags_every_other_row():
+    """Every real row identical: no positive neighbour distance (nn = inf), so a
+    synthetic row at any positive distance is a near copy and an exact copy is not
+    (the real row has twins).  The engine never guards such a table (fewer than 3
+    distinct columns), but the rule is defined."""
+    real = pd.DataFrame({"a": [1.0] * 60, "b": ["x"] * 60, "c": [2.0] * 60, "d": ["p"] * 60})
+    g = NearCopyGuard(real, TS, ["a", "b", "c", "d"])
+    assert np.isinf(g.nn).all() and g.has_twin.all()
+    syn = pd.DataFrame({"a": [1.0, 5.0], "b": ["x", "y"], "c": [2.0, 2.0], "d": ["p", "p"]})
+    assert g.near_copies(syn).tolist() == [False, True]

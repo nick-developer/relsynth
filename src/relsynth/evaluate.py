@@ -1443,8 +1443,9 @@ def scorecard(rep, th=None):
             add(n, "text_tstr_ratio", d["tstr_ratio"], th["tstr_ratio"], d["tstr_ratio"] >= th["tstr_ratio"])
     for n, d in rep["privacy"].items():
         if d:
+            before = len(items)
             add(n, "dcr_ratio", d["dcr_ratio"], th["dcr_ratio"], d["dcr_ratio"] >= th["dcr_ratio"])
-            if d.get("near_copy_guard"):
+            if d.get("near_copy_guard") and len(items) > before:
                 items[-1]["note"] = ("near-copy guard on (privacy.near_copy): rows were redrawn by this distance, "
                                      "so the ratio is not independent evidence (docs/privacy.md)")
             if "exact_match_rate_real_any" in d:

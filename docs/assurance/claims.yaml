@@ -1841,7 +1841,7 @@ claims:
   - id: PRV-25
     doc: docs/privacy.md
     area: privacy-formal
-    quote: "Someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε."
+    quote: "Someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε for a guard that redraws until it succeeds, given a generator that can produce rows near the record."
     status: limitation
     evidence:
       - prop: prop:ncnotdp
@@ -1867,8 +1867,9 @@ claims:
   - id: PRV-28
     doc: docs/privacy.md
     area: privacy-measured
-    quote: "the scorecard's `dcr_ratio` for `DimProduct` was 0.42 to 0.65 at the 2.1 defaults, against a limit of 0.5"
+    quote: "the scorecard's `dcr_ratio` for `DimProduct` was 0.40 to 0.65 at the 2.1 defaults, against a limit of 0.5"
     status: supported
+    note: 0.40 is seed 12 and 0.64 seed 11 of the autotune report (CI runners); 0.42-0.65 are the full fits and paired draws of the small-dimensions report.
     evidence:
       - report: docs/research/small-dimensions.md
       - report: docs/research/autotune-adventureworks.md

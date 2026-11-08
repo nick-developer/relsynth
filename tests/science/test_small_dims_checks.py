@@ -153,11 +153,20 @@ def test_c1722_guard_accepts_only_rows_outside_B(catalogue):
     prop = pd.DataFrame({"a": rng.normal(size=200000), "b": "x", "c": 0.0, "d": "p"})
     inB = g.near_copies(prop)
     acc = prop.a[~inB].to_numpy()
-    # redraw loop with R = infinity gives the same law: compare with an independent run
+    # reference: the same proposal filtered by B computed by brute force from its
+    # definition (every real row, its own positive-neighbour distance), without
+    # relsynth.nearcopy.nearest
+    Xr = g.X
+    nu = np.array([min(np.linalg.norm(Xr[i] - Xr[k]) for k in range(len(Xr))
+                       if np.linalg.norm(Xr[i] - Xr[k]) > 0) for i in range(len(Xr))])
     keep = []
     while len(keep) < 20000:
         x = pd.DataFrame({"a": rng.normal(size=5000), "b": "x", "c": 0.0, "d": "p"})
-        keep += x.a[~g.near_copies(x)].tolist()
+        D = np.linalg.norm(g.encode(x)[:, None, :] - Xr[None], axis=2)
+        j = D.argmin(1)
+        d = D[np.arange(len(x)), j]
+        inb = ((d > 0) & (d < nu[j])) | ((d == 0) & ~g.has_twin[j])
+        keep += x.a[~inb].tolist()
     from scipy.stats import ks_2samp
     assert ks_2samp(acc[:20000], np.array(keep[:20000])).pvalue > 1e-3
     assert 0 < inB.mean() < 1
@@ -167,13 +176,12 @@ def test_c1722_no_near_copy_draws_nothing(shop):
     """Prop. 1722 (c): when no row is a near copy the guard draws no random
     number, so the tables equal the unguarded ones byte for byte."""
     base = dict(_fit(shop, near_copy="off").sample())
-    zero = dict(_fit(shop, near_copy="auto", near_copy_ratio=0.0).sample())
     m = _fit(shop, near_copy="auto", near_copy_ratio=0.0)
-    m.sample()
-    flagged = sum(r["near_copies"] for r in m.synthesizer.sample_log.get("near_copies", {}).values())
-    if flagged == 0:
-        for t in base:
-            pd.testing.assert_frame_equal(base[t], zero[t])
+    zero = dict(m.sample())
+    flagged = sum(r["near_copies"] for r in (m.synthesizer.sample_log.get("near_copies") or {}).values())
+    assert flagged == 0, "the scenario must have no near copies at ratio 0 for this check"
+    for t in base:
+        pd.testing.assert_frame_equal(base[t], zero[t])
 
 
 # --------------------------------------------------------------------- C1723

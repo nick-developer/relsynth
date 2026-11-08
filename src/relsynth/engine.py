@@ -380,6 +380,7 @@ class Synthesizer:
         samples to their exact statistics (relsynth.pushdown.stats.TableStats):
         the relational model reads those facts only through the statistics."""
         t0 = time.time()
+        self.__dict__.pop("_nc_guards", None)     # near-copy guards are built from this fit's rows
         spec, cfg, rng = self.spec, self.cfg, self.rng
         T = spec["tables"]
         self.fstats = {t: s for t, s in (stats or {}).items() if t in T and T[t]["role"] == "fact"}
@@ -2541,7 +2542,7 @@ class Synthesizer:
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
             df = self.tm[e].sample(z, rng)
-            df = self._guard_near_copies(e, df, z, rng)
+            df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
             ko = T[e].get("key_order")
@@ -2664,7 +2665,15 @@ class Synthesizer:
         while len(bad) and r < rounds:
             new = self.tm[e].sample(np.asarray(z)[bad], rng)
             new.index = df.index[bad]
-            df.loc[df.index[bad], new.columns] = new
+            # column by column, keeping each column's dtype; the guard runs on the
+            # attribute frame, before keys, links and computed (hidden) columns exist
+            for c in new.columns:
+                col = df[c].to_numpy(dtype=object, copy=True)
+                col[bad] = new[c].to_numpy(dtype=object)
+                try:
+                    df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
+                except (TypeError, ValueError):
+                    df[c] = col
             still = g.near_copies(df.iloc[bad])
             bad = bad[still]
             r += 1
