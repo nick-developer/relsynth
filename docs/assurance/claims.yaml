@@ -592,6 +592,7 @@ claims:
       - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
       - test: tests/unit/test_pushdown.py::test_header_split_without_unique_key_agrees
       - test: tests/unit/test_sqlfuncs_stats.py::test_lazy_frame_stats_loads_only_needed_columns
+      - test: tests/unit/test_pushdown.py::test_pandas_file_pushdown_keeps_whole_columns_with_the_model
 
   - id: SEC-11
     doc: docs/security.md
