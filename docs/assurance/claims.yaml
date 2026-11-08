@@ -1850,7 +1850,7 @@ claims:
   - id: PRV-32
     doc: docs/privacy.md
     area: scope
-    quote: "The guard runs on the tables the distance check covers, up to `privacy.near_copy_max_rows` rows (default 20,000; the search compares every synthetic row with every distinct real row, so its time grows with the square of the rows), and only when at least three of the distance columns are sampled by the table's model: a table whose third distance column is computed (a derived or aggregated column) is not guarded."
+    quote: "The guard runs on the tables the distance check covers, up to `privacy.near_copy_max_rows` rows (default 20,000; the search compares every synthetic row with every distinct real row, so its time grows with the square of the rows), and only when at least three of the distance columns are sampled by the table's model: a table with only two sampled distance columns and the rest computed (derived or aggregated columns) is not guarded."
     status: supported
     evidence:
       - test: tests/unit/test_small_dims.py::test_settings_are_registered_with_defaults
