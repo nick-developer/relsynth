@@ -581,15 +581,16 @@ claims:
     area: privacy-measured
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
-      - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
+      - "Pushed facts are read as aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group; the full table is not read otherwise."
     status: supported
-    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
+    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103), which is the whole table when the table has at most sample_rows rows (the full-sample test), and the first row per group of order headers and running balances (TableStats.first_rows; the header-split test). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
       - test: tests/unit/test_security.py::test_bundles_verify_reports_and_profiles_hold_no_rows
       - test: tests/unit/test_security.py::test_bundle_holds_no_password
       - prop: prop:pdsuff
       - prop: prop:hashsample
       - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+      - test: tests/unit/test_pushdown.py::test_header_split_without_unique_key_agrees
 
   - id: SEC-11
     doc: docs/security.md
@@ -660,7 +661,7 @@ claims:
   - id: SEC-17
     doc: docs/security.md
     area: security
-    quote: "relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown statistics are plain aggregate queries"
+    quote: "relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group"
     status: partial
     evidence:
       - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source

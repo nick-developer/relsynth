@@ -10,7 +10,7 @@ relsynth reads production databases and writes data that is meant to be shared. 
 | Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows | Bayesian synthesis (no row is copied), memorisation guards for text, privacy attacks per person ([privacy.md](privacy.md)), optional differential privacy ([dp.md](dp.md)), and aggregate-only bundles |
 | The machine running relsynth | A malicious spec (YAML tricks, rule expressions, regexes) or a malicious file name | Safe YAML loading, a sandboxed expression language, regex vetting, and confined paths |
 | The target database | SQL injection through table or column names or values | SQLAlchemy Core with quoted identifiers and bound values everywhere |
-| The source database | Accidental writes, or heavy load | relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown statistics are plain aggregate queries |
+| The source database | Accidental writes, or heavy load | relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group |
 
 ## Credentials
 
@@ -76,7 +76,7 @@ Tests: `test_spec_cannot_name_service_files` (6 forms).
   - Diagnostics bundles, `verify` reports and `profile` output hold counts and statistics, not rows.
   - Frequent values appear only with an explicit `profile --top N`.
   - Counts below 5 are suppressed in what a bundle reports about category levels.
-- **Pushdown.** Rows of pushed facts never leave the source as a whole; only aggregates and a sample do.
+- **Pushdown.** Pushed facts are read as aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group; the full table is not read otherwise.
 - **Differential privacy is optional.** Without it, protection is measured, not guaranteed: `relsynth privacy` attacks the release per person ([privacy.md](privacy.md)). With `--epsilon`, a run has a user-level (ε, δ) guarantee ([dp.md](dp.md)). Under the governance policy, a release outside the organisation is refused without DP ([governance/guide.md](governance/guide.md)). Use `mode: copy` only for tables that are public anyway.
 
 ## Supply chain and code
