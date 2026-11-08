@@ -7,6 +7,8 @@
   "known_answers_one_table": {
     "copy_all": {
       "runs": 10,
+      "completed": 10,
+      "unsuccessful": [],
       "fail_share": 1.0,
       "domias_auc": 0.63,
       "closest_distance_auc": 1.0,
@@ -15,6 +17,8 @@
     },
     "copy_20pct": {
       "runs": 10,
+      "completed": 10,
+      "unsuccessful": [],
       "fail_share": 1.0,
       "domias_auc": 0.525,
       "closest_distance_auc": 0.596,
@@ -23,6 +27,8 @@
     },
     "copy_5pct": {
       "runs": 10,
+      "completed": 10,
+      "unsuccessful": [],
       "fail_share": 0.0,
       "domias_auc": 0.505,
       "closest_distance_auc": 0.517,
@@ -31,6 +37,8 @@
     },
     "population": {
       "runs": 10,
+      "completed": 10,
+      "unsuccessful": [],
       "fail_share": 0.0,
       "domias_auc": 0.498,
       "closest_distance_auc": 0.492,

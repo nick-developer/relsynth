@@ -50,13 +50,21 @@ def known_answers(seeds: int) -> dict:
             r = Q.quick_check(spec, db, seed=rep, unit="patient", people=3000,
                               generator=lambda tb, sd, f=frac: release(tb, sd, f))
             att = r.get("attacks") or {}          # absent when the check was skipped or failed
-            rows[name].append({"status": r["status"], **{f"{a}_auc": v.get("auc") for a, v in att.items()},
+            rows[name].append({"status": r["status"], "reason": r.get("reason"),
+                               **{f"{a}_auc": v.get("auc") for a, v in att.items()},
                                **{f"{a}_tpr_at_fpr_0.01": v.get("tpr_at_fpr_0.01") for a, v in att.items()}})
     out = {}
     for name, rs in rows.items():
         df = pd.DataFrame(rs)
-        out[name] = {"runs": len(df), "fail_share": float((df["status"] == "fail").mean()),
-                     **{c: round(float(pd.to_numeric(df[c]).mean()), 3) for c in df.columns if c != "status"}}
+        # skipped or failed checks are listed apart and left out of every share and mean
+        bad = df["status"].isin(("skipped", "error"))
+        done = df[~bad]
+        out[name] = {"runs": len(df), "completed": len(done),
+                     "unsuccessful": [{"status": s, "reason": r} for s, r in zip(df.loc[bad, "status"],
+                                                                                 df.loc[bad, "reason"])],
+                     "fail_share": float((done["status"] == "fail").mean()) if len(done) else None,
+                     **{c: round(float(pd.to_numeric(done[c]).mean()), 3) if len(done) else None
+                        for c in df.columns if c not in ("status", "reason")}}
     return out
 
 
