@@ -76,7 +76,7 @@ Tests: `test_spec_cannot_name_service_files` (6 forms).
   - Diagnostics bundles, `verify` reports and `profile` output hold counts and statistics, not rows.
   - Frequent values appear only with an explicit `profile --top N`.
   - Counts below 5 are suppressed in what a bundle reports about category levels.
-- **Pushdown.** Of a pushed fact, relsynth keeps aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row); a file source is streamed through to draw the sample, but no other rows are kept.
+- **Pushdown.** Of a pushed fact, relsynth keeps aggregates, a seeded hash sample of about `sample_rows` rows (it can be larger, up to every row, and is the whole table when the table has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row). With a file source on the pandas engine, every row is streamed through to draw the sample and statistics can load whole columns; no other rows are kept.
 - **Differential privacy is optional.** Without it, protection is measured, not guaranteed: `relsynth privacy` attacks the release per person ([privacy.md](privacy.md)). With `--epsilon`, a run has a user-level (ε, δ) guarantee ([dp.md](dp.md)). Under the governance policy, a release outside the organisation is refused without DP ([governance/guide.md](governance/guide.md)). Use `mode: copy` only for tables that are public anyway.
 
 ## Supply chain and code

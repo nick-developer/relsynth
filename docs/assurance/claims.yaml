@@ -581,7 +581,7 @@ claims:
     area: privacy-measured
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
-      - "Of a pushed fact, relsynth keeps aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row); a file source is streamed through to draw the sample, but no other rows are kept."
+      - "Of a pushed fact, relsynth keeps aggregates, a seeded hash sample of about `sample_rows` rows (it can be larger, up to every row, and is the whole table when the table has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row). With a file source on the pandas engine, every row is streamed through to draw the sample and statistics can load whole columns; no other rows are kept."
     status: supported
     note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103), which is the whole table when the table has at most sample_rows rows (the full-sample test), and the first row per group of order headers and running balances (TableStats.first_rows; the header-split test). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
