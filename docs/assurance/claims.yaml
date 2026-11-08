@@ -581,7 +581,7 @@ claims:
     area: privacy-measured
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
-      - "Pushed facts are read as aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group; the full table is not read otherwise."
+      - "Of a pushed fact, relsynth keeps aggregates, a seeded sample (the whole table when it has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row); a file source is streamed through to draw the sample, but no other rows are kept."
     status: supported
     note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103), which is the whole table when the table has at most sample_rows rows (the full-sample test), and the first row per group of order headers and running balances (TableStats.first_rows; the header-split test). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
@@ -661,7 +661,7 @@ claims:
   - id: SEC-17
     doc: docs/security.md
     area: security
-    quote: "relsynth never writes to a source: it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group"
+    quote: "relsynth never writes to a source (as long as the run's target is not the source itself): it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group"
     status: partial
     evidence:
       - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
