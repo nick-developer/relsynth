@@ -1857,6 +1857,15 @@ claims:
       - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
       - code: src/relsynth/engine.py::Synthesizer::_near_copy_guard
 
+  - id: PRV-33
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "Rows that are redrawn later to satisfy an attribute rule or a unique key, and rows whose values change through them (a group effect), are checked again in the same rejection, for at most `privacy."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_rule_redraws_are_guarded_and_kept_counts_emitted_rows
+      - code: src/relsynth/engine.py::Synthesizer::_finish
+
   - id: PRV-30
     doc: docs/privacy.md
     area: privacy-formal

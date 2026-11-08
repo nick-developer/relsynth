@@ -4348,6 +4348,11 @@ class Synthesizer:
         # near copies, so the guard joins the rejection for those rows only
         ncg = self._near_copy_guard(t) if T["role"] != "fact" and (arules or akeys) else None
         redrawn = np.zeros(len(df), bool)
+        # the near-copy budget (privacy.near_copy_rounds), and at most half the rule
+        # rounds, so the rounds after it enforce the rules and keys alone
+        nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)),
+                        int(self.cfg["rules"]["max_rejection_rounds"]) // 2)
+        rounds = 0
         nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
 
         def touched(frame):
@@ -4367,7 +4372,7 @@ class Synthesizer:
                 sub = frame[u].astype(object)
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
-            if ncg is not None and redrawn.any():
+            if ncg is not None and redrawn.any() and rounds < nc_rounds:
                 ri = np.flatnonzero(touched(frame))
                 ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
