@@ -63,9 +63,14 @@ def known_answers(seeds: int) -> dict:
                      "unsuccessful": [{"status": s, "reason": r} for s, r in zip(df.loc[bad, "status"],
                                                                                  df.loc[bad, "reason"])],
                      "fail_share": float((done["status"] == "fail").mean()) if len(done) else None,
-                     **{c: round(float(pd.to_numeric(done[c]).mean()), 3) if len(done) else None
-                        for c in df.columns if c not in ("status", "reason")}}
+                     **{c: _mean(done[c]) for c in df.columns if c not in ("status", "reason")}}
     return out
+
+
+def _mean(col: pd.Series) -> float | None:
+    """Mean of a metric over completed runs, None when no run has it (strict JSON has no NaN)."""
+    m = float(pd.to_numeric(col).mean()) if len(col) else float("nan")
+    return round(m, 3) if np.isfinite(m) else None
 
 
 def bench_runs(names: list[str]) -> dict:
