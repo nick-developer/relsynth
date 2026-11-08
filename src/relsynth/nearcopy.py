@@ -52,10 +52,12 @@ TOP_LEVELS = 20
 
 
 def _is_cat(cs, s):
+    """True when the evaluation treats the column as categorical (one-hot)."""
     return cs["type"] in ("categorical", "boolean") or (cs["type"] == "integer" and s.nunique() <= 30)
 
 
 def _num(s: pd.Series) -> np.ndarray:
+    """The column as floats (datetimes as nanoseconds), NaN where missing."""
     if pd.api.types.is_datetime64_any_dtype(s):
         v = s.to_numpy(dtype="datetime64[ns]").astype("int64").astype(float)
         v[s.isna().to_numpy()] = np.nan
@@ -98,6 +100,8 @@ class NearCopyGuard:
     """The near-copy rule of one table, fitted on its real rows."""
 
     def __init__(self, real: pd.DataFrame, tspec: dict, cols: list[str], rho: float = 1.0):
+        """Fit the encoding on the real rows and store each real row's distance to
+        its nearest distinct real row and whether it has an exact twin."""
         self.cols, self.rho = list(cols), float(rho)
         self.enc: list[tuple[str, str, Any]] = []
         for c in self.cols:
@@ -115,6 +119,8 @@ class NearCopyGuard:
         self.n_real = len(real)
 
     def encode(self, df: pd.DataFrame) -> np.ndarray:
+        """The rows of df in the distance metric: one-hot top levels for categorical
+        columns; normal score, its square and a null flag for numeric ones."""
         feats = []
         for kind, c, ref in self.enc:
             s = df[c]

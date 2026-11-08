@@ -150,3 +150,16 @@ def test_constant_real_table_flags_every_other_row():
     assert np.isinf(g.nn).all() and g.has_twin.all()
     syn = pd.DataFrame({"a": [1.0, 5.0], "b": ["x", "y"], "c": [2.0, 2.0], "d": ["p", "p"]})
     assert g.near_copies(syn).tolist() == [False, True]
+
+
+def test_rule_redraws_are_guarded_and_kept_counts_emitted_rows(tmp_path):
+    """Rows redrawn later for an attribute rule join the near-copy rejection, and
+    the log's `kept` is the number of near copies among the rows emitted."""
+    spec = _catalogue(tmp_path)
+    spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
+    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    syn = m.synthesizer
+    r = syn.sample_log["near_copies"]["product"]
+    assert r.get("redrawn_by_rules", 0) > 0
+    g = syn._near_copy_guard("product")
+    assert r["kept"] == int(g.near_copies(dict(d)["product"]).sum())

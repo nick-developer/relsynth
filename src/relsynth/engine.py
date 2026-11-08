@@ -4344,6 +4344,11 @@ class Synthesizer:
         xrules = [r_ for r_ in cons.get("key_rules", []) if T["role"] != "fact"
                   and names_in(r_["expr"]) & set(tm.out_cols)] if arules or akeys else []
 
+        # near-copy guard (G3): rows whose attributes are redrawn here must not become
+        # near copies, so the guard joins the rejection for those rows only
+        ncg = self._near_copy_guard(t) if T["role"] != "fact" and (arules or akeys) else None
+        redrawn = np.zeros(len(df), bool)
+
         def attr_bad(frame):
             ok = np.ones(len(frame), bool)
             res_ = self._resolver(t, frame, out)
@@ -4353,13 +4358,15 @@ class Synthesizer:
                 sub = frame[u].astype(object)
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
+            if ncg is not None and redrawn.any():
+                ri = np.flatnonzero(redrawn)
+                ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
         if arules or akeys:
             # rejection on the attributes jointly for all attribute rules (each redraw
             # is from the row's own conditional, so the accepted law is Q(x | rules))
             bad = attr_bad(df)
             rounds = 0
-            redrawn = np.zeros(len(df), bool)
             while bad.any() and rounds < self.cfg["rules"]["max_rejection_rounds"] and tm.out_cols:
                 idx = np.flatnonzero(bad)
                 redrawn[idx] = True
@@ -4397,6 +4404,12 @@ class Synthesizer:
             res_ = self._resolver(t, df, out)
             for r in arules:
                 viol[r["expr"]] = int((~check_mask(df, r["expr"], res_)).sum())
+            if ncg is not None and redrawn.any():
+                # the log describes the rows emitted: near copies among the final attributes
+                log_nc = self.sample_log.setdefault("near_copies", {}).setdefault(t, {
+                    "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0, "ratio": ncg.rho})
+                log_nc["redrawn_by_rules"] = int(redrawn.sum())
+                log_nc["kept"] = int(ncg.near_copies(df).sum())
         if T["role"] == "fact" and cons.get("key_rules") and t not in self.fact_entity:
             # rows still invalid after the per-row redraws of _refill: removed and reported
             keep = np.ones(len(df), bool)
