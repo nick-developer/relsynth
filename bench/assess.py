@@ -203,8 +203,10 @@ def run_privacy(name, location, seed, overrides) -> list[dict]:
     from .datasets import DATASETS
     spec = load_spec(name, location, overrides)
     own = (spec.get("synthesis") or {}).get("generator", "copula")
+    # a table override (--set tables.x.generator=...) means the first run is not the default generator's
+    mixed = any((ts or {}).get("generator") not in (None, own) for ts in spec["tables"].values())
     out = []
-    for g in [None, *[g for g in DATASETS[name].privacy.get("generators", ()) if g != own]]:
+    for g in [None, *[g for g in DATASETS[name].privacy.get("generators", ()) if mixed or g != own]]:
         rep = assess(spec if g is None else with_generator(spec, g), privacy_config(name), seed=int(seed))
         out += privacy_checks(rep, g)
     return out

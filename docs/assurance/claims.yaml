@@ -302,6 +302,15 @@ claims:
       - code: src/relsynth/cli.py::cmd_run_dp
       - test: tests/unit/test_privacy_quick.py::test_dp_specs_never_reach_the_quick_check
 
+  - id: PRV-47
+    doc: docs/privacy.md
+    area: scope
+    quote: "When one attack cannot run (DOMIAS needs profiles that vary), the verdict covers the other one only; the result names the missing attack under `incomplete` and the printed line says so."
+    status: limitation
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - test: tests/unit/test_privacy_quick.py::test_an_attack_that_cannot_run_is_named
+
   - id: PRV-44
     doc: docs/privacy.md
     area: scope

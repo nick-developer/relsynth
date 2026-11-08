@@ -202,6 +202,9 @@ def quick_check(spec, tables: dict, *, seed: int | None = None, people: int | No
     out.update({"status": "fail" if "fail" in st else "review" if "review" in st else "pass",
                 "attack": worst["attack"], "auc": worst["value"], "auc_ci": worst["ci"], "attacks": summary,
                 "checks": checks, "confidence": level, "seconds": round(time.time() - t0, 2)})
+    missing = {k: v.get("reason") for k, v in summary.items() if not v["identified"]}
+    if missing:  # the verdict covers only the attacks that ran: say which one did not
+        out["incomplete"] = missing
     small = DEFAULTS["small_population"]
     if n_total < small:
         out["warning"] = (f"{n_total} people, fewer than {small}: the test has little power, and a release "
@@ -256,6 +259,8 @@ def line(res: dict) -> str:
     txt = (f"privacy check: {st.upper()} - membership {', '.join(parts)} vs limit {res['limits']['mia_auc']:.2f} "
            f"(internal), proxy fitted on {p['members']} of {p['total']} people in {res['unit']}, "
            f"{res['seconds']:.1f} s")
+    for k, why in (res.get("incomplete") or {}).items():
+        txt += f"; {names.get(k, k)} could not run ({why})"
     if res.get("warning"):
         txt += f"; only {p['total']} people, so the test has little power"
     if st != "pass":

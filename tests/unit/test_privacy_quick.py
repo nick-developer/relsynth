@@ -92,6 +92,16 @@ def test_quick_check_reports_generator_errors_without_raising(shop):
     assert "s3cret" not in str(r) and "postgresql://" not in str(r)
 
 
+def test_an_attack_that_cannot_run_is_named(shop, monkeypatch):
+    t, s = shop
+    from relsynth.privacy import mia
+    monkeypatch.setattr(mia, "domias", lambda *a, **k: {"identified": False, "reason": "constant profiles"})
+    r = Q.quick_check(s, t, seed=1, unit="customer")
+    assert r["status"] in ("pass", "review") and r["attack"] == "closest_distance"
+    assert r["incomplete"] == {"domias": "constant profiles"}
+    assert "DOMIAS could not run (constant profiles)" in Q.line(r)
+
+
 def test_pipeline_error_keeps_only_the_exception_type(monkeypatch, caplog):
     from relsynth.pipeline import execute
     t, s = _person_shop()
