@@ -150,12 +150,13 @@ claims:
     doc: docs/privacy.md
     area: privacy-measured
     quote:
-      - "Control people are never seen: the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
+      - "Control people are never seen (people who share a row, which a row reached along two paths can make, are kept on the same side of the split): the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
       - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
     status: supported
     evidence:
       - prop: prop:puctrl
       - check: C601
+      - check: C1700
       - report: docs/assurance/evidence/T06/repro_anonymeter.json
 
   - id: PRV-12

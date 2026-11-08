@@ -71,6 +71,9 @@ def test_cli_reads_several_units_separated_by_commas():
     from relsynth.cli import _dp_override
     assert _dp_override(SimpleNamespace(epsilon=1, dp_unit="A, B", dp_measure=None))["unit"] == ["A", "B"]
     assert _dp_override(SimpleNamespace(epsilon=None, dp_unit="A", dp_measure=None)) == {"unit": "A"}
+    from relsynth.spec import SpecError
+    with pytest.raises(SpecError, match="--dp-unit"):
+        _dp_override(SimpleNamespace(epsilon=None, dp_unit=" , ", dp_measure=None))
 
 
 def test_plan_traces_ownership_and_public_tables(star):

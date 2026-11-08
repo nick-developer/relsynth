@@ -25,11 +25,14 @@ it is the attacker's view when the release is joined back to people.
 """
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
+
+log = logging.getLogger(__name__)
 
 ATTR_TYPES = ("integer", "float", "categorical", "boolean", "date", "datetime")
 MAX_LEVELS = 200
@@ -235,15 +238,67 @@ def subset(unit: Unit, tables: dict[str, pd.DataFrame], ids) -> dict[str, pd.Dat
     return out
 
 
+def _shared_groups(unit: Unit, tables) -> dict:
+    """People linked by a row they share (union ownership, Prop. 1700): person ->
+    a representative of its group.  Empty when no row has two owners."""
+    parent: dict = {}
+
+    def find(x):
+        while parent.get(x, x) != x:
+            parent[x] = parent.get(parent[x], parent[x])
+            x = parent[x]
+        return x
+    for t, o in owners(unit, tables).items():
+        if t == unit.table or not o.index.has_duplicates:
+            continue
+        for _, g in o.groupby(level=0):
+            vals = pd.unique(g.to_numpy())
+            for v in vals[1:]:
+                a, b = find(vals[0]), find(v)
+                if a != b:
+                    parent[b] = a
+    return {x: find(x) for x in parent}
+
+
+def split_people(unit: Unit, tables, ids, sizes) -> list:
+    """Cut the drawn people `ids` into consecutive parts of the given sizes and
+    a last part with the rest.  People who share a row (a row reached along two
+    paths, Prop. 1700) stay in one part, so no control profile holds a row the
+    release was fitted on; groups are placed in the order their first member was
+    drawn.  Without shared rows this is the plain cut.  If the groups leave a
+    part empty (the shared rows join almost everyone), the plain cut is used and
+    a warning says that the parts share rows."""
+    ids = np.asarray(ids)
+    edges = np.cumsum([0, *sizes])
+    plain = [ids[a:b] for a, b in zip(edges[:-1], edges[1:])] + [ids[edges[-1]:]]
+    grp = _shared_groups(unit, tables) if len(unit.paths) else {}
+    if not grp:
+        return plain
+    members: dict = {}
+    for x in ids:
+        members.setdefault(grp.get(x, x), []).append(x)
+    parts: list = [[] for _ in range(len(sizes) + 1)]
+    for g in members.values():
+        k = next((i for i, n in enumerate(sizes) if len(parts[i]) < n), len(sizes))
+        parts[k].extend(g)
+    if any(len(p) == 0 and len(q) > 0 for p, q in zip(parts, plain)):
+        log.warning("privacy split: rows shared by people join %d of %d people into one group; "
+                    "the parts of the split share rows", max(len(m) for m in members.values()), len(ids))
+        return plain
+    return [np.array(p, dtype=ids.dtype) for p in parts]
+
+
 def split(unit: Unit, tables, frac_control: float, seed: int = 0, max_people: int | None = None):
-    """Split the people (not the rows) into training and control."""
+    """Split the people (not the rows) into training and control, keeping
+    people who share a row on one side (`split_people`)."""
     ids = tables[unit.table][unit.key].dropna().unique()
     rng = np.random.default_rng(seed)
     ids = rng.permutation(ids)
     if max_people and len(ids) > max_people:
         ids = ids[:max_people]
     n_c = int(round(frac_control * len(ids)))
-    return ids[n_c:], ids[:n_c]
+    control, train = split_people(unit, tables, ids, [n_c])
+    return train, control
 
 
 # ------------------------------------------------------------------ profiles

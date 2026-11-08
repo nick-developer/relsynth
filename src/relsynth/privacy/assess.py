@@ -103,7 +103,8 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         ids = ids[:cfg["split"]["max_people"]]
     n_c = int(round(cfg["split"]["control"] * len(ids)))
     n_r = int(round(cfg["split"]["reference"] * len(ids)))
-    ctl_ids, ref_ids, tr_ids = ids[:n_c], ids[n_c:n_c + n_r], ids[n_c + n_r:]
+    # people who share a row stay on one side (Prop. 1700); without shared rows a plain cut
+    ctl_ids, ref_ids, tr_ids = U.split_people(unit, tables, ids, [n_c, n_r])
     if generator is None:
         from ..dp.config import section
         if section(s) is not None:

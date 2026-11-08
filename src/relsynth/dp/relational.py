@@ -148,13 +148,15 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
     rels = spec.get("relationships") or []
     comp = computed_columns(spec)
     plans: dict = {}
+    # the link along which each owned table reaches its unit; a parent measures and truncates only
+    # the children on such links, so a dropped link (to another unit's data, or off the path) is
+    # never read (Prop. 1703)
+    on_path = {n: traces[owner[n]].entities[n].paths[0][0] for n in owned if n not in units}
     for n in owned:
         p = TablePlan(n)
         T = spec["tables"][n]
         if n not in units:
-            path = traces[owner[n]].entities[n].paths[0]
-            rname = path[0]
-            p.parent_rel = next(r for r in rels if r["name"] == rname)
+            p.parent_rel = next(r for r in rels if r["name"] == on_path[n])
         fk_cols: set = set()
         for r in rels:
             if r["child"] != n:
@@ -183,10 +185,9 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
         pk = set(_keys(T.get("primary_key") or []))
         child_keys = set()
         for r in rels:
-            if r["parent"] == n and r["child"] in owned:
+            if r["parent"] == n and on_path.get(r["child"]) == r["name"]:
                 child_keys |= set(_keys(r["parent_key"]))
-                if r["kind"] != "self_reference" and r["child"] != n:
-                    p.children.append(r)
+                p.children.append(r)
         pkl = _keys(T.get("primary_key") or [])
         p.key_cols = pkl + [x for x in sorted(child_keys) if x not in pk]
         for c in p.key_cols:
@@ -968,11 +969,15 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
     for t in plan.order:
         P = plan.tables[t]
         T = spec["tables"][t]
-        for uk in [_keys(T.get("primary_key") or [])] + [_keys(u) for u in T.get("unique") or []]:
+        keys = [(_keys(T.get("primary_key") or []), True)] + [(_keys(u), False) for u in T.get("unique") or []]
+        for uk, is_pk in keys:
             # a key drawn from the statistics (a date in a composite key) may repeat: keep the first
             # row of each key value (Prop. 1702)
             if len(uk) > 1 and len(res[t]) and all(c in res[t].columns for c in uk):
                 dup = res[t].duplicated(subset=uk)
+                if not is_pk:
+                    # a unique key with a null part never collides (SQL), e.g. a dropped column
+                    dup &= res[t][uk].notna().all(axis=1)
                 if dup.any():
                     log.info("DP seed: %s: %d rows repeat the key %s and are dropped", t, int(dup.sum()), uk)
                     res[t] = res[t][~dup.to_numpy()].reset_index(drop=True)

@@ -12,6 +12,8 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 ### Changed
 
 - **Privacy-unit ownership comes from the IR's trace** (`relsynth.ir.privacy`, RFC-T06-01). The attack suite (`relsynth privacy`) now follows composite foreign keys, so AdventureWorks `FactInternetSalesReason` is owned by `DimCustomer` and appears in its profiles and report. A row that reaches the unit along several paths belongs to every person they reach (union ownership, Prop. 1700); on the bench specs whose paths all agree (Contoso, bi/COREP) the subsets and profiles are unchanged. New `relsynth.privacy.unit.owners`; `owner_ids` keeps one owner per row along the shortest path.
+- The attack suite keeps people who share a row (union ownership) on the same side of its training/control/reference split, so no control profile holds a row the release was fitted on; without shared rows the split is unchanged.
+- DP mode: a parent table measures and truncates only the children on their ownership links, so a link dropped with `drop_columns` (to another unit's table, or off the path) is never read; a declared unique key with a null part no longer counts as a repeat in the seed; `--dp-unit` with no table name is an argument error.
 - DP mode output changes where documented above (composite keys, groups); the non-DP output is byte-identical (`tools/identity_check.py`, 24 runs).
 
 ## 2.1.0 (2026-11-07)

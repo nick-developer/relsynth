@@ -163,6 +163,21 @@ def test_c1700_composite_links_are_followed_and_paths_union():
     assert U.subset(u2, d, [1])["event"]["x"].tolist() == [1.0, 2.0]
     assert U.subset(u2, d, [2])["event"]["x"].tolist() == [2.0, 3.0]
 
+    # people who share a row go to the same side of the attack suite's split, so no control
+    # profile holds a row the release was fitted on
+    d3 = {"customer": pd.DataFrame({"id": [1, 2, 3, 4, 5, 6], "name": list("abcdef")}),
+          "account": pd.DataFrame({"id": [10, 20, 30], "cid": [1, 2, 3]}),
+          "event": pd.DataFrame({"cid": [1, 4, 5, 6], "aid": [20, 30, 30, 10], "x": [1.0, 2.0, 3.0, 4.0]})}
+    for seed in range(8):
+        tr, ctl = U.split(u2, d3, 0.5, seed=seed)
+        assert sorted([*tr, *ctl]) == [1, 2, 3, 4, 5, 6]
+        side = {**{x: "t" for x in tr}, **{x: "c" for x in ctl}}
+        assert side[1] == side[2] and side[3] == side[4] == side[5] and side[6] == side[1]
+    # one group holds everyone: the split falls back to people and keeps both sides
+    d3["event"] = pd.concat([d3["event"], pd.DataFrame({"cid": [2], "aid": [30], "x": [5.0]})], ignore_index=True)
+    tr, ctl = U.split(u2, d3, 0.5, seed=0)
+    assert len(tr) == 3 and len(ctl) == 3
+
 
 # --------------------------------------------------------------------- C1701
 def test_c1701_profiles_count_a_shared_row_for_each_owner():
@@ -201,6 +216,14 @@ def test_c1702_dp_decodes_real_composite_keys():
     assert not sr.duplicated(["order_no", "line_no", "reason_id"]).any()
     keys = set(zip(sale["order_no"], sale["line_no"]))
     assert all(k in keys for k in zip(sr["order_no"], sr["line_no"]))
+
+    # a declared unique key with a null part never collides (as in SQL): those rows stay;
+    # a repeated full key is dropped
+    res = {k: v.copy() for k, v in seed.items()}
+    res["sale"] = sale.head(3).assign(order_no="SO1", line_no=[None, None, 1]).reset_index(drop=True)
+    res["sale"] = pd.concat([res["sale"], res["sale"].tail(1)], ignore_index=True)
+    R._enforce_checks(spec, pl, res)
+    assert res["sale"]["line_no"].isna().sum() == 2 and (res["sale"]["line_no"] == 1).sum() == 1
 
 
 # --------------------------------------------------------------------- C1703
@@ -296,6 +319,30 @@ def test_c1703_two_units_sensitivity_replay(monkeypatch):
     worst = _replay_two_units(spec, t, rem, monkeypatch)
     assert worst["sale: marginals"] > 0.3 and worst["customer: marginals"] > 0.3, worst
     assert worst["quota: marginals"] > 0.0, worst
+
+
+def test_c1703_dropped_link_between_units_is_never_read(monkeypatch):
+    """Prop. 1703: a dropped link from a customer to their account manager (an
+    employee) is not measured; removing a customer leaves every employee
+    statistic as it was, and removing an employee every customer statistic."""
+    raw = _raw_spec()
+    raw["tables"]["customer"]["columns"]["rep_id"] = {"type": "id"}
+    raw["relationships"].append({"child": "customer", "child_key": "rep_id", "parent": "employee",
+                                 "parent_key": "employee_id"})
+    raw["synthesis"] = {"privacy": {"dp": {"unit": ["customer", "employee"], "epsilon": 2.0, "delta": 1e-9,
+                                           "public_tables": ["reason", "product"],
+                                           "drop_columns": ["customer.rep_id"]}}}
+    t = _tables()
+    t["customer"]["rep_id"] = np.random.default_rng(3).choice(t["employee"]["employee_id"], len(t["customer"]))
+    spec = load_spec(raw)
+    pl, _, _ = dp.plan(spec)
+    assert [r["child"] for r in pl.tables["employee"].children] == ["quota"]
+    assert "rep_id" in pl.tables["customer"].dropped
+    spec = _publicize(spec, t, {"customer", "employee"}, 4)
+    rep = int(t["customer"]["rep_id"].value_counts().index[0])
+    heavy = int(t["sale"]["customer_id"].value_counts().index[0])
+    worst = _replay_two_units(spec, t, [("customer", heavy), ("customer", 9), ("employee", rep)], monkeypatch)
+    assert not any("per employee" in m and "quota" not in m for m in worst), worst
 
 
 # --------------------------------------------------------------------- C1704

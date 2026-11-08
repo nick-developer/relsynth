@@ -313,6 +313,8 @@ def _dp_override(a) -> dict:
         o["epsilon"] = float(a.epsilon)
     if getattr(a, "dp_unit", None):
         units = [u.strip() for u in a.dp_unit.split(",") if u.strip()]
+        if not units:
+            raise SpecError("--dp-unit expects one table or a comma-separated list of tables")
         o["unit"] = units if len(units) > 1 else units[0]
     if getattr(a, "dp_measure", None):
         o["measure"] = a.dp_measure
