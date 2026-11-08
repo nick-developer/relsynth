@@ -83,7 +83,7 @@ relsynth run spec.yaml --epsilon 1 --registry registry/ --context partner --rele
 
 What DP mode refuses: `tune`, `verify`, `export-model` and `doctor --apply` refuse a DP spec, because they would turn real data into models or spec values outside the accounting. The ordinary pipeline (`relsynth.run`, `execute`) also refuses a DP spec rather than run it without DP. Run those on a copy of the spec without the `dp` section, for internal use only.
 
-Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, governed runs with several units, and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2. Several units and composite keys are in section 8.
+Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2. Several units and composite keys are in section 8.
 
 ## 6. Utility against ε
 
@@ -178,7 +178,9 @@ or `relsynth run spec.yaml --epsilon 2 --dp-unit DimCustomer,DimEmployee`.
 
 Each unit owns the tables with a path to it that passes through no other unit's table. Each unit has its own accountant, and its statistics read only its own tables, so the run is (ε, δ)-DP for one customer with all their rows and, separately, for one employee with all their rows (Prop. 1703). The budgets do not add up across units, because the units' tables are disjoint. A person who is both a customer and an employee is protected for each role separately, and the statement says so. The plan refuses, before any read, a table that holds data of two units and a link between two units' data (drop it with `drop_columns`).
 
-The statement of such a run has schema `relsynth.dp-statement/2`: `unit` is the list of units and `units` holds each unit's ε, ρ and tables. Each charge names its unit. A governed run (`--registry`) protects the one unit of its source's domain, so a governed run with several units is refused before anything is reserved or read (Prop. 1704). Release each unit in its own governed run until the governance RFC-G1-01 is decided.
+The statement of such a run has schema `relsynth.dp-statement/2`: `unit` is the list of units and `units` holds each unit's ε, ρ and tables. Each charge names its unit. A unit's budget can also be set by hand: `epsilon: {DimCustomer: 2.0, DimEmployee: 1.0}` (or `rho:` the same way) names one value per unit, and each unit's accountant gets its own budget.
+
+A governed run (`--registry`) with several units needs a domain that names them: `unit: {entities: [DimCustomer, DimEmployee]}` in the organisation policy. The ledger keeps one account per unit. The domain's `budget` applies to each unit separately, and the privacy owner can set a different budget for a unit by hand under `unit_budgets` (same fields as `budget`, same δ). A run must protect every unit of the domain that its source holds. It reserves each unit's planned ρ in that unit's account before it reads data, and the whole reservation is refused if any unit's caps would be exceeded. After the fit it settles each account with that unit's spend. The manifest lists the units: `privacy.unit` is the list, each charge names its unit, and `privacy.units` holds each unit's total, statement and ledger entry. The release rules are evaluated once per unit, with that unit's figures, and the release is allowed only if every unit allows it (Prop. 1704). A domain with one unit (`unit.entity`) works as before.
 
 Checks C1700 to C1705 (`pytest -m science tests/science/test_privacy_units_checks.py`) test this. C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time. No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all.
 

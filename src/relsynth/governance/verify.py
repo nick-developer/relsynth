@@ -119,7 +119,7 @@ def verify_registry(reg) -> list[str]:
             elif t == "approval" and "agent" in roles_now.get(st["predicate"]["approver"]["key"], ()):
                 probs.append(f"log entry {seq}: the approval is signed by an agent key; approvals are made by people")
         if t.startswith("ledger."):
-            k = (ent["domain"], ent["run"])
+            k = (ent["domain"], ent.get("unit"), ent["run"])        # one account per unit (Prop. 1704)
             s = ledger.setdefault(k, {})
             if t == "ledger.reserve":
                 s["reserve"] = (float(ent["rho"]), float(ent["delta"]))

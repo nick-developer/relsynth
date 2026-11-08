@@ -71,19 +71,22 @@ def stage2_spec(spec: dict) -> dict:
 
 def synthesize(spec_or_path, *, tables: dict | None = None, override: dict | None = None, before_read=None,
                after_fit=None, out=None, write: bool = True, scale=None, datasets=None, seed=None,
-               evaluate: bool = True, privacy: bool = False, ledger_note: dict | None = None) -> DPResult:
+               evaluate: bool = True, privacy: bool = False, ledger_note: dict | None = None,
+               after_fit_units=None) -> DPResult:
     """A differentially private synthetic database.
 
     before_read(): called after planning and before the first read of real data
     (the ledger's touch); after_fit(rho, delta): called when the statistics are
-    released (the ledger's settle).  tables: real tables already in memory (they
-    count as read)."""
+    released (the ledger's settle); with several units, after_fit_units(per_unit)
+    is called instead when given ({unit: {rho, delta, ...}}: one settle per unit's
+    account).  tables: real tables already in memory (they count as read)."""
     from ..governance.accounting import epsilon_of
     from ..pipeline import execute
     t0 = time.time()
     pl, cfg, spec = plan(spec_or_path, override)
     units = cfg.units or [cfg.unit]
-    accts = {u: Accountant(cfg.rho, cfg.delta * cfg.levels_delta_share) for u in units}
+    # each unit's own budget: the run's, or the one set for that unit (RFC-G1-01)
+    accts = {u: Accountant(cfg.rho_of(u), cfg.delta * cfg.levels_delta_share) for u in units}
     acct = accts[units[0]]
     if before_read is not None:
         before_read()
@@ -102,11 +105,13 @@ def synthesize(spec_or_path, *, tables: dict | None = None, override: dict | Non
                 c.unit = u
             r_u, d_u = a.spent
             per_unit[u] = {"rho": r_u, "delta": d_u, "epsilon": epsilon_of(r_u, cfg.delta - d_u) if r_u > 0 else 0.0,
-                           "tables": pl.owned_by(u)}
+                           "tables": pl.owned_by(u), "planned_rho": cfg.rho_of(u)}
         rho, d0 = max(v["rho"] for v in per_unit.values()), max(v["delta"] for v in per_unit.values())
     else:
         rho, d0 = acct.spent
-    if after_fit is not None:
+    if cfg.multi and after_fit_units is not None:
+        after_fit_units(per_unit)
+    elif after_fit is not None:
         after_fit(rho, d0)
     seed_db = decode(spec, model)
     t_fit = time.time() - t0
@@ -202,37 +207,70 @@ def _statement_multi(spec, cfg: DPConfig, pl, acct, eps: float, per_unit: dict, 
 
 def domain_override(spec: dict, policy, domain: str, override: dict | None = None) -> dict:
     """The DP settings a governed run must use in a privacy domain: the domain's
-    unit and its delta (the delta the domain's epsilon is stated at).  A run's
-    own delta for level selection is charged to the domain, so by default it
-    takes 1 % of the domain's delta, leaving room for many runs (Prop. 801)."""
+    unit (or units) and its delta (the delta the domain's epsilon is stated at).
+    A run's own delta for level selection is charged to the domain, so by
+    default it takes 1 % of the domain's delta, leaving room for many runs
+    (Prop. 801).  In a domain with several units a run protects every unit of
+    the domain that its source holds; each unit is charged to its own account
+    (Prop. 1704)."""
     d = policy.domains.get(domain)
     if d is None:
         raise PrivacyError("source is in no privacy domain of the policy; a governed DP run needs one")
-    unit = (d.get("unit") or {}).get("entity")
+    dom_units = policy.units(domain) if hasattr(policy, "units") else \
+        [u for u in [(d.get("unit") or {}).get("entity")] if u]
     raw = {**(section(spec) or {}), **(override or {})}
-    if isinstance(raw.get("unit"), (list, tuple)):
-        if len(raw["unit"]) > 1:
-            raise PrivacyError("a governed DP run protects the one privacy unit of its domain; a run with several "
-                               "units is not governed yet (RFC-G1-01): run each unit's domain separately, or "
-                               "without --registry for internal use; nothing was read")
-        raw["unit"] = raw["unit"][0]
-    if raw.get("unit") and unit and raw["unit"] != unit:
-        raise PrivacyError(f"the spec protects {raw['unit']!r} but the privacy unit of domain {domain!r} is {unit!r}; "
-                           "nothing was read")
+    want = raw.get("unit")
+    if isinstance(want, (list, tuple)):
+        want = [str(u) for u in want]
+        if len(want) == 1:
+            want = want[0]
+    asked = want if isinstance(want, list) else [want] if want else []
+    if asked and dom_units:
+        extra = [u for u in asked if u not in dom_units]
+        if extra:
+            what = f"privacy unit of domain {domain!r} is {dom_units[0]!r}" if len(dom_units) == 1 else \
+                f"privacy units of domain {domain!r} are {', '.join(map(repr, dom_units))}"
+            raise PrivacyError(f"the spec protects {', '.join(map(repr, extra))} but the {what}; nothing was read")
+    # every unit of the domain that this source holds is protected: a unit left out would have its
+    # tables released as public (Prop. 1704)
+    held = [u for u in dom_units if u in spec.get("tables", {})]
+    missing = [u for u in held if asked and u not in asked]
+    if missing:
+        raise PrivacyError(f"domain {domain!r} protects {', '.join(map(repr, held))}, and this source holds them all; "
+                           f"the spec leaves out {', '.join(map(repr, missing))}: protect every unit of the domain "
+                           "in one run (synthesis.privacy.dp.unit: a list); nothing was read")
     out = dict(override or {})
-    out["unit"] = raw.get("unit") or unit
+    if asked:
+        out["unit"] = want
+    else:
+        pick = held or dom_units
+        out["unit"] = pick if len(pick) > 1 else (pick[0] if pick else None)
     out["delta"] = policy.caps(domain).delta
     out.setdefault("levels_delta_share", raw.get("levels_delta_share", 0.01))
     return out
 
 
 def manifest_privacy(res: DPResult, run_id: str, ledger: dict | None = None) -> dict:
-    """The `privacy` section of a run manifest for a DP run (design sec. 6.2)."""
+    """The `privacy` section of a run manifest for a DP run (design sec. 6.2).  A
+    run with several units lists them: `unit` is the list, each charge names its
+    unit, and `units` holds each unit's total, statement and ledger figures
+    (Prop. 1704); `ledger` is then {unit: figures}."""
     from ..governance.accounting import dec
-    out = {"mode": "dp", "unit": res.config.unit, "adjacency": "add_remove", "_run_id": run_id,
+    out: dict = {"mode": "dp", "unit": res.config.unit, "adjacency": "add_remove", "_run_id": run_id,
            "charges": [c.to_manifest() for c in res.charges],
            "run_total": {"rho": dec(res.rho), "delta": dec(res.delta, 30)},
            "stated": {"epsilon": dec(res.epsilon, 6), "delta": dec(res.config.delta, 30)}}
+    if res.per_unit:
+        out["unit"] = list(res.per_unit)
+        out["units"] = {}
+        for u, v in res.per_unit.items():
+            e = {"run_total": {"rho": dec(v["rho"]), "delta": dec(v["delta"], 30)},
+                 "stated": {"epsilon": dec(v["epsilon"], 6), "delta": dec(res.config.delta, 30)},
+                 "tables": list(v["tables"])}
+            if ledger and u in ledger:
+                e["ledger"] = ledger[u]
+            out["units"][u] = e
+        return out
     if ledger:
         out["ledger"] = ledger
     return out

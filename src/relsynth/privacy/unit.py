@@ -251,7 +251,8 @@ def _shared_groups(unit: Unit, tables) -> dict:
     for t, o in owners(unit, tables).items():
         if t == unit.table or not o.index.has_duplicates:
             continue
-        for _, g in o.groupby(level=0):
+        multi = o[o.index.duplicated(keep=False)]       # rows with one owner link nobody
+        for _, g in multi.groupby(level=0):
             vals = pd.unique(g.to_numpy())
             for v in vals[1:]:
                 a, b = find(vals[0]), find(v)
@@ -260,14 +261,16 @@ def _shared_groups(unit: Unit, tables) -> dict:
     return {x: find(x) for x in parent}
 
 
-def split_people(unit: Unit, tables, ids, sizes) -> list:
-    """Cut the drawn people `ids` into consecutive parts of the given sizes and
-    a last part with the rest.  People who share a row (a row reached along two
-    paths, Prop. 1700) stay in one part, so no control profile holds a row the
-    release was fitted on; groups are placed in the order their first member was
-    drawn.  Without shared rows this is the plain cut.  If the groups leave a
-    part empty (the shared rows join almost everyone), the plain cut is used and
-    a warning says that the parts share rows."""
+def split_people(unit: Unit, tables, ids, sizes, info: dict | None = None) -> list:
+    """Cut the drawn people `ids` into parts of the given sizes and a last part
+    with the rest.  People who share a row (a row reached along two paths,
+    Prop. 1700(d)) stay in one part: groups are placed in the order their first
+    member was drawn, each in the first sized part it fits in whole, else in the
+    last part, so no sized part grows past its size (the control set is never
+    larger than intended).  Without shared rows this is the plain cut.  If the
+    groups leave a sized part empty (the shared rows join almost everyone), the
+    plain cut is used, the parts share rows, and `info["shared_rows_fallback"]`
+    is set to the size of the largest group."""
     ids = np.asarray(ids)
     edges = np.cumsum([0, *sizes])
     plain = [ids[a:b] for a, b in zip(edges[:-1], edges[1:])] + [ids[edges[-1]:]]
@@ -279,11 +282,14 @@ def split_people(unit: Unit, tables, ids, sizes) -> list:
         members.setdefault(grp.get(x, x), []).append(x)
     parts: list = [[] for _ in range(len(sizes) + 1)]
     for g in members.values():
-        k = next((i for i, n in enumerate(sizes) if len(parts[i]) < n), len(sizes))
+        k = next((i for i, n in enumerate(sizes) if len(parts[i]) + len(g) <= n), len(sizes))
         parts[k].extend(g)
     if any(len(p) == 0 and len(q) > 0 for p, q in zip(parts, plain)):
+        big = max(len(m) for m in members.values())
         log.warning("privacy split: rows shared by people join %d of %d people into one group; "
-                    "the parts of the split share rows", max(len(m) for m in members.values()), len(ids))
+                    "the parts of the split share rows", big, len(ids))
+        if info is not None:
+            info["shared_rows_fallback"] = big
         return plain
     return [np.array(p, dtype=ids.dtype) for p in parts]
 

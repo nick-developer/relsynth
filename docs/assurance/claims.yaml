@@ -150,8 +150,8 @@ claims:
     doc: docs/privacy.md
     area: privacy-measured
     quote:
-      - "Control people are never seen (people who share a row, which a row reached along two paths can make, are kept on the same side of the split): the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
-      - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
+      - "Control people are never seen (people who share a row, which a row reached along two paths can make, are kept on the same side of the split; if such groups join almost everyone, the split falls back to a plain cut, and the report warns and judges every context at least review): the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
+      - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601; when shared-row groups leave control smaller, the attack evaluates a random subset of training people of the control's size); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
     status: supported
     evidence:
       - prop: prop:puctrl
@@ -386,7 +386,7 @@ claims:
   - id: DP-13
     doc: docs/dp.md
     area: scope
-    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, governed runs with several units, and values of pii, text and binary columns (placeholders)."
+    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, and values of pii, text and binary columns (placeholders)."
     status: limitation
     evidence:
       - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
@@ -517,12 +517,31 @@ claims:
     area: privacy-formal
     quote:
       - "The statement of such a run has schema relsynth.dp-statement/2: unit is the list of units and units holds each unit's ε, ρ and tables."
-      - "A governed run (--registry) protects the one unit of its source's domain, so a governed run with several units is refused before anything is reserved or read (Prop. 1704)."
+      - "A run must protect every unit of the domain that its source holds."
+      - "It reserves each unit's planned ρ in that unit's account before it reads data, and the whole reservation is refused if any unit's caps would be exceeded."
+      - "The manifest lists the units: privacy.unit is the list, each charge names its unit, and privacy.units holds each unit's total, statement and ledger entry."
+      - "The release rules are evaluated once per unit, with that unit's figures, and the release is allowed only if every unit allows it (Prop. 1704)."
     status: supported
     evidence:
       - prop: prop:multigov
       - test: tests/science/test_privacy_units_checks.py::test_c1704_run_states_one_guarantee_per_unit
       - test: tests/science/test_privacy_units_checks.py::test_c1704_refusals_before_any_read
+      - test: tests/unit/governance/test_multi_unit.py::test_ledger_keeps_one_account_per_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_governed_two_unit_run_reserves_settles_and_records
+      - test: tests/unit/governance/test_multi_unit.py::test_domain_override_accepts_the_domains_units
+
+  - id: DP-27
+    doc: docs/governance/guide.md
+    area: privacy-formal
+    quote:
+      - "A domain whose sources hold several populations (customers and employees) names them all: unit: {entities: [DimCustomer, DimEmployee]}."
+      - "A DP run of such a domain protects every unit its source holds, and is decided once per unit (dp.md, section 8)."
+    status: supported
+    evidence:
+      - prop: prop:multigov
+      - test: tests/unit/governance/test_multi_unit.py::test_policy_names_several_units_and_budgets_per_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
 
   - id: DP-25
     doc: docs/dp.md

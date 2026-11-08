@@ -12,7 +12,7 @@ C1703  two units in one DP run: removing one person of either unit moves each
        leaves the other unit's statistics exactly as they were; each unit's
        accountant stays within its own budget.
 C1704  refusals before any read: a table holding both units' data, a link
-       between the units' data, and a governed run with several units.
+       between the units' data, and a governed run with a unit its domain lacks.
 C1705  the same replay on AdventureWorks DW, customers and employees (needs the
        bench cache; skipped without it).
 
@@ -177,6 +177,16 @@ def test_c1700_composite_links_are_followed_and_paths_union():
     d3["event"] = pd.concat([d3["event"], pd.DataFrame({"cid": [2], "aid": [30], "x": [5.0]})], ignore_index=True)
     tr, ctl = U.split(u2, d3, 0.5, seed=0)
     assert len(tr) == 3 and len(ctl) == 3
+    info: dict = {}
+    U.split_people(u2, d3, np.array([1, 2, 3, 4, 5, 6]), [3], info=info)
+    assert info == {"shared_rows_fallback": 6}
+    # a group never pushes control past its size: it goes on to the next part that holds it
+    d4 = {**d3, "event": d3["event"].iloc[:2]}                    # groups {1, 2}, {3, 4}; 5 and 6 alone
+    ctl, tr = U.split_people(u2, d4, np.array([5, 1, 2, 6, 3, 4]), [3])
+    assert sorted(ctl) == [1, 2, 5] and sorted(tr) == [3, 4, 6]
+    ctl, tr = U.split_people(u2, d4, np.array([5, 6, 1, 2, 3, 4]), [3])
+    assert len(ctl) <= 3 and sorted([*ctl, *tr]) == [1, 2, 3, 4, 5, 6]
+    assert not ({1, 2} & set(ctl) and {1, 2} & set(tr))
 
 
 # --------------------------------------------------------------------- C1701
@@ -213,7 +223,8 @@ def test_c1702_dp_decodes_real_composite_keys():
     per_order = sale.groupby("order_no").size()
     assert per_order.max() > 1 and per_order.max() <= 6
     assert sale.groupby("order_no")["customer_id"].nunique().max() == 1      # an order is one customer's
-    assert not sr.duplicated(["order_no", "line_no", "reason_id"]).any()
+    uk = ["order_no", "line_no", "reason_id"]
+    assert not sr.dropna(subset=uk).duplicated(uk).any()        # a key with a null part never collides (SQL)
     keys = set(zip(sale["order_no"], sale["line_no"]))
     assert all(k in keys for k in zip(sr["order_no"], sr["line_no"]))
 
@@ -348,8 +359,8 @@ def test_c1703_dropped_link_between_units_is_never_read(monkeypatch):
 # --------------------------------------------------------------------- C1704
 def test_c1704_refusals_before_any_read():
     """Prop. 1703 (scope): a table with data of both units, a link between the
-    units' data and a governed run with several units are refused by the
-    plan."""
+    units' data are refused by the plan, and a governed run with a unit its
+    domain does not have before anything is reserved."""
     raw = _raw_spec()
     raw["tables"]["sale"]["columns"]["employee_id"] = {"type": "id"}
     raw["relationships"].append({"child": "sale", "child_key": "employee_id", "parent": "employee",
@@ -377,7 +388,8 @@ def test_c1704_refusals_before_any_read():
             class C:
                 delta = 1e-9
             return C
-    with pytest.raises(PrivacyError, match="RFC-G1-01"):
+    # a governed run may protect only units of its domain (Prop. 1704)
+    with pytest.raises(PrivacyError, match="the spec protects 'employee' but the privacy unit of domain 'd'"):
         dp.domain_override(load_spec(raw2), _Pol, "d")
 
 

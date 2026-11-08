@@ -107,14 +107,18 @@ def cmd_policy(a, out):
         pol = P.load(doc)
         rows = {}
         for d in pol.domains:
-            c = pol.caps(d)
-            rows[d] = c.to_dict()
-            out.line(f"domain {d}: unit {pol.domains[d]['unit']['entity']}, delta {c.delta:g}, lifetime epsilon "
-                     f"{c.lifetime_epsilon:g} = rho {c.lifetime_rho:.6g}"
-                     + (f", per release epsilon {c.per_release_epsilon:g} = rho {c.per_release_rho:.6g}"
-                        if c.per_release_rho else "")
-                     + (f", period {pol.domains[d]['budget']['period']['length']} epsilon {c.period_epsilon:g} "
-                        "(a throttle, not a guarantee)" if c.period else ""))
+            # a domain with several units: one line per unit's account (Prop. 1704)
+            accts = [(u, f"{d}/{u}") for u in pol.units(d)] if pol.multi_unit(d) else [(None, d)]
+            for u, key in accts:
+                c = pol.caps(d, u)
+                rows[key] = c.to_dict()
+                b = ((pol.domains[d].get("unit_budgets") or {}).get(u) if u else None) or pol.domains[d]["budget"]
+                out.line(f"domain {d}: unit {u or pol.units(d)[0]}, delta {c.delta:g}, lifetime epsilon "
+                         f"{c.lifetime_epsilon:g} = rho {c.lifetime_rho:.6g}"
+                         + (f", per release epsilon {c.per_release_epsilon:g} = rho {c.per_release_rho:.6g}"
+                            if c.per_release_rho else "")
+                         + (f", period {b['period']['length']} epsilon {c.period_epsilon:g} "
+                            "(a throttle, not a guarantee)" if c.period else ""))
         for n, c in pol.contexts.items():
             out.line(f"context {n}: {'external, DP required' if c['external'] else 'internal'}; approval on "
                      f"{c['approval']['on_verdicts']} by {c['approval']['approver_roles']}")
@@ -158,7 +162,11 @@ def cmd_show(a, out):
     out.line(f"  source {p['source']['id']} (domain {p['source']['domain'] or '-'}); release to "
              f"{p['release']['context']}/{p['release']['target']}")
     pr = p["privacy"]
-    if pr["mode"] == "dp":
+    if pr["mode"] == "dp" and pr.get("units"):
+        for u, v in pr["units"].items():
+            out.line(f"  DP: unit {u}, epsilon {v['stated']['epsilon']} at delta {v['stated']['delta']}; "
+                     f"cumulative epsilon of {u} in the domain {(v.get('ledger') or {}).get('domain_epsilon', '-')}")
+    elif pr["mode"] == "dp":
         out.line(f"  DP: unit {pr['unit']}, epsilon {pr['stated']['epsilon']} at delta {pr['stated']['delta']}; "
                  f"domain cumulative epsilon {pr['ledger']['domain_epsilon']}")
     else:
@@ -185,20 +193,26 @@ def cmd_budget(a, out):
     for d in doms:
         if d not in pol.domains:
             raise GovernanceError(f"no domain {d!r} in the policy")
-        s = Ledger(reg, pol).summary(d)
-        res[d] = s
-        out.line(f"domain {d}: spent rho {s['rho']:.6g} = epsilon {s['epsilon']:.4g} at delta {s['delta']:g} "
-                 f"(lifetime cap epsilon {s['lifetime_epsilon_cap']:g}, rho {s['lifetime_rho_cap']:.6g}); "
-                 f"remaining rho {s['remaining_rho']:.6g}")
-        if "period_rho" in s:
-            out.line(f"  this period: rho {s['period_rho']:.6g} of {s['period_rho_cap']:.6g} (a throttle)")
-        for run, v in s["runs"].items():
-            out.line(f"  {run}  {v['state']:<8} rho {v['rho']:.6g}  {v['time']}")
-        if s["nondp_releases"]:
-            out.line(f"  {len(s['nondp_releases'])} release(s) of these people were made without DP; every DP "
-                     "statement of this domain says so")
+        for u in (pol.units(d) if pol.multi_unit(d) else [None]):
+            _budget_lines(out, res, Ledger(reg, pol).summary(d, unit=u), d, u)
     out.put(budget=res)
     return EXIT_OK
+
+
+def _budget_lines(out, res, s, d, u):
+    """One account's budget: a domain's, or one unit's in a domain with several (Prop. 1704)."""
+    res[f"{d}/{u}" if u else d] = s
+    d = f"{d}, unit {u}" if u else d
+    out.line(f"domain {d}: spent rho {s['rho']:.6g} = epsilon {s['epsilon']:.4g} at delta {s['delta']:g} "
+             f"(lifetime cap epsilon {s['lifetime_epsilon_cap']:g}, rho {s['lifetime_rho_cap']:.6g}); "
+             f"remaining rho {s['remaining_rho']:.6g}")
+    if "period_rho" in s:
+        out.line(f"  this period: rho {s['period_rho']:.6g} of {s['period_rho_cap']:.6g} (a throttle)")
+    for run, v in s["runs"].items():
+        out.line(f"  {run}  {v['state']:<8} rho {v['rho']:.6g}  {v['time']}")
+    if s["nondp_releases"]:
+        out.line(f"  {len(s['nondp_releases'])} release(s) of these people were made without DP; every DP "
+                 "statement of this domain says so")
 
 
 def cmd_approve(a, out):

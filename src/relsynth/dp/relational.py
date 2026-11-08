@@ -463,7 +463,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
         df = rows[t]
         c_t = caps[t]
         acct = accts[owner_of[t]]
-        rho_t = cfg.rho / n_owned[owner_of[t]]
+        rho_t = cfg.rho_of(owner_of[t]) / n_owned[owner_of[t]]
         n_disc = n_disc_u[owner_of[t]]
         T = spec["tables"][t]
         sh = dict(cfg.split)

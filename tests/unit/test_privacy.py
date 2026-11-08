@@ -257,6 +257,27 @@ def test_assess_report_and_contexts(star, tmp_path):
     assert len(ref["sha256"]) == 64 and ref["verdicts"]["public"] == "blocked"
 
 
+def test_assess_reports_a_split_that_shares_rows(star, monkeypatch):
+    """Prop. 1700(d): when shared rows join almost everyone, the split falls back
+    to the plain cut, and the report says so and every context is at least review."""
+    from relsynth.privacy import unit as U
+    t, s = star
+    ids = list(t["customer"]["customer_id"])
+    monkeypatch.setattr(U, "_shared_groups", lambda unit, tables: {x: ids[0] for x in ids})
+    cfg = {"unit": "customer", "sensitive": ["income"], "quasi_identifiers": ["age", "region"],
+           "attacks": {"record_isolation": {"n_attacks": 50}, "linkage": {"n_attacks": 50},
+                       "inference": {"n_attacks": 50},
+                       "membership": {"shadow": {"n_train": 2, "n_test": 2, "shadow_size": 40,
+                                                 "targets_vulnerable": 1, "targets_random": 1}}}}
+    rep = assess(s, cfg, tables=t, generator=lambda db, seed: {k: v.copy() for k, v in db.items()})
+    assert rep["split_shared_rows"] == len(ids)
+    assert any("share rows with training people" in w for w in rep["warnings"])
+    for ctx in rep["contexts"].values():
+        assert any(c["attack"] == "split_shared_rows" and c["status"] == "review" for c in ctx["checks"])
+        assert ctx["verdict"] != "pass"
+    _validate(json.loads(json.dumps({k: v for k, v in rep.items() if not k.startswith("_")}, default=str)))
+
+
 def test_assess_with_dp_is_not_blocked(star):
     t, s = star
     cfg = {"unit": "customer", "release": {"dp": {"epsilon": 1.0, "delta": 1e-6, "cumulative_epsilon": 2.0}},

@@ -117,6 +117,7 @@
       }
     },
     "warnings": {"type": "array", "items": {"type": "string"}},
+    "split_shared_rows": {"type": "integer", "minimum": 1, "description": "Set when rows shared by several people join so many of them that no split keeps them apart: the size of the largest group. Control and training then share rows, and every context is at least 'review' (Prop. 1700(d))."},
     "timings": {"type": "object", "additionalProperties": {"type": "number"}},
     "pseudonyms": {
       "type": "object", "required": ["method", "salt_id"],
