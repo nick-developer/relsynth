@@ -198,3 +198,15 @@ def test_c1723_guard_leaves_a_hole_around_a_record():
     hole = (j == len(X)) & (d < with_x.nn[len(X)]) & ~in_without
     assert hole.mean() > 0.01                       # positive probability without x
     assert in_with[hole].all()                      # probability 0 with x
+
+
+def test_c1722_scorecard_marks_a_guarded_table(catalogue):
+    """The dcr_ratio item of a guarded table says that it is not independent evidence."""
+    m = _fit(catalogue, near_copy="auto")
+    data = m.sample()
+    rep = m.evaluate(data)
+    items = [i for i in rep.scorecard["items"] if i["metric"] == "dcr_ratio"]
+    guarded = set(data.sample_log.get("near_copies") or {})
+    assert items and guarded
+    for i in items:
+        assert ("near-copy guard" in i.get("note", "")) == (i["area"] in guarded)

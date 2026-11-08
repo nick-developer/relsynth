@@ -93,12 +93,16 @@ def _run(spec, **priv):
     return m, m.sample()
 
 
-def test_off_and_zero_are_the_defaults_of_1x(shop):
-    _, base = _run(shop)
-    _, off = _run(shop, privacy__near_copy="off", marginals__segment_prior_rows=0.0)
-    b, o = dict(base), dict(off)
-    for t in b:
-        pd.testing.assert_frame_equal(b[t], o[t])
+def test_segment_prior_is_wired_and_guard_off_by_default(shop):
+    m, base = _run(shop)
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
+    assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
+    assert "near_copies" not in m.synthesizer.sample_log
+    _, zero = _run(shop, marginals__segment_prior_rows=0.0)
+    b, z = dict(base), dict(zero)
+    assert any(not b[t].equals(z[t]) for t in b)
+    # the same random stream (Prop. 1720 b): same row counts in every table
+    assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
 
 
 def test_guard_redraws_and_logs(shop):

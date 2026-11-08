@@ -4,6 +4,15 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Changed
+
+- **Small dimensions keep a privacy margin by default (gap plan G3).** Each segment marginal of an entity table now gives the table's marginal the weight of 20 rows (`synthesis.marginals.segment_prior_rows`, new, default 20; `0` restores 2.1). A segment of `n` rows keeps the share `n / (n + 20)` of its own distribution, so segments of a few dozen rows no longer reproduce their rows, while segments of thousands of rows move by at most `20 / n` (Props. 1720-1721). On AdventureWorks the `DimProduct` distance-to-closest-record ratio rises from 0.42-0.65 to about 1.0 (limit 0.5) at an unchanged scorecard; Chinook stays at 142/142. Fact tables are not affected. Default output changes for every database with small entity segments, so it is not byte-identical with 2.1. Numbers in `docs/research/small-dimensions.md`.
+
+### Added
+
+- **Near-copy guard** (`synthesis.privacy.near_copy: auto`, off by default; `near_copy_ratio`, `near_copy_rounds`, `near_copy_max_rows`). It redraws entity rows that sit closer to a real row than that row's nearest distinct real neighbour, and exact copies of unique real rows, from their own segment, and counts them in the sample log (`near_copies`). It is a distance rule, not a privacy guarantee: Prop. 1723 shows it is not differentially private for any ε, and the `dcr_ratio` of a guarded table no longer tests the generator on its own ([docs/privacy.md](docs/privacy.md#small-dimensions)).
+- Propositions 1720-1723 (`docs/proofs/sec_g3_smalldims.tex`) with checks C1720-C1723 (`tests/science/test_small_dims_checks.py`).
+
 ## 2.1.0 (2026-11-07)
 ### Security
 

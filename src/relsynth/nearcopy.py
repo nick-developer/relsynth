@@ -39,6 +39,8 @@ are fitted on the real rows only (the synthetic rows do not move the scale).
 """
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy.special import ndtri
@@ -95,7 +97,7 @@ class NearCopyGuard:
 
     def __init__(self, real: pd.DataFrame, tspec: dict, cols: list[str], rho: float = 1.0):
         self.cols, self.rho = list(cols), float(rho)
-        self.enc = []
+        self.enc: list[tuple[str, str, Any]] = []
         for c in self.cols:
             cs, s = tspec["columns"][c], real[c]
             if _is_cat(cs, s):

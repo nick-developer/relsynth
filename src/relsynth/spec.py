@@ -24,7 +24,7 @@ PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 
 # G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
 # segment marginal of an entity table, and the near-copy guard
-SEGMENT_PRIOR_ROWS = 0.0
+SEGMENT_PRIOR_ROWS = 20.0
 NEAR_COPY = "off"
 
 

@@ -110,6 +110,16 @@ Shadow modelling fits the generator `n_train + n_test` times (64 by default) on 
 
 The scorecard's distance-to-closest-record ratio and exact-match rate stay in every run (`relsynth run`) for continuity, but they are **not a privacy check**: calibration showed the distance guard misses even 20% copied records, which DOMIAS catches at 5%. The privacy report lists them in the annex and no verdict depends on them. `benchmarks/privacy/calibrate_guards.py` measures which leaks each one detects: see the T06 report for the numbers. The text model's memorisation guards (vocabulary k-anonymity, no rare n-gram copies) are unchanged.
 
+## Small dimensions
+
+A small dimension, such as a product list of a few hundred rows, is fitted by latent segments of a few dozen rows each. AdventureWorks `DimProduct` (606 rows) gets 24 segments of 6 to 49 rows. Each segment's marginals then follow its own few rows closely, and synthetic rows land closer to real rows than real rows sit to each other: the scorecard's `dcr_ratio` for `DimProduct` was 0.42 to 0.65 at the 2.1 defaults, against a limit of 0.5 (gap plan G3, `roadmap/reports/G3.md`). Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`).
+
+**`marginals.segment_prior_rows`** (default 20) gives the table's marginal the weight of that many rows in each segment's marginal: a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720). Segments of a few dozen rows are pulled toward the table, and segments of thousands of rows hardly move: the change is at most `rows / (n + rows)` in total variation (Prop. 1721). It applies to entity tables only. Each segment still keeps its own copula only when it has at least `copula.min_rows` rows, so small segments already share the pooled copula. Set it to `0` for the 2.1 behaviour.
+
+**`privacy.near_copy`** (default `off`): with `auto`, the engine redraws entity rows that are *near copies* of a real row. A near copy is closer to its nearest real row than that real row is to its own nearest distinct real neighbour, times `privacy.near_copy_ratio` (default 1). An exact copy of a real row that no other real row shares also counts. The guard runs on the tables the distance check covers, up to `privacy.near_copy_max_rows` rows. It uses the distance check's own metric and redraws a near copy from its segment up to `privacy.near_copy_rounds` times. The sample log counts near copies, redraws and kept rows under `near_copies`.
+
+The guard is a rule about distances. It is **not** a privacy guarantee. Its decisions read the real rows. Someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε. Ganev and De Cristofaro (2023) reconstruct records from exactly such holes. After the guard, the `dcr_ratio` of a guarded table no longer tests the generator on its own. The attacks above remain the privacy test, and DP mode remains the guarantee.
+
 ## Limits
 
 - Results hold for the attacks run, not for every possible attack. Only differential privacy gives a guarantee against all attacks; this module measures, it does not protect.
