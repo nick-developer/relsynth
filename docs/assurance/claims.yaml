@@ -376,7 +376,7 @@ claims:
     evidence:
       - test: tests/unit/dp/test_dp.py::test_ordinary_pipeline_refuses_a_dp_spec
       - test: tests/unit/dp/test_dp.py::test_cli_refuses_tune_and_export_model_on_a_dp_spec
-    note: The CLI test covers tune and export-model; verify and doctor --apply are refused by the same guard but have no test of their own.
+      - test: tests/unit/dp/test_dp.py::test_cli_refuses_doctor_apply_on_a_dp_spec
 
   - id: DP-13
     doc: docs/dp.md
@@ -581,14 +581,18 @@ claims:
     area: privacy-measured
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
-      - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
-    status: partial
-    note: The bundle test checks that no password is in it; there is no test that a bundle holds no row. Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103).
+      - "Of a pushed fact, relsynth keeps aggregates, a seeded Bernoulli sample of about `sample_rows` rows (it can be larger, up to every row, and is the whole table when the table has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row). Database servers and DuckDB pick the sample by a seeded hash of each row; a file source on the pandas engine draws it at random while streaming every row, so reordering the file changes it. On the pandas engine, statistics also load and keep whole columns of the fact, which stay in memory with the fitted model."
+    status: supported
+    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103), which is the whole table when the table has at most sample_rows rows (the full-sample test), and the first row per group of order headers and running balances (TableStats.first_rows; the header-split test). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
+      - test: tests/unit/test_security.py::test_bundles_verify_reports_and_profiles_hold_no_rows
       - test: tests/unit/test_security.py::test_bundle_holds_no_password
       - prop: prop:pdsuff
       - prop: prop:hashsample
       - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+      - test: tests/unit/test_pushdown.py::test_header_split_without_unique_key_agrees
+      - test: tests/unit/test_sqlfuncs_stats.py::test_lazy_frame_stats_loads_only_needed_columns
+      - test: tests/unit/test_pushdown.py::test_pandas_file_pushdown_keeps_whole_columns_with_the_model
 
   - id: SEC-11
     doc: docs/security.md
@@ -655,6 +659,16 @@ claims:
       - test: tests/unit/service/test_service_api.py::test_spec_cannot_name_service_files
       - code: src/relsynth/service/policy.py::spec_refusals
     note: The test exercises the save path; the run-time check calls the same spec_refusals function from the worker.
+
+  - id: SEC-17
+    doc: docs/security.md
+    area: security
+    quote: "relsynth never writes to a source (as long as the run's target is not the source itself): it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group"
+    status: partial
+    evidence:
+      - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
+      - prop: prop:pdsuff
+    note: Measured on SQLite only. The test hooks sqlite3's trace callback on every connection to the source, so it sees statements sent through SQLAlchemy and straight on the DBAPI cursor, during introspect, profile, run (pushdown off and on) and verify; all are SELECT, PRAGMAs that only read (schema reflection, the isolation level) or the connection's PRAGMA foreign_keys=ON, and the source file is unchanged. The server dialects share the connector code but their statements (MySQL SHOW and SET time_zone included) are not recorded, hence partial.
 
   # ------------------------------------------------------------------ docs/governance/guide.md (T08)
 
@@ -1153,10 +1167,11 @@ claims:
     doc: README.md
     area: security
     quote: "Bundles and profiles hold aggregates only, and profile --top must be asked for explicitly."
-    status: partial
-    note: As SEC-10, no test shows that a diagnostics bundle holds no rows.
+    status: supported
     evidence:
       - claim: SEC-10
+      - test: tests/unit/test_security.py::test_cli_profile_lists_values_only_with_top
+      - test: tests/unit/test_api.py::test_clone_profile_ping
 
   - id: RM-28
     doc: README.md

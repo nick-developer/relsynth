@@ -13,7 +13,7 @@ Every pull request and every push to `main` runs [`.github/workflows/ci.yml`](..
 | `integration` | live PostgreSQL 16, SQL Server 2022 and Oracle 23 Free in service containers (`tests/integration`) | 4 min |
 | `science (i/4)` | the statistical check suite (C00–C82, C600s, C800s, C900s, C1200s, C1600s) in four shards of about equal run time | about 15 min each |
 | `agents` | the review agent on Chinook, AdventureWorks DW and Contoso with the catalog hidden: the rules backend must reach accuracy 0.95 against the declared catalog with at most one wrong answer not flagged for a person (`python -m bench.agents`); then a small local model under Ollama is measured, not gated ([agents](../agents.md#evaluation)) | 5 min |
-| `build` | sdist and wheel, `twine check`, a clean-environment install with every extra, and a CycloneDX SBOM of that install | 1 min |
+| `build` | sdist and wheel, `twine check`, a clean-environment install with the `[all]` extra (database and file-format connectors; the other extras, such as `spark`, `service`, `dp` or `text-lm`, are not in it), and a CycloneDX SBOM of that install | 1 min |
 | `sign` | dry run of the release signature: the wheel, sdist and SBOM are signed with Sigstore under this workflow's identity and verified (pull requests from this repository and pushes; not on forks) | 1 min |
 
 The suite also runs weekly, so that new dependency releases and new advisories in pip-audit are caught when nothing changed in the repository. Actions are pinned to commit SHAs, and Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) proposes updates weekly. Code scanning runs in two more workflows; see [Security scanning](#security-scanning).
@@ -36,6 +36,8 @@ CodeQL, Semgrep and zizmor findings go to Security > Code scanning (SARIF) and a
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
 | `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
 
+CodeQL's `py/cyclic-import` note is filtered out in the config: its cycles run through imports deferred into functions (optional drivers, heavy modules, callbacks into the engine), which cannot fail at import time. `tests/unit/test_import_graph.py` fails instead when the module-level imports form a cycle, and `py/unsafe-cyclic-import` stays on.
+
 `codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. CodeQL, Semgrep, gitleaks and zizmor run weekly as well; dependency-review runs on pull requests only.
 
 [CodeRabbit](https://coderabbit.ai) reviews every pull request with [`.coderabbit.yaml`](../../.coderabbit.yaml). It comments; it does not approve or merge.
@@ -50,7 +52,7 @@ A `# nosemgrep` comment marks a call site that a project rule flags, but that wa
 
 ## The type ratchet
 
-relsynth 1.0 was written without a type checker; mypy reports 77 errors on it, nearly all attributes set dynamically on model objects. Fixing them at once would touch the engine for no change in behaviour. Instead, `tools/mypy_ratchet.py` fails when mypy reports an error (file, code and message, ignoring line numbers) that the baseline does not hold. A change that fixes errors runs `python tools/mypy_ratchet.py --update` and commits the smaller baseline.
+relsynth 1.0 was written without a type checker; mypy reported 77 errors on it, nearly all attributes set dynamically on model objects (29 remain in 2.2.0). Fixing them at once would touch the engine for no change in behaviour. Instead, `tools/mypy_ratchet.py` fails when mypy reports an error (file, code and message, ignoring line numbers) that the baseline does not hold. A change that fixes errors runs `python tools/mypy_ratchet.py --update` and commits the smaller baseline.
 
 ## Coverage
 

@@ -167,6 +167,12 @@ def _null_rate(S, T, al, be, pi_s, rng, bootstrap=True):
 class Marginal:
     """Posterior draw of one column's marginal, on the codec's model space."""
 
+    # set by the posterior draw: level probabilities (discrete) or quantile knots (continuous)
+    p: np.ndarray
+    p_null: float
+    knots_v: np.ndarray
+    knots_c: np.ndarray
+
     def __init__(self, codec: Codec):
         self.codec = codec
         self.kind = codec.kind

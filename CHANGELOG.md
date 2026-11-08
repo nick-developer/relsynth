@@ -4,6 +4,21 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Fixed
+
+- **`relsynth[spark]` exists.** The spark executor of the partitioned runtime told users to `pip install 'relsynth[spark]'`, but the package had no such extra. It now installs PySpark (3.5.8 or later for CVE-2026-32773, and not 4.0.0, following the Spark security advisories) and cloudpickle; cloudpickle is needed because the fitted model holds closures, which the standard pickle cannot send to Spark tasks. CI runs the spark executor's identity test through the extra.
+- **Dependabot now moves the service image's base digest.** `deploy/docker/Dockerfile.service` kept its digest in a build argument (`ARG PYTHON=...`), which Dependabot's docker updates do not read. The digest is now on a `FROM` line of its own (stage `python-upstream`) and `PYTHON` names that stage by default; `--build-arg PYTHON=<mirror image>` still works for air-gapped builds, and BuildKit then does not pull the upstream image.
+- **The SBOM's scope is stated correctly.** docs/development/ci.md and supply-chain.md said the release SBOM covers a wheel installed with every extra; it covers the `[all]` install (database and file-format connectors), which leaves out `spark`, `service`, `dp`, the text extras and the other optional extras.
+
+### Changed
+
+- **mypy baseline down from 68 to 29 errors** (`tools/mypy-baseline.txt`). The fixes are annotations only (empty containers, and the attributes the engine sets on `Marginal`, `Entity` and `PairRel`); the synthetic output is byte-identical on every fake scenario and the quickstart (`tools/identity_check.py`, 24 runs).
+
+### Tests
+
+- **Three claims now have tests of their own.** A diagnostics bundle, a verify report and default profile output (without `--top`, which lists frequent values and so can show identifier values) hold no customer identifier of the test scenario and at most a few summary values of each continuous column (SEC-10 and README RM-27 move from partial to supported; literals written in the spec itself, such as a filter value, stay in a bundle's masked spec); every statement sent to a SQLite source by introspect, profile, run (pushdown off and on) and verify, through SQLAlchemy or on the DBAPI cursor, is a `SELECT`, a `PRAGMA` that only reads or the connection's `PRAGMA foreign_keys=ON`, and the source file is unchanged (new claim SEC-17, partial as only SQLite is measured; docs/security.md now says relsynth never writes to a source, as long as the run's target is not the source itself, and names the reflection and session statements, and it and SEC-10 now list every kind of pushdown read: aggregates, the seeded sample, which is the whole table for small tables, and the first row per order or running-balance group); `relsynth profile` lists frequent values only with `--top` (RM-27); `doctor --apply` refuses a DP spec (DP-12). The register holds 148 claims.
+- **Module-level import cycles fail a test** (`tests/unit/test_import_graph.py`). The 76 CodeQL `py/cyclic-import` notes all ran through imports deferred into functions, which cannot fail at import time; the note is now filtered out in the CodeQL config, the test guards the cycles that can fail, and `py/unsafe-cyclic-import` stays on.
+
 ## 2.1.0 (2026-11-07)
 ### Security
 

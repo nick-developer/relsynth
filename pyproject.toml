@@ -47,6 +47,8 @@ parquet = ["pyarrow>=17"]
 iceberg = ["pyiceberg[sql-sqlite,pyarrow,pyiceberg-core]>=0.10", "pyarrow>=17"]
 delta = ["deltalake>=1.0", "pyarrow>=17"]
 speed = ["numba>=0.59"]
+# the spark executor of the partitioned runtime (docs/runtime.md); needs Java 17+ on the driver and workers
+spark = ["pyspark>=3.5.8,!=4.0.0", "cloudpickle>=3.0"]   # cloudpickle: the fitted model holds closures
 benchmark = ["xgboost>=2.0"]
 ir = ["jsonschema>=4.18"]                  # JSON Schema check of IR documents (relsynth ir validate)
 # the service: REST API, workers, OIDC, encryption at rest (docs/service/README.md)

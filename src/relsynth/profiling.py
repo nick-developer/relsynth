@@ -247,7 +247,7 @@ def algebraic_rules(df: pd.DataFrame, cols: list[str], dec: dict, rng=None, scre
     # screening rows and screened against every target at once (the same test as
     # holds() on those rows), then confirmed one by one on all rows
     tols = {c: tol_of(c, X[c]) for c in cols}
-    pairs = {}
+    pairs: dict = {}
     if len(cols) >= 3:
         Ys = np.stack([X[c][idx_s] for c in cols], 1)
         Ts = np.stack([tols[c][idx_s] for c in cols], 1)

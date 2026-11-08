@@ -197,7 +197,7 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
                 step(f"write {i + 1}", lambda: write_tables(spec, extra, tgt))
                 written.append(tgt)
         syn.sample_log = first_log
-    extra_b = {"wall_seconds": round(time.time() - t0, 1)}
+    extra_b: dict = {"wall_seconds": round(time.time() - t0, 1)}
     if fit is not None and hasattr(fit, "plan"):
         if fit.notes:
             extra_b["load_notes"] = list(fit.notes)

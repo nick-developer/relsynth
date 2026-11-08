@@ -111,7 +111,7 @@ Without `auth`, a token in `DATABRICKS_TOKEN` is used when that variable is set,
 
 ### How it was tested
 
-No Databricks emulator exists. The tests run the real Databricks SQL connector and dialect against Apache Spark 3.5.3 with Delta Lake 3.2.1, through a small proxy that adapts the protocol: `tests/emulators/databricks` (its README lists what it can and cannot check). Unity Catalog keys, identity columns, `COPY INTO` itself, volume uploads and OAuth sign-in exist only on Databricks and have unit tests of the SQL they send, but no live test yet. Run `pytest -m databricks tests/integration` against a real workspace (set `RELSYNTH_TEST_DATABRICKS_URL` and the usual credential variables) before relying on them.
+No Databricks emulator exists. The tests run the real Databricks SQL connector and dialect against Apache Spark 3.5.8 with Delta Lake 3.2.1, through a small proxy that adapts the protocol: `tests/emulators/databricks` (its README lists what it can and cannot check). Unity Catalog keys, identity columns, `COPY INTO` itself, volume uploads and OAuth sign-in exist only on Databricks and have unit tests of the SQL they send, but no live test yet. Run `pytest -m databricks tests/integration` against a real workspace (set `RELSYNTH_TEST_DATABRICKS_URL` and the usual credential variables) before relying on them.
 
 ### Sources
 

@@ -544,7 +544,7 @@ class Evaluator:
 
     def __init__(self, df: pd.DataFrame, resolve=None):
         self.df, self.n, self.resolve = df, len(df), resolve
-        self._cache = {}
+        self._cache: dict = {}
 
     def column(self, name):
         if name not in self._cache:
