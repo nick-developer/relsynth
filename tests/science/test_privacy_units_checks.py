@@ -218,18 +218,27 @@ def test_c1702_dp_decodes_real_composite_keys():
     pl = R.make_plan(spec, cfg)
     P = pl.tables["sale"]
     assert P.key_seq == {"line_no": "order_no"} and P.key_groups == ["order_no"]
-    model = R.fit(spec, t, cfg, M.Accountant(cfg.rho, cfg.delta), pl)
-    assert "order_no" in model.tables["sale"].group_sizes
-    seed = R.decode(spec, model)
-    sale, sr = seed["sale"], seed["sale_reason"]
-    assert len(sale) > 0 and not sale.duplicated(["order_no", "line_no"]).any()
-    per_order = sale.groupby("order_no").size()
-    assert per_order.max() > 1 and per_order.max() <= 6
-    assert sale.groupby("order_no")["customer_id"].nunique().max() == 1      # an order is one customer's
-    uk = ["order_no", "line_no", "reason_id"]
-    assert not sr.dropna(subset=uk).duplicated(uk).any()        # a key with a null part never collides (SQL)
-    keys = set(zip(sale["order_no"], sale["line_no"]))
-    assert all(k in keys for k in zip(sr["order_no"], sr["line_no"]))
+    # the noise is unseeded (secure): about 1 fit in 80 releases a group-size histogram whose
+    # mass is all at size 1, so "several lines" must hold in one of up to 3 fits (miss ~2e-6);
+    # the structural checks hold in every fit
+    biggest = []
+    for _ in range(3):
+        model = R.fit(spec, t, cfg, M.Accountant(cfg.rho, cfg.delta), pl)
+        assert "order_no" in model.tables["sale"].group_sizes
+        seed = R.decode(spec, model)
+        sale, sr = seed["sale"], seed["sale_reason"]
+        assert len(sale) > 0 and not sale.duplicated(["order_no", "line_no"]).any()
+        per_order = sale.groupby("order_no").size()
+        assert per_order.max() <= 6
+        assert sale.groupby("order_no")["customer_id"].nunique().max() == 1      # an order is one customer's
+        uk = ["order_no", "line_no", "reason_id"]
+        assert not sr.dropna(subset=uk).duplicated(uk).any()        # a key with a null part never collides (SQL)
+        keys = set(zip(sale["order_no"], sale["line_no"]))
+        assert all(k in keys for k in zip(sr["order_no"], sr["line_no"]))
+        biggest.append(int(per_order.max()))
+        if biggest[-1] > 1:
+            break
+    assert biggest[-1] > 1, biggest
 
     # a declared unique key with a null part never collides (as in SQL): those rows stay;
     # a repeated full key is dropped
