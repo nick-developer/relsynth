@@ -543,6 +543,7 @@ claims:
       - "C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time."
       - "No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all."
     status: supported
+    note: C1705 skips when the AdventureWorks bench cache is absent, so PR CI does not run it; C1703 runs in CI on a fixture, and the recorded run is the evidence for AdventureWorks DW.
     evidence:
       - check: C1705
       - check: C1703
