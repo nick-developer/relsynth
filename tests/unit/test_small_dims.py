@@ -131,6 +131,17 @@ def test_segment_prior_is_wired_and_guard_off_by_default(shop):
     assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
 
 
+def test_zero_rows_gives_the_21_output_in_every_mode(shop):
+    """segment_prior_rows: 0 turns shrinkage off in every mode: shape and numeric
+    give the same tables as table mode at 0, which is the 2.1 output."""
+    _, table = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode="table")
+    for mode in ("shape", "numeric"):
+        _, other = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode=mode)
+        assert set(other) == set(table)
+        for t in table:
+            pd.testing.assert_frame_equal(other[t], table[t], check_exact=True)
+
+
 def _catalogue(d):
     """A product list in families (30 models x 10 variants sharing price, cost and line)."""
     rng = np.random.default_rng(12)

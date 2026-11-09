@@ -38,11 +38,13 @@ class SegmentMarginals(TableGenerator):
         min_rows = ccfg["min_rows"]
         # prior weight, in rows, of the table's (or coarse group's) marginal in each
         # segment's marginal (G3, Props. 1720 and 1724): a = max(dirichlet_prior, segment_prior_rows);
-        # marginals.segment_prior_mode picks the columns and the prior (default shape: number
-        # columns only, the parent's shape at the segment's median and spread)
-        a_seg = max(mcfg["dirichlet_prior"], self._segment_prior())
-        kw_seg = {**kw, "dirichlet_a": a_seg}
-        mode = str(mcfg.get("segment_prior_mode", "table"))
+        # marginals.segment_prior_mode picks the columns and the prior (default shape: continuous
+        # columns, i.e. numbers and dates modelled as continuous, the parent's shape at the
+        # segment's median and spread). With segment_prior_rows 0, and in fact tables, every
+        # mode is the 2.1 fit.
+        seg_rows = self._segment_prior()
+        kw_seg = {**kw, "dirichlet_a": max(mcfg["dirichlet_prior"], seg_rows)}
+        mode = str(mcfg.get("segment_prior_mode", "table")) if seg_rows > 0 else "table"
         kw_seg_of = (lambda cd: kw_seg if mode == "table" else
                      (kw if cd.kind == "discrete" else {**kw_seg, "shift_prior": mode == "shape"}))
         if parent:

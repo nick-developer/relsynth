@@ -75,7 +75,8 @@ def test_c1720_segment_shrinkage_weight_and_stream():
 def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
     """Prop. 1724: in shape mode the predictive median of a continuous segment is
     its sample median (b), every value lies in the table's range or on the
-    segment's own values (c), and the random stream does not change (d)."""
+    segment's own values (c), the random stream does not change (d), and the
+    predictive moves by at most a / (n + a) whatever the two priors (e)."""
     rng = np.random.default_rng(7)
     vals = rng.gamma(2.0, size=4000)
     cc = Codec("y", {"type": "float"}, pd.Series(vals))
@@ -99,6 +100,17 @@ def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
         Marginal.fit(cc, own, s0, prior=top, dirichlet_a=40.0, shift_prior=True)
         Marginal.fit(cc, own, s1, prior=top, dirichlet_a=40.0)
         assert s0.random() == s1.random()
+    # (e) with a prior that changes with a, the predictive moves by at most a / (n + a)
+    for _ in range(500):
+        V = int(rng.integers(2, 30))
+        e = rng.dirichlet(np.ones(V) * 0.3)
+        G, H = rng.dirichlet(np.ones(V) * 0.3), rng.dirichlet(np.ones(V) * 0.3)
+        n = int(rng.integers(1, 5000))
+        a0 = float(rng.uniform(0.0, 5.0))
+        a = float(rng.uniform(a0, 200.0))
+        wa, w0 = n / (n + a), n / (n + a0)
+        tv = 0.5 * np.abs(wa * e + (1 - wa) * G - (w0 * e + (1 - w0) * H)).sum()
+        assert tv <= a / (n + a) + 1e-12
 
 
 # --------------------------------------------------------------------- C1721
