@@ -2028,7 +2028,7 @@ claims:
   - id: PRV-21
     doc: docs/privacy.md
     area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the prior (Prop. 1720)"
+    quote: "a segment of `n` rows keeps the share `n / (n + a)` of its own distribution, where `a` is the larger of `rows` and `marginals.dirichlet_prior` (0.25 by default), and takes the rest from the prior (Prop. 1720)"
     status: supported
     evidence:
       - prop: prop:segshrink
@@ -2037,7 +2037,7 @@ claims:
   - id: PRV-22
     doc: docs/privacy.md
     area: statistics
-    quote: "the change is at most `rows / (n + rows)` in total variation (Props. 1721 and 1724), in every mode"
+    quote: "the change is at most `a / (n + a)` in total variation (Props. 1721 and 1724), in every mode"
     status: supported
     evidence:
       - prop: prop:seglarge

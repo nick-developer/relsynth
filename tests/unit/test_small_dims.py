@@ -140,6 +140,11 @@ def test_zero_rows_gives_the_21_output_in_every_mode(shop):
         assert set(other) == set(table)
         for t in table:
             pd.testing.assert_frame_equal(other[t], table[t], check_exact=True)
+    # a positive value below dirichlet_prior (0.25) gives the weight a = max(0.25, rows) = 0.25,
+    # so table mode at 0.01 rows is the 2.1 fit too
+    _, small = _run(shop, marginals__segment_prior_rows=0.01, marginals__segment_prior_mode="table")
+    for t in table:
+        pd.testing.assert_frame_equal(small[t], table[t], check_exact=True)
 
 
 def _catalogue(d):

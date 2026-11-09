@@ -112,6 +112,17 @@ def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
         wa, w0 = n / (n + a), n / (n + a0)
         tv = 0.5 * np.abs(wa * e + (1 - wa) * G - (w0 * e + (1 - w0) * H)).sum()
         assert tv <= a / (n + a) + 1e-12
+    # a positive segment_prior_rows below dirichlet_prior: the weight is a = dirichlet_prior,
+    # and the bound is a / (n + a), not rows / (n + rows)
+    dp, rows = 0.25, 0.01
+    a = max(dp, rows)
+    for _ in range(200):
+        V = int(rng.integers(2, 30))
+        e, G, H = (rng.dirichlet(np.ones(V) * 0.3) for _ in range(3))
+        n = int(rng.integers(1, 50))
+        wa, w0 = n / (n + a), n / (n + dp)
+        tv = 0.5 * np.abs(wa * e + (1 - wa) * G - (w0 * e + (1 - w0) * H)).sum()
+        assert tv <= a / (n + a) + 1e-12
 
 
 # --------------------------------------------------------------------- C1721
