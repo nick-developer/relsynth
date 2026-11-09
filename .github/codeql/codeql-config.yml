@@ -12,3 +12,12 @@ paths-ignore:
   - bench/data
   - "**/__pycache__"
   - docs/proofs
+
+# py/cyclic-import counts imports deferred into functions, which relsynth uses on
+# purpose (optional drivers, heavy modules, callbacks into the engine) and which
+# cannot fail at import time.  tests/unit/test_import_graph.py keeps the
+# module-level import graph acyclic instead; py/unsafe-cyclic-import (a cycle
+# whose module-level use can fail) stays on.
+query-filters:
+  - exclude:
+      id: py/cyclic-import

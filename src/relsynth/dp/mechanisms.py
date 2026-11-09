@@ -52,12 +52,15 @@ class Charge:
     mechanism: str
     rho: float
     delta: float = 0.0
+    unit: str | None = None   # set in runs with several privacy units: whose budget this spends
 
     def to_manifest(self) -> dict:
         from ..governance.accounting import dec
         out = {"stage": self.stage, "mechanism": self.mechanism, "kind": "zcdp", "rho": dec(self.rho)}
         if self.delta:
             out["delta"] = dec(self.delta, 30)
+        if self.unit:
+            out["unit"] = self.unit
         return out
 
 

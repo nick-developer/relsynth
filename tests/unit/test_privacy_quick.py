@@ -126,7 +126,8 @@ def test_proxy_spec_keeps_lookup_tables_and_drops_unrelated(shop):
     # a table mentioned in a kept table's settings (a lookup) is kept
     s2 = {**s, "tables": {**s["tables"], "customer": {**s["tables"]["customer"],
                                                          "x_lookup": {"table": "playlist"}}}}
-    assert "playlist" in Q.proxy_spec(s2, U.resolve(s2, "customer"))["tables"]
+    # the unit comes from the valid spec: resolving goes through the IR (since G1), which refuses x_lookup
+    assert "playlist" in Q.proxy_spec(s2, u)["tables"]
 
 
 def _person_shop():

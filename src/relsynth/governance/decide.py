@@ -201,8 +201,34 @@ def opa_version() -> str | None:
         return None
 
 
-def decide(inp: dict, engine: str = "builtin", modules=()) -> dict:
-    """The release decision: the engine's rules, then the invariants on top."""
+def unit_views(inp: dict) -> list[dict]:
+    """A DP run in a domain with several privacy units (`unit.entities`) is decided
+    once per unit it protects, with the same rules (Prop. 1704): in each view the
+    domain has that one unit, the manifest's privacy section is that unit's
+    (`privacy.units`), and the ledger figures are that unit's account
+    (`ledger.units`).  A unit the domain does not have keeps the domain's list,
+    so the rules refuse it.  Any other input is its own single view."""
+    pol, m = inp.get("policy") or {}, inp.get("manifest") or {}
+    dom = _get(m, "source", "domain")
+    dom_units = _get(pol, "domains", dom, "unit", "entities")
+    if _get(m, "privacy", "mode") != "dp" or not isinstance(dom_units, list):
+        return [inp]
+    pv = m["privacy"]
+    names = pv.get("unit") if isinstance(pv.get("unit"), list) else [pv.get("unit")]
+    views = []
+    for u in names:
+        dom_doc = dict(_get(pol, "domains", dom))
+        dom_doc["unit"] = {"entity": u if u in dom_units else "/".join(map(str, dom_units))}
+        pol_u = {**pol, "domains": {**pol["domains"], dom: dom_doc}}
+        priv_u = {**{k: v for k, v in pv.items() if k != "units"}, **((pv.get("units") or {}).get(u) or {}),
+                  "unit": u, "charges": [c for c in pv.get("charges") or [] if c.get("unit", u) == u]}
+        led_u = _get(inp, "ledger", "units", u)
+        led_u = dict(led_u) if led_u is not None else {"domain": dom}
+        views.append({**inp, "policy": pol_u, "manifest": {**m, "privacy": priv_u}, "ledger": led_u})
+    return views or [inp]
+
+
+def _decide_one(inp: dict, engine: str, modules) -> dict:
     if engine == "opa":
         res = opa(inp, modules)
     elif engine == "builtin":
@@ -212,6 +238,21 @@ def decide(inp: dict, engine: str = "builtin", modules=()) -> dict:
     inv = invariants(inp)
     if inv:
         res = dict(res, allow=False, reasons=sorted(set(res["reasons"]) | set(inv)))
+    return res
+
+
+def decide(inp: dict, engine: str = "builtin", modules=()) -> dict:
+    """The release decision: the engine's rules, then the invariants on top; with
+    several units, every unit's view must allow (`unit_views`)."""
+    views = unit_views(inp)
+    parts = [_decide_one(v, engine, modules) for v in views]
+    res = parts[0]
+    if len(parts) > 1:
+        res = {"allow": all(p["allow"] for p in parts),
+               "approval_required": any(p["approval_required"] for p in parts),
+               "reasons": sorted(set().union(*(p["reasons"] for p in parts)))}
+        if any(p.get("engine_error") for p in parts):
+            res["engine_error"] = True
     from .._version import __version__
     res["engine"] = (opa_version() or "opa") if engine == "opa" else f"relsynth-builtin {__version__}"
     return res

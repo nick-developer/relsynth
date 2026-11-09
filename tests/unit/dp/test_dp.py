@@ -56,6 +56,26 @@ def test_epsilon_is_converted_at_the_delta_left_after_level_selection(star):
     assert r.rho == 0.05 and dp.epsilon_of_config(r) == pytest.approx(epsilon_of(0.05, 0.5e-9))
 
 
+def test_config_takes_one_unit_or_a_list(star):
+    _, s = star
+    c = dp.parse(_spec(s))
+    assert c.unit == "customer" and c.units == ["customer"] and not c.multi
+    for bad, msg in ((["customer", "customer"], "distinct"), (["customer", "nobody"], "not a table"), ([], "name")):
+        with pytest.raises(PrivacyError, match=msg):
+            dp.parse(_spec(s, unit=bad))
+
+
+def test_cli_reads_several_units_separated_by_commas():
+    from types import SimpleNamespace
+
+    from relsynth.cli import _dp_override
+    assert _dp_override(SimpleNamespace(epsilon=1, dp_unit="A, B", dp_measure=None))["unit"] == ["A", "B"]
+    assert _dp_override(SimpleNamespace(epsilon=None, dp_unit="A", dp_measure=None)) == {"unit": "A"}
+    from relsynth.spec import SpecError
+    with pytest.raises(SpecError, match="--dp-unit"):
+        _dp_override(SimpleNamespace(epsilon=None, dp_unit=" , ", dp_measure=None))
+
+
 def test_plan_traces_ownership_and_public_tables(star):
     _, s = star
     pl, cfg, _ = dp.plan(_spec(s))
@@ -93,6 +113,27 @@ def test_end_to_end_statement_and_charges(star):
     assert pv["mode"] == "dp" and pv["_run_id"] == "01RUN" and pv["charges"][0]["kind"] == "zcdp"
 
 
+def test_a_child_table_keeps_a_row_when_every_parent_draws_none(star, monkeypatch):
+    """A noisy degree histogram of a small table can give every parent degree 0.  The
+    seed keeps one row, as a root table keeps max(n_hat, 1), so stage 2 has a table to fit."""
+    pytest.importorskip("opendp")
+    import numpy as np
+
+    import relsynth.dp.relational as R
+    real_fit = R.fit
+
+    def fit(*a, **kw):
+        model = real_fit(*a, **kw)
+        model.tables["customer"].marg["#sales"].draw = lambda z, rng: np.zeros(len(z))
+        return model
+    seeds = []
+    monkeypatch.setattr(dp, "fit", fit)
+    monkeypatch.setattr(dp, "decode", lambda spec, model: seeds.append(R.decode(spec, model)) or seeds[-1])
+    t, s = star
+    dp.synthesize(_spec(s, epsilon=1.0), tables=t, write=False, evaluate=False)
+    assert len(seeds[0]["sales"]) == 1 and len(seeds[0]["customer"]) > 1
+
+
 def test_domain_override_uses_the_domains_unit_and_delta(star):
     _, s = star
 
@@ -123,3 +164,24 @@ def test_cli_refuses_tune_and_export_model_on_a_dp_spec(star, tmp_path, capsys):
     for argv in (["tune", str(p)], ["export-model", str(p)], ["verify", str(p)]):
         assert main(argv) == 2, argv
         assert "outside the DP accounting" in capsys.readouterr().err
+
+
+def test_cli_refuses_doctor_apply_on_a_dp_spec(star_sqlite, tmp_path, capsys):
+    """doctor --apply would write spec values learnt from real data, so a DP spec is refused
+    (docs/dp.md, "What DP mode refuses"); without --apply the report is still written."""
+    import yaml
+
+    import relsynth as rs
+    from relsynth.cli import main
+    from relsynth.diagnostics import write_bundle
+    spec, _ = star_sqlite
+    write_bundle(dict(rs.run(spec, write=False, privacy=False).bundle), tmp_path / "bundle.json")
+    raw = copy.deepcopy(spec)
+    raw.setdefault("synthesis", {}).setdefault("privacy", {})["dp"] = {"unit": "customer", "epsilon": 1, "delta": 1e-9}
+    p = tmp_path / "spec.yaml"
+    p.write_text(yaml.safe_dump(raw, sort_keys=False))
+    out = tmp_path / "fixed.yaml"
+    assert main(["doctor", str(tmp_path / "bundle.json"), "--spec", str(p), "--apply", "--out", str(out)]) == 2
+    assert "doctor --apply reads real data outside the DP accounting" in capsys.readouterr().err
+    assert not out.exists()
+    assert main(["doctor", str(tmp_path / "bundle.json"), "--spec", str(p)]) == 0

@@ -101,6 +101,7 @@ pip install "relsynth[service-otel]"       # + OpenTelemetry traces and metrics 
 pip install "relsynth[documents]"          # document databases: MongoDB, Cosmos DB, DynamoDB (relsynth docs)
 pip install "relsynth[couchbase]"          # + Couchbase
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
+pip install "relsynth[spark]"              # optional: the spark executor of the partitioned runtime (PySpark; needs Java)
 pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
 pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
 ```
@@ -209,7 +210,7 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
-| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.3 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
+| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.8 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
 | Microsoft Fabric | yes | yes (ODBC parameter arrays, or Parquet and `COPY INTO`) | yes | SQL Server 2022 stand-in ([warehouses](docs/warehouses.md)) |
 | Snowflake | yes | yes (multi-row insert, or Parquet staged and `COPY INTO`) | yes | fakesnow 0.12 stand-in ([warehouses](docs/warehouses.md)) |
 | Google BigQuery | yes | yes (load jobs from Parquet, or DML `INSERT`) | yes | not yet: unit tests only ([warehouses](docs/warehouses.md)) |
@@ -246,7 +247,7 @@ The target's structure comes in three forms:
 | `relsynth tune spec.yaml [--rounds 3]` | Run, doctor and apply, repeated |
 | `relsynth autotune spec.yaml` | Tune engine settings toward your objectives over several seeds; constraints report for what cannot be met |
 | `relsynth settings show\|explain\|validate\|template\|reference` | The engine settings, their ranges and the checks each affects |
-| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `mst`/`aim` release two-way marginals |
+| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE[,TABLE]] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `--dp-unit` takes several units separated by commas; `mst`/`aim` release two-way marginals |
 | `relsynth privacy spec.yaml` | Attack a release per person; privacy report per release context |
 | `relsynth extend spec.yaml --until DATE [--step day]` | Continue the event histories of a synthetic dataset step by step |
 | `relsynth generators list\|show`, `relsynth compute` | Installed generator plug-ins; GPUs found and the device each generator would get |

@@ -110,7 +110,7 @@ class Names:
     def __init__(self, tables: dict[str, list[str]]):
         docs = [set(tokens(t)) for t in tables] + [set(tokens(c)) for cols in tables.values() for c in cols]
         n = max(len(docs), 1)
-        df = {}
+        df: dict = {}
         for d in docs:
             for w in d:
                 df[w] = df.get(w, 0) + 1
@@ -347,7 +347,7 @@ def forest_depth(pointer, key) -> int:
     if not is_forest(pointer, key):
         return 0
     nxt = {c: p for c, p in zip(key, pointer)}
-    depth = {}
+    depth: dict = {}
 
     def d(x):
         path = []
@@ -372,7 +372,7 @@ def is_forest(pointer, key) -> bool:
     roots = sum(1 for c, p in nxt.items() if p is None or p == c or p not in nxt)
     if roots == 0:
         return False
-    state = {}
+    state: dict = {}
     for start in nxt:
         path = []
         x = start

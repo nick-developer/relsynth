@@ -82,7 +82,19 @@ def _policy_input(reg, pol: Policy, st: dict, mdigest: str, context: str, target
            "privacy_checks": [], "quality": {}, "approvals": [],
            "request": {"action": "release", "context": context, "target": target, "package": list(package)}}
     dom = p["source"].get("domain")
-    if p["privacy"]["mode"] == "dp" and dom in pol.domains:
+    if p["privacy"]["mode"] == "dp" and dom in pol.domains and pol.multi_unit(dom):
+        # one account per unit (Prop. 1704): the ledger figures of each unit the run protects
+        led = Ledger(reg, pol)
+        per = p["privacy"].get("units") or {}
+        names = p["privacy"]["unit"] if isinstance(p["privacy"]["unit"], list) else [p["privacy"]["unit"]]
+        inp["ledger"] = {"domain": dom, "units": {}}
+        for u in names:
+            if u not in pol.units(dom):
+                continue        # decide refuses a unit the domain does not have
+            tot = (per.get(u) or p["privacy"])["run_total"]
+            rho = float(tot["rho"]) if run_rho is None else run_rho
+            inp["ledger"]["units"][u] = led.policy_input(dom, rho, run=p["run"]["id"], unit=u)
+    elif p["privacy"]["mode"] == "dp" and dom in pol.domains:
         rho = float(p["privacy"]["run_total"]["rho"]) if run_rho is None else run_rho
         inp["ledger"] = Ledger(reg, pol).policy_input(dom, rho, run=p["run"]["id"])
     for r in p.get("reports", []):

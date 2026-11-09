@@ -190,7 +190,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
 | `--privacy-config` PRIVACY_CONFIG |  |  | privacy.yaml for --assess (its contexts are replaced by the policy's) |
 | `--dp` |  |  | differentially private run (the spec's synthesis.privacy.dp) |
 | `--epsilon` EPSILON |  |  | this run's epsilon (implies --dp; overrides the spec) |
-| `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's) |
+| `--dp-unit` DP_UNIT |  |  | the privacy unit table (default: the spec's, or the policy domain's); several units separated by commas, each with the full budget (tables disjoint) |
 | `--dp-measure` copula\|mst\|aim |  |  | what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals chosen by MST or AIM (docs/dp.md sec. 7) |
 | `--dp-statement` DP_STATEMENT |  |  | also write the DP statement (JSON) here |
 

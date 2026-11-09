@@ -92,25 +92,40 @@ class Policy:
                                   f"(defined: {', '.join(self.contexts)})")
         return self.contexts[name]
 
+    def units(self, domain: str) -> list[str]:
+        """The privacy units of a domain: unit.entity, or unit.entities for a domain
+        whose sources hold several populations (customers and employees)."""
+        u = self.domains[domain].get("unit") or {}
+        return list(u["entities"]) if "entities" in u else [u["entity"]] if u.get("entity") else []
+
+    def multi_unit(self, domain: str) -> bool:
+        return "entities" in (self.domains[domain].get("unit") or {})
+
     def domain_of_source(self, source_id: str | None) -> str | None:
         for name, d in self.domains.items():
             if any(s["id"] == source_id for s in d["sources"]):
                 return name
         return None
 
-    def caps(self, domain: str) -> Caps:
-        if domain not in self._caps:
-            b = self.domains[domain]["budget"]
+    def caps(self, domain: str, unit: str | None = None) -> Caps:
+        """The caps of a domain, or of one unit of a domain with several units: the
+        unit's own budget when the privacy owner set one in unit_budgets, else
+        the domain's budget, which then applies to each unit separately."""
+        key = (domain, unit)
+        if key not in self._caps:
+            d = self.domains[domain]
+            b = (d.get("unit_budgets") or {}).get(unit) if unit else None
+            b = b or d["budget"]
             delta = float(b["delta"])
             le = float(b["lifetime"]["epsilon"])
             pr = b.get("per_release", {}).get("epsilon_max")
             pe = b.get("period")
-            self._caps[domain] = Caps(
+            self._caps[key] = Caps(
                 delta=delta, lifetime_epsilon=le, lifetime_rho=rho_of(le, delta),
                 per_release_epsilon=float(pr) if pr else None, per_release_rho=rho_of(float(pr), delta) if pr else None,
                 period=duration(pe["length"]) if pe else None, period_epsilon=float(pe["epsilon"]) if pe else None,
                 period_rho=rho_of(float(pe["epsilon"]), delta) if pe else None)
-        return self._caps[domain]
+        return self._caps[key]
 
     @property
     def engine(self) -> str:
@@ -124,6 +139,9 @@ def _budget_missing(doc: dict) -> list[str]:
         if not b.get("delta") or not (b.get("lifetime") or {}).get("epsilon"):
             out.append(f"the organisation must set epsilon and delta for domain {name!r} (budget.delta and "
                        f"budget.lifetime.epsilon); relsynth has no default budget; {GUIDANCE}")
+        for u, ub in ((d or {}).get("unit_budgets") or {}).items():
+            if not (ub or {}).get("delta") or not ((ub or {}).get("lifetime") or {}).get("epsilon"):
+                out.append(f"domain {name!r}: unit_budgets.{u} needs delta and lifetime.epsilon")
     return out
 
 
@@ -147,13 +165,25 @@ def validate(doc: dict) -> list[str]:
             probs.append(f"context {name!r} is external: dp_required must be true (DP is required outside the "
                          "organisation)")
     for name, d in (doc.get("domains") or {}).items():
-        b = d["budget"]
-        pr = (b.get("per_release") or {}).get("epsilon_max")
-        if pr and pr > b["lifetime"]["epsilon"]:
-            probs.append(f"domain {name!r}: per_release.epsilon_max {pr} is above the lifetime cap")
-        pe = b.get("period")
-        if pe and pe["epsilon"] > b["lifetime"]["epsilon"]:
-            probs.append(f"domain {name!r}: the period cap {pe['epsilon']} is above the lifetime cap")
+        units = (d.get("unit") or {}).get("entities") or [(d.get("unit") or {}).get("entity")]
+        ubs = d.get("unit_budgets") or {}
+        for u in ubs:
+            if u not in units:
+                probs.append(f"domain {name!r}: unit_budgets names {u!r}, which is not a unit of the domain")
+        if ubs and "entities" not in (d.get("unit") or {}):
+            probs.append(f"domain {name!r}: unit_budgets needs unit.entities (a domain with several units)")
+        if len(set(units)) != len(units):
+            probs.append(f"domain {name!r}: unit.entities repeats a unit")
+        deltas = {float(b["delta"]) for b in [d["budget"], *ubs.values()]}
+        if len(deltas) > 1:
+            probs.append(f"domain {name!r}: every unit budget must use the domain's delta (one run states one delta)")
+        for where, b in [("", d["budget"])] + [(f" unit {u}", ub) for u, ub in ubs.items()]:
+            pr = (b.get("per_release") or {}).get("epsilon_max")
+            if pr and pr > b["lifetime"]["epsilon"]:
+                probs.append(f"domain {name!r}{where}: per_release.epsilon_max {pr} is above the lifetime cap")
+            pe = b.get("period")
+            if pe and pe["epsilon"] > b["lifetime"]["epsilon"]:
+                probs.append(f"domain {name!r}{where}: the period cap {pe['epsilon']} is above the lifetime cap")
     seen: dict = {}
     for name, d in (doc.get("domains") or {}).items():
         for s in d["sources"]:
