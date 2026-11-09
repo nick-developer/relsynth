@@ -125,6 +125,25 @@ def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
         assert tv <= a / (n + a) + 1e-12
 
 
+
+def test_c1724_positive_tail_trim_can_leave_the_interval():
+    """Prop. 1724(c) is stated for tail_trim 0: a positive tail_trim extrapolates the
+    end knots on purpose, so a value can fall below both the table's lowest knot and
+    the segment's lowest value (here the first trimmed quantile sits on that bound and
+    the next one above it)."""
+    rng = np.random.default_rng(7)
+    vals = rng.uniform(0, 10, size=4000)
+    cc = Codec("y", {"type": "float"}, pd.Series(vals))
+    top = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
+    lo = top.knots_v[0]
+    own = np.r_[np.full(6, lo), np.linspace(lo + 1, lo + 4, 20)]
+    u = np.linspace(0, 1, 20001)[1:-1]
+    kw = dict(prior=top, dirichlet_a=40.0, grid=16, bootstrap=False, shift_prior=True)
+    trimmed = Marginal.fit(cc, own, rng, tail_trim=0.1, **kw).from_uniform(u)
+    assert trimmed.min() < min(lo, own.min())
+    plain = Marginal.fit(cc, own, rng, **kw).from_uniform(u)
+    assert plain.min() >= min(lo, own.min()) - 1e-12
+
 # --------------------------------------------------------------------- C1721
 def test_c1721_large_segments_move_by_at_most_a_over_n():
     """Prop. 1721: TV(p_a, p_a0) = n (a - a0) / ((n + a)(n + a0)) TV(e, p0) <= (a - a0) / (n + a)."""
