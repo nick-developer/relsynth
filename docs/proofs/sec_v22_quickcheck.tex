@@ -1,0 +1,65 @@
+%=====================================================================
+\section{The quick privacy check of every run (v2.2)}\label{sec:quickcheck}
+% numbered from 1740 (gap plan ranges: G1 1700s, G3 1720s, G5 1740s, G2 1760s, G4 1780s)
+\newcounter{savedpropqc}\setcounter{savedpropqc}{\value{proposition}}
+\setcounter{proposition}{1739}
+\texttt{relsynth run} ends with a membership test on a proxy release (\texttt{relsynth/privacy/quick.py}, guide
+\texttt{docs/privacy.md}). With the setting of Section~\ref{sec:v25}, a uniform sample of at most $m$ people
+(default 3000) is split uniformly at random into non-members $C$ and reference people $R$ ($\max(20,\lfloor n/3\rfloor)$
+each) and members $A$ (the rest); the proxy is $Y=G(D'[A])$, where $D'$ keeps the unit, its owned tables and the
+tables they reach through foreign keys or name in their settings. Two scores are computed for every $x\in A\cup C$
+from its profile $\pi(x)$, the profiles of $Y$ and those of $R$ only: DOMIAS, $\log\hat p_Y(\pi(x))-\log\hat p_R(\pi(x))$
+with kernel densities in a principal-component embedding \cite{vanbreugel2023}, and the closest-distance score
+$\log d(\pi(x),\pi(R))-\log d(\pi(x),\pi(Y))$ with the Gower distance to the closest profile. Each attack reports the AUC of
+its scores (members against non-members) with a DeLong interval, and TPR at FPR $0.01$ with the threshold set on one
+half of the scores and counted on the other (Prop.~\ref{prop:putpr}). A check \emph{fails} when the lower end of its
+interval exceeds its limit (AUC $0.65$, TPR $0.10$: the internal context), is \emph{reviewed} when the limit lies inside
+the interval, and \emph{passes} otherwise.
+
+\begin{proposition}[Null validity of the quick check]\label{prop:qcnull}
+Suppose the proxy ignores individuals: given $R$ and the set $A\cup C$, the law of $Y$ does not depend on which of
+these people are in $A$. Then, conditionally on $(Y,R,A\cup C)$, the member labels are a uniformly random assignment of
+$|A|$ labels to the fixed scores of $A\cup C$, for both attacks. Hence the AUC of each attack has expectation exactly
+$\tfrac12$ (ties counted $\tfrac12$), its law is the null law of the Mann--Whitney statistic, and the probability that
+an AUC check fails tends to at most $(1-\gamma)/2$ at confidence $\gamma$ as $|A|,|C|\to\infty$ with a fixed ratio,
+for any limit $\ge\tfrac12$. The TPR at the calibrated threshold has the same expectation as the FPR there, at most
+$0.01+1/(N_0+1)$ for continuous scores, with $N_0$ the non-member scores of the calibration half.
+\end{proposition}
+\begin{proof}
+The split is a uniform random partition of the sample, so given $R$ and $A\cup C$ every assignment of $|A|$ of these
+people to $A$ is equally likely. Under the hypothesis $Y$ is independent of that assignment given $(R,A\cup C)$, so the
+assignment stays uniform given $(Y,R,A\cup C)$. Both scores are functions of $\pi(x)$, $Y$ and $R$ only (the profile map
+does not depend on the split, Prop.~\ref{prop:puprofile}), so they are fixed given $(Y,R,A\cup C)$, and the labels fall on
+them uniformly at random. The AUC is the Mann--Whitney statistic divided by $|A||C|$; under a uniformly random labelling
+of fixed scores its mean is $\tfrac12$ (each member--non-member pair is ordered either way with equal probability, ties
+counting $\tfrac12$), which is its null law. The DeLong standard error is consistent for this statistic, so the interval
+covers $\tfrac12$ with probability tending to $\gamma$, and a fail, which needs the lower end above a limit
+$\ge\tfrac12$, needs the interval to lie entirely above $\tfrac12$: probability at most $(1-\gamma)/2$ in the limit.
+For TPR: the calibration and test halves are drawn uniformly within each class, so a test member and a test
+non-member have the same law given $(Y,R,A\cup C)$ and the threshold; hence $E[\mathrm{TPR}(\tau)]=E[\mathrm{FPR}(\tau)]$,
+which Prop.~\ref{prop:putpr} bounds by $0.01+1/(N_0+1)$. Within a class the counts are hypergeometric rather than
+binomial (sampling without replacement from fixed scores); the hypergeometric law has the binomial's mean and a
+smaller variance, so the Clopper--Pearson interval is not exact here but errs on the wide side in the check C1740.
+\end{proof}
+\noindent The hypothesis is the null of ``no membership signal'', not a property of relsynth's generator: the
+proposition bounds false alarms, it does not say that a pass means no risk. Check C1740 draws a release of 1000 people
+from the same population but outside the database, 30 times: each attack's AUC interval covered $\tfrac12$ in at least
+85\% of the runs and at most 10\% of runs failed any of the four checks; a release that copies its members failed in
+every run (closest-distance AUC $1.00$, while DOMIAS gave $0.63$ on average, which is why both attacks run), and one that copies 20\%
+of them failed in at least 80\% of runs through the closest-distance TPR at FPR $0.01$ (about $0.21$).
+
+\begin{proposition}[The check does not change the release]\label{prop:qcident}
+Let the written synthetic files of \texttt{relsynth run} be $F(S,D,s)$ for spec $S$, source $D$ and seed $s$ without the
+check. With the check, the files are $F(S,D,s)$ byte for byte, and the check's result is a function of $(S,D,s)$.
+\end{proposition}
+\begin{proof}
+The pipeline writes every synthetic dataset (all posterior draws) before the check starts, so the files are computed
+exactly as without it. The check does not modify $D$: the person subsets are new frames
+(Prop.~\ref{prop:pusplit}), profiles are computed on copies, and the proxy is a new fitted model on a deep copy of
+the spec. Its randomness comes only from a generator seeded with $(s,7417)$ and integers drawn from it for the proxy
+fit and the attacks, and the engine is deterministic given its seed (checked by \texttt{goal:deterministic} in the
+benchmark), so the result is a function of $(S,D,s)$. The CI job \texttt{identity} runs \texttt{relsynth run} on every
+fake scenario with and without the change and compares the SHA-256 of every file; C1741 compares the tables in memory
+and the check's AUC on two runs.
+\end{proof}
+\setcounter{proposition}{\value{savedpropqc}}

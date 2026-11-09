@@ -83,7 +83,7 @@ suites that apply to the dataset (`--suites`, default all of them):
 |---|---|---|
 | `scorecard` | relsynth's 1.0 scorecard and the domain checks | `scorecard:<area>\|<metric>`, `domain:<check>` |
 | `quality` | the calibrated 2.0 quality report (`relsynth.assess_quality`, targets from `benchmarks/targets.yaml`) | `quality:<check id>` (pass under the calibrated limit), `area:<fidelity\|utility\|integrity>` (the area rule of Prop. 111, exact), `goal:<metric>`, `metric:<value>` |
-| `privacy` | `relsynth.privacy.assess` on a release fitted to 40% of the people, the split drawn with the run's seed (settings in `benchmarks/privacy.yaml`) | `privacy:<criterion>\|<attack>` (passes when the upper 95% bound is under the internal context's limit; per-person results are information only), `goal:privacy_internal`, `goal:privacy_<external context>_needs_dp`, `metric:privacy_<attack>` |
+| `privacy` | `relsynth.privacy.assess` on a release fitted to 40% of the people, the split drawn with the run's seed (settings in `benchmarks/privacy.yaml`) | `privacy:<criterion>\|<attack>` (passes when the upper 95% bound is under the internal context's limit; per-person results are information only), `goal:privacy_internal`, `goal:privacy_<external context>_needs_dp`, `metric:privacy_<attack>`; ACS and Berka run it once more per other built-in generator (`cart`, `independent`; `privacy` in `bench/datasets.py` lists them), with the generator in each id: `privacy[cart]:<criterion>\|<attack>`, `goal:privacy_internal[cart]`, `metric:privacy_<attack>_cart` |
 | `repro` | the same seed synthesised twice | `goal:deterministic` (identical files, exact) |
 
 Every run also records its generation cost from the operating system
@@ -110,6 +110,8 @@ something:
 | Attribute leakage of sensitive items | `privacy:inference\|attribute_*` (members minus non-members) | ACS (income decile, disabilities), Berka (loan status, balance), Contoso (spend) |
 | Membership inference | `privacy:membership\|domias_*` everywhere privacy runs; shadow-model LiRA and classifier where a fit is cheap | ACS (shadows), Berka, Contoso |
 | External releases need DP | `goal:privacy_partner_needs_dp`, `goal:privacy_public_needs_dp` (blocked without DP) | ACS, Berka, Contoso |
+| Every built-in generator attacked (G5) | `privacy[cart]:*`, `privacy[independent]:*` and their goals | ACS, Berka |
+| Quick check of every run (G5) | `metric:privacy_check_domias_auc`, `metric:privacy_check_closest_distance_auc` (tracked for R4) from the bundle's `privacy_check` | every database with a privacy unit of at least 50 people whose tables are loaded whole (not pushdown) |
 | Detecting a leak at all | positive controls C600–C606 in the statistical suite | `fake` |
 | Generation cost | `metric:cpu_seconds_per_million_rows`, `metric:peak_memory_mib` (notes only) | all |
 
@@ -203,8 +205,9 @@ the records to `bench/history/`, builds `bench/baseline.json` and pushes a
 signed-off commit to that branch; it never writes to main. A push made with the
 workflow's token starts no other workflow, so push a further commit (or re-run
 CI) before the pull request is reviewed. The current baseline was built this way
-from bench run 41168715489 (seven parallel jobs on GitHub-hosted runners, about
-2 h 40 min wall time, Contoso the longest job).
+from the records of bench run 42454454955 (GitHub-hosted runners, one job per
+database), reused by run 42474261019 with `records_from_run`; it adds the
+`privacy[cart]` and `privacy[independent]` rows of ACS and Berka.
 
 The pull request says why the numbers moved. A baseline built on a different
 machine from the previous one says so in its description.

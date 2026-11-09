@@ -18,7 +18,9 @@ memory carries into the next).  Each writes {"checks": [...], "seconds": ...}:
   (`privacy:<criterion>|<attack>`, passing when the upper confidence bound is
   under the limit), the verdict of each context (`goal:privacy_<context>`,
   where an external context must stay blocked without DP) and the attack values
-  as tracked values.
+  as tracked values.  Datasets that list privacy.generators are attacked once
+  more per listed generator (G5), with the generator in each id
+  (`privacy[cart]:<criterion>|<attack>`).
 
 Only aggregates leave this module: values, limits, verdicts.
 """
@@ -133,36 +135,42 @@ def run_quality(name, location, syn_dir, overrides) -> list[dict]:
     return quality_checks(rep)
 
 
-def privacy_checks(rep: dict) -> list[dict]:
+def privacy_checks(rep: dict, generator: str | None = None) -> list[dict]:
+    """Harness checks of one privacy report.  generator: a generator other than
+    the spec's own, whose checks carry it in brackets (`privacy[cart]:...`,
+    `goal:privacy_internal[cart]`, `metric:privacy_..._cart`) so that the default
+    generator's ids stay those of earlier baselines."""
+    tag = f"[{generator}]" if generator else ""
+    sfx = f"_{generator}" if generator else ""
     out = []
     for ctx_name, ctx in rep["contexts"].items():
         if ctx_name == "internal":
             for c in ctx["checks"]:
-                cid = f"privacy:{c['criterion']}|{c['attack']}"
+                cid = f"privacy{tag}:{c['criterion']}|{c['attack']}"
                 ci = c.get("ci") or [None, None]
                 out.append({"id": cid, "pass": None if c["status"] == "info" else c["status"] == "pass",
                             "value": _r(c["value"]), "limit": _r(c["limit"]), "upper": _r(ci[1]),
                             "status": c["status"]})
-                out.append(tracked(f"privacy_{c['criterion']}_{c['attack']}", c["value"], "lower"))
-            out.append({"id": "goal:privacy_internal", "pass": ctx["verdict"] != "fail", "value": None,
+                out.append(tracked(f"privacy_{c['criterion']}_{c['attack']}{sfx}", c["value"], "lower"))
+            out.append({"id": f"goal:privacy_internal{tag}", "pass": ctx["verdict"] != "fail", "value": None,
                         "status": ctx["verdict"]})
         elif ctx.get("external"):
             # without DP an external release must be refused (user decision of 2026-10-26)
             dp = (rep.get("release") or {}).get("dp")
-            out.append({"id": f"goal:privacy_{ctx_name}_needs_dp", "pass": bool(dp) or ctx["verdict"] == "blocked",
+            out.append({"id": f"goal:privacy_{ctx_name}_needs_dp{tag}", "pass": bool(dp) or ctx["verdict"] == "blocked",
                         "value": None, "status": ctx["verdict"]})
     g = (rep.get("guards") or {}).get("dcr")
     if isinstance(g, dict):
         for k, v in g.items():
             if isinstance(v, (int, float)) and not isinstance(v, bool):
-                out.append(tracked(f"privacy_guard_dcr_{k}", v, "lower" if "match" in k else "higher"))
+                out.append(tracked(f"privacy_guard_dcr_{k}{sfx}", v, "lower" if "match" in k else "higher"))
     return out
 
 
-def run_privacy(name, location, seed, overrides) -> list[dict]:
-    from relsynth.privacy import assess
+def privacy_config(name: str) -> dict:
+    """benchmarks/privacy.yaml: the defaults merged with the database's block,
+    and the database's shadow-model setting from bench/datasets.py."""
     from .datasets import DATASETS
-    spec = load_spec(name, location, overrides)
     allc = yaml.safe_load(PRIVACY.read_text(encoding="utf-8")) or {}
     cfg = json.loads(json.dumps({**(allc.get("defaults") or {})}))
     for k, v in (allc.get(name) or {}).items():
@@ -174,8 +182,34 @@ def run_privacy(name, location, seed, overrides) -> list[dict]:
     shadow = DATASETS[name].privacy.get("shadow")
     if shadow is not None:
         cfg["attacks"]["membership"]["shadow"] = {**cfg["attacks"]["membership"].get("shadow", {}), **shadow}
-    rep = assess(spec, cfg, seed=int(seed))
-    return privacy_checks(rep)
+    return cfg
+
+
+def with_generator(spec: dict, generator: str) -> dict:
+    """The spec with every table on one generator plug-in (G5: each built-in
+    generator is attacked with the same settings)."""
+    import copy
+    s = copy.deepcopy(spec)
+    s.setdefault("synthesis", {})["generator"] = generator
+    for ts in s["tables"].values():
+        ts.pop("generator", None)
+    return s
+
+
+def run_privacy(name, location, seed, overrides) -> list[dict]:
+    """The attacks on the spec's own generator, then on every other generator
+    the dataset lists under privacy.generators (cart, independent)."""
+    from relsynth.privacy import assess
+    from .datasets import DATASETS
+    spec = load_spec(name, location, overrides)
+    own = (spec.get("synthesis") or {}).get("generator", "copula")
+    # a table override (--set tables.x.generator=...) means the first run is not the default generator's
+    mixed = any((ts or {}).get("generator") not in (None, own) for ts in spec["tables"].values())
+    out = []
+    for g in [None, *[g for g in DATASETS[name].privacy.get("generators", ()) if mixed or g != own]]:
+        rep = assess(spec if g is None else with_generator(spec, g), privacy_config(name), seed=int(seed))
+        out += privacy_checks(rep, g)
+    return out
 
 
 def main(argv=None) -> int:

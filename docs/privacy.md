@@ -19,6 +19,35 @@ rs.privacy.reference("privacy_report/privacy_report.json")   # embedded by the q
 
 The report never shows a real key. People are named by keyed hashes (`P-3f2a…`, HMAC-SHA256 of the key) under a secret 256-bit salt that is not the split seed: the seed is in the report, so it must not unlock the labels. `relsynth privacy` writes the salt to `privacy_report/privacy_salt.key` (owner-only), or reuses `--salt-file` so labels stay stable between runs; the report carries only the salt's id. In the API, `assess(..., salt=...)` takes it and `rep["_salt"]` returns it; neither the JSON nor the pages ever contain it. Keep the salt apart from the report.
 
+## The quick check in every `relsynth run`
+
+`relsynth run` (and `relsynth.run`) ends with a quick membership check and prints one line:
+
+```
+privacy check: PASS - membership DOMIAS AUC 0.520 [0.494, 0.545], distance AUC 0.524 [0.499, 0.549] vs limit 0.65 (internal), proxy fitted on 1000 of 104990 people in Customer, 37.6 s
+```
+
+The written release was fitted on every person, so it has nobody unseen to compare with. The check samples up to `synthesis.evaluation.privacy_check_people` people (3000) of the privacy unit, fits the same generator with the same settings on a third of them (the members), and asks whether two attacks tell those members from a third the proxy never saw, using the last third as the attacker's population data:
+
+- **DOMIAS** (van Breugel et al. 2023): the synthetic density over the population density at the person;
+- **closest distance**: the Gower distance from the person to the closest population person over the distance to the closest synthetic profile. It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.63 and this attack 1.00, means over 10 seeds; 20% copies fail through its TPR at FPR 1%).
+
+Each attack's AUC and its TPR at FPR 1% are judged like the internal context of the full report (limits 0.65 and 0.10, on the upper end of the 95% interval): `pass`, `review` (the limit lies inside the interval) or `fail`. When one attack cannot run (DOMIAS needs profiles that vary), the verdict covers the other one only; the result names the missing attack under `incomplete` and the printed line says so. Under a release that ignores who is a member, a false `fail` is rare (Prop. 1740, check C1740), and the check never changes the synthetic files: it runs after every file is written, on its own seeded random stream (Prop. 1741, check C1741; the CI job `identity` compares the files byte for byte).
+
+The proxy keeps only the unit, the tables it owns and the tables those reach through foreign keys or name in their settings (lookups); other tables are not fitted. The result goes into the diagnostics bundle (`privacy_check`) and the `--json` output; it does not change the exit code or the scorecard.
+
+| Status | Meaning |
+|---|---|
+| `pass`, `review`, `fail` | as above; for `review` and `fail` run `relsynth privacy` for the full assessment |
+| `skipped` | no privacy unit was found (name one in `privacy.yaml` for `relsynth privacy`), fewer than 50 people, or the unit's tables were fitted from in-database statistics and a sample (pushdown), which does not hold every row of a person |
+| `error` | the proxy could not be fitted; the bundle names the exception type (never its message, which could hold a credential) and the run is unaffected |
+
+Runs in differential privacy mode (`--dp`, `--epsilon`) have no quick check: their guarantee is the DP statement, and `relsynth privacy` audits it.
+
+Turn it off with `relsynth run --no-privacy-check`, `rs.run(..., privacy_check=False)` or `synthesis.evaluation.privacy_check: false`. It costs about one fit of a third of the sampled people plus the shared tables they reach, measured with `bench/specs` on 4 cores: Chinook 4 s, Berka 22 s, ACS 33 s and Contoso V2 100k 38 s, where its shared tables (100k currency rates among them) dominate the fit; `benchmarks/privacy/quick_check_evidence.py` reproduces the numbers.
+
+This is a smoke test, not an assessment: two attacks, the internal context only, a proxy fitted on fewer people than the release. It never replaces `relsynth privacy` (every criterion, shadow models, every context), and a release outside the organisation still needs differential privacy.
+
 ## What is measured
 
 | EDPB 02/2026 criterion | Question | Attack | Result |

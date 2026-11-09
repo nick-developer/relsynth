@@ -728,6 +728,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `evaluation.thresholds` | `{}` | Fixed tolerances of the scorecard by name (ks, tvd, auc, ...; see the table below). Each limit is the larger of its tolerance and its sampling limit. |
 | `evaluation.assoc_max_rows` | `20000` | Rows sampled for the association metrics. |
 | `evaluation.discriminator_rows` | `5000` | Rows sampled per side for the discriminator AUC. |
+| `evaluation.privacy_check` | `True` | Run the quick membership privacy check after `relsynth run` / `relsynth.run` (a proxy release fitted on a third of a sample of people; docs/privacy.md). Never changes the synthetic data. |
+| `evaluation.privacy_check_people` | `3000` | People sampled for the quick privacy check (a third fit the proxy, a third are unseen, a third are the attacker's reference). |
 | `per_table` | `{}` | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
 | `settings_file` | `None` | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
 | `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle. |

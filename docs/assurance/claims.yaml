@@ -245,6 +245,89 @@ claims:
       - prop: prop:pudp
       - source: "NIST SP 800-226, sec. 1.1 (DP protects against all attacks, including with auxiliary data)"
 
+  # ------------------------------------------------------------------ docs/privacy.md: the quick check of every run (G5)
+
+  - id: PRV-40
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "The written release was fitted on every person, so it has nobody unseen to compare with."
+      - "The check samples up to synthesis.evaluation.privacy_check_people people (3000) of the privacy unit, fits the same generator with the same settings on a third of them (the members), and asks whether two attacks tell those members from a third the proxy never saw, using the last third as the attacker's population data:"
+    status: supported
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_passes_a_fitted_release_and_reports_counts
+
+  - id: PRV-41
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.63 and this attack 1.00, means over 10 seeds; 20% copies fail through its TPR at FPR 1%)."
+    status: supported
+    evidence:
+      - check: C1740
+      - report: docs/assurance/evidence/G5/quick_check.json
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_catches_a_copying_generator
+
+  - id: PRV-42
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "Under a release that ignores who is a member, a false fail is rare (Prop. 1740, check C1740), and the check never changes the synthetic files: it runs after every file is written, on its own seeded random stream (Prop. 1741, check C1741; the CI job identity compares the files byte for byte)."
+    status: supported
+    note: Prop. 1740 bounds false alarms under the null of no membership signal; it does not say that a pass means no risk.
+    evidence:
+      - prop: prop:qcnull
+      - check: C1740
+      - prop: prop:qcident
+      - check: C1741
+      - test: tests/unit/test_privacy_quick.py::test_run_adds_the_check_and_keeps_the_release_identical
+      - report: .github/workflows/ci.yml
+      - code: tools/identity_check.py::main
+
+  - id: PRV-43
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| skipped | no privacy unit was found (name one in privacy.yaml for relsynth privacy), fewer than 50 people, or the unit's tables were fitted from in-database statistics and a sample (pushdown), which does not hold every row of a person |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_skips_without_unit_too_few_people_or_pushdown
+
+  - id: PRV-45
+    doc: docs/privacy.md
+    area: security
+    quote:
+      - "| error | the proxy could not be fitted; the bundle names the exception type (never its message, which could hold a credential) and the run is unaffected |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_reports_generator_errors_without_raising
+      - test: tests/unit/test_privacy_quick.py::test_pipeline_error_keeps_only_the_exception_type
+
+  - id: PRV-46
+    doc: docs/privacy.md
+    area: scope
+    quote: "Runs in differential privacy mode (--dp, --epsilon) have no quick check: their guarantee is the DP statement, and relsynth privacy audits it."
+    status: limitation
+    evidence:
+      - code: src/relsynth/cli.py::cmd_run_dp
+      - test: tests/unit/test_privacy_quick.py::test_dp_specs_never_reach_the_quick_check
+
+  - id: PRV-47
+    doc: docs/privacy.md
+    area: scope
+    quote: "When one attack cannot run (DOMIAS needs profiles that vary), the verdict covers the other one only; the result names the missing attack under `incomplete` and the printed line says so."
+    status: limitation
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - test: tests/unit/test_privacy_quick.py::test_an_attack_that_cannot_run_is_named
+
+  - id: PRV-44
+    doc: docs/privacy.md
+    area: scope
+    quote: "It never replaces relsynth privacy (every criterion, shadow models, every context), and a release outside the organisation still needs differential privacy."
+    status: limitation
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - prop: prop:pudp
+
   # ------------------------------------------------------------------ docs/dp.md (formal privacy, T07)
 
   - id: DP-01
@@ -1905,6 +1988,26 @@ claims:
       - report: .github/workflows/security.yml
       - report: .github/dependabot.yml
       - test: tests/unit/test_scanner_fixes.py::test_urlopen_refuses_other_schemes
+
+  - id: RM-60
+    doc: README.md
+    area: privacy-measured
+    quote: "By default relsynth run ends with a quick membership check on a proxy release and prints one privacy line (except in DP mode, or when it is skipped: see docs/privacy.md); it never changes the synthetic files."
+    status: supported
+    evidence:
+      - claim: PRV-42
+      - test: tests/unit/test_privacy_quick.py::test_run_adds_the_check_and_keeps_the_release_identical
+
+  - id: RM-61
+    doc: README.md
+    area: privacy-measured
+    quote: "| Quick privacy check (v2.2) | 1740–1741 false alarms of the quick check are bounded under no membership signal; the check leaves the release unchanged |"
+    status: supported
+    evidence:
+      - prop: prop:qcnull
+      - prop: prop:qcident
+      - check: C1740
+      - check: C1741
 
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
