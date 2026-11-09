@@ -2012,6 +2012,156 @@ claims:
       - check: C1740
       - check: C1741
 
+  # ------------------------------------------------------------------ docs/privacy.md, small dimensions (G3)
+
+  - id: PRV-20
+    doc: docs/privacy.md
+    area: statistics
+    quote: "Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`)."
+    status: supported
+    evidence:
+      - prop: prop:segshrink
+      - prop: prop:ncguard
+      - report: docs/research/small-dimensions.md
+
+  - id: PRV-21
+    doc: docs/privacy.md
+    area: statistics
+    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720)"
+    status: supported
+    evidence:
+      - prop: prop:segshrink
+      - check: C1720
+
+  - id: PRV-22
+    doc: docs/privacy.md
+    area: statistics
+    quote: "the change is at most `rows / (n + rows)` in total variation (Prop. 1721)"
+    status: supported
+    evidence:
+      - prop: prop:seglarge
+      - check: C1721
+
+  - id: PRV-23
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "An exact copy of a real row that no other real row shares in the guard's encoding also counts (two real rows that differ only in rare levels share an encoding, so a copy of either is not flagged as exact)."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_guard_rules
+      - check: C1722
+
+  - id: PRV-24
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "It is not a privacy guarantee."
+    status: limitation
+    evidence:
+      - prop: prop:ncnotdp
+      - check: C1723
+
+  - id: PRV-25
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "If the guard redraws until it succeeds, someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε, given a generator that can produce rows near the record."
+    status: limitation
+    evidence:
+      - prop: prop:ncnotdp
+      - check: C1723
+
+  - id: PRV-32
+    doc: docs/privacy.md
+    area: scope
+    quote: "The guard runs on the tables the distance check covers, up to `privacy.near_copy_max_rows` rows (default 20,000; the search compares every synthetic row with every distinct real row, so its time grows with the square of the rows), and only when at least three of the distance columns are sampled by the table's model: a table with only two sampled distance columns and the rest computed (derived or aggregated columns) is not guarded."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_settings_are_registered_with_defaults
+      - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
+      - test: tests/unit/test_small_dims.py::test_guard_skips_small_or_narrow_tables
+      - code: src/relsynth/engine.py::Synthesizer::_near_copy_guard
+
+  - id: PRV-33
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "Rows that are redrawn later to satisfy an attribute rule or a unique key, and rows whose values change through them (a group effect), are checked again in the same rejection, for at most `privacy.near_copy_rounds` rounds and half of `rules.max_rejection_rounds`, so the remaining rounds enforce the rules alone."
+      - "`kept` counts the near copies among the rows emitted, recounted after the rule redraws and group effects of the last step."
+      - "For an entity with a version history (SCD type 2), it is counted before the versions are added."
+      - "A row redrawn only for being a near copy that ends the rule budget breaking a rule gets its earlier rule-valid row back, hidden draws included, and the log counts those rows (`restored_after_rules`)."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_rule_redraws_are_guarded_and_kept_counts_emitted_rows
+      - test: tests/unit/test_small_dims.py::test_kept_counts_emitted_rows_after_a_group_effect
+      - test: tests/unit/test_small_dims.py::test_near_copy_rejection_respects_both_round_limits
+      - test: tests/unit/test_small_dims.py::test_group_effect_rows_join_the_near_copy_recheck
+      - test: tests/unit/test_small_dims.py::test_near_copy_redraw_never_trades_a_valid_row_for_a_violation
+      - test: tests/unit/test_small_dims.py::test_restored_rows_keep_their_hidden_draws
+      - code: src/relsynth/engine.py::Synthesizer::_finish
+
+  - id: PRV-34
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "It uses the distance check's encoding (rank scores of numbers and one-hot codes of the 20 most frequent levels of each categorical, so two rows that differ only in rarer levels look the same to it), but fits the ranks and levels on the real rows only, while the scorecard fits them on real and synthetic rows together; the two distances, and so the guard's decisions and the scorecard's ratio, can differ."
+    status: supported
+    evidence:
+      - test: tests/unit/test_small_dims.py::test_guard_encoding_is_fitted_on_real_rows_only
+      - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
+      - code: src/relsynth/evaluate.py
+
+  - id: PRV-30
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "Prop. 1723 does not cover that case, and the guard gives no differential-privacy guarantee of its own."
+    status: limitation
+    evidence:
+      - prop: prop:ncnotdp
+
+  - id: PRV-31
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "In DP mode (`synthesis.privacy.dp`) the engine is fitted on the DP seed database, so the guard measures distances to seed rows and is post-processing of the DP release: the DP guarantee stands, and the guard adds nothing to it."
+    status: supported
+    evidence:
+      - prop: prop:post
+      - test: tests/unit/dp/test_dp.py::test_stage2_keeps_the_near_copy_guard_on_the_seed
+      - code: src/relsynth/dp/__init__.py::synthesize
+
+  - id: PRV-26
+    doc: docs/privacy.md
+    area: scope
+    quote: "Ganev and De Cristofaro (2023) reconstruct records from exactly such holes."
+    status: scope
+    evidence:
+      - source: "G. Ganev, E. De Cristofaro, On the inadequacy of similarity-based privacy metrics, arXiv:2312.05114 (2023)"
+
+  - id: PRV-27
+    doc: docs/privacy.md
+    area: privacy-formal
+    quote: "The attacks above remain the privacy test, and DP mode remains the guarantee."
+    status: supported
+    evidence:
+      - claim: PRV-01
+      - prop: prop:ncnotdp
+
+  - id: PRV-28
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "the scorecard's `dcr_ratio` for `DimProduct` was 0.40 to 0.65 at the 2.1 defaults, against a limit of 0.5"
+    status: supported
+    note: 0.40 is seed 12 and 0.64 seed 11 of the autotune report (CI runners); 0.42-0.65 are the full fits and paired draws of the small-dimensions report.
+    evidence:
+      - report: docs/research/small-dimensions.md
+      - report: docs/research/autotune-adventureworks.md
+
+  - id: PRV-29
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "After the guard, the `dcr_ratio` of a guarded table no longer tests the generator on its own."
+    status: limitation
+    evidence:
+      - test: tests/science/test_small_dims_checks.py::test_c1722_scorecard_marks_a_guarded_table
+
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
   - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
