@@ -10,7 +10,7 @@ relsynth reads production databases and writes data that is meant to be shared. 
 | Source data | Synthetic rows that copy real ones; rare values that identify a person; bundles that carry rows | Bayesian synthesis (no row is copied), memorisation guards for text, privacy attacks per person ([privacy.md](privacy.md)), optional differential privacy ([dp.md](dp.md)), and aggregate-only bundles |
 | The machine running relsynth | A malicious spec (YAML tricks, rule expressions, regexes) or a malicious file name | Safe YAML loading, a sandboxed expression language, regex vetting, and confined paths |
 | The target database | SQL injection through table or column names or values | SQLAlchemy Core with quoted identifiers and bound values everywhere |
-| The source database | Accidental writes, or heavy load | Only `SELECT` is issued against a source; pushdown statistics are plain aggregate queries |
+| The source database | Accidental writes, or heavy load | relsynth never writes to a source (as long as the run's target is not the source itself): it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group |
 
 ## Credentials
 
@@ -76,7 +76,7 @@ Tests: `test_spec_cannot_name_service_files` (6 forms).
   - Diagnostics bundles, `verify` reports and `profile` output hold counts and statistics, not rows.
   - Frequent values appear only with an explicit `profile --top N`.
   - Counts below 5 are suppressed in what a bundle reports about category levels.
-- **Pushdown.** Rows of pushed facts never leave the source as a whole; only aggregates and a sample do.
+- **Pushdown.** Of a pushed fact, relsynth keeps aggregates, a seeded Bernoulli sample of about `sample_rows` rows (it can be larger, up to every row, and is the whole table when the table has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row). Database servers and DuckDB pick the sample by a seeded hash of each row; a file source on the pandas engine draws it at random while streaming every row, so reordering the file changes it. On the pandas engine, statistics also load and keep whole columns of the fact, which stay in memory with the fitted model.
 - **Differential privacy is optional.** Without it, protection is measured, not guaranteed: `relsynth privacy` attacks the release per person ([privacy.md](privacy.md)). With `--epsilon`, a run has a user-level (ε, δ) guarantee ([dp.md](dp.md)). Under the governance policy, a release outside the organisation is refused without DP ([governance/guide.md](governance/guide.md)). Use `mode: copy` only for tables that are public anyway.
 
 ## Supply chain and code

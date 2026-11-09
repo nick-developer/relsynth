@@ -164,3 +164,24 @@ def test_cli_refuses_tune_and_export_model_on_a_dp_spec(star, tmp_path, capsys):
     for argv in (["tune", str(p)], ["export-model", str(p)], ["verify", str(p)]):
         assert main(argv) == 2, argv
         assert "outside the DP accounting" in capsys.readouterr().err
+
+
+def test_cli_refuses_doctor_apply_on_a_dp_spec(star_sqlite, tmp_path, capsys):
+    """doctor --apply would write spec values learnt from real data, so a DP spec is refused
+    (docs/dp.md, "What DP mode refuses"); without --apply the report is still written."""
+    import yaml
+
+    import relsynth as rs
+    from relsynth.cli import main
+    from relsynth.diagnostics import write_bundle
+    spec, _ = star_sqlite
+    write_bundle(dict(rs.run(spec, write=False, privacy=False).bundle), tmp_path / "bundle.json")
+    raw = copy.deepcopy(spec)
+    raw.setdefault("synthesis", {}).setdefault("privacy", {})["dp"] = {"unit": "customer", "epsilon": 1, "delta": 1e-9}
+    p = tmp_path / "spec.yaml"
+    p.write_text(yaml.safe_dump(raw, sort_keys=False))
+    out = tmp_path / "fixed.yaml"
+    assert main(["doctor", str(tmp_path / "bundle.json"), "--spec", str(p), "--apply", "--out", str(out)]) == 2
+    assert "doctor --apply reads real data outside the DP accounting" in capsys.readouterr().err
+    assert not out.exists()
+    assert main(["doctor", str(tmp_path / "bundle.json"), "--spec", str(p)]) == 0

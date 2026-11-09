@@ -116,7 +116,7 @@ class TableModel:
                        for c in self.cols]
         self.X = [cd.encode(df[cd.name]) for cd in self.codecs]
         self.n_rows = len(df)               # also when no column is modelled (keys and identifiers only)
-        self.fd_groups = []
+        self.fd_groups: list = []
         self.aux = []
         for name, cs, ser in (aux or []):
             # numbers stay continuous: the codec is built on the values joined onto the

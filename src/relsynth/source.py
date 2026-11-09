@@ -53,15 +53,15 @@ class Source:
         self.seed = seed
         self.meta = {}
         self.random_order = True
-        self._col_cache = {}
-        self.unseeded = []
+        self._col_cache: dict = {}
+        self.unseeded: list = []
         if self.kind in ("iceberg", "delta"):
             # lakehouse tables: read like files (whole, in memory), keys as recorded
             from .connectors import from_spec
             self.lake = from_spec(source, source.get("_base_dir"))
             self.kind = "csv"
             self._files: dict[str, Path | None] = {t: None for t in self.lake.tables(include, exclude)}
-            self._frames = {}
+            self._frames: dict = {}
             for t in self._files:
                 info = self.lake.describe(t)
                 fks = [{"cols": list(f.columns), "parent": f.ref_table, "pcols": list(f.ref_columns)}
@@ -124,7 +124,7 @@ class Source:
                      "bigquery": func.rand(),
                      "oracle": literal_column("dbms_random.value")}.get(d)
         self.random_order = self._rnd is not None
-        self._counts = {}
+        self._counts: dict = {}
 
     # ---------------------------------------------------------------- csv
     def _frame(self, t):
