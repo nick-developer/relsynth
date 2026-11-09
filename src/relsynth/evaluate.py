@@ -988,6 +988,11 @@ def evaluate(spec, real, syn, scale=None, privacy=True, sample_log=None, real_st
         if privacy and ts["role"] == "entity" and ts.get("privacy", True) and ts.get("mode") != "copy" \
                 and len(pcols) >= 3 and len(real[t]) >= 50:
             rep["privacy"][t] = dcr(real[t], syn[t], ts, pcols)
+            nc = ((sample_log or {}).get("near_copies") or {}).get(t)
+            if nc and rep["privacy"][t]:
+                # the near-copy guard (relsynth.nearcopy) read these distances while
+                # generating: the ratio no longer tests the generator on its own
+                rep["privacy"][t]["near_copy_guard"] = nc
         for c, cs in ts["columns"].items():
             if cs["type"] == "text":
                 o = cs.get("text") or {}
@@ -1438,7 +1443,11 @@ def scorecard(rep, th=None):
             add(n, "text_tstr_ratio", d["tstr_ratio"], th["tstr_ratio"], d["tstr_ratio"] >= th["tstr_ratio"])
     for n, d in rep["privacy"].items():
         if d:
+            before = len(items)
             add(n, "dcr_ratio", d["dcr_ratio"], th["dcr_ratio"], d["dcr_ratio"] >= th["dcr_ratio"])
+            if d.get("near_copy_guard") and len(items) > before:
+                items[-1]["note"] = ("near-copy guard on (privacy.near_copy): rows were redrawn by this distance, "
+                                     "so the ratio is not independent evidence (docs/privacy.md)")
             if "exact_match_rate_real_any" in d:
                 # null value: the share of real rows equal to another real row, plus 2.5 sd
                 e = d["exact_match_rate_real_any"]

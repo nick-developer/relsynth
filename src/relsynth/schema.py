@@ -434,6 +434,10 @@ SYNTH_DOC = {
     "marginals.min_dependence_rows": "Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample.",
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",
+    "marginals.segment_prior_rows": "Prior weight, in rows, of an entity table's marginal in each segment's marginal "
+                                    "(hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own "
+                                    "distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens "
+                                    "the link between their segments and the facts.",
     "marginals.joint_min_cramers_v": "Association that joins two categoricals.",
     "facts.min_group_rows": "Rows below which a block borrows the coarser dimension's marginals.",
     "facts.frailty": "auto | on | off: heavy-tailed rows per parent (gamma frailty).",
@@ -486,6 +490,15 @@ SYNTH_DOC = {
     "runtime.start": "process executor: fork (default on Linux), spawn or forkserver.",
     "runtime.master": "spark executor: the master URL when no Spark session is active (default local[workers]).",
     "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
+    "privacy.near_copy": "auto: redraw entity rows that sit closer to a real row than that row's nearest distinct "
+                         "real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. "
+                         "A distance rule, not a privacy guarantee (docs/privacy.md).",
+    "privacy.near_copy_ratio": "A synthetic row is a near copy when its distance to its nearest real row is below "
+                               "this times that row's nearest-distinct-neighbour distance.",
+    "privacy.near_copy_rounds": "Redraws of a near copy before it is kept and counted in the sample log.",
+    "privacy.near_copy_max_rows": "Largest entity table the near-copy guard runs on (it compares every synthetic "
+                                  "row with every distinct real row, in memory-bounded blocks; time grows with the "
+                                  "square of the rows).",
     "privacy.dp": "Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, "
                   "spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent.",
     "pushdown.mode": "auto | on | off: fit eligible fact tables from exact statistics computed where the data lives "

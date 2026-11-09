@@ -107,6 +107,7 @@ class TableModel:
         joined onto each row.  They enter the copula, and at synthesis the row's
         own columns are drawn conditionally on its synthetic parent's values."""
         self.tname = tname
+        self.role = tspec.get("role")
         self.cfg = cfg
         self.cols = modelled_columns(tspec, exclude)
         mcfg = cfg["marginals"]

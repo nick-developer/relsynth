@@ -380,6 +380,7 @@ class Synthesizer:
         samples to their exact statistics (relsynth.pushdown.stats.TableStats):
         the relational model reads those facts only through the statistics."""
         t0 = time.time()
+        self.__dict__.pop("_nc_guards", None)     # near-copy guards are built from this fit's rows
         spec, cfg, rng = self.spec, self.cfg, self.rng
         T = spec["tables"]
         self.fstats = {t: s for t, s in (stats or {}).items() if t in T and T[t]["role"] == "fact"}
@@ -2542,6 +2543,7 @@ class Synthesizer:
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
             df = self.tm[e].sample(z, rng)
+            df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
             ko = T[e].get("key_order")
@@ -2623,6 +2625,64 @@ class Synthesizer:
             from .timeseries.hooks import sample_series
             ext = sample_series(self, ext, ctx["prng"], ctx["index"], ctx["mode"])
         return ext
+
+    def _near_copy_guard(self, e):
+        """The near-copy guard of entity e (relsynth.nearcopy), built on first use
+        from the fitted source rows; None when the guard does not apply: off, a
+        table the evaluation's distance check does not cover (fewer than 50 rows,
+        fewer than 3 distance columns, privacy: false), or more than
+        privacy.near_copy_max_rows rows."""
+        cache = self.__dict__.setdefault("_nc_guards", {})
+        if e in cache:
+            return cache[e]
+        pcfg = self.cfg.get("privacy") or {}
+        T = self.spec["tables"]
+        real = getattr(self, "_tables_for_fit", {}).get(e)
+        g = None
+        if pcfg.get("near_copy", "off") != "off" and real is not None and T[e].get("privacy", True) \
+                and 50 <= len(real) <= int(pcfg.get("near_copy_max_rows", 20_000)):
+            from .nearcopy import NearCopyGuard, guard_columns
+            keycols = {(r["child"], c) for r in self.spec["relationships"]
+                       for c in (r["child_key"] if r.get("composite") else [r["child_key"]])}
+            out_cols = set(self.tm[e].out_cols)
+            cols = [c for c in guard_columns(T[e], real, keycols, e) if c in out_cols]
+            if len(cols) >= 3:
+                g = NearCopyGuard(real, T[e], cols, rho=float(pcfg.get("near_copy_ratio", 1.0)))
+        cache[e] = g
+        return g
+
+    def _guard_near_copies(self, e, df, z, rng):
+        """Redraw, from their own segments, the rows that are near copies of a real
+        row (Prop. 1722); rows still near copies after privacy.near_copy_rounds
+        rounds are kept and counted in the sample log.  No random number is drawn
+        when no row is a near copy, so such tables are unchanged."""
+        g = self._near_copy_guard(e)
+        if g is None or not len(df):
+            return df
+        bad = np.flatnonzero(g.near_copies(df))
+        first = len(bad)
+        rounds = int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20))
+        r = 0
+        while len(bad) and r < rounds:
+            new = self.tm[e].sample(np.asarray(z)[bad], rng)
+            new.index = df.index[bad]
+            # column by column, keeping each column's dtype; the guard runs on the
+            # attribute frame, before keys, links and computed (hidden) columns exist
+            for c in new.columns:
+                col = df[c].to_numpy(dtype=object, copy=True)
+                col[bad] = new[c].to_numpy(dtype=object)
+                try:
+                    df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
+                except (TypeError, ValueError):
+                    df[c] = col
+            still = g.near_copies(df.iloc[bad])
+            bad = bad[still]
+            r += 1
+        if first:
+            self.sample_log.setdefault("near_copies", {})[e] = {
+                "rows": int(len(df)), "near_copies": first, "redrawn": first - int(len(bad)),
+                "kept": int(len(bad)), "rounds": r, "ratio": g.rho}
+        return df
 
     def _stratum_keys(self, e, z, out):
         """Strata are rows of small copied parents and segments are nested in them,
@@ -4285,7 +4345,29 @@ class Synthesizer:
         xrules = [r_ for r_ in cons.get("key_rules", []) if T["role"] != "fact"
                   and names_in(r_["expr"]) & set(tm.out_cols)] if arules or akeys else []
 
-        def attr_bad(frame):
+        # near-copy guard (G3): rows whose attributes are redrawn here must not become
+        # near copies, so the guard joins the rejection for those rows only
+        ncg = self._near_copy_guard(t) if T["role"] != "fact" else None
+        redrawn = np.zeros(len(df), bool)
+        # the near-copy budget (privacy.near_copy_rounds), and at most half the rule
+        # rounds, so the rounds after it enforce the rules and keys alone
+        nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)),
+                        int(self.cfg["rules"]["max_rejection_rounds"]) // 2)
+        rounds = 0
+        nc_active = set()                # rule rounds in which the near-copy rejection ran
+        fb_vals = {}                     # whole rows, hidden draws included (restored as they were)
+        has_fb = np.zeros(len(df), bool)
+        nc_base = df[ncg.cols].astype(object).where(df[ncg.cols].notna(), None) if ncg is not None else None
+
+        def touched(frame):
+            # rows redrawn here, and rows whose guard columns changed through them
+            # (a group effect recomputed by _computed)
+            if nc_base is None:
+                return redrawn
+            cur = frame[ncg.cols].astype(object).where(frame[ncg.cols].notna(), None)
+            return redrawn | (cur.to_numpy() != nc_base.to_numpy()).any(axis=1)
+
+        def attr_bad(frame, nc=True):
             ok = np.ones(len(frame), bool)
             res_ = self._resolver(t, frame, out)
             for r_ in arules + xrules:
@@ -4294,15 +4376,28 @@ class Synthesizer:
                 sub = frame[u].astype(object)
                 sub = sub.where(sub.notna(), None)
                 ok &= ~(sub.duplicated(keep="first").to_numpy() & sub.notna().all(axis=1).to_numpy())
+            if nc and ncg is not None and redrawn.any() and rounds < nc_rounds:
+                nc_active.add(rounds)
+                ri = np.flatnonzero(touched(frame))
+                ok[ri] &= ~ncg.near_copies(frame.iloc[ri])
             return ~ok
         if arules or akeys:
             # rejection on the attributes jointly for all attribute rules (each redraw
             # is from the row's own conditional, so the accepted law is Q(x | rules))
             bad = attr_bad(df)
             rounds = 0
-            redrawn = np.zeros(len(df), bool)
             while bad.any() and rounds < self.cfg["rules"]["max_rejection_rounds"] and tm.out_cols:
                 idx = np.flatnonzero(bad)
+                if ncg is not None:
+                    # rows redrawn only for being near copies keep their rule- and
+                    # key-valid values as a fallback (restored below if the budget ends
+                    # on a redraw that breaks a rule)
+                    ok_rule = idx[~attr_bad(df, nc=False)[idx]]
+                    for c in df.columns:
+                        if c not in fb_vals:
+                            fb_vals[c] = np.empty(len(df), dtype=object)
+                        fb_vals[c][ok_rule] = df[c].astype(object).to_numpy()[ok_rule]
+                    has_fb[ok_rule] = True
                 redrawn[idx] = True
                 gv = getattr(self, "_given", {}).get(t)
                 new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None)
@@ -4317,6 +4412,27 @@ class Synthesizer:
                 df = self._computed(t, df, out)
                 bad = attr_bad(df)
                 rounds += 1
+            if ncg is not None and has_fb.any():
+                back = np.flatnonzero(attr_bad(df, nc=False) & has_fb)
+                if len(back):
+                    # the whole stashed row, with its hidden draws and their flag, so the
+                    # recompute reproduces the rule-valid values instead of drawing again
+                    for c in fb_vals:
+                        if c not in df.columns:
+                            continue
+                        col = df[c].astype(object).to_numpy(copy=True)
+                        col[back] = fb_vals[c][back]
+                        try:
+                            df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
+                        except (TypeError, ValueError):
+                            df[c] = col
+                    df = self._computed(t, df, out)
+                    log_r = self.sample_log.setdefault("near_copies", {}).setdefault(t, {
+                        "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0,
+                        "ratio": ncg.rho})
+                    log_r["restored_after_rules"] = int(len(back))
+                    # rechecked after the recompute (rules and keys): expected 0
+                    log_r["restored_still_bad"] = int(attr_bad(df, nc=False)[back].sum())
             anch = [r for r in self.fk[t] if r.get("anchor") and r["anchor"] in df.columns]
             if redrawn.any() and anch and z is not None:
                 # rows whose attributes were redrawn: their anchored links (the area of
@@ -4338,6 +4454,21 @@ class Synthesizer:
             res_ = self._resolver(t, df, out)
             for r in arules:
                 viol[r["expr"]] = int((~check_mask(df, r["expr"], res_)).sum())
+        if ncg is not None:
+            # the log describes the rows emitted: near copies among the final attributes,
+            # after rule redraws and group effects (computed columns)
+            kept_final = int(ncg.near_copies(df).sum())
+            log_all = self.sample_log.setdefault("near_copies", {})
+            if t in log_all or kept_final or redrawn.any():
+                log_nc = log_all.setdefault(t, {
+                    "rows": int(len(df)), "near_copies": 0, "redrawn": 0, "kept": 0, "rounds": 0, "ratio": ncg.rho})
+                if redrawn.any():
+                    log_nc["redrawn_by_rules"] = int(redrawn.sum())
+                    log_nc["changed_by_rules"] = int(touched(df).sum())
+                    log_nc["near_copy_rule_rounds"] = len(nc_active)
+                log_nc["kept"] = kept_final
+            elif not log_all:
+                self.sample_log.pop("near_copies")
         if T["role"] == "fact" and cons.get("key_rules") and t not in self.fact_entity:
             # rows still invalid after the per-row redraws of _refill: removed and reported
             keep = np.ones(len(df), bool)

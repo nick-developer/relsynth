@@ -36,20 +36,32 @@ class SegmentMarginals(TableGenerator):
         self.group_m, self.group_n = {}, {}
         self.coarse_m = {}
         min_rows = ccfg["min_rows"]
+        # prior weight, in rows, of the table's (or coarse group's) marginal in each
+        # segment's marginal (G3, Prop. 1720; opt-in, default 0): a = max(dirichlet_prior, segment_prior_rows)
+        a_seg = max(mcfg["dirichlet_prior"], self._segment_prior())
+        kw_seg = {**kw, "dirichlet_a": a_seg}
         if parent:
             cg = np.array([parent.get(g, -1) for g in groups]) if n else np.array([])
             for c in np.unique(cg):
                 if c < 0:
                     continue
                 idx = cg == c
-                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw)
+                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw_seg)
                                     for cd, x, gm in zip(d.codecs, d.X, self.global_m)]
         for g in np.unique(groups):
             idx = groups == g
             prior = self.coarse_m.get(parent.get(g, -1), self.global_m)
             self.group_n[g] = int(idx.sum())
-            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw)
+            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw_seg)
                                for cd, x, pm in zip(d.codecs, d.X, prior)]
+
+    def _segment_prior(self):
+        """Prior weight, in rows, of the table's marginal in each segment's
+        marginal (marginals.segment_prior_rows); entity tables only, since the
+        segments of a fact table are blocks of the relational model, not records."""
+        if getattr(self.data, "role", None) != "entity":
+            return 0.0
+        return float(self.data.cfg["marginals"].get("segment_prior_rows", 0) or 0)
 
     def _redraw_marginals(self, rng, mode):
         if self.data.cfg["marginals"]["bayesian_bootstrap"]:

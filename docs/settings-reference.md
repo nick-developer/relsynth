@@ -48,6 +48,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `marginals.discrete_int_max` | int | `30` | 0 … 1e+07 |  | Integer columns with at most this many distinct values are modelled as discrete. |
 | `marginals.max_obs` | int | `20000` | 10 … 1e+09 | yes (log) | Observations kept per continuous marginal (a seeded subsample above it). |
 | `marginals.fd_sample_rows` | int | `50000` | 100 … 1e+10 |  | Rows of the seeded subsample on which functional dependencies are tested. |
+| `marginals.segment_prior_rows` | float | `0.0` | 0 … 200 | yes | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens the link between their segments and the facts. |
 | `facts.min_group_rows` | int | `30` | 0 … 1e+09 | yes (log) | Rows below which a block borrows the coarser dimension's marginals. |
 | `facts.frailty` | choice | `auto` | auto, on, off | yes | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | float | `1.5` | 1 … 1e+06 | yes (log) | Dispersion index above which frailty is used. |
@@ -100,6 +101,10 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `settings_file` | str | `None` |  |  | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
 | `privacy.suppress_small_counts` | int | `5` | 0 … 1e+06 |  | Counts below this are suppressed in the diagnostics bundle. |
 | `privacy.dp` | map | `None` |  |  | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
+| `privacy.near_copy` | choice | `off` | auto, off |  | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
+| `privacy.near_copy_ratio` | float | `1.0` | 0 … 100 |  | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
+| `privacy.near_copy_rounds` | int | `20` | 0 … 1e+06 |  | Redraws of a near copy before it is kept and counted in the sample log. |
+| `privacy.near_copy_max_rows` | int | `20000` | 0 … 1e+12 |  | Largest entity table the near-copy guard runs on (it compares every synthetic row with every distinct real row, in memory-bounded blocks; time grows with the square of the rows). |
 | `pushdown.mode` | choice | `auto` | auto, on, off |  | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | int | `1000000` | 0 … 1e+15 |  | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | int | `500000` | 1 … 1e+12 | yes (log) | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
