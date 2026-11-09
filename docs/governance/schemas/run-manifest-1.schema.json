@@ -18,6 +18,7 @@
       "properties": {
         "stage": {"enum": ["discovery", "fit", "selection", "evaluation", "other"]},
         "mechanism": {"type": "string"},
+        "unit": {"type": "string", "description": "The privacy unit whose account this charge is on, in a run with several units (Prop. 1704)."},
         "kind": {"enum": ["pure", "zcdp", "approx"]},
         "epsilon": {"type": "string"},
         "rho": {"type": "string"},
@@ -96,7 +97,9 @@
           "type": "object", "required": ["mode"], "additionalProperties": false,
           "properties": {
             "mode": {"enum": ["dp", "none"]},
-            "unit": {"type": "string"}, "adjacency": {"enum": ["add_remove", "replace"]},
+            "unit": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 2, "uniqueItems": true}],
+                     "description": "The privacy unit, or the list of units of a run with several (Prop. 1704)."},
+            "adjacency": {"enum": ["add_remove", "replace"]},
             "charges": {"type": "array", "items": {"$ref": "#/$defs/charge"}},
             "run_total": {"type": "object", "required": ["rho", "delta"], "additionalProperties": false,
                           "properties": {"rho": {"type": "string"}, "delta": {"type": "string"}}},
@@ -105,10 +108,23 @@
                        "properties": {"epsilon": {"type": "string"}, "delta": {"type": "string"}}},
             "ledger": {"type": "object", "required": ["seq", "domain_rho", "domain_delta", "domain_epsilon"], "additionalProperties": false,
                        "description": "The ledger entry that settled this run and the domain's cumulative guarantee after it.",
-                       "properties": {"seq": {"type": "integer"}, "domain_rho": {"type": "string"}, "domain_delta": {"type": "string"}, "domain_epsilon": {"type": "string"}}}
+                       "properties": {"seq": {"type": "integer"}, "domain_rho": {"type": "string"}, "domain_delta": {"type": "string"}, "domain_epsilon": {"type": "string"}}},
+            "units": {"type": "object", "minProperties": 2,
+                      "description": "A run with several units (Prop. 1704): each unit's total, statement, tables and the ledger entry that settled its account. run_total and stated above are then the largest of the units'.",
+                      "additionalProperties": {
+                        "type": "object", "required": ["run_total", "stated"], "additionalProperties": false,
+                        "properties": {
+                          "run_total": {"type": "object", "required": ["rho", "delta"], "additionalProperties": false,
+                                        "properties": {"rho": {"type": "string"}, "delta": {"type": "string"}}},
+                          "stated": {"type": "object", "required": ["epsilon", "delta"], "additionalProperties": false,
+                                     "properties": {"epsilon": {"type": "string"}, "delta": {"type": "string"}}},
+                          "tables": {"type": "array", "items": {"type": "string"}},
+                          "ledger": {"type": "object", "required": ["seq", "domain_rho", "domain_delta", "domain_epsilon"], "additionalProperties": false,
+                                     "properties": {"seq": {"type": "integer"}, "domain_rho": {"type": "string"}, "domain_delta": {"type": "string"}, "domain_epsilon": {"type": "string"}}}}}}
           },
           "allOf": [{"if": {"properties": {"mode": {"const": "dp"}}},
-                     "then": {"required": ["unit", "adjacency", "charges", "run_total", "stated", "ledger"]}}]
+                     "then": {"required": ["unit", "adjacency", "charges", "run_total", "stated"],
+                              "anyOf": [{"required": ["ledger"]}, {"required": ["units"]}]}}]
         },
         "reports": {"type": "array", "items": {"$ref": "#/$defs/report"}},
         "verdicts": {"type": "object", "additionalProperties": {"enum": ["pass", "review", "fail", "blocked"]},

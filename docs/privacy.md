@@ -32,11 +32,11 @@ Every number has a confidence interval (95% by default). Membership attacks are 
 
 ### People, not rows
 
-The **privacy unit** is the table that holds the people (`unit`, detected when omitted: the person table that owns the most tables). Every table that reaches it through foreign keys belongs to it: a customer's invoices and invoice lines are attacked together with the customer. The attacks run on one profile row per person: the person's attributes, the attributes of their parents (store, region), and per owned table the number of rows and the mean or most frequent value of each attribute, including those of the rows' parents (the genre of the tracks bought). Profiles hold no key values, because synthetic keys are new labels. Chains stop at other person tables: a customer's sales representative does not own the customer.
+The **privacy unit** is the table that holds the people (`unit`, detected when omitted: the person table that owns the most tables). Every table that reaches it through foreign keys belongs to it, composite keys included (the IR's trace, `relsynth ir trace`): a customer's invoices and invoice lines are attacked together with the customer. A row that reaches the unit along several paths belongs to every person those paths reach (Prop. 1700). The attacks run on one profile row per person: the person's attributes, the attributes of their parents (store, region), and per owned table the number of rows and the mean or most frequent value of each attribute, including those of the rows' parents (the genre of the tracks bought). Profiles hold no key values, because synthetic keys are new labels. Chains stop at other person tables: a customer's sales representative does not own the customer.
 
 ### How the release is tested
 
-The people are split at random into **training** (40%), **control** (40%) and **reference** (20%). The release is fitted on the training people only. Control people are never seen: the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them. Reference people are the attacker's population data. Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks.
+The people are split at random into **training** (40%), **control** (40%) and **reference** (20%). The release is fitted on the training people only. Control people are not in the training data (people who share a row, which a row reached along two paths can make, are kept on the same side of the split; if such groups join almost everyone, the split falls back to a plain cut, the rows a control person shares with training people are then in the training data, and the report warns and judges every context at least review): the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them. Reference people are the attacker's population data. Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601; when shared-row groups leave control smaller, the attack evaluates a random subset of training people of the control's size); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks.
 
 ## Release contexts
 
@@ -114,7 +114,6 @@ The scorecard's distance-to-closest-record ratio and exact-match rate stay in ev
 
 - Results hold for the attacks run, not for every possible attack. Only differential privacy gives a guarantee against all attacks; this module measures, it does not protect.
 - The release attacked is fitted on 40% of the people. It stands for a release of the same generator fitted on everyone, as in Anonymeter and the shadow-model literature.
-- Composite foreign keys are not followed when finding owned tables.
 - Small databases (tens of people) give wide intervals; the report says *review* rather than guess.
 
 ## Sources

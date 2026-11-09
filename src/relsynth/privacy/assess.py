@@ -103,7 +103,9 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         ids = ids[:cfg["split"]["max_people"]]
     n_c = int(round(cfg["split"]["control"] * len(ids)))
     n_r = int(round(cfg["split"]["reference"] * len(ids)))
-    ctl_ids, ref_ids, tr_ids = ids[:n_c], ids[n_c:n_c + n_r], ids[n_c + n_r:]
+    # people who share a row stay on one side (Prop. 1700); without shared rows a plain cut
+    split_info: dict = {}
+    ctl_ids, ref_ids, tr_ids = U.split_people(unit, tables, ids, [n_c, n_r], info=split_info)
     if generator is None:
         from ..dp.config import section
         if section(s) is not None:
@@ -112,7 +114,8 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
             if not (cfg.get("release") or {}).get("dp"):
                 c = dp.parse(s)
                 cfg["release"] = {**(cfg.get("release") or {}),
-                                  "dp": {"epsilon": float(dp.epsilon_of_config(c)), "delta": c.delta, "unit": c.unit}}
+                                  "dp": {"epsilon": float(dp.epsilon_of_config(c)), "delta": c.delta,
+                                         "unit": unit.table if unit.table in c.units else c.unit}}
     gen = generator or relsynth_generator(s)
 
     t = time.time()
@@ -275,6 +278,14 @@ def assess(spec, cfg=None, *, tables: dict | None = None, generator=None, seed: 
         rep["warnings"] = [f"The privacy unit has {len(ids)} people, fewer than {small}: each person weighs "
                            "heavily in the model, and the attacks have little power. Releases outside the "
                            "organisation fail without differential privacy."]
+    if split_info.get("shared_rows_fallback"):
+        # control people hold rows the release was fitted on: the control rate can read high and the
+        # residual risk low; every context is at least "review" (Prop. 1700(d))
+        rep["split_shared_rows"] = int(split_info["shared_rows_fallback"])
+        rep.setdefault("warnings", []).append(
+            f"Rows shared by several people join {rep['split_shared_rows']} of {len(ids)} people into one group, so "
+            "no split keeps them apart: control people share rows with training people, and the residual risks "
+            "may be understated.")
     rep["contexts"] = {name: judge(rep, name, c, small_population=small) for name, c in cfg["contexts"].items()}
     return rep
 
@@ -414,6 +425,10 @@ def judge(rep: dict, name: str, ctx: dict, *, small_population: int | None = Non
         checks.append({"criterion": "population", "attack": "small_population", "value": float(n_people),
                        "ci": None, "limit": float(small_population), "status": "fail",
                        "what": "people in the privacy unit; below the limit an external release needs DP"})
+    if rep.get("split_shared_rows"):
+        checks.append({"criterion": "population", "attack": "split_shared_rows",
+                       "value": float(rep["split_shared_rows"]), "ci": None, "limit": None, "status": "review",
+                       "what": "people in one group of shared rows; control and training share rows"})
     blocked = bool(ctx.get("external")) and not dp
     st = [c["status"] for c in checks]
     verdict = "blocked" if blocked else "fail" if "fail" in st else "review" if "review" in st else "pass"

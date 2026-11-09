@@ -382,7 +382,7 @@ to_csv(self, folder: str | Path) -> Path
 #### `SyntheticData.to_dict`
 
 ```python
-to_dict(self) -> dict[str, DataFrame]
+to_dict(self) -> dict[str, pandas.DataFrame]
 ```
 
 #### `SyntheticData.to_parquet`
@@ -535,7 +535,7 @@ A copy of the spec with every patch applied.
 #### `Synthesizer.fit`
 
 ```python
-fit(self, tables: dict[str, DataFrame], stats=None)
+fit(self, tables: dict[str, pandas.DataFrame], stats=None)
 ```
 
 Fit the model.  `stats` (pushdown) maps fact tables given as uniform

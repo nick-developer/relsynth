@@ -79,6 +79,9 @@ class TablePlan:
     other_ids: list = field(default_factory=list)
     dropped: list = field(default_factory=list)
     computed: list = field(default_factory=list)
+    key_cols: list = field(default_factory=list)   # primary key, then parent keys of children (Prop. 1702)
+    key_seq: dict = field(default_factory=dict)    # key column of type sequence -> the column it counts within
+    key_groups: list = field(default_factory=list)  # free key columns that group rows (a sequence counts within)
 
 
 @dataclass
@@ -89,6 +92,11 @@ class Plan:
     public: list
     views: list
     notes: list = field(default_factory=list)
+    units: list = field(default_factory=list)     # every privacy unit of the run (unit is the first)
+    owner: dict = field(default_factory=dict)     # owned table -> the unit whose data it holds
+
+    def owned_by(self, unit: str) -> list:
+        return [t for t in self.order if self.owner.get(t, self.unit) == unit]
 
 
 def make_plan(spec: dict, cfg: DPConfig) -> Plan:
@@ -98,15 +106,35 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
     from ..ir import lift
     from ..ir.privacy import trace
     from ..prepare import computed_columns
-    tr = trace(lift(spec), cfg.unit)
+    est = lift(spec)
+    units = list(cfg.units or [cfg.unit])
     views = [t for t, T in spec["tables"].items() if T.get("role") == "view"]
-    owned = [n for n in tr.owned() if n not in views]
     problems = []
-    for n in owned:
-        if len(tr.entities[n].paths) > 1:
-            problems.append(f"{n} reaches {cfg.unit} along {len(tr.entities[n].paths)} paths: a row could belong to "
-                            "several people; DP mode needs one path (exclude the others in the IR's "
-                            "privacy.exclude_paths)")
+    traces: dict = {}
+    owner: dict = {}
+    for u in units:
+        tr = traces[u] = trace(est, u)
+        stop = set(units) - {u}
+        for n in tr.owned():
+            if n in views or n in stop:
+                continue
+            # a path through another unit's table carries that unit's data, not this one's (Prop. 1703)
+            paths = [p for p in tr.entities[n].paths if not any(_target(est, rn) in stop for rn in p[:-1])] \
+                if n != u else [[]]
+            if not paths:
+                continue
+            tr.entities[n].paths = paths
+            if n in owner:
+                problems.append(f"{n} holds data of both {owner[n]} and {u}: DP mode bounds each row for one unit; "
+                                f"exclude one of the links in the IR's privacy.exclude_paths, or run the units "
+                                "separately")
+                continue
+            owner[n] = u
+            if len(paths) > 1:
+                problems.append(f"{n} reaches {u} along {len(paths)} paths: a row could belong to several people; "
+                                "DP mode needs one path (exclude the others in the IR's privacy.exclude_paths)")
+    owned = list(owner)
+    who = units[0] if len(units) == 1 else " or ".join(units)
     others = [t for t in spec["tables"] if t not in owned and t not in views]
     if cfg.public_tables == "all_unowned":
         public = others
@@ -114,19 +142,21 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
         public = [t for t in others if t in cfg.public_tables]
         missing = [t for t in others if t not in cfg.public_tables]
         if missing:
-            problems.append(f"tables {missing} hold no data of {cfg.unit} and would be released as they are: list them "
+            problems.append(f"tables {missing} hold no data of {who} and would be released as they are: list them "
                             "in synthesis.privacy.dp.public_tables (or set it to all_unowned) to confirm they are "
                             "public; DP protects only the unit's data")
     rels = spec.get("relationships") or []
     comp = computed_columns(spec)
     plans: dict = {}
+    # the link along which each owned table reaches its unit; a parent measures and truncates only
+    # the children on such links, so a dropped link (to another unit's data, or off the path) is
+    # never read (Prop. 1703)
+    on_path = {n: traces[owner[n]].entities[n].paths[0][0] for n in owned if n not in units}
     for n in owned:
         p = TablePlan(n)
         T = spec["tables"][n]
-        if n != cfg.unit:
-            path = tr.entities[n].paths[0]
-            rname = path[0]
-            p.parent_rel = next(r for r in rels if r["name"] == rname)
+        if n not in units:
+            p.parent_rel = next(r for r in rels if r["name"] == on_path[n])
         fk_cols: set = set()
         for r in rels:
             if r["child"] != n:
@@ -142,7 +172,9 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
                 problems.append(f"{n}.{'+'.join(cols)} links rows of {n} to each other; DP mode cannot bound it: add "
                                 f"{n}.{cols[0]} to synthesis.privacy.dp.drop_columns")
             elif r["parent"] in owned:
-                problems.append(f"{r['name']} links two tables of {cfg.unit} off the ownership path; add {n}.{cols[0]} "
+                what = f"two tables of {owner[n]}" if owner[r["parent"]] == owner[n] else \
+                    f"data of {owner[n]} to data of {owner[r['parent']]}"
+                problems.append(f"{r['name']} links {what} off the ownership path; add {n}.{cols[0]} "
                                 "to synthesis.privacy.dp.drop_columns")
             elif r["parent"] in public and len(cols) == 1:
                 p.public_fks.append(r)
@@ -153,13 +185,27 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
         pk = set(_keys(T.get("primary_key") or []))
         child_keys = set()
         for r in rels:
-            if r["parent"] == n and r["child"] in owned:
+            if r["parent"] == n and on_path.get(r["child"]) == r["name"]:
                 child_keys |= set(_keys(r["parent_key"]))
-                if r["kind"] != "self_reference" and r["child"] != n:
-                    p.children.append(r)
+                p.children.append(r)
+        pkl = _keys(T.get("primary_key") or [])
+        p.key_cols = pkl + [x for x in sorted(child_keys) if x not in pk]
+        for c in p.key_cols:
+            cs = T["columns"].get(c, {})
+            if c in fk_cols or cs.get("type") != "sequence":
+                continue
+            w = cs.get("within")
+            p.key_seq[c] = w if w in p.key_cols and w not in fk_cols else None
+        p.key_groups = [w for w in dict.fromkeys(p.key_seq.values()) if w is not None and n not in units]
+        header = ((T.get("fact") or {}).get("header") or {}).get("key")
+        composite = len(p.key_cols) > 1
         for c, cs in T["columns"].items():
             t = cs["type"]
-            if c in fk_cols or c in pk or c in child_keys:
+            if c in fk_cols:
+                continue
+            # a part of a composite key that is an attribute (a date, a code) is modelled like one
+            # (Prop. 1702); ids and sequences in a key are generated by the decoder
+            if (c in pk or c in child_keys) and not (composite and t in NUMERIC | CATEGORICAL):
                 continue
             if c in comp.get(n, ()) or t == "lookup":
                 p.computed.append(c)
@@ -177,6 +223,19 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
                 p.other_ids.append(c)
             else:
                 p.dropped.append(c)
+        if n not in units and p.parent_rel is not None:
+            # an id that groups rows (an order number with its line numbers, a fact's header key) is
+            # decoded as groups too, outside the keys as well (Prop. 1702)
+            for c in list(p.sequence):
+                w = T["columns"][c].get("within")
+                if w in p.other_ids:
+                    p.sequence.remove(c)
+                    p.key_seq[c] = w
+                    if w not in p.key_groups:
+                        p.key_groups.append(w)
+            if header in p.other_ids and header not in p.key_groups:
+                p.key_groups.append(header)
+            p.other_ids = [c for c in p.other_ids if c not in p.key_groups]
         plans[n] = p
     if problems:
         raise PrivacyError("DP mode cannot run this spec yet (nothing was read):\n  - " + "\n  - ".join(problems))
@@ -192,7 +251,13 @@ def make_plan(spec: dict, cfg: DPConfig) -> Plan:
         order.append(n)
     for n in owned:
         visit(n)
-    return Plan(cfg.unit, order, plans, public, views)
+    return Plan(units[0], order, plans, public, views, units=units, owner=owner)
+
+
+def _target(est, rn):
+    """The entity a relationship of the IR points to."""
+    r = est.relationship(rn)
+    return r.to.entity if r is not None and r.to is not None else None
 
 
 # ------------------------------------------------------------------ marginals
@@ -361,6 +426,7 @@ class TableModel:
     degree_cap: dict = field(default_factory=dict)   # child -> D
     parent_coords: list = field(default_factory=list)
     forest: object = None        # mst/aim: the fitted two-way model (select.Forest); corr is then None
+    group_sizes: dict = field(default_factory=dict)  # key group column -> Marginal of rows per group
 
 
 @dataclass
@@ -372,15 +438,21 @@ class DPModel:
     report: dict = field(default_factory=dict)
 
 
-def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> DPModel:
-    """Release stage 1's statistics.  `acct` refuses anything beyond the plan."""
+def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Plan) -> DPModel:
+    """Release stage 1's statistics.  `acct` refuses anything beyond the plan:
+    one Accountant, or with several units {unit: Accountant}, each charged
+    only for the tables of its unit (Prop. 1703)."""
     hkey = _hash_key()
     owned = plan.order
-    rho_t = cfg.rho / len(owned)
+    units = plan.units or [plan.unit]
+    accts = acct if isinstance(acct, dict) else {u: acct for u in units}
+    owner_of = {t: plan.owner.get(t, plan.unit) for t in owned}
+    n_owned = {u: sum(1 for t in owned if owner_of[t] == u) or 1 for u in units}
     delta_levels = cfg.delta * cfg.levels_delta_share
-    n_disc = sum(1 for t in owned for c in plan.tables[t].categorical if f"{t}.{c}" not in cfg.public) or 1
-    rows: dict = {plan.unit: real[plan.unit].reset_index(drop=True)}
-    caps = {plan.unit: 1}
+    n_disc_u = {u: sum(1 for t in owned if owner_of[t] == u for c in plan.tables[t].categorical
+                       if f"{t}.{c}" not in cfg.public) or 1 for u in units}
+    rows: dict = {u: real[u].reset_index(drop=True) for u in units}
+    caps = {u: 1 for u in units}
     models: dict = {}
     scores_of: dict = {}          # table -> DataFrame of attribute normal scores, aligned with rows[t]
     tree = cfg.measure != "copula"
@@ -390,6 +462,9 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
         P = plan.tables[t]
         df = rows[t]
         c_t = caps[t]
+        acct = accts[owner_of[t]]
+        rho_t = cfg.rho_of(owner_of[t]) / n_owned[owner_of[t]]
+        n_disc = n_disc_u[owner_of[t]]
         T = spec["tables"][t]
         sh = dict(cfg.split)
         if not P.children:
@@ -431,6 +506,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
         coords: list = []
         hist_parts: list = []
         makers: list = []
+        group_sizes: dict = {}
         for c in P.numeric:
             kind = T["columns"][c]["type"]
             lo, hi = _public_range(cfg, t, c) or ranges[c]
@@ -464,6 +540,17 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
             s = df[ck].map(lambda x: 0 if _isnull(x) else look.get(str(_canon(x)), 0)).to_numpy(dtype=int)
             hist_parts.append(np.bincount(s, minlength=len(lv) + 1))
             makers.append((ck, lambda k, lv=lv: Marginal("cat", None, k, levels=lv)))
+        for g in P.key_groups:
+            # rows per group (an order's lines) within each parent row: one more histogram of the
+            # marginals; a unit has at most c_t groups, each counted once (Prop. 1702)
+            par_ = P.parent_rel["parent"]
+            dmax = max(caps[t] // max(caps[par_], 1), 1)
+            e = _degree_edges(dmax)
+            sizes = _group_sizes(df, _keys(P.parent_rel["child_key"]), g)
+            b = np.clip(np.searchsorted(e, np.minimum(sizes, dmax), side="right") - 1, 0, len(e) - 2)
+            hist_parts.append(np.bincount(b, minlength=len(e) - 1))
+            makers.append((f"%{g}", lambda k, e=e: Marginal("num", None, np.concatenate([[0.0], k]), edges=e,
+                                                             integer=True, dtype="integer")))
         pc_tree: list = []
         if tree and P.parent_rel is not None:
             # the parent row's cells, counted over this table's rows (nodes of the two-way model)
@@ -496,6 +583,9 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                 var_of[c] = sig_m ** 2
                 if c.startswith("^"):
                     var_of[c + "#y"] = k
+                    continue
+                if c.startswith("%"):
+                    group_sizes[c[1:]] = mk(k)
                     continue
                 marg[c] = mk(k)
                 totals.append(marg[c].total)
@@ -590,7 +680,8 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
                                         rounds=cfg.aim_rounds, report=tr)
             forest.groups = groups
             n_hat = int(round(n_rows)) if n_rows is not None else 0
-            models[t] = TableModel(t, coords, marg, None, max(n_hat, 0), c_t, degree_cap, pc_tree, forest)
+            models[t] = TableModel(t, coords, marg, None, max(n_hat, 0), c_t, degree_cap, pc_tree, forest,
+                                   group_sizes)
             tr["coordinates"] = len(nodes)
             report["tables"][t] = tr
             continue
@@ -630,11 +721,12 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant, plan: Plan) -> 
             corr = np.eye(len(names))
         scores_of[t] = pd.DataFrame({c: Zcols[c] for _, c in coords if c in Zcols})
         n_hat = int(round(n_rows)) if n_rows is not None else 0
-        models[t] = TableModel(t, coords, marg, corr, max(n_hat, 0), c_t, degree_cap, parent_coords)
+        models[t] = TableModel(t, coords, marg, corr, max(n_hat, 0), c_t, degree_cap, parent_coords,
+                               group_sizes=group_sizes)
         tr["coordinates"] = len(names)
         report["tables"][t] = tr
     pub = {t: real[t] for t in plan.public if t in real}
-    return DPModel(plan, models, pub, acct, report)
+    return DPModel(plan, models, pub, accts[plan.unit], report)
 
 
 def _canon(x):
@@ -692,6 +784,38 @@ def _truncate(child_df, parent_df, pk, ck, D, key):
     return sub[(rank <= D).to_numpy()].reset_index(drop=True)
 
 
+def _group_sizes(df, ck, g) -> np.ndarray:
+    """Rows of each group (parent key, value of g) of df; a null g is a group of its own per parent."""
+    if not len(df):
+        return np.zeros(0, dtype=int)
+    lab = pd.Series([repr(k) for k in _key_list(df, ck)], dtype=object) + "\x00" + \
+        df[g].astype(object).map(lambda x: "\x01null" if _isnull(x) else str(_canon(x))).reset_index(drop=True)
+    return np.bincount(pd.factorize(lab)[0])
+
+
+def _split_groups(deg, m: Marginal, rng) -> np.ndarray:
+    """Group number (0, 1, ...) of each row when every parent's rows are cut into
+    groups whose sizes are drawn from the noisy distribution m (a group never
+    goes past the parent's last row)."""
+    n = int(np.sum(deg))
+    out = np.zeros(n, dtype=np.int64)
+    pool, k = m.draw(rng.standard_normal(max(n, 1)), rng), 0
+    at, gid = 0, 0
+    for d in np.asarray(deg, dtype=int):
+        left = d
+        while left > 0:
+            if k >= len(pool):
+                pool, k = m.draw(rng.standard_normal(max(n, 1)), rng), 0
+            s = int(np.nan_to_num(pool[k], nan=1.0))
+            k += 1
+            s = min(max(s, 1), left)
+            out[at:at + s] = gid
+            gid += 1
+            at += s
+            left -= s
+    return out
+
+
 def _parent_index(child_df, parent_df, ck, pk):
     pos: dict = {}
     for i, k in enumerate(_key_list(parent_df, pk)):
@@ -719,6 +843,12 @@ def decode(spec: dict, model: DPModel) -> dict:
         else:
             par = P.parent_rel["parent"]
             deg = out[par][f"#{t}"].to_numpy(dtype=int)
+            if len(deg) and not deg.any():
+                # every parent drew no rows (a noisy degree histogram of a small table): keep one row,
+                # as a root table keeps max(n_hat, 1), so stage 2 has a table to fit (post-processing)
+                deg = deg.copy()
+                deg[rng.integers(len(deg))] = 1
+                out[par][f"#{t}"] = deg
             parent_idx = np.repeat(np.arange(len(deg)), deg)
             n = len(parent_idx)
             known = np.column_stack([zs[par][c][parent_idx] for c in M.parent_coords]) \
@@ -761,8 +891,21 @@ def decode(spec: dict, model: DPModel) -> dict:
         child_pk = set()
         for r in P.children:
             child_pk |= set(_keys(r["parent_key"]))
-        for i, c in enumerate(pk + [x for x in sorted(child_pk) if x not in pk]):
-            df[c] = np.arange(1, n + 1) if i == 0 else 1
+        key_cols = P.key_cols or pk + [x for x in sorted(child_pk) if x not in pk]
+        given = set(cols) | (set(_keys(P.parent_rel["child_key"])) if P.parent_rel is not None else set())
+        groups = {g: _split_groups(deg, M.group_sizes[g], rng) + 1 for g in P.key_groups
+                  if parent_idx is not None and g in M.group_sizes and g not in given}
+        for c in key_cols:
+            # real composite keys (Prop. 1702): a group column numbers the groups of rows drawn from the
+            # released group sizes, a sequence counts within its group (below), any other free key
+            # column numbers the rows; columns drawn from the statistics or copied from the parent
+            # are filled below
+            if c in groups:
+                df[c] = groups[c]
+            elif c in given or c in P.key_seq:
+                df[c] = 0
+            else:
+                df[c] = np.arange(1, n + 1)
         if P.parent_rel is not None:
             par = P.parent_rel["parent"]
             for ck, pkc in zip(_keys(P.parent_rel["child_key"]), _keys(P.parent_rel["parent_key"])):
@@ -778,6 +921,18 @@ def decode(spec: dict, model: DPModel) -> dict:
                     df[c] = df[c].dt.normalize()
             else:
                 df[c] = v
+        for c in groups:
+            if c not in key_cols:
+                df[c] = groups[c]
+        for c, w in P.key_seq.items():
+            start = int(T["columns"][c].get("start", 1))
+            if w is not None:
+                within = df[w].to_numpy()
+            elif parent_idx is not None:
+                within = parent_idx
+            else:
+                within = np.arange(n)
+            df[c] = pd.Series(within).groupby(within).cumcount().to_numpy() + start if n else []
         for c in P.placeholder:
             cs = T["columns"][c]
             gen = (cs.get("pii") or {}).get("generator")
@@ -819,6 +974,19 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
     from ..prepare import make_resolver
     for t in plan.order:
         P = plan.tables[t]
+        T = spec["tables"][t]
+        keys = [(_keys(T.get("primary_key") or []), True)] + [(_keys(u), False) for u in T.get("unique") or []]
+        for uk, is_pk in keys:
+            # a key drawn from the statistics (a date in a composite key) may repeat: keep the first
+            # row of each key value (Prop. 1702)
+            if len(uk) > 1 and len(res[t]) and all(c in res[t].columns for c in uk):
+                dup = res[t].duplicated(subset=uk)
+                if not is_pk:
+                    # a unique key with a null part never collides (SQL), e.g. a dropped column
+                    dup &= res[t][uk].notna().all(axis=1)
+                if dup.any():
+                    log.info("DP seed: %s: %d rows repeat the key %s and are dropped", t, int(dup.sum()), uk)
+                    res[t] = res[t][~dup.to_numpy()].reset_index(drop=True)
         if P.parent_rel is not None:
             r = P.parent_rel
             ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])

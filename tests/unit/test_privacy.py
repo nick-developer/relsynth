@@ -257,6 +257,65 @@ def test_assess_report_and_contexts(star, tmp_path):
     assert len(ref["sha256"]) == 64 and ref["verdicts"]["public"] == "blocked"
 
 
+def test_assess_reports_a_split_that_shares_rows(star, monkeypatch):
+    """Prop. 1700(d): when shared rows join almost everyone, the split falls back
+    to the plain cut, and the report says so and every context is at least review."""
+    from relsynth.privacy import unit as U
+    t, s = star
+    ids = list(t["customer"]["customer_id"])
+    monkeypatch.setattr(U, "_shared_groups", lambda unit, tables: {x: ids[0] for x in ids})
+    cfg = {"unit": "customer", "sensitive": ["income"], "quasi_identifiers": ["age", "region"],
+           "attacks": {"record_isolation": {"n_attacks": 50}, "linkage": {"n_attacks": 50},
+                       "inference": {"n_attacks": 50},
+                       "membership": {"shadow": {"n_train": 2, "n_test": 2, "shadow_size": 40,
+                                                 "targets_vulnerable": 1, "targets_random": 1}}}}
+    rep = assess(s, cfg, tables=t, generator=lambda db, seed: {k: v.copy() for k, v in db.items()})
+    assert rep["split_shared_rows"] == len(ids)
+    assert any("share rows with training people" in w for w in rep["warnings"])
+    for ctx in rep["contexts"].values():
+        assert any(c["attack"] == "split_shared_rows" and c["status"] == "review" for c in ctx["checks"])
+        assert ctx["verdict"] != "pass"
+    _validate(json.loads(json.dumps({k: v for k, v in rep.items() if not k.startswith("_")}, default=str)))
+
+
+def test_record_isolation_evaluates_a_training_subset_of_the_controls_size(monkeypatch):
+    """Prop. 601 with a smaller control set (as shared-row groups can leave it):
+    the queries are evaluated on a uniform subset of the distinct training
+    profiles of the control's size, and the control is used whole."""
+    rng = np.random.default_rng(0)
+
+    def people(n):
+        return pd.DataFrame({"a": rng.integers(0, 50, n), "b": rng.integers(0, 50, n), "c": rng.normal(size=n)})
+    tr, ct, syn = people(300), people(120), people(300)
+    seen = []
+    real = criteria._Table
+
+    class Spy(real):
+        def __init__(self, df, kinds):
+            seen.append(len(df))
+            super().__init__(df, kinds)
+    monkeypatch.setattr(criteria, "_Table", Spy)
+    res = criteria.record_isolation(tr, syn, ct, mode="multivariate", n_attacks=100, n_cols=2, seed=3)
+    assert res.n_queries > 0
+    n_ct = len(ct.drop_duplicates())
+    assert seen[1:] == [n_ct, n_ct], seen       # synthetic, then training subset and control, both n_ct
+    assert len(tr.drop_duplicates()) > n_ct
+
+
+def test_judge_keeps_a_shared_row_split_at_review_with_dp():
+    """Prop. 1700(d): DP does not lift the review of a split whose control and
+    training people share rows, even for an external context."""
+    from relsynth.privacy.assess import judge
+    th = {"risk": 0.1, "attribute_leakage": 0.05, "mia_auc": 0.65, "mia_tpr_at_fpr_0.01": 0.1, "record_auc": 0.85}
+    rep = {"attacks": {"record_isolation": [], "linkage": [], "inference": [], "attribute_inference": [],
+                       "membership": {}},
+           "vulnerable_records": [], "release": {"dp": {"epsilon": 1.0, "delta": 1e-6}}, "split_shared_rows": 7}
+    out = judge(rep, "partner", {"thresholds": th, "external": True})
+    assert out["verdict"] == "review" and out["sign_off"]["required"]
+    assert [c["attack"] for c in out["checks"]] == ["split_shared_rows"]
+    assert judge({**rep, "split_shared_rows": 0}, "partner", {"thresholds": th, "external": True})["verdict"] == "pass"
+
+
 def test_assess_with_dp_is_not_blocked(star):
     t, s = star
     cfg = {"unit": "customer", "release": {"dp": {"epsilon": 1.0, "delta": 1e-6, "cumulative_epsilon": 2.0}},
