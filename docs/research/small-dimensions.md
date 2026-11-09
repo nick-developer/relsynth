@@ -69,7 +69,7 @@ The Berka bench also failed one calibrated item (`order` association, 0.155 agai
 
 ## Shape mode (the default)
 
-`marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the table's distribution moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the table's), clipped to the table's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. The segment's median does not move, so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
+`marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the table's distribution moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the table's), clipped to the table's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. The segment's median does not move in the posterior mean (posterior draws vary around it, as without shrinkage), so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
 
 The first version did not clip to the table's range and failed C48: shifted dates left the range of a keyed lookup (an exchange rate per order date, 0.990 of rows matched instead of 1). Clipping fixed it.
 

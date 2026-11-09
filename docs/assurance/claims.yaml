@@ -2116,7 +2116,7 @@ claims:
     doc: docs/privacy.md
     area: statistics
     quote:
-      - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the table's distribution moved to the segment's median and scaled to its interquartile range, inside the table's range: the segment keeps its median (Prop. 1724), so what the fact tables read from it (which products sell, at what price) stays in place, and only the exact values of its few rows are smoothed."
+      - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the table's distribution moved to the segment's median and scaled to its interquartile range, inside the table's range: the segment keeps its median in the posterior mean (Prop. 1724; each posterior draw varies around it, as without shrinkage), so what the fact tables read from it (which products sell, at what price) stays in place, and only the exact values of its few rows are smoothed."
       - "With `table`, every column is shrunk toward the table's own distribution; this also moves each segment toward the table and weakens the joins (with 20 rows the fake-data science checks C09, C19 and C43 fail, and the AdventureWorks scorecard loses 7.8 of 1,267 items on average)."
       - "Shrinkage lowers how often a segment reproduces its own values; it does not rule out exact copies."
       - "With `segment_prior_rows: 0` every mode gives the 2.1 output."

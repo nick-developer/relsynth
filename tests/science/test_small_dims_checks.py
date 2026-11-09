@@ -73,9 +73,10 @@ def test_c1720_segment_shrinkage_weight_and_stream():
 
 # --------------------------------------------------------------------- C1724
 def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
-    """Prop. 1724: in shape mode the predictive median of a continuous segment is
-    its sample median (b), every value lies in the table's range or on the
-    segment's own values (c), the random stream does not change (d), and the
+    """Prop. 1724: in shape mode the posterior mean predictive (bootstrap=False)
+    of a continuous segment has its sample median, up to the grid (b), every value
+    lies in the smallest interval containing the table's knots and the segment's
+    values (c), the random stream does not change (d), and the
     predictive moves by at most a / (n + a) whatever the two priors (e)."""
     rng = np.random.default_rng(7)
     vals = rng.gamma(2.0, size=4000)
