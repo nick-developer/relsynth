@@ -62,7 +62,7 @@ relsynth run spec.yaml --target "sqlite:synthetic.db" --fail-under 0.98
 - **Statistics.** Each table's marginals and dependence come from a Bayesian Gaussian copula over mixed types. Links between tables come from latent segments, so customers who buy more of one product kind keep doing so. Counts, participation and multiplicities follow fitted laws.
 - **Bayesian.** Each synthetic dataset is one draw from the posterior predictive distribution. Several datasets show the model's own uncertainty, and `posterior.mode: mean` gives stable test data.
 - **Scale.** You set the size per table: `--scale 0.1` for a small test database, or `--scale 10` for load tests. Facts follow the tables they hang from by the fitted rates.
-- **Privacy.** Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied. Distance-to-closest-record checks compare synthetic rows with real ones, against the real data's own spacing. Text cannot reproduce rare source content, and memorisation guards are on by default. `relsynth privacy` attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context.
+- **Privacy.** Rows are drawn from a fitted model; only tables you declare `mode: copy` are copied. Distance-to-closest-record checks compare synthetic rows with real ones, against the real data's own spacing. Text cannot reproduce rare source content, and memorisation guards are on by default. `relsynth privacy` attacks a release per person (membership, attribute inference, singling out, linkability) and writes a report per release context. By default `relsynth run` ends with a quick membership check on a proxy release and prints one privacy line (except in DP mode, or when it is skipped: see [docs/privacy.md](docs/privacy.md#the-quick-check-in-every-relsynth-run)); it never changes the synthetic files.
 - **Differential privacy (optional).** `relsynth run --epsilon 1` gives a user-level (ε, δ) guarantee for each person of the privacy unit and all their rows. The organisation sets ε; there is no default. Releases outside the organisation are refused without it.
 - **Governance.** Signed, hash-chained manifests of every run, a privacy budget ledger per domain, an organisation policy and human approvals before release (`relsynth gov`).
 - **Documents.** MongoDB, Cosmos DB, DynamoDB (single-table designs included), Couchbase and JSON collections keep their shape: optional fields, unions, nested arrays with their length laws, polymorphic sub-documents, maps and references between collections (`relsynth docs`).
@@ -101,6 +101,7 @@ pip install "relsynth[service-otel]"       # + OpenTelemetry traces and metrics 
 pip install "relsynth[documents]"          # document databases: MongoDB, Cosmos DB, DynamoDB (relsynth docs)
 pip install "relsynth[couchbase]"          # + Couchbase
 pip install "relsynth[speed]"              # optional numba kernels (same output, faster on large schemas)
+pip install "relsynth[spark]"              # optional: the spark executor of the partitioned runtime (PySpark; needs Java)
 pip install "relsynth[text-lm]"            # optional: local language models for text (PyTorch, transformers, peft)
 pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNER recognizers for personal data in text
 ```
@@ -209,7 +210,7 @@ The [user guide](docs/user-guide.md) walks through each step with a worked examp
 | SQL Server | yes | yes (fast executemany) | yes | SQL Server 2022 (16.0), ODBC Driver 18 |
 | Oracle | yes | yes (array insert) | yes | Oracle Database 26ai Free (23.26) |
 | MySQL, MariaDB | yes | yes (multi-row insert) | yes | MySQL 8.4.13, MariaDB 11.4.13 |
-| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.3 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
+| Databricks SQL | yes | yes (multi-row insert, or Parquet and `COPY INTO`) | yes | Spark 3.5.8 + Delta 3.2.1 stand-in ([warehouses](docs/warehouses.md)) |
 | Microsoft Fabric | yes | yes (ODBC parameter arrays, or Parquet and `COPY INTO`) | yes | SQL Server 2022 stand-in ([warehouses](docs/warehouses.md)) |
 | Snowflake | yes | yes (multi-row insert, or Parquet staged and `COPY INTO`) | yes | fakesnow 0.12 stand-in ([warehouses](docs/warehouses.md)) |
 | Google BigQuery | yes | yes (load jobs from Parquet, or DML `INSERT`) | yes | not yet: unit tests only ([warehouses](docs/warehouses.md)) |
@@ -246,7 +247,7 @@ The target's structure comes in three forms:
 | `relsynth tune spec.yaml [--rounds 3]` | Run, doctor and apply, repeated |
 | `relsynth autotune spec.yaml` | Tune engine settings toward your objectives over several seeds; constraints report for what cannot be met |
 | `relsynth settings show\|explain\|validate\|template\|reference` | The engine settings, their ranges and the checks each affects |
-| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `mst`/`aim` release two-way marginals |
+| `relsynth run spec.yaml --epsilon E [--dp-unit TABLE[,TABLE]] [--dp-measure copula\|mst\|aim]` | Differentially private run (needs `relsynth[dp]`); writes a DP statement; `--dp-unit` takes several units separated by commas; `mst`/`aim` release two-way marginals |
 | `relsynth privacy spec.yaml` | Attack a release per person; privacy report per release context |
 | `relsynth extend spec.yaml --until DATE [--step day]` | Continue the event histories of a synthetic dataset step by step |
 | `relsynth generators list\|show`, `relsynth compute` | Installed generator plug-ins; GPUs found and the device each generator would get |
@@ -428,7 +429,7 @@ relsynth ships no model weights; `relsynth text models` lists models with their 
 - **SQL.** Every SQL statement is built with SQLAlchemy Core, with quoted identifiers and bound values. Table and column names cannot inject SQL; tests use hostile names on every database.
 - **Specs.** A spec is YAML read with a safe loader that also refuses aliases, so an alias bomb fails. Rule expressions run in a sandboxed evaluator: no attribute access, calls only to a fixed list of functions, and size and depth limits. Regular expressions with catastrophic backtracking are refused.
 - **Files.** Table names cannot leave the target folder (`..`, separators, absolute paths and symlinks are refused).
-- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Copy guards run by default; they are not a privacy check ([docs/privacy.md](docs/privacy.md) measures privacy).
+- **Data.** Rows never leave the source database for pushed-down facts. Bundles and profiles hold aggregates only, and `profile --top` must be asked for explicitly. Copy guards run by default; they are not a privacy check ([docs/privacy.md](docs/privacy.md) measures privacy). The quick privacy check of `relsynth run` is a smoke test, not an assessment.
 - **Supply chain.** The code is scanned with bandit and ruff's security rules, and dependencies with pip-audit, in CI.
 - **Code scanning.** Every pull request also runs CodeQL (security-extended and security-and-quality suites), Semgrep with project rules, gitleaks, zizmor for the workflows and GitHub dependency review; Dependabot watches dependencies and the digest-pinned base images ([docs/development/ci.md](docs/development/ci.md#security-scanning)).
 
@@ -490,6 +491,7 @@ The method is described in two papers shipped with the package:
 | Time and scale (v2.0) | **1200–1206** time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; **950–954** worker independence, partitions keep the law, keys across partitions, drift tests |
 | Synthetic text (v2.1) | **1500–1507** canary exposure under DP; DP n-gram release; user-level DP-GD; Private Evolution votes; expected exposure; near-duplicate search; PII placeholders; consistency with the row |
 | Agents (v2.1) | **1600–1604** data minimisation, containment of any model output, evidence first, grounded wording, no authority without a person |
+| Quick privacy check (v2.2) | **1740–1741** false alarms of the quick check are bounded under no membership signal; the check leaves the release unchanged |
 
 [docs/theory.md](docs/theory.md) gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full.
 

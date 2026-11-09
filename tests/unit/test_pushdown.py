@@ -98,6 +98,17 @@ def test_pushdown_from_files_and_from_sqlite_agree(star_sqlite, star_parquet):
     _tables_equal(a, b)
 
 
+def test_pandas_file_pushdown_keeps_whole_columns_with_the_model(tmp_path):
+    """SEC-10: with a file source on the pandas engine, the fitted model keeps the whole
+    columns its statistics loaded (every row), not only the sample."""
+    spec = write_scenario("S2_star", {"kind": "csv", "path": str(tmp_path / "src"), "engine": "pandas"})
+    m = rs.fit(_with_pushdown(spec, "on", 300), seed=2)
+    stats = m.synthesizer.fstats
+    assert stats, "no fact was pushed down"
+    for st in stats.values():
+        assert st._cache and all(len(v) == st.n_rows > 300 for v in st._cache.values())
+
+
 def test_sampled_pushdown_keeps_quality_and_memory_bound(star_sqlite):
     spec, _ = star_sqlite
     m = rs.fit(_with_pushdown(spec, "on", 3000), seed=4)

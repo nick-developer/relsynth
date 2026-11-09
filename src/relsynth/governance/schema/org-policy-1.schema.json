@@ -64,12 +64,21 @@
       "additionalProperties": false,
       "properties": {
         "description": {"type": "string"},
-        "unit": {"type": "object", "required": ["entity"], "additionalProperties": false,
-                 "properties": {"entity": {"type": "string"}}},
+        "unit": {"type": "object", "additionalProperties": false,
+                 "oneOf": [{"required": ["entity"]}, {"required": ["entities"]}],
+                 "properties": {"entity": {"type": "string"},
+                                "entities": {"type": "array", "minItems": 2, "items": {"type": "string"},
+                                             "description": "Several units in the domain's sources (customers and employees). Each unit has its own ledger account and the budget applies to each separately (RFC-G1-01, Prop. 1704)."}}},
+        "unit_budgets": {"type": "object", "additionalProperties": {"$ref": "#/$defs/budget"},
+                         "description": "Optional budget of one unit of a domain with several units, set by the privacy owner; units not listed use budget. Every unit budget uses the domain's delta."},
         "adjacency": {"enum": ["add_remove", "replace"], "default": "add_remove"},
         "sources": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id"], "additionalProperties": false,
                     "properties": {"id": {"type": "string"}, "description": {"type": "string"}}}},
-        "budget": {
+        "budget": {"$ref": "#/$defs/budget"},
+        "reassess_after": {"$ref": "#/$defs/duration"}
+      }
+    },
+    "budget": {
           "type": "object",
           "required": ["accounting", "delta", "lifetime"],
           "additionalProperties": false,
@@ -86,9 +95,6 @@
             "per_release": {"type": "object", "required": ["epsilon_max"], "additionalProperties": false,
                             "properties": {"epsilon_max": {"$ref": "#/$defs/epsilon"}}}
           }
-        },
-        "reassess_after": {"$ref": "#/$defs/duration"}
-      }
     }
   },
   "properties": {

@@ -164,3 +164,62 @@ def test_C606_specific_leakage_centred_for_population_generator():
         lo, hi = a["specific_leakage"]["ci"]
         cover.append(lo <= 0 <= hi)
     assert np.mean(cover) >= 0.85
+
+
+# ------------------------------------------------------------ G5: the quick check of `relsynth run`
+def _patients(n, seed):
+    t, s, _ = S.mixed_table(n=n, seed=seed)
+    return t["patient"], load_spec(s)
+
+
+def test_C1740_quick_check_null_validity_and_power():
+    """Prop. 1740: against a release that ignores who is a member (people drawn
+    from the same population, none of them in the database), each attack's AUC
+    interval covers 0.5 at about the nominal rate and the check almost never
+    fails; a release that copies its members fails every time, and one that
+    copies 20% of them fails through the closest-distance TPR at FPR 0.01."""
+    from relsynth.privacy import quick as Q
+    cover, fails, power, power20 = [], [], [], []
+    for rep in range(30):
+        pop, spec = _patients(9000, 100 + rep)
+        db, pool = {"patient": pop.iloc[:3000].reset_index(drop=True)}, pop.iloc[3000:].reset_index(drop=True)
+
+        def release(tables, seed, frac=0.0, pool=pool):
+            tr = tables["patient"]
+            n, k = len(tr), int(frac * len(tables["patient"]))
+            out = pd.concat([tr.sample(n=k, random_state=seed), pool.sample(n=n - k, random_state=seed)])
+            out = out.reset_index(drop=True)
+            out["patient_id"] = range(1, n + 1)
+            return {"patient": out}
+        r = Q.quick_check(spec, db, seed=rep, unit="patient", people=3000, generator=release)
+        assert r["status"] != "skipped", r
+        for v in r["attacks"].values():
+            cover.append(v["auc_ci"][0] <= 0.5 <= v["auc_ci"][1])
+        fails.append(r["status"] == "fail")
+        if rep < 10:
+            c = Q.quick_check(spec, db, seed=rep, unit="patient", people=3000,
+                              generator=lambda tables, seed: {k: v.copy() for k, v in tables.items()})
+            power.append(c["status"] == "fail")
+            c = Q.quick_check(spec, db, seed=rep, unit="patient", people=3000,
+                              generator=lambda tables, seed, rel=release: rel(tables, seed, 0.2))
+            power20.append(c["status"] == "fail")
+    assert np.mean(cover) >= 0.85
+    assert np.mean(fails) <= 0.1                    # four checks per run, each one-sided at 2.5%
+    assert all(power)
+    assert np.mean(power20) >= 0.8
+
+
+def test_C1741_quick_check_leaves_the_release_unchanged():
+    """Prop. 1741: the check runs after every write on its own seeded stream, so
+    the synthetic tables are identical with and without it, and the check itself
+    is reproducible for a seed."""
+    from relsynth.pipeline import execute
+    pop, spec = _patients(1500, 7)
+    spec["synthesis"]["seed"] = 5
+    on = execute(spec, tables={"patient": pop}, write=False, privacy_check=True)
+    off = execute(spec, tables={"patient": pop}, write=False, privacy_check=False)
+    again = execute(spec, tables={"patient": pop}, write=False, privacy_check=True)
+    for k in on.data:
+        pd.testing.assert_frame_equal(on.data[k], off.data[k])
+    assert on.bundle["privacy_check"]["status"] in ("pass", "review", "fail")
+    assert on.bundle["privacy_check"]["auc"] == again.bundle["privacy_check"]["auc"]

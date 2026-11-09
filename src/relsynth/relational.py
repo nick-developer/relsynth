@@ -331,6 +331,8 @@ def kmeanspp(X, K, rng, iters=25):
 
 
 class Entity:
+    copied: bool                 # set by the engine on a copied reference table (read with getattr)
+
     def __init__(self, name, n, K, Xn, Xc, ncat, strata=None, caps=None):
         """strata: optional observed stratum per row (e.g. the row of a small copied
         parent).  Segments are then nested in strata: segment k belongs to stratum
@@ -460,6 +462,10 @@ class Entity:
 
 class PairRel:
     """Poisson block model between e1 (anchor) and e2 with optional measures."""
+
+    # set by the engine on a foreign-key edge (read with getattr)
+    null_mask: np.ndarray
+    child_only: bool
 
     def __init__(self, name, kind, e1, e2, u, v, c, S=None, Q2=None, table=None):
         self.name, self.kind, self.e1, self.e2 = name, kind, e1, e2
@@ -1108,8 +1114,8 @@ class RelationalModel:
                     # child_only: the link of a grain entity to the parents of its unique key;
                     # the parents' side is modelled by the entity's occupancy relation instead
                     r.e2.rels.append((r, 1))
-        self.trace = []
-        self.history = {}
+        self.trace: list = []
+        self.history: dict = {}
 
     # ---- tied entities
     def tie(self, child, parent, idx, edge):

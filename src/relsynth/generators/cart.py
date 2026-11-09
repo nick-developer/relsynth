@@ -8,7 +8,10 @@ engine backs off to, the parent attributes joined onto the row, and the
 columns before it (Reiter 2005; Nowok, Raab and Dibben 2016, method "cart").
 A synthetic row walks down the tree with its own (already synthetic) values
 and takes the value of a donor drawn from the observed rows of its leaf
-(minimum leaf size ``min_leaf``, synthpop's ``minbucket = 5``).
+(minimum leaf size ``min_leaf``, synthpop's ``minbucket = 5``).  A number
+drawn that way gets Gaussian kernel noise (``smoothing = "density"``, the
+default since relsynth 2.2.0; synthpop's ``smoothing``), so that no observed number,
+such as the single largest value of a column, is released exactly.
 
 Posterior: donors are drawn with Bayesian-bootstrap weights (Rubin 1981),
 Dirichlet(1, ..., 1) over the rows of each leaf, redrawn for every dataset,
@@ -30,8 +33,11 @@ from scipy.special import ndtri
 
 from .contract import Capabilities, TableGenerator
 
+# smoothing "density" by default (since 2.2.0): without it a number seen once in the source, such as
+# the largest income, is released exactly, and univariate singling out caught it on ACS
+# (risk 0.53, limit 0.10; 0.003 with smoothing, docs/assurance/evidence/G5/cart_acs.json)
 DEFAULTS = {"min_leaf": 5, "max_depth": 12, "bins": 32, "max_rows": 50000, "min_gain": 1e-8,
-            "smoothing": "none"}
+            "smoothing": "density"}
 
 
 def _scores(x):

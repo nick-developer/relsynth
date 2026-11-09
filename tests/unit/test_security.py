@@ -162,3 +162,126 @@ def test_synthetic_rows_are_not_copies(star_sqlite):
     key = lambda df: df[cols].astype(str).agg("|".join, axis=1)  # noqa: E731
     shared = np.isin(key(syn).to_numpy(), key(real).to_numpy()).mean()
     assert shared < 0.05
+
+
+# ---------------------------------------------------------------- what leaves the source
+def _row_leaks(text: str, tables: dict) -> dict:
+    """Source values found in `text`, in any format (JSON, Markdown, CSV).
+
+    customer_id: identifier values found anywhere, quoted or not ("C000001" cannot occur by chance).
+    rows: rows of product and sales whose integer key cannot be searched alone (1, 2, ... occur as
+    counts), found as the row's own fields side by side: its continuous value, its key and its
+    category or channel within 120 characters of each other.
+    <table>.<column>: continuous values (as Python writes a float) that appear verbatim."""
+    import re
+    nums = set(re.findall(r"-?\d+\.\d+(?:e-?\d+)?", text))
+    out: dict = {"customer_id": [v for v in tables["customer"]["customer_id"] if v in text], "rows": []}
+    for t, c in (("customer", "income"), ("product", "price"), ("sales", "amount")):
+        vals = tables[t][c].dropna().unique()
+        out[f"{t}.{c}"] = [v for v in vals if repr(float(v)) in nums]
+    for t, key, c, label in (("product", "product_id", "price", "category"), ("sales", "sale_id", "amount", "channel")):
+        df = tables[t]
+        for v in out[f"{t}.{c}"]:
+            for row in df[df[c] == v].itertuples(index=False):
+                r = row._asdict()
+                for m in re.finditer(re.escape(repr(float(v))), text):
+                    window = text[max(m.start() - 120, 0):m.end() + 120]
+                    if re.search(rf"(?<![\d.]){r[key]}(?![\d.])", window) and str(r[label]) in window:
+                        out["rows"].append((t, r[key]))
+    return out
+
+
+def test_row_leak_finder_finds_dumped_rows(star_sqlite):
+    """The finder itself: a row dumped as JSON or as a Markdown table line is reported."""
+    from conftest import scenario
+    tables, _, _ = scenario("S2_star")
+    p, s_ = tables["product"].iloc[7], tables["sales"].iloc[11]
+    dumped = (json.dumps({k: (v.item() if hasattr(v, "item") else v) for k, v in p.items()})
+              + f"\n| {s_.sale_id} | {s_.customer_id} | {s_.product_id} | {s_.quantity} | {float(s_.amount)!r} | {s_.channel} |")
+    leaks = _row_leaks(dumped, tables)
+    assert ("product", p.product_id) in leaks["rows"] and ("sales", s_.sale_id) in leaks["rows"]
+    assert s_.customer_id in leaks["customer_id"]
+    assert _row_leaks("count 12 mean 54.2", tables)["rows"] == []
+
+
+def test_bundles_verify_reports_and_profiles_hold_no_rows(star_sqlite, tmp_path):
+    """SEC-10: diagnostics bundles, verify reports and profile output hold counts and statistics,
+    not rows.  No customer identifier appears, and of each continuous column at most the few
+    values a summary can name (minimum, maximum, a quantile) appear verbatim."""
+    from conftest import scenario
+
+    from relsynth.diagnostics import write_bundle
+    spec, _ = star_sqlite
+    tables, _, _ = scenario("S2_star")
+    r = rs.run(spec, write=False, privacy=False)
+    write_bundle(dict(r.bundle), tmp_path / "bundle.json")
+    rep = rs.verify(spec, draws=2, stability=False, privacy=False)
+    texts = {"bundle": (tmp_path / "bundle.json").read_text(),
+             "verify": rep.to_json() + rep.to_markdown(),
+             "profile": json.dumps(rs.profile(spec["source"]), default=str)}
+    for name, text in texts.items():
+        leaks = _row_leaks(text, tables)
+        assert leaks["customer_id"] == [], (name, leaks["customer_id"][:5])
+        assert leaks["rows"] == [], (name, leaks["rows"][:5])
+        for col, hit in leaks.items():
+            if col not in ("customer_id", "rows"):
+                assert len(hit) <= 5, (name, col, len(hit))
+
+
+def test_cli_profile_lists_values_only_with_top(star_sqlite, tmp_path):
+    """RM-27: `relsynth profile` writes counts only; frequent values need an explicit --top N."""
+    from relsynth.cli import main
+    _, db = star_sqlite
+    plain, top = tmp_path / "plain.json", tmp_path / "top.json"
+    assert main(["profile", "--source", f"sqlite:{db}", "--tables", "customer", "--output", str(plain)]) == 0
+    assert main(["profile", "--source", f"sqlite:{db}", "--tables", "customer", "--top", "3", "--output", str(top)]) == 0
+    cols = json.loads(plain.read_text())["customer"]["columns"]
+    assert cols and all("top" not in c for c in cols.values())
+    assert any(c.get("top") for c in json.loads(top.read_text())["customer"]["columns"].values())
+
+
+def test_only_select_is_issued_against_a_source(star_sqlite, tmp_path):
+    """docs/security.md: relsynth never writes to a source.  Every statement that reaches the
+    SQLite source, through SQLAlchemy or straight on the DBAPI cursor (sqlite3's trace hook
+    sees both), is a SELECT, a PRAGMA that only reads (schema reflection, the isolation level)
+    or the connection's `PRAGMA foreign_keys=ON`, with and without pushdown, for introspect,
+    profile, run and verify; the source file is unchanged."""
+    import hashlib
+    from pathlib import Path
+
+    from sqlalchemy import event
+    from sqlalchemy.pool import Pool
+    spec, db = star_sqlite
+    spec = {**spec, "target": {"kind": "csv", "path": str(tmp_path / "out")}}
+    before = hashlib.sha256(db.read_bytes()).hexdigest()
+    # schema reflection, and SQLAlchemy reading the isolation level when a connection opens
+    reflection = ("table_info", "table_xinfo", "index_list", "index_info", "foreign_key_list",
+                  "read_uncommitted")
+    seen: list[str] = []
+
+    def trace(dbapi_con, _rec):
+        """Record every statement run on a new connection to the source file."""
+        files = [r[2] for r in dbapi_con.execute("PRAGMA database_list").fetchall()]
+        if str(db.resolve()) in {str(Path(f).resolve()) for f in files if f}:
+            dbapi_con.set_trace_callback(lambda st: seen.append(st.strip()))
+
+    event.listen(Pool, "connect", trace, insert=True)     # before the connector's own setup
+    try:
+        rs.introspect(spec["source"])
+        rs.profile(spec["source"])
+        for mode in ("off", "on"):
+            rs.run(spec, privacy=False, pushdown=mode)
+        rs.verify(spec, draws=2, stability=False, privacy=False, pushdown="on")
+    finally:
+        event.remove(Pool, "connect", trace)
+    assert seen, "no statement reached the source"
+    assert "PRAGMA foreign_keys=ON" in seen               # the DBAPI-level statements are seen
+    for st in seen:
+        head = st.split(None, 1)[0].upper()
+        if st == "PRAGMA foreign_keys=ON":
+            continue                                      # session setting, writes nothing
+        if head == "PRAGMA":
+            assert "=" not in st and st.split(None, 1)[1].split("(")[0].split(".")[-1] in reflection, st
+        else:
+            assert head == "SELECT", st          # WITH is refused too: SQLite allows WITH ... UPDATE
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == before

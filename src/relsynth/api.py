@@ -634,6 +634,11 @@ class RunResult:
     def ok(self) -> bool:
         return not self.errors
 
+    @property
+    def privacy_check(self) -> dict | None:
+        """The quick privacy check (relsynth.privacy.quick), None when it did not run."""
+        return self.bundle.get("privacy_check")
+
     def save_bundle(self, path: str | Path) -> Path:
         from .diagnostics import write_bundle
         write_bundle(self.bundle, path)
@@ -643,19 +648,22 @@ class RunResult:
 def run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None,
         pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True,
         bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True,
-        settings=None) -> RunResult:
+        settings=None, privacy_check: bool = True) -> RunResult:
     """The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
     evaluate -> diagnostics bundle.  out: folder or target section (default: the
     spec's target); datasets: independent posterior draws to write; mode: 'draw'
     (default) or 'mean'; fail_under: quality gate on the share of passed checks.
     raise_errors=False returns a RunResult with `errors` instead of raising (the
     bundle explains them; see doctor).  settings: engine settings over the
-    spec's synthesis block (relsynth.Settings, a mapping or a settings file)."""
+    spec's synthesis block (relsynth.Settings, a mapping or a settings file).
+    privacy_check: the quick DOMIAS check on a proxy release (on unless False or
+    the spec's synthesis.evaluation.privacy_check is false); its result is
+    RunResult.privacy_check and the bundle's privacy_check field."""
     from .pipeline import execute
     if settings is not None:
         spec = Spec.coerce(spec).with_settings(settings)
     r = execute(_resolved(spec), scale=scale, out=out if write else False, bundle_path=bundle, privacy=privacy,
-                datasets=datasets, mode=mode, pushdown=pushdown, seed=seed, write=write)
+                datasets=datasets, mode=mode, pushdown=pushdown, seed=seed, write=write, privacy_check=privacy_check)
     model = FittedModel(r.spec, r.synthesizer, r.fit_data) if r.synthesizer is not None else None
     data = SyntheticData(r.data, r.spec, 0, dict(r.synthesizer.sample_log)) if r.data is not None else None
     rep = EvaluationReport(r.report) if r.report is not None else None

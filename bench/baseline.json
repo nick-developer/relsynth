@@ -1,22 +1,22 @@
 {
  "schema": 1,
  "sources": [
-  "20261031T043049-ccdabff-runnervm48cm3.json",
-  "20261031T042923-ccdabff-runnervm48cm3.json",
-  "20261031T042938-ccdabff-runnervm48cm3.json",
-  "20261031T042923-ccdabff-runnervm48cm3.json",
-  "20261031T042940-ccdabff-runnervm48cm3.json",
-  "20261031T042933-ccdabff-runnervm48cm3.json",
-  "20261031T043036-ccdabff-runnervm48cm3.json"
+  "20261108T062931-24dd82c-runnervm7aw5e.json",
+  "20261108T062912-24dd82c-runnervm7aw5e.json",
+  "20261108T062412-24dd82c-runnervm7aw5e.json",
+  "20261108T062827-24dd82c-runnervm7aw5e.json",
+  "20261108T062915-24dd82c-runnervm7aw5e.json",
+  "20261108T062901-24dd82c-runnervm7aw5e.json",
+  "20261108T062845-24dd82c-runnervm7aw5e.json"
  ],
  "relsynth": [
-  "1.0.1"
+  "2.1.0"
  ],
  "git": [
-  "ccdabff9c395"
+  "24dd82cca228"
  ],
  "machines": [
-  "runnervm48cm3"
+  "runnervm7aw5e"
  ],
  "datasets": {
   "acs": {
@@ -28,35 +28,35 @@
     5
    ],
    "pass_rates": [
-    0.848921,
-    0.856115,
-    0.827338,
-    0.827338,
-    0.827338
+    0.817143,
+    0.822857,
+    0.822857,
+    0.805714,
+    0.794286
    ],
    "passed": [
-    118,
-    119,
-    115,
-    115,
-    115
-   ],
-   "judged": [
-    139,
-    139,
-    139,
-    139,
+    143,
+    144,
+    144,
+    141,
     139
    ],
-   "mean": 0.83741,
-   "sd": 0.014024,
-   "spread": 0.028048,
+   "judged": [
+    175,
+    175,
+    175,
+    175,
+    175
+   ],
+   "mean": 0.812571,
+   "sd": 0.012388,
+   "spread": 0.024777,
    "seconds": [
-    153.2,
-    160.5,
-    148.3,
-    140.9,
-    157.7
+    112.1,
+    110.6,
+    104.9,
+    99.9,
+    112.5
    ],
    "checks": {
     "area:fidelity": {
@@ -223,12 +223,42 @@
      "judged": 5,
      "calibrated": true
     },
+    "goal:privacy_internal[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_internal[independent]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
     "goal:privacy_partner_needs_dp": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
     },
+    "goal:privacy_partner_needs_dp[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_partner_needs_dp[independent]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
     "goal:privacy_public_needs_dp": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_public_needs_dp[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_public_needs_dp[independent]": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
@@ -317,31 +347,31 @@
      ]
     },
     "privacy:membership|shadow_classifier_vulnerable_auc": {
-     "passed": 2,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      2,
       3,
       4,
       5
      ]
     },
     "privacy:membership|shadow_lira_auc": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      4,
       5
      ]
     },
     "privacy:membership|shadow_lira_vulnerable_auc": {
-     "passed": 0,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
-      2,
-      3,
       4,
       5
      ]
@@ -356,6 +386,237 @@
      ]
     },
     "privacy:record_isolation|singling_out_univariate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|attribute_inference_vs_population:DPHY": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|attribute_inference_vs_population:DREM": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|attribute_inference_vs_population:PINCP_DECILE": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|nearest_neighbour_inference:DPHY": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:inference|nearest_neighbour_inference:DREM": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:inference|nearest_neighbour_inference:PINCP_DECILE": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:linkage|nearest_neighbour_linkage": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:membership|domias_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:membership|domias_tpr_at_fpr_0.01": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:membership|shadow_classifier_auc": {
+     "passed": 2,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      4
+     ]
+    },
+    "privacy[cart]:membership|shadow_classifier_vulnerable_auc": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:membership|shadow_lira_auc": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:membership|shadow_lira_vulnerable_auc": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:record_isolation|singling_out_multivariate": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2,
+      5
+     ]
+    },
+    "privacy[cart]:record_isolation|singling_out_univariate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|attribute_inference_vs_population:DPHY": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|attribute_inference_vs_population:DREM": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|attribute_inference_vs_population:PINCP_DECILE": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|nearest_neighbour_inference:DPHY": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      5
+     ]
+    },
+    "privacy[independent]:inference|nearest_neighbour_inference:DREM": {
+     "passed": 2,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      4,
+      5
+     ]
+    },
+    "privacy[independent]:inference|nearest_neighbour_inference:PINCP_DECILE": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:linkage|nearest_neighbour_linkage": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:membership|domias_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:membership|domias_tpr_at_fpr_0.01": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:membership|shadow_classifier_auc": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2,
+      3
+     ]
+    },
+    "privacy[independent]:membership|shadow_classifier_vulnerable_auc": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      5
+     ]
+    },
+    "privacy[independent]:membership|shadow_lira_auc": {
+     "passed": 4,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2
+     ]
+    },
+    "privacy[independent]:membership|shadow_lira_vulnerable_auc": {
+     "passed": 2,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      5
+     ]
+    },
+    "privacy[independent]:record_isolation|singling_out_multivariate": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      4,
+      5
+     ]
+    },
+    "privacy[independent]:record_isolation|singling_out_univariate": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
@@ -927,8 +1188,8 @@
    "errors": 0,
    "tracked": {
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 6929.88,
-     "sd": 345.831898,
+     "mean": 4845.7,
+     "sd": 204.388943,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
@@ -946,31 +1207,91 @@
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 896.18,
-     "sd": 0.597495,
+     "mean": 924.1,
+     "sd": 0.474342,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.516562,
+     "sd": 0.010021,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.513632,
+     "sd": 0.008417,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_dcr_p5_real": {
-     "mean": 1.648928,
-     "sd": 0.087238,
+     "mean": 1.631402,
+     "sd": 0.087891,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_real_cart": {
+     "mean": 1.616752,
+     "sd": 0.076807,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_real_independent": {
+     "mean": 1.640747,
+     "sd": 0.097504,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_p5_syn": {
-     "mean": 2.256475,
-     "sd": 0.045606,
+     "mean": 2.227791,
+     "sd": 0.046841,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_syn_cart": {
+     "mean": 1.952029,
+     "sd": 0.07065,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_syn_independent": {
+     "mean": 2.59534,
+     "sd": 0.046548,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_ratio": {
-     "mean": 1.371851,
-     "sd": 0.084269,
+     "mean": 1.369017,
+     "sd": 0.084243,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_ratio_cart": {
+     "mean": 1.208729,
+     "sd": 0.053151,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_ratio_independent": {
+     "mean": 1.585041,
+     "sd": 0.070166,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_exact_match_rate": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_cart": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_independent": {
      "mean": 0.0,
      "sd": 0.0,
      "n": 5,
@@ -982,7 +1303,31 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_guard_dcr_exact_match_rate_real_any_cart": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_any_independent": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_exact_match_rate_real_internal": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_internal_cart": {
+     "mean": 0.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_internal_independent": {
      "mean": 0.0,
      "sd": 0.0,
      "n": 5,
@@ -994,27 +1339,87 @@
      "n": 5,
      "direction": "higher"
     },
+    "metric:privacy_guard_dcr_m_cart": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_m_independent": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
     "metric:privacy_guard_dcr_n": {
      "mean": 1500.0,
      "sd": 0.0,
      "n": 5,
      "direction": "higher"
     },
+    "metric:privacy_guard_dcr_n_cart": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_n_independent": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
     "metric:privacy_inference_attribute_inference_vs_population:DPHY": {
-     "mean": 0.0023,
-     "sd": 0.003506,
+     "mean": 0.0026,
+     "sd": 0.003794,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:DPHY_cart": {
+     "mean": 0.0022,
+     "sd": 0.003497,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:DPHY_independent": {
+     "mean": -0.00125,
+     "sd": 0.001777,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_attribute_inference_vs_population:DREM": {
      "mean": 0.00195,
-     "sd": 0.003805,
+     "sd": 0.004017,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:DREM_cart": {
+     "mean": 0.00325,
+     "sd": 0.003446,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:DREM_independent": {
+     "mean": -0.0009,
+     "sd": 0.001557,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE": {
-     "mean": 0.00245,
-     "sd": 0.009234,
+     "mean": 0.00265,
+     "sd": 0.00933,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE_cart": {
+     "mean": 0.0063,
+     "sd": 0.009512,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:PINCP_DECILE_independent": {
+     "mean": 0.0013,
+     "sd": 0.008632,
      "n": 5,
      "direction": "lower"
     },
@@ -1024,9 +1429,33 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_inference_nearest_neighbour_inference:DPHY_cart": {
+     "mean": 0.041952,
+     "sd": 0.058284,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_nearest_neighbour_inference:DPHY_independent": {
+     "mean": 0.011674,
+     "sd": 0.017945,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_inference_nearest_neighbour_inference:DREM": {
      "mean": 0.084015,
      "sd": 0.08212,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_nearest_neighbour_inference:DREM_cart": {
+     "mean": 0.063024,
+     "sd": 0.08734,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_nearest_neighbour_inference:DREM_independent": {
+     "mean": 0.029898,
+     "sd": 0.062734,
      "n": 5,
      "direction": "lower"
     },
@@ -1036,51 +1465,159 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE_cart": {
+     "mean": 0.092889,
+     "sd": 0.020265,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_nearest_neighbour_inference:PINCP_DECILE_independent": {
+     "mean": 0.012291,
+     "sd": 0.012612,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_linkage_nearest_neighbour_linkage": {
      "mean": 0.000662,
      "sd": 0.001481,
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_linkage_nearest_neighbour_linkage_cart": {
+     "mean": 0.00928,
+     "sd": 0.001485,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_linkage_nearest_neighbour_linkage_independent": {
+     "mean": 0.001987,
+     "sd": 0.002962,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_membership_domias_auc": {
-     "mean": 0.510649,
-     "sd": 0.006609,
+     "mean": 0.510385,
+     "sd": 0.006315,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_auc_cart": {
+     "mean": 0.520904,
+     "sd": 0.010271,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_auc_independent": {
+     "mean": 0.507004,
+     "sd": 0.00586,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_tpr_at_fpr_0.01": {
-     "mean": 0.0114,
-     "sd": 0.003698,
+     "mean": 0.0119,
+     "sd": 0.004519,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_tpr_at_fpr_0.01_cart": {
+     "mean": 0.0108,
+     "sd": 0.003684,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_tpr_at_fpr_0.01_independent": {
+     "mean": 0.0094,
+     "sd": 0.002408,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_most_vulnerable_record_auc": {
-     "mean": 0.889432,
-     "sd": 0.066368,
+     "mean": 0.832677,
+     "sd": 0.048103,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_most_vulnerable_record_auc_cart": {
+     "mean": 0.853193,
+     "sd": 0.048212,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_most_vulnerable_record_auc_independent": {
+     "mean": 0.783295,
+     "sd": 0.036761,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_classifier_auc": {
-     "mean": 0.564733,
-     "sd": 0.061333,
+     "mean": 0.547184,
+     "sd": 0.04602,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_classifier_auc_cart": {
+     "mean": 0.579323,
+     "sd": 0.057603,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_classifier_auc_independent": {
+     "mean": 0.541735,
+     "sd": 0.051271,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_classifier_vulnerable_auc": {
-     "mean": 0.580424,
-     "sd": 0.081835,
+     "mean": 0.573118,
+     "sd": 0.053857,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_classifier_vulnerable_auc_cart": {
+     "mean": 0.575471,
+     "sd": 0.062139,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_classifier_vulnerable_auc_independent": {
+     "mean": 0.546141,
+     "sd": 0.075173,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_lira_auc": {
-     "mean": 0.548859,
-     "sd": 0.019112,
+     "mean": 0.542564,
+     "sd": 0.050003,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_lira_auc_cart": {
+     "mean": 0.61238,
+     "sd": 0.042726,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_lira_auc_independent": {
+     "mean": 0.511259,
+     "sd": 0.033948,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_shadow_lira_vulnerable_auc": {
-     "mean": 0.609767,
-     "sd": 0.046638,
+     "mean": 0.591454,
+     "sd": 0.108772,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_lira_vulnerable_auc_cart": {
+     "mean": 0.671775,
+     "sd": 0.054205,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_shadow_lira_vulnerable_auc_independent": {
+     "mean": 0.51961,
+     "sd": 0.080993,
      "n": 5,
      "direction": "lower"
     },
@@ -1090,9 +1627,33 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_record_isolation_singling_out_multivariate_cart": {
+     "mean": 0.028078,
+     "sd": 0.021652,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_multivariate_independent": {
+     "mean": 0.032576,
+     "sd": 0.035043,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_record_isolation_singling_out_univariate": {
      "mean": 0.004787,
      "sd": 0.005721,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_univariate_cart": {
+     "mean": 0.003366,
+     "sd": 0.005834,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_univariate_independent": {
+     "mean": 0.004773,
+     "sd": 0.007109,
      "n": 5,
      "direction": "lower"
     },
@@ -1119,18 +1680,18 @@
     5
    ],
    "pass_rates": [
-    0.930295,
-    0.924933,
-    0.924933,
-    0.917426,
-    0.924933
+    0.927078,
+    0.920643,
+    0.923324,
+    0.927614,
+    0.920643
    ],
    "passed": [
-    1735,
-    1725,
-    1725,
-    1711,
-    1725
+    1729,
+    1717,
+    1722,
+    1730,
+    1717
    ],
    "judged": [
     1865,
@@ -1139,15 +1700,15 @@
     1865,
     1865
    ],
-   "mean": 0.924504,
-   "sd": 0.004588,
-   "spread": 0.009175,
+   "mean": 0.923861,
+   "sd": 0.00337,
+   "spread": 0.00674,
    "seconds": [
-    525.6,
-    532.9,
-    512.5,
-    809.3,
-    864.0
+    858.8,
+    879.6,
+    868.2,
+    807.7,
+    893.8
    ],
    "checks": {
     "area:fidelity": {
@@ -1163,15 +1724,9 @@
      ]
     },
     "area:integrity": {
-     "passed": 1,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1,
-      2,
-      3,
-      4
-     ]
+     "calibrated": true
     },
     "area:utility": {
      "passed": 0,
@@ -1421,15 +1976,9 @@
      "calibrated": true
     },
     "goal:business_rule_preservation": {
-     "passed": 1,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1,
-      2,
-      3,
-      4
-     ]
+     "calibrated": true
     },
     "goal:distribution_match": {
      "passed": 0,
@@ -1591,15 +2140,11 @@
      ]
     },
     "quality:beta_recall_gap:FactFinance": {
-     "passed": 0,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
-      3,
-      4,
-      5
+      2
      ]
     },
     "quality:beta_recall_gap:FactInternetSales": {
@@ -1752,7 +2297,7 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      3
      ]
     },
     "quality:fanout2_w1_rel:DimProduct.ProductSubcategoryKey->DimProductSubcategory | FactProductInventory.ProductKey->DimProduct": {
@@ -2224,9 +2769,12 @@
      "calibrated": true
     },
     "quality:fanout_w1_rel:NewFactCurrencyRate.CurrencyKey->DimCurrency": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      3
+     ]
     },
     "quality:fanout_zero_share_diff:DimCustomer.GeographyKey->DimGeography": {
      "passed": 5,
@@ -2458,12 +3006,9 @@
      "calibrated": true
     },
     "quality:hop_trend_gap:DimEmployee.SalesTerritoryKey->DimSalesTerritory | FactSalesQuota.EmployeeKey->DimEmployee:2": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      5
-     ]
+     "calibrated": true
     },
     "quality:hop_trend_gap:DimEmployee.SalesTerritoryKey->DimSalesTerritory:1": {
      "passed": 0,
@@ -2493,20 +3038,16 @@
      "calibrated": true
     },
     "quality:hop_trend_gap:DimOrganization.CurrencyKey->DimCurrency | FactFinance.OrganizationKey->DimOrganization:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_gap:DimOrganization.CurrencyKey->DimCurrency:1": {
      "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
-     ]
-    },
-    "quality:hop_trend_gap:DimOrganization.CurrencyKey->DimCurrency:1": {
-     "passed": 3,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2,
-      4
+      1
      ]
     },
     "quality:hop_trend_gap:DimProduct.ProductSubcategoryKey->DimProductSubcategory | FactInternetSales.ProductKey->DimProduct:2": {
@@ -2540,9 +3081,12 @@
      "calibrated": true
     },
     "quality:hop_trend_gap:DimReseller.GeographyKey->DimGeography | FactResellerSales.ResellerKey->DimReseller:2": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      3
+     ]
     },
     "quality:hop_trend_gap:DimReseller.GeographyKey->DimGeography:1": {
      "passed": 5,
@@ -2739,13 +3283,12 @@
      ]
     },
     "quality:hop_trend_worst_gap:DimEmployee.SalesTerritoryKey->DimSalesTerritory | FactSalesQuota.EmployeeKey->DimEmployee:2": {
-     "passed": 2,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      4,
-      5
+      2,
+      4
      ]
     },
     "quality:hop_trend_worst_gap:DimEmployee.SalesTerritoryKey->DimSalesTerritory:1": {
@@ -2776,20 +3319,16 @@
      "calibrated": true
     },
     "quality:hop_trend_worst_gap:DimOrganization.CurrencyKey->DimCurrency | FactFinance.OrganizationKey->DimOrganization:2": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:hop_trend_worst_gap:DimOrganization.CurrencyKey->DimCurrency:1": {
      "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
-     ]
-    },
-    "quality:hop_trend_worst_gap:DimOrganization.CurrencyKey->DimCurrency:1": {
-     "passed": 3,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2,
-      4
+      1
      ]
     },
     "quality:hop_trend_worst_gap:DimProduct.ProductSubcategoryKey->DimProductSubcategory | FactInternetSales.ProductKey->DimProduct:2": {
@@ -3225,7 +3764,7 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      5
      ]
     },
     "quality:js_distance:DimEmployee:Gender": {
@@ -3306,11 +3845,14 @@
      "calibrated": true
     },
     "quality:js_distance:DimProduct:EndDate": {
-     "passed": 4,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      3
+      1,
+      2,
+      4,
+      5
      ]
     },
     "quality:js_distance:DimProduct:FinishedGoodsFlag": {
@@ -3329,20 +3871,14 @@
      "calibrated": true
     },
     "quality:js_distance:DimProduct:ReorderPoint": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      4
-     ]
+     "calibrated": true
     },
     "quality:js_distance:DimProduct:SafetyStockLevel": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      4
-     ]
+     "calibrated": true
     },
     "quality:js_distance:DimProduct:Size": {
      "passed": 5,
@@ -3622,21 +4158,25 @@
      "calibrated": true
     },
     "quality:js_distance:FactResellerSales:ExtendedAmount": {
-     "passed": 3,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      1,
+      2,
       3,
-      4
+      5
      ]
     },
     "quality:js_distance:FactResellerSales:Freight": {
-     "passed": 3,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      1,
+      2,
       3,
-      4
+      5
      ]
     },
     "quality:js_distance:FactResellerSales:OrderQuantity": {
@@ -3650,31 +4190,37 @@
      "calibrated": true
     },
     "quality:js_distance:FactResellerSales:SalesAmount": {
-     "passed": 3,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3,
-      4
-     ]
-    },
-    "quality:js_distance:FactResellerSales:TaxAmt": {
-     "passed": 3,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3,
-      4
-     ]
-    },
-    "quality:js_distance:FactResellerSales:TotalProductCost": {
-     "passed": 2,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
+      2,
       3,
-      4
+      5
+     ]
+    },
+    "quality:js_distance:FactResellerSales:TaxAmt": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      5
+     ]
+    },
+    "quality:js_distance:FactResellerSales:TotalProductCost": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
      ]
     },
     "quality:js_distance:FactResellerSales:UnitPrice": {
@@ -3700,9 +4246,15 @@
      "calibrated": true
     },
     "quality:js_distance:NewFactCurrencyRate:CurrencyDate": {
-     "passed": 5,
+     "passed": 1,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      4,
+      5
+     ]
     },
     "quality:js_distance:NewFactCurrencyRate:EndOfDayRate": {
      "passed": 5,
@@ -3792,14 +4344,12 @@
      ]
     },
     "quality:kway2_tvd_max:DimEmployee": {
-     "passed": 0,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
       2,
-      3,
-      4,
       5
      ]
     },
@@ -3838,24 +4388,26 @@
      "calibrated": true
     },
     "quality:kway2_tvd_max:FactInternetSales": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "quality:kway2_tvd_max:FactProductInventory": {
      "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
       2,
-      4,
-      5
-     ]
-    },
-    "quality:kway2_tvd_max:FactProductInventory": {
-     "passed": 2,
-     "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
       3,
-      4,
-      5
+      4
      ]
     },
     "quality:kway2_tvd_max:FactResellerSales": {
@@ -3906,9 +4458,12 @@
      ]
     },
     "quality:kway2_tvd_mean:DimReseller": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      2
+     ]
     },
     "quality:kway2_tvd_mean:FactCallCenter": {
      "passed": 5,
@@ -3916,15 +4471,13 @@
      "calibrated": true
     },
     "quality:kway2_tvd_mean:FactCurrencyRate": {
-     "passed": 0,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
       2,
-      3,
-      4,
-      5
+      3
      ]
     },
     "quality:kway2_tvd_mean:FactInternetSales": {
@@ -3940,27 +4493,34 @@
      ]
     },
     "quality:kway2_tvd_mean:FactProductInventory": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "quality:kway2_tvd_mean:FactResellerSales": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      5
+     ]
+    },
+    "quality:kway2_tvd_mean:NewFactCurrencyRate": {
      "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      1
      ]
     },
-    "quality:kway2_tvd_mean:FactResellerSales": {
-     "passed": 5,
-     "judged": 5,
-     "calibrated": true
-    },
-    "quality:kway2_tvd_mean:NewFactCurrencyRate": {
-     "passed": 5,
-     "judged": 5,
-     "calibrated": true
-    },
     "quality:kway2_tvd_mean:ProspectiveBuyer": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      5
+     ]
     },
     "quality:kway3_tvd_mean:DimCustomer": {
      "passed": 0,
@@ -3975,12 +4535,13 @@
      ]
     },
     "quality:kway3_tvd_mean:DimEmployee": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
-      4
+      2,
+      5
      ]
     },
     "quality:kway3_tvd_mean:DimProduct": {
@@ -3996,10 +4557,11 @@
      ]
     },
     "quality:kway3_tvd_mean:DimReseller": {
-     "passed": 1,
+     "passed": 0,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      1,
       2,
       3,
       4,
@@ -4028,9 +4590,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      2,
       3,
-      4,
-      5
+      4
      ]
     },
     "quality:kway3_tvd_mean:FactResellerSales": {
@@ -4039,16 +4601,18 @@
      "calibrated": true
     },
     "quality:kway3_tvd_mean:NewFactCurrencyRate": {
-     "passed": 5,
-     "judged": 5,
-     "calibrated": true
-    },
-    "quality:kway3_tvd_mean:ProspectiveBuyer": {
-     "passed": 0,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
+      1
+     ]
+    },
+    "quality:kway3_tvd_mean:ProspectiveBuyer": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
       2,
       3,
       4,
@@ -4144,7 +4708,7 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1
+      5
      ]
     },
     "quality:mt_tstr_gap:DimReseller:BankName": {
@@ -4183,12 +4747,9 @@
      "calibrated": true
     },
     "quality:trts_gap:FactInternetSales:TaxAmt": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      5
-     ]
+     "calibrated": true
     },
     "quality:trts_gap:FactProductInventory:UnitCost": {
      "passed": 0,
@@ -4279,8 +4840,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       2,
+      3,
       4
      ]
     },
@@ -4355,9 +4916,12 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:DimReseller:YearOpened": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1
+     ]
     },
     "quality:w1_rank_normal:FactCallCenter:AutomaticResponses": {
      "passed": 5,
@@ -4501,9 +5065,16 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:NewFactCurrencyRate:CurrencyDate": {
-     "passed": 5,
+     "passed": 0,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
     },
     "quality:w1_rank_normal:NewFactCurrencyRate:EndOfDayRate": {
      "passed": 5,
@@ -4531,7 +5102,7 @@
      "calibrated": false,
      "failed_seeds": [
       2,
-      4
+      3
      ]
     },
     "quality:w1_raw_sd:DimEmployee:BaseRate": {
@@ -4677,13 +5248,9 @@
      ]
     },
     "quality:w1_raw_sd:FactProductInventory:UnitsIn": {
-     "passed": 3,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3,
-      5
-     ]
+     "calibrated": true
     },
     "quality:w1_raw_sd:FactProductInventory:UnitsOut": {
      "passed": 5,
@@ -4741,9 +5308,16 @@
      "calibrated": true
     },
     "quality:w1_raw_sd:NewFactCurrencyRate:CurrencyDate": {
-     "passed": 5,
+     "passed": 0,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
     },
     "quality:w1_raw_sd:NewFactCurrencyRate:EndOfDayRate": {
      "passed": 5,
@@ -5388,9 +5962,12 @@
      "calibrated": true
     },
     "scorecard:DimEmployee.EndDate|null_rate_diff": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      5
+     ]
     },
     "scorecard:DimEmployee.Gender|marginal_tvd": {
      "passed": 5,
@@ -5578,9 +6155,12 @@
      "calibrated": true
     },
     "scorecard:DimEmployee|discriminator_auc": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      5
+     ]
     },
     "scorecard:DimEmployee|exact_match_rate": {
      "passed": 5,
@@ -5803,12 +6383,9 @@
      "calibrated": true
     },
     "scorecard:DimProduct.DaysToManufacture|marginal_tvd": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      4
-     ]
+     "calibrated": true
     },
     "scorecard:DimProduct.DaysToManufacture|null_rate_diff": {
      "passed": 5,
@@ -5831,14 +6408,9 @@
      "calibrated": true
     },
     "scorecard:DimProduct.EndDate|null_rate_diff": {
-     "passed": 2,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2,
-      3,
-      5
-     ]
+     "calibrated": true
     },
     "scorecard:DimProduct.EnglishDescription|text_rare_exact_copies": {
      "passed": 5,
@@ -6298,21 +6870,17 @@
      ]
     },
     "scorecard:DimProduct|dcr_ratio": {
-     "passed": 5,
-     "judged": 5,
-     "calibrated": true
-    },
-    "scorecard:DimProduct|discriminator_auc": {
-     "passed": 0,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
-      3,
-      4,
-      5
+      4
      ]
+    },
+    "scorecard:DimProduct|discriminator_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
     },
     "scorecard:DimProduct|exact_match_rate": {
      "passed": 5,
@@ -6908,12 +7476,9 @@
      "calibrated": true
     },
     "scorecard:FactCallCenter.WageType|marginal_tvd": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3
-     ]
+     "calibrated": true
     },
     "scorecard:FactCallCenter.WageType|null_rate_diff": {
      "passed": 5,
@@ -7236,9 +7801,12 @@
      "calibrated": true
     },
     "scorecard:FactFinance.AccountKey->DimAccount|cardinality_ks": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      3
+     ]
     },
     "scorecard:FactFinance.AccountKey->DimAccount|cardinality_mean_rel_err": {
      "passed": 5,
@@ -7501,11 +8069,13 @@
      "calibrated": true
     },
     "scorecard:FactFinance: pairs (OrganizationKey, AccountKey)|pair_repeat_share_diff": {
-     "passed": 4,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      5
+      1,
+      2,
+      4
      ]
     },
     "scorecard:FactFinance: support (AccountKey, DateKey)|novel_combination_rate": {
@@ -7519,15 +8089,13 @@
      "calibrated": true
     },
     "scorecard:FactFinance: support (AccountKey, OrganizationKey.CurrencyKey)|novel_combination_rate": {
-     "passed": 0,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
-      2,
       3,
-      4,
-      5
+      4
      ]
     },
     "scorecard:FactFinance: support (AccountKey, ScenarioKey)|novel_combination_rate": {
@@ -8002,11 +8570,13 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.joined:CustomerKey.Title|join_tvd": {
-     "passed": 4,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      3,
+      4,
+      5
      ]
     },
     "scorecard:FactInternetSales.joined:CustomerKey.TotalChildren|join_tvd": {
@@ -8210,21 +8780,21 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.joined:ProductKey.DaysToManufacture|join_tvd": {
-     "passed": 2,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       3,
-      4
+      5
      ]
     },
     "scorecard:FactInternetSales.joined:ProductKey.DealerPrice|join_ks": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      4,
+      5
      ]
     },
     "scorecard:FactInternetSales.joined:ProductKey.EndDate|join_ks": {
@@ -8238,11 +8808,12 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.joined:ProductKey.ListPrice|join_ks": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      4,
+      5
      ]
     },
     "scorecard:FactInternetSales.joined:ProductKey.ProductLine|join_tvd": {
@@ -8311,11 +8882,12 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.joined:ProductKey.StandardCost|join_ks": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      4
+      4,
+      5
      ]
     },
     "scorecard:FactInternetSales.joined:ProductKey.StartDate|join_ks": {
@@ -8334,12 +8906,9 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales.joined:ProductKey.Weight|join_ks": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1
-     ]
+     "calibrated": true
     },
     "scorecard:FactInternetSales.joined:PromotionKey.DiscountPct|join_ks": {
      "passed": 5,
@@ -8597,9 +9166,12 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales: support (CurrencyKey, CustomerKey.GeographyKey)|novel_combination_rate": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1
+     ]
     },
     "scorecard:FactInternetSales: support (CurrencyKey, OrderDateKey)|novel_combination_rate": {
      "passed": 0,
@@ -8754,12 +9326,10 @@
      "calibrated": true
     },
     "scorecard:FactInternetSales|discriminator_auc": {
-     "passed": 0,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
       3,
       4,
       5
@@ -8953,12 +9523,9 @@
      "calibrated": true
     },
     "scorecard:FactProductInventory.joined:ProductKey.DaysToManufacture|join_tvd": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      4
-     ]
+     "calibrated": true
     },
     "scorecard:FactProductInventory.joined:ProductKey.DealerPrice|join_ks": {
      "passed": 5,
@@ -9073,11 +9640,13 @@
      "calibrated": true
     },
     "scorecard:FactProductInventory.joined:ProductKey.Weight|join_ks": {
-     "passed": 4,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
+      1,
+      3,
+      5
      ]
     },
     "scorecard:FactProductInventory.joined|join_assoc_max_z": {
@@ -9128,13 +9697,12 @@
      ]
     },
     "scorecard:FactProductInventory|discriminator_auc": {
-     "passed": 2,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       2,
-      3,
-      4
+      3
      ]
     },
     "scorecard:FactResellerSales.CarrierTrackingNumber|marginal_tvd": {
@@ -9446,12 +10014,9 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.UnitPrice|marginal_ks": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      3
-     ]
+     "calibrated": true
     },
     "scorecard:FactResellerSales.UnitPrice|null_rate_diff": {
      "passed": 5,
@@ -9749,15 +10314,14 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ProductKey.DaysToManufacture|join_tvd": {
-     "passed": 0,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
       2,
       3,
-      4,
-      5
+      4
      ]
     },
     "scorecard:FactResellerSales.joined:ProductKey.DealerPrice|join_ks": {
@@ -9766,13 +10330,9 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ProductKey.EndDate|join_ks": {
-     "passed": 3,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1,
-      4
-     ]
+     "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ProductKey.FinishedGoodsFlag|join_tvd": {
      "passed": 5,
@@ -9830,23 +10390,19 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ProductKey.ReorderPoint|join_tvd": {
-     "passed": 2,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      3,
-      4
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:ProductKey.SafetyStockLevel|join_tvd": {
-     "passed": 2,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      3,
-      4
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:ProductKey.SizeRange|join_tvd": {
@@ -9880,13 +10436,11 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ProductKey.Weight|join_ks": {
-     "passed": 2,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      3,
-      4,
-      5
+      4
      ]
     },
     "scorecard:FactResellerSales.joined:PromotionKey.DiscountPct|join_ks": {
@@ -9965,19 +10519,21 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ResellerKey.AnnualRevenue|join_tvd": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      5
+      2,
+      4
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.AnnualSales|join_tvd": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      5
+      2,
+      4
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.BankName|join_tvd": {
@@ -9986,20 +10542,24 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ResellerKey.BusinessType|join_tvd": {
-     "passed": 1,
+     "passed": 0,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
+      2,
       3,
       4,
       5
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.FirstOrderYear|join_tvd": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      5
+     ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.GeographyKey.City|join_tvd": {
      "passed": 5,
@@ -10071,8 +10631,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
-      3
+      1,
+      2
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.MinPaymentAmount|join_tvd": {
@@ -10091,25 +10651,33 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales.joined:ResellerKey.OrderFrequency|join_tvd": {
-     "passed": 1,
+     "passed": 0,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
+      2,
       3,
       4,
       5
      ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.OrderMonth|join_tvd": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      5
+     ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.ProductLine|join_tvd": {
-     "passed": 5,
+     "passed": 3,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      5
+     ]
     },
     "scorecard:FactResellerSales.joined:ResellerKey.YearOpened|join_ks": {
      "passed": 5,
@@ -10262,15 +10830,9 @@
      "calibrated": true
     },
     "scorecard:FactResellerSales: OrderDateKey.DayNumberOfWeek == ShipDateKey.DayNumberOfWeek|rule_violation_rate": {
-     "passed": 1,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      1,
-      2,
-      3,
-      4
-     ]
+     "calibrated": true
     },
     "scorecard:FactResellerSales: ProductStandardCost = ProductKey.StandardCost|rule_violation_rate": {
      "passed": 5,
@@ -10598,11 +11160,12 @@
      "calibrated": true
     },
     "scorecard:FactSalesQuota.joined:DateKey.EnglishMonthName|join_tvd": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       2,
+      3,
       5
      ]
     },
@@ -10627,11 +11190,12 @@
      "calibrated": true
     },
     "scorecard:FactSalesQuota.joined:DateKey.FrenchMonthName|join_tvd": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       2,
+      3,
       5
      ]
     },
@@ -10645,11 +11209,12 @@
      ]
     },
     "scorecard:FactSalesQuota.joined:DateKey.MonthNumberOfYear|join_tvd": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       2,
+      3,
       5
      ]
     },
@@ -10659,11 +11224,12 @@
      "calibrated": true
     },
     "scorecard:FactSalesQuota.joined:DateKey.SpanishMonthName|join_tvd": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       2,
+      3,
       5
      ]
     },
@@ -11291,14 +11857,20 @@
      "calibrated": true
     },
     "scorecard:NewFactCurrencyRate.joined:CurrencyKey.CurrencyAlternateKey|join_tvd": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      3
+     ]
     },
     "scorecard:NewFactCurrencyRate.joined:CurrencyKey.CurrencyName|join_tvd": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      3
+     ]
     },
     "scorecard:NewFactCurrencyRate.joined|join_assoc_max_z": {
      "passed": 5,
@@ -11316,7 +11888,7 @@
      "calibrated": false,
      "failed_seeds": [
       1,
-      2
+      3
      ]
     },
     "scorecard:NewFactCurrencyRate|time_bucket_tvd": {
@@ -11490,12 +12062,9 @@
      "calibrated": true
     },
     "scorecard:ProspectiveBuyer|association_max_diff": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      5
-     ]
+     "calibrated": true
     },
     "scorecard:ProspectiveBuyer|dcr_ratio": {
      "passed": 5,
@@ -11551,70 +12120,82 @@
    "errors": 0,
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
-     "mean": 0.978548,
-     "sd": 0.002021,
+     "mean": 0.978713,
+     "sd": 0.006481,
      "n": 5,
      "direction": "lower"
     },
     "metric:cardinality_similarity_mean": {
-     "mean": 0.892124,
-     "sd": 0.00291,
+     "mean": 0.893723,
+     "sd": 0.003408,
      "n": 5,
      "direction": "higher"
     },
     "metric:cardinality_similarity_min": {
-     "mean": 0.464864,
-     "sd": 0.012087,
+     "mean": 0.475675,
+     "sd": 0.014803,
      "n": 5,
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 1693.34,
-     "sd": 471.815306,
+     "mean": 2296.78,
+     "sd": 120.265091,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.91318,
-     "sd": 0.00551,
+     "mean": 0.9111,
+     "sd": 0.004099,
      "n": 5,
      "direction": "higher"
     },
     "metric:integrity_pass_rate": {
-     "mean": 0.99248,
-     "sd": 0.004204,
+     "mean": 1.0,
+     "sd": 0.0,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.82983,
-     "sd": 0.001479,
+     "mean": 0.832586,
+     "sd": 0.003722,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.654042,
-     "sd": 0.022234,
+     "mean": 0.677042,
+     "sd": 0.021007,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 2785.24,
-     "sd": 7.917891,
+     "mean": 2082.82,
+     "sd": 21.860398,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.518628,
+     "sd": 0.011098,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.506085,
+     "sd": 0.009708,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:utility_gap_max": {
-     "mean": 2.635318,
-     "sd": 1.521829,
+     "mean": 5.632598,
+     "sd": 7.941784,
      "n": 5,
      "direction": "lower"
     },
     "metric:utility_pass_rate": {
-     "mean": 0.8811,
-     "sd": 0.014789,
+     "mean": 0.8865,
+     "sd": 0.012075,
      "n": 5,
      "direction": "higher"
     }
@@ -11629,35 +12210,35 @@
     5
    ],
    "pass_rates": [
-    0.840116,
-    0.822674,
-    0.837209,
-    0.834302,
-    0.843023
+    0.846154,
+    0.82967,
+    0.837912,
+    0.837912,
+    0.846154
    ],
    "passed": [
-    289,
-    283,
-    288,
-    287,
-    290
+    308,
+    302,
+    305,
+    305,
+    308
    ],
    "judged": [
-    344,
-    344,
-    344,
-    344,
-    344
+    364,
+    364,
+    364,
+    364,
+    364
    ],
-   "mean": 0.835465,
-   "sd": 0.007854,
-   "spread": 0.015708,
+   "mean": 0.83956,
+   "sd": 0.006896,
+   "spread": 0.013791,
    "seconds": [
-    50.5,
-    52.1,
-    50.3,
-    49.7,
-    50.0
+    110.2,
+    112.7,
+    112.8,
+    111.5,
+    109.9
    ],
    "checks": {
     "area:fidelity": {
@@ -11826,12 +12407,42 @@
      "judged": 5,
      "calibrated": true
     },
+    "goal:privacy_internal[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_internal[independent]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
     "goal:privacy_partner_needs_dp": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
     },
+    "goal:privacy_partner_needs_dp[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_partner_needs_dp[independent]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
     "goal:privacy_public_needs_dp": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_public_needs_dp[cart]": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "goal:privacy_public_needs_dp[independent]": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
@@ -11894,6 +12505,93 @@
      ]
     },
     "privacy:record_isolation|singling_out_univariate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|attribute_inference_vs_population:loan.status.mode": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:inference|nearest_neighbour_inference:loan.status.mode": {
+     "passed": 1,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[cart]:linkage|nearest_neighbour_linkage": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:membership|domias_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:membership|domias_tpr_at_fpr_0.01": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[cart]:record_isolation|singling_out_multivariate": {
+     "passed": 3,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      2,
+      3
+     ]
+    },
+    "privacy[cart]:record_isolation|singling_out_univariate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|attribute_inference_vs_population:loan.status.mode": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:inference|nearest_neighbour_inference:loan.status.mode": {
+     "passed": 0,
+     "judged": 5,
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "privacy[independent]:linkage|nearest_neighbour_linkage": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:membership|domias_auc": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:membership|domias_tpr_at_fpr_0.01": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:record_isolation|singling_out_multivariate": {
+     "passed": 5,
+     "judged": 5,
+     "calibrated": true
+    },
+    "privacy[independent]:record_isolation|singling_out_univariate": {
      "passed": 5,
      "judged": 5,
      "calibrated": true
@@ -12664,11 +13362,10 @@
      ]
     },
     "quality:kway3_tvd_mean:loan": {
-     "passed": 3,
+     "passed": 4,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2,
       3
      ]
     },
@@ -12887,12 +13584,9 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:order:amount": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2
-     ]
+     "calibrated": true
     },
     "quality:w1_rank_normal:trans:account": {
      "passed": 5,
@@ -13796,7 +14490,7 @@
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
      "mean": 0.999511,
-     "sd": 0.000169,
+     "sd": 0.000202,
      "n": 5,
      "direction": "lower"
     },
@@ -13813,15 +14507,15 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 59.34,
-     "sd": 2.451122,
+     "mean": 150.4,
+     "sd": 4.761302,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.86166,
-     "sd": 0.008992,
+     "mean": 0.87028,
+     "sd": 0.005915,
      "n": 5,
      "direction": "higher"
     },
@@ -13832,27 +14526,51 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.859026,
-     "sd": 0.001995,
+     "mean": 0.859008,
+     "sd": 0.002116,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
      "mean": 0.917444,
-     "sd": 0.002425,
+     "sd": 0.002443,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1665.12,
-     "sd": 14.996566,
+     "mean": 1269.74,
+     "sd": 9.651062,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.505329,
+     "sd": 0.01108,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.511558,
+     "sd": 0.01278,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_dcr_p5_real": {
      "mean": 0.001112,
      "sd": 7.7e-05,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_real_cart": {
+     "mean": 0.001098,
+     "sd": 6.6e-05,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_real_independent": {
+     "mean": 0.00112,
+     "sd": 8.1e-05,
      "n": 5,
      "direction": "higher"
     },
@@ -13862,9 +14580,33 @@
      "n": 5,
      "direction": "higher"
     },
+    "metric:privacy_guard_dcr_dcr_p5_syn_cart": {
+     "mean": 0.001321,
+     "sd": 9.1e-05,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_p5_syn_independent": {
+     "mean": 0.001356,
+     "sd": 2.5e-05,
+     "n": 5,
+     "direction": "higher"
+    },
     "metric:privacy_guard_dcr_dcr_ratio": {
      "mean": 1.19781,
      "sd": 0.100586,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_ratio_cart": {
+     "mean": 1.209873,
+     "sd": 0.153072,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_dcr_ratio_independent": {
+     "mean": 1.215943,
+     "sd": 0.098307,
      "n": 5,
      "direction": "higher"
     },
@@ -13874,7 +14616,31 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_guard_dcr_exact_match_rate_cart": {
+     "mean": 0.5452,
+     "sd": 0.019734,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_independent": {
+     "mean": 0.521466,
+     "sd": 0.027485,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_exact_match_rate_real_any": {
+     "mean": 0.552667,
+     "sd": 0.017049,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_any_cart": {
+     "mean": 0.552667,
+     "sd": 0.017049,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_any_independent": {
      "mean": 0.552667,
      "sd": 0.017049,
      "n": 5,
@@ -13886,7 +14652,31 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_guard_dcr_exact_match_rate_real_internal_cart": {
+     "mean": 0.3208,
+     "sd": 0.011089,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_guard_dcr_exact_match_rate_real_internal_independent": {
+     "mean": 0.3208,
+     "sd": 0.011089,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_m": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_m_cart": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_m_independent": {
      "mean": 1500.0,
      "sd": 0.0,
      "n": 5,
@@ -13898,7 +14688,31 @@
      "n": 5,
      "direction": "higher"
     },
+    "metric:privacy_guard_dcr_n_cart": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
+    "metric:privacy_guard_dcr_n_independent": {
+     "mean": 1500.0,
+     "sd": 0.0,
+     "n": 5,
+     "direction": "higher"
+    },
     "metric:privacy_inference_attribute_inference_vs_population:loan.status.mode": {
+     "mean": 0.001,
+     "sd": 0.00194,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:loan.status.mode_cart": {
+     "mean": 0.001,
+     "sd": 0.00194,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_attribute_inference_vs_population:loan.status.mode_independent": {
      "mean": 0.001,
      "sd": 0.00194,
      "n": 5,
@@ -13910,39 +14724,111 @@
      "n": 5,
      "direction": "lower"
     },
+    "metric:privacy_inference_nearest_neighbour_inference:loan.status.mode_cart": {
+     "mean": 0.051316,
+     "sd": 0.058509,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_inference_nearest_neighbour_inference:loan.status.mode_independent": {
+     "mean": 0.037875,
+     "sd": 0.059091,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_linkage_nearest_neighbour_linkage": {
-     "mean": 0.001375,
-     "sd": 0.003075,
+     "mean": 0.004102,
+     "sd": 0.004459,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_linkage_nearest_neighbour_linkage_cart": {
+     "mean": 0.006743,
+     "sd": 0.010383,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_linkage_nearest_neighbour_linkage_independent": {
+     "mean": 0.014858,
+     "sd": 0.020928,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_auc": {
-     "mean": 0.501266,
-     "sd": 0.011606,
+     "mean": 0.499617,
+     "sd": 0.011655,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_auc_cart": {
+     "mean": 0.500081,
+     "sd": 0.010577,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_auc_independent": {
+     "mean": 0.497102,
+     "sd": 0.01195,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_tpr_at_fpr_0.01": {
-     "mean": 0.011111,
-     "sd": 0.004375,
+     "mean": 0.012222,
+     "sd": 0.010394,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_tpr_at_fpr_0.01_cart": {
+     "mean": 0.010445,
+     "sd": 0.004486,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_membership_domias_tpr_at_fpr_0.01_independent": {
+     "mean": 0.012889,
+     "sd": 0.007881,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_multivariate": {
-     "mean": 0.027087,
-     "sd": 0.020862,
+     "mean": 0.022301,
+     "sd": 0.023548,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_multivariate_cart": {
+     "mean": 0.023248,
+     "sd": 0.024677,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_multivariate_independent": {
+     "mean": 0.004112,
+     "sd": 0.005856,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_univariate": {
-     "mean": 0.006094,
-     "sd": 0.008433,
+     "mean": 0.003345,
+     "sd": 0.007481,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_univariate_cart": {
+     "mean": 0.010114,
+     "sd": 0.007537,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_record_isolation_singling_out_univariate_independent": {
+     "mean": 0.005407,
+     "sd": 0.007404,
      "n": 5,
      "direction": "lower"
     },
     "metric:utility_gap_max": {
-     "mean": 0.229999,
-     "sd": 0.106182,
+     "mean": 0.23975,
+     "sd": 0.104489,
      "n": 5,
      "direction": "lower"
     },
@@ -13965,14 +14851,14 @@
    "pass_rates": [
     0.972868,
     0.96124,
-    0.972868,
+    0.968992,
     0.968992,
     0.972868
    ],
    "passed": [
     251,
     248,
-    251,
+    250,
     250,
     251
    ],
@@ -13983,15 +14869,15 @@
     258,
     258
    ],
-   "mean": 0.969767,
-   "sd": 0.005054,
-   "spread": 0.010107,
+   "mean": 0.968992,
+   "sd": 0.004747,
+   "spread": 0.009494,
    "seconds": [
-    10.8,
-    9.7,
-    10.0,
-    9.7,
-    9.6
+    16.6,
+    15.5,
+    16.3,
+    15.9,
+    15.7
    ],
    "checks": {
     "area:fidelity": {
@@ -14109,11 +14995,12 @@
      "calibrated": true
     },
     "quality:dda_accuracy:Customer:logistic": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
+      2,
+      3
      ]
     },
     "quality:dda_accuracy:Genre:logistic": {
@@ -15351,8 +16238,8 @@
    "errors": 0,
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
-     "mean": 0.679661,
-     "sd": 0.065205,
+     "mean": 0.686441,
+     "sd": 0.079949,
      "n": 5,
      "direction": "lower"
     },
@@ -15369,14 +16256,14 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 1329.22,
-     "sd": 121.619045,
+     "mean": 2224.72,
+     "sd": 112.604294,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.96938,
+     "mean": 0.97322,
      "sd": 0.002629,
      "n": 5,
      "direction": "higher"
@@ -15388,23 +16275,35 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.817264,
-     "sd": 0.013804,
+     "mean": 0.814693,
+     "sd": 0.014165,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.886632,
-     "sd": 0.009368,
+     "mean": 0.882901,
+     "sd": 0.010323,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 372.42,
-     "sd": 1.434225,
+     "mean": 416.48,
+     "sd": 1.944736,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
+    },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.627368,
+     "sd": 0.133986,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.528421,
+     "sd": 0.125262,
+     "n": 5,
+     "direction": "lower"
     },
     "metric:utility_gap_max": {
      "mean": 0.01348,
@@ -15453,11 +16352,11 @@
    "sd": 0.007454,
    "spread": 0.014907,
    "seconds": [
-    11.5,
-    10.9,
-    11.1,
-    11.0,
-    10.8
+    17.3,
+    16.6,
+    16.8,
+    16.7,
+    16.6
    ],
    "checks": {
     "area:fidelity": {
@@ -16850,14 +17749,14 @@
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 733.72,
-     "sd": 51.32628,
+     "mean": 1178.92,
+     "sd": 55.529245,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.94188,
+     "mean": 0.94678,
      "sd": 0.002191,
      "n": 5,
      "direction": "higher"
@@ -16869,23 +17768,35 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.83042,
-     "sd": 0.007945,
+     "mean": 0.829847,
+     "sd": 0.007018,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.89757,
-     "sd": 0.004948,
+     "mean": 0.895007,
+     "sd": 0.007749,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 409.52,
-     "sd": 1.762668,
+     "mean": 450.16,
+     "sd": 1.67869,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
+    },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.627368,
+     "sd": 0.133986,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.528421,
+     "sd": 0.125262,
+     "n": 5,
+     "direction": "lower"
     },
     "metric:utility_gap_max": {
      "mean": 0.574795,
@@ -16910,18 +17821,18 @@
     5
    ],
    "pass_rates": [
-    0.949367,
-    0.943038,
+    0.955696,
+    0.947257,
     0.962025,
-    0.949367,
-    0.953586
+    0.947257,
+    0.959916
    ],
    "passed": [
-    450,
-    447,
+    453,
+    449,
     456,
-    450,
-    452
+    449,
+    455
    ],
    "judged": [
     474,
@@ -16930,15 +17841,15 @@
     474,
     474
    ],
-   "mean": 0.951477,
-   "sd": 0.006997,
-   "spread": 0.013994,
+   "mean": 0.95443,
+   "sd": 0.006933,
+   "spread": 0.013866,
    "seconds": [
-    186.2,
-    185.2,
-    186.2,
-    194.4,
-    187.3
+    332.2,
+    321.8,
+    324.9,
+    338.8,
+    303.5
    ],
    "checks": {
     "area:fidelity": {
@@ -17675,14 +18586,12 @@
      "calibrated": true
     },
     "quality:js_distance:orderrows:UnitCost": {
-     "passed": 1,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       2,
-      4,
-      5
+      4
      ]
     },
     "quality:js_distance:orderrows:UnitPrice": {
@@ -17735,9 +18644,12 @@
      "calibrated": true
     },
     "quality:js_distance:product:Price": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      2
+     ]
     },
     "quality:js_distance:product:SubCategoryKey": {
      "passed": 5,
@@ -17786,24 +18698,21 @@
      "calibrated": true
     },
     "quality:js_distance:sales:UnitCost": {
-     "passed": 2,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       2,
       4
      ]
     },
     "quality:js_distance:sales:UnitPrice": {
-     "passed": 1,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       2,
-      4,
-      5
+      4
      ]
     },
     "quality:kway2_tvd_max:customer": {
@@ -17829,9 +18738,13 @@
      "calibrated": true
     },
     "quality:kway2_tvd_max:product": {
-     "passed": 5,
+     "passed": 3,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4,
+      5
+     ]
     },
     "quality:kway2_tvd_max:sales": {
      "passed": 5,
@@ -17844,14 +18757,12 @@
      "calibrated": true
     },
     "quality:kway2_tvd_mean:orderrows": {
-     "passed": 1,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
       1,
-      2,
-      4,
-      5
+      4
      ]
     },
     "quality:kway2_tvd_mean:orders": {
@@ -17860,10 +18771,11 @@
      "calibrated": true
     },
     "quality:kway2_tvd_mean:product": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
+      2,
       4
      ]
     },
@@ -17881,11 +18793,12 @@
      ]
     },
     "quality:kway3_tvd_mean:orderrows": {
-     "passed": 4,
+     "passed": 3,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1
+      1,
+      5
      ]
     },
     "quality:kway3_tvd_mean:product": {
@@ -18034,12 +18947,9 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:orderrows:NetPrice": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      5
-     ]
+     "calibrated": true
     },
     "quality:w1_rank_normal:orderrows:UnitCost": {
      "passed": 5,
@@ -18047,12 +18957,9 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:orderrows:UnitPrice": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      5
-     ]
+     "calibrated": true
     },
     "quality:w1_rank_normal:orders:DT": {
      "passed": 5,
@@ -18085,28 +18992,19 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:sales:NetPrice": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2
-     ]
+     "calibrated": true
     },
     "quality:w1_rank_normal:sales:UnitCost": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2
-     ]
+     "calibrated": true
     },
     "quality:w1_rank_normal:sales:UnitPrice": {
-     "passed": 4,
+     "passed": 5,
      "judged": 5,
-     "calibrated": false,
-     "failed_seeds": [
-      2
-     ]
+     "calibrated": true
     },
     "quality:w1_raw_sd:customer:Age": {
      "passed": 5,
@@ -19500,33 +20398,33 @@
    "errors": 0,
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
-     "mean": 0.812162,
-     "sd": 0.010022,
+     "mean": 0.816216,
+     "sd": 0.01749,
      "n": 5,
      "direction": "lower"
     },
     "metric:cardinality_similarity_mean": {
-     "mean": 0.963406,
-     "sd": 0.002258,
+     "mean": 0.96551,
+     "sd": 0.005268,
      "n": 5,
      "direction": "higher"
     },
     "metric:cardinality_similarity_min": {
-     "mean": 0.9,
-     "sd": 0.015408,
+     "mean": 0.908108,
+     "sd": 0.011306,
      "n": 5,
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 368.34,
-     "sd": 12.29565,
+     "mean": 633.28,
+     "sd": 32.568344,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.92798,
-     "sd": 0.008849,
+     "mean": 0.93174,
+     "sd": 0.008742,
      "n": 5,
      "direction": "higher"
     },
@@ -19537,27 +20435,39 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.944846,
-     "sd": 0.001013,
+     "mean": 0.945334,
+     "sd": 0.000814,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.926348,
-     "sd": 0.001573,
+     "mean": 0.925842,
+     "sd": 0.001139,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1590.56,
-     "sd": 60.171613,
+     "mean": 1490.1,
+     "sd": 96.983555,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.521952,
+     "sd": 0.010974,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.522979,
+     "sd": 0.010502,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:utility_gap_max": {
-     "mean": 0.001846,
-     "sd": 0.001891,
+     "mean": 0.001315,
+     "sd": 0.002464,
      "n": 5,
      "direction": "lower"
     },
@@ -19578,18 +20488,18 @@
     5
    ],
    "pass_rates": [
-    0.941053,
-    0.947368,
-    0.955789,
-    0.951579,
-    0.945263
+    0.953684,
+    0.96,
+    0.949474,
+    0.928421,
+    0.930526
    ],
    "passed": [
-    447,
-    450,
-    454,
-    452,
-    449
+    453,
+    456,
+    451,
+    441,
+    442
    ],
    "judged": [
     475,
@@ -19598,15 +20508,15 @@
     475,
     475
    ],
-   "mean": 0.948211,
-   "sd": 0.005688,
-   "spread": 0.011376,
+   "mean": 0.944421,
+   "sd": 0.01417,
+   "spread": 0.028339,
    "seconds": [
-    173.7,
-    210.7,
-    200.1,
-    197.6,
-    198.0
+    269.5,
+    321.8,
+    318.1,
+    316.1,
+    308.8
    ],
    "checks": {
     "area:fidelity": {
@@ -19869,11 +20779,13 @@
      "calibrated": true
     },
     "privacy:record_isolation|singling_out_multivariate": {
-     "passed": 4,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1
+      1,
+      4,
+      5
      ]
     },
     "privacy:record_isolation|singling_out_univariate": {
@@ -20366,11 +21278,10 @@
      "calibrated": true
     },
     "quality:js_distance:Customer:State": {
-     "passed": 0,
+     "passed": 1,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
       2,
       3,
       4,
@@ -20397,7 +21308,7 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1
+      4
      ]
     },
     "quality:js_distance:OrderRows:Quantity": {
@@ -20410,7 +21321,7 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
+      1
      ]
     },
     "quality:js_distance:OrderRows:UnitPrice": {
@@ -20418,9 +21329,9 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
-      3
+      3,
+      4,
+      5
      ]
     },
     "quality:js_distance:Orders:DeliveryDate": {
@@ -20496,12 +21407,13 @@
      ]
     },
     "quality:js_distance:Sales:NetPrice": {
-     "passed": 3,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2
+      3,
+      4,
+      5
      ]
     },
     "quality:js_distance:Sales:Quantity": {
@@ -20514,18 +21426,17 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      2
+      4
      ]
     },
     "quality:js_distance:Sales:UnitPrice": {
-     "passed": 1,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
       3,
-      4
+      4,
+      5
      ]
     },
     "quality:kway2_tvd_max:Customer": {
@@ -20551,9 +21462,13 @@
      "calibrated": true
     },
     "quality:kway2_tvd_max:Product": {
-     "passed": 5,
+     "passed": 3,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      1,
+      4
+     ]
     },
     "quality:kway2_tvd_max:Sales": {
      "passed": 5,
@@ -20570,8 +21485,8 @@
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      4
+      4,
+      5
      ]
     },
     "quality:kway2_tvd_mean:Orders": {
@@ -20580,16 +21495,19 @@
      "calibrated": true
     },
     "quality:kway2_tvd_mean:Product": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4
+     ]
     },
     "quality:kway2_tvd_mean:Sales": {
      "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
+      3,
       4,
       5
      ]
@@ -20624,12 +21542,11 @@
      ]
     },
     "quality:kway3_tvd_mean:Sales": {
-     "passed": 1,
+     "passed": 2,
      "judged": 5,
      "calibrated": false,
      "failed_seeds": [
-      1,
-      2,
+      3,
       4,
       5
      ]
@@ -20760,9 +21677,12 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:OrderRows:NetPrice": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4
+     ]
     },
     "quality:w1_rank_normal:OrderRows:UnitCost": {
      "passed": 5,
@@ -20770,9 +21690,12 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:OrderRows:UnitPrice": {
-     "passed": 5,
+     "passed": 4,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4
+     ]
     },
     "quality:w1_rank_normal:Orders:DeliveryDate": {
      "passed": 5,
@@ -20805,9 +21728,13 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:Sales:NetPrice": {
-     "passed": 5,
+     "passed": 3,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4,
+      5
+     ]
     },
     "quality:w1_rank_normal:Sales:UnitCost": {
      "passed": 5,
@@ -20815,9 +21742,13 @@
      "calibrated": true
     },
     "quality:w1_rank_normal:Sales:UnitPrice": {
-     "passed": 5,
+     "passed": 3,
      "judged": 5,
-     "calibrated": true
+     "calibrated": false,
+     "failed_seeds": [
+      4,
+      5
+     ]
     },
     "quality:w1_raw_sd:Customer:Age": {
      "passed": 5,
@@ -22183,33 +23114,33 @@
    "errors": 0,
    "tracked": {
     "metric:c2st_agg_accuracy_max": {
-     "mean": 0.810811,
-     "sd": 0.008275,
+     "mean": 0.817568,
+     "sd": 0.017877,
      "n": 5,
      "direction": "lower"
     },
     "metric:cardinality_similarity_mean": {
-     "mean": 0.964912,
-     "sd": 0.002715,
+     "mean": 0.963778,
+     "sd": 0.002427,
      "n": 5,
      "direction": "higher"
     },
     "metric:cardinality_similarity_min": {
-     "mean": 0.902702,
-     "sd": 0.006043,
+     "mean": 0.897297,
+     "sd": 0.007401,
      "n": 5,
      "direction": "higher"
     },
     "metric:cpu_seconds_per_million_rows": {
-     "mean": 370.38,
-     "sd": 28.529494,
+     "mean": 602.1,
+     "sd": 43.650601,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
     "metric:fidelity_pass_rate": {
-     "mean": 0.9224,
-     "sd": 0.006581,
+     "mean": 0.91858,
+     "sd": 0.017455,
      "n": 5,
      "direction": "higher"
     },
@@ -22220,39 +23151,51 @@
      "direction": "higher"
     },
     "metric:k_hop_trend_1-hop": {
-     "mean": 0.946265,
-     "sd": 0.000503,
+     "mean": 0.945918,
+     "sd": 0.001836,
      "n": 5,
      "direction": "higher"
     },
     "metric:k_hop_trend_2-hop": {
-     "mean": 0.926754,
-     "sd": 0.001545,
+     "mean": 0.924804,
+     "sd": 0.00188,
      "n": 5,
      "direction": "higher"
     },
     "metric:peak_memory_mib": {
-     "mean": 1620.42,
-     "sd": 74.761768,
+     "mean": 1420.54,
+     "sd": 73.631264,
      "n": 5,
      "direction": "lower",
      "kind": "cost"
     },
+    "metric:privacy_check_closest_distance_auc": {
+     "mean": 0.526447,
+     "sd": 0.010545,
+     "n": 5,
+     "direction": "lower"
+    },
+    "metric:privacy_check_domias_auc": {
+     "mean": 0.51637,
+     "sd": 0.011199,
+     "n": 5,
+     "direction": "lower"
+    },
     "metric:privacy_guard_dcr_dcr_p5_real": {
-     "mean": 1.310344,
-     "sd": 0.025262,
+     "mean": 1.303816,
+     "sd": 0.04556,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_p5_syn": {
-     "mean": 1.420529,
-     "sd": 0.038141,
+     "mean": 1.433003,
+     "sd": 0.018686,
      "n": 5,
      "direction": "higher"
     },
     "metric:privacy_guard_dcr_dcr_ratio": {
-     "mean": 1.084094,
-     "sd": 0.020555,
+     "mean": 1.099841,
+     "sd": 0.028176,
      "n": 5,
      "direction": "higher"
     },
@@ -22293,8 +23236,8 @@
      "direction": "lower"
     },
     "metric:privacy_inference_nearest_neighbour_inference:Sales.NetPrice.mean": {
-     "mean": 0.008788,
-     "sd": 0.012682,
+     "mean": 0.008506,
+     "sd": 0.016813,
      "n": 5,
      "direction": "lower"
     },
@@ -22305,32 +23248,32 @@
      "direction": "lower"
     },
     "metric:privacy_membership_domias_auc": {
-     "mean": 0.505815,
-     "sd": 0.004905,
+     "mean": 0.504498,
+     "sd": 0.006126,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_membership_domias_tpr_at_fpr_0.01": {
-     "mean": 0.0131,
-     "sd": 0.002903,
+     "mean": 0.0124,
+     "sd": 0.002702,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_multivariate": {
-     "mean": 0.007479,
-     "sd": 0.012179,
+     "mean": 0.020159,
+     "sd": 0.01946,
      "n": 5,
      "direction": "lower"
     },
     "metric:privacy_record_isolation_singling_out_univariate": {
-     "mean": 0.013467,
-     "sd": 0.013875,
+     "mean": 0.006347,
+     "sd": 0.007242,
      "n": 5,
      "direction": "lower"
     },
     "metric:utility_gap_max": {
-     "mean": 0.004832,
-     "sd": 0.004769,
+     "mean": 0.002126,
+     "sd": 0.002859,
      "n": 5,
      "direction": "lower"
     },
@@ -22359,7 +23302,7 @@
    "sd": 0.0,
    "spread": 0.012821,
    "seconds": [
-    728.8
+    1595.8
    ],
    "checks": {
     "science:C00": {

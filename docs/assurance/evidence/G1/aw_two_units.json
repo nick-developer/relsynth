@@ -1,0 +1,89 @@
+{
+ "database": "AdventureWorks DW 2022 (bench spec, unedited, drop_columns DimEmployee.ParentEmployeeKey)",
+ "delta": 1e-09,
+ "epsilon_each": 2.0,
+ "max_degree": {
+  "FactInternetSales": 8,
+  "FactInternetSalesReason": 2,
+  "FactResellerSales": 1,
+  "FactSalesQuota": 1,
+  "FactSurveyResponse": 2
+ },
+ "note": "seed rows after the seed's check-rule filter (the same share is dropped on main for one unit); lines per order before that filter follow the released group sizes (see roadmap/reports/G1.md)",
+ "per_unit": {
+  "DimCustomer": {
+   "delta": 5e-10,
+   "epsilon": 1.9999999989465718,
+   "rho": 0.05413165918614995,
+   "tables": [
+    "DimCustomer",
+    "FactInternetSales",
+    "FactInternetSalesReason",
+    "FactSurveyResponse"
+   ]
+  },
+  "DimEmployee": {
+   "delta": 5e-10,
+   "epsilon": 1.9999999989465718,
+   "rho": 0.05413165918614995,
+   "tables": [
+    "DimEmployee",
+    "FactResellerSales",
+    "FactSalesQuota"
+   ]
+  }
+ },
+ "real_lines_per_order": {
+  "1": 9668,
+  "2": 8163,
+  "3": 5870,
+  "4": 3138,
+  "5": 696,
+  "6": 109,
+  "7": 12,
+  "8": 3
+ },
+ "rows_real": {
+  "DimCustomer": 18484,
+  "DimEmployee": 296,
+  "FactInternetSales": 60398,
+  "FactInternetSalesReason": 64515,
+  "FactResellerSales": 60855,
+  "FactSalesQuota": 163,
+  "FactSurveyResponse": 2727
+ },
+ "rows_seed": {
+  "DimCustomer": 18474,
+  "DimEmployee": 328,
+  "FactInternetSales": 8198,
+  "FactInternetSalesReason": 7321,
+  "FactResellerSales": 1,
+  "FactSalesQuota": 87,
+  "FactSurveyResponse": 2792
+ },
+ "rows_synthetic": {
+  "DimCustomer": 18474,
+  "DimEmployee": 328,
+  "FactInternetSales": 8246,
+  "FactInternetSalesReason": 7388,
+  "FactResellerSales": 0,
+  "FactSalesQuota": 104,
+  "FactSurveyResponse": 2822
+ },
+ "seconds": 579.5,
+ "seed_lines_per_order": {
+  "1": 7000,
+  "2": 560,
+  "3": 26
+ },
+ "statement_schema": "relsynth.dp-statement/2",
+ "synthetic_lines_per_order": {
+  "1": 6958,
+  "2": 593,
+  "3": 34
+ },
+ "units": [
+  "DimCustomer",
+  "DimEmployee"
+ ]
+}

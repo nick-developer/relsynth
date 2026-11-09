@@ -70,7 +70,7 @@ jobs:
       - run: pip install build twine cyclonedx-bom==7.5.0 sigstore==4.5.1
       - name: Build the wheel and sdist
         run: rm -rf dist && python -m build && twine check dist/*
-      - name: CycloneDX SBOM of the installed wheel with every extra
+      - name: CycloneDX SBOM of the wheel installed with the [all] extra (connectors)
         run: |
           python -m venv /tmp/v && /tmp/v/bin/pip install "$(ls dist/*.whl)[all]"
           /tmp/v/bin/relsynth version --json

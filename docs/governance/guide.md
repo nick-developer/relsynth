@@ -30,6 +30,19 @@ relsynth gov policy sign policy.yaml --key dpo.key --registry registry/
 
 Only a trusted key with the privacy owner's role can sign it. Every manifest records the digest of the policy it was judged under.
 
+A domain whose sources hold several populations (customers and employees) names them all: `unit: {entities: [DimCustomer, DimEmployee]}`. Each unit then has its own ledger account, and the domain's `budget` applies to each unit separately. To give one unit a different budget, set it by hand under `unit_budgets` (same fields as `budget`, same δ):
+
+```yaml
+domains:
+  retail:
+    unit: {entities: [DimCustomer, DimEmployee]}
+    budget: {accounting: zcdp, delta: 1.0e-9, lifetime: {epsilon: 6.0}, per_release: {epsilon_max: 2.0}}
+    unit_budgets:
+      DimEmployee: {accounting: zcdp, delta: 1.0e-9, lifetime: {epsilon: 3.0}, per_release: {epsilon_max: 1.0}}
+```
+
+A DP run of such a domain protects every unit its source holds, and is decided once per unit ([dp.md](../dp.md), section 8).
+
 The policy's `engine` chooses who evaluates the release rules: `builtin` (default, a Python port of [release.rego](../../src/relsynth/governance/rego/release.rego) that needs no extra binary) or `opa` (Open Policy Agent; needed for the organisation's own Rego modules under `rego:`). Four invariants hold whatever the policy says: an external release needs DP, an external release needs an approval by someone other than the operator, a `fail` or `blocked` privacy verdict is never released, and no domain may exceed its lifetime budget.
 
 ## 3. A governed run
@@ -80,7 +93,7 @@ Both exit 1 and list the problems, the first being where the registry or package
 relsynth gov budget --registry registry/
 ```
 
-shows, per domain, the ρ and ε spent at the domain's δ, the lifetime cap, the period throttle if any, each DP run's state (reserved, touched, settled, refunded) and the number of releases made without DP. Budget is reserved before a DP run reads data and refunded only if it never read any (Proposition 802).
+shows, per domain (and per unit in a domain with several units), the ρ and ε spent at the domain's δ, the lifetime cap, the period throttle if any, each DP run's state (reserved, touched, settled, refunded) and the number of releases made without DP. Budget is reserved before a DP run reads data and refunded only if it never read any (Proposition 802).
 
 ## Choosing epsilon
 

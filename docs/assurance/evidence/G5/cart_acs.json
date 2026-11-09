@@ -1,0 +1,276 @@
+{
+  "what": "cart on ACS: privacy report without and with smoothing (G5)",
+  "seed": 1,
+  "machine": {
+    "cpus": 4,
+    "python": "3.13.18"
+  },
+  "smoothing_none": {
+    "verdict": "fail",
+    "seconds": 69.5,
+    "checks": {
+      "record_isolation|singling_out_univariate": {
+        "value": 0.5327,
+        "ci": [
+          0.4607,
+          0.6047
+        ],
+        "status": "fail"
+      },
+      "record_isolation|singling_out_multivariate": {
+        "value": 0.0785,
+        "ci": [
+          0.0,
+          0.1598
+        ],
+        "status": "review"
+      },
+      "linkage|nearest_neighbour_linkage": {
+        "value": 0.01,
+        "ci": [
+          0.0,
+          0.027
+        ],
+        "status": "pass"
+      },
+      "inference|nearest_neighbour_inference:PINCP_DECILE": {
+        "value": 0.0394,
+        "ci": [
+          0.0,
+          0.1018
+        ],
+        "status": "review"
+      },
+      "inference|nearest_neighbour_inference:DPHY": {
+        "value": 0.106,
+        "ci": [
+          0.0,
+          0.2979
+        ],
+        "status": "review"
+      },
+      "inference|nearest_neighbour_inference:DREM": {
+        "value": 0.0185,
+        "ci": [
+          0.0,
+          0.2665
+        ],
+        "status": "review"
+      },
+      "inference|attribute_inference_vs_population:PINCP_DECILE": {
+        "value": 0.0067,
+        "ci": [
+          -0.0091,
+          0.0226
+        ],
+        "status": "pass"
+      },
+      "inference|attribute_inference_vs_population:DPHY": {
+        "value": 0.0063,
+        "ci": [
+          -0.0016,
+          0.0141
+        ],
+        "status": "pass"
+      },
+      "inference|attribute_inference_vs_population:DREM": {
+        "value": 0.0007,
+        "ci": [
+          -0.0045,
+          0.006
+        ],
+        "status": "pass"
+      },
+      "membership|domias_auc": {
+        "value": 0.5162,
+        "ci": [
+          0.5036,
+          0.5289
+        ],
+        "status": "pass"
+      },
+      "membership|domias_tpr_at_fpr_0.01": {
+        "value": 0.013,
+        "ci": [
+          0.0085,
+          0.019
+        ],
+        "status": "pass"
+      },
+      "membership|shadow_classifier_auc": {
+        "value": 0.5087,
+        "ci": [
+          0.4179,
+          0.5996
+        ],
+        "status": "pass"
+      },
+      "membership|shadow_lira_auc": {
+        "value": 0.5535,
+        "ci": [
+          0.4633,
+          0.6438
+        ],
+        "status": "pass"
+      },
+      "membership|most_vulnerable_record_auc": {
+        "value": 0.8364,
+        "ci": [
+          0.4634,
+          1.0
+        ],
+        "status": "info"
+      },
+      "membership|shadow_classifier_vulnerable_auc": {
+        "value": 0.4699,
+        "ci": [
+          0.3371,
+          0.6027
+        ],
+        "status": "pass"
+      },
+      "membership|shadow_lira_vulnerable_auc": {
+        "value": 0.5524,
+        "ci": [
+          0.4218,
+          0.683
+        ],
+        "status": "review"
+      }
+    }
+  },
+  "smoothing_density": {
+    "verdict": "review",
+    "seconds": 98.8,
+    "checks": {
+      "record_isolation|singling_out_univariate": {
+        "value": 0.0034,
+        "ci": [
+          0.0,
+          0.0249
+        ],
+        "status": "pass"
+      },
+      "record_isolation|singling_out_multivariate": {
+        "value": 0.0232,
+        "ci": [
+          0.0,
+          0.09
+        ],
+        "status": "pass"
+      },
+      "linkage|nearest_neighbour_linkage": {
+        "value": 0.0099,
+        "ci": [
+          0.0,
+          0.0243
+        ],
+        "status": "pass"
+      },
+      "inference|nearest_neighbour_inference:PINCP_DECILE": {
+        "value": 0.0843,
+        "ci": [
+          0.0276,
+          0.1409
+        ],
+        "status": "review"
+      },
+      "inference|nearest_neighbour_inference:DPHY": {
+        "value": 0.091,
+        "ci": [
+          0.0,
+          0.2753
+        ],
+        "status": "review"
+      },
+      "inference|nearest_neighbour_inference:DREM": {
+        "value": 0.1766,
+        "ci": [
+          0.0,
+          0.3691
+        ],
+        "status": "review"
+      },
+      "inference|attribute_inference_vs_population:PINCP_DECILE": {
+        "value": 0.002,
+        "ci": [
+          -0.0142,
+          0.0182
+        ],
+        "status": "pass"
+      },
+      "inference|attribute_inference_vs_population:DPHY": {
+        "value": 0.0072,
+        "ci": [
+          -0.0009,
+          0.0154
+        ],
+        "status": "pass"
+      },
+      "inference|attribute_inference_vs_population:DREM": {
+        "value": 0.0043,
+        "ci": [
+          -0.0014,
+          0.0099
+        ],
+        "status": "pass"
+      },
+      "membership|domias_auc": {
+        "value": 0.5121,
+        "ci": [
+          0.4995,
+          0.5248
+        ],
+        "status": "pass"
+      },
+      "membership|domias_tpr_at_fpr_0.01": {
+        "value": 0.0085,
+        "ci": [
+          0.005,
+          0.0136
+        ],
+        "status": "pass"
+      },
+      "membership|shadow_classifier_auc": {
+        "value": 0.5612,
+        "ci": [
+          0.4699,
+          0.6526
+        ],
+        "status": "review"
+      },
+      "membership|shadow_lira_auc": {
+        "value": 0.5628,
+        "ci": [
+          0.4734,
+          0.6523
+        ],
+        "status": "review"
+      },
+      "membership|most_vulnerable_record_auc": {
+        "value": 0.8909,
+        "ci": [
+          0.5769,
+          1.0
+        ],
+        "status": "info"
+      },
+      "membership|shadow_classifier_vulnerable_auc": {
+        "value": 0.5734,
+        "ci": [
+          0.4414,
+          0.7053
+        ],
+        "status": "review"
+      },
+      "membership|shadow_lira_vulnerable_auc": {
+        "value": 0.6133,
+        "ci": [
+          0.4871,
+          0.7394
+        ],
+        "status": "review"
+      }
+    }
+  }
+}

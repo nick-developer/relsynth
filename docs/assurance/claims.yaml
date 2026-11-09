@@ -123,12 +123,16 @@ claims:
     area: privacy-measured
     quote:
       - "The privacy unit is the table that holds the people"
-      - "Every table that reaches it through foreign keys belongs to it: a customer's invoices and invoice lines are attacked together with the customer."
+      - "Every table that reaches it through foreign keys belongs to it, composite keys included (the IR's trace, relsynth ir trace): a customer's invoices and invoice lines are attacked together with the customer."
+      - "A row that reaches the unit along several paths belongs to every person those paths reach (Prop. 1700)."
       - "Chains stop at other person tables: a customer's sales representative does not own the customer."
     status: supported
     evidence:
       - prop: prop:pusplit
+      - prop: prop:unionown
       - check: C600
+      - check: C1700
+      - check: C1701
       - test: tests/unit/test_privacy.py::test_unit_paths_and_split_keep_people_whole
       - test: tests/unit/test_privacy.py::test_unit_chain_stops_at_other_person_tables
 
@@ -146,12 +150,16 @@ claims:
     doc: docs/privacy.md
     area: privacy-measured
     quote:
-      - "Control people are never seen: the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
-      - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
+      - "Control people are not in the training data (people who share a row, which a row reached along two paths can make, are kept on the same side of the split; if such groups join almost everyone, the split falls back to a plain cut, the rows a control person shares with training people are then in the training data, and the report warns and judges every context at least review): the attacks' success on them is what the synthetic data teaches about anyone, and only the excess on training people is a risk to them."
+      - "Training and control have the same size so the record-isolation rates are exactly comparable (Prop. 601; when shared-row groups leave control smaller, the attack evaluates a random subset of training people of the control's size); Anonymeter's fitted size correction showed risks of 0.10–0.14 under the null in our checks."
     status: supported
     evidence:
       - prop: prop:puctrl
       - check: C601
+      - check: C1700
+      - test: tests/unit/test_privacy.py::test_assess_reports_a_split_that_shares_rows
+      - test: tests/unit/test_privacy.py::test_judge_keeps_a_shared_row_split_at_review_with_dp
+      - test: tests/unit/test_privacy.py::test_record_isolation_evaluates_a_training_subset_of_the_controls_size
       - report: docs/assurance/evidence/T06/repro_anonymeter.json
 
   - id: PRV-12
@@ -236,6 +244,89 @@ claims:
     evidence:
       - prop: prop:pudp
       - source: "NIST SP 800-226, sec. 1.1 (DP protects against all attacks, including with auxiliary data)"
+
+  # ------------------------------------------------------------------ docs/privacy.md: the quick check of every run (G5)
+
+  - id: PRV-40
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote:
+      - "The written release was fitted on every person, so it has nobody unseen to compare with."
+      - "The check samples up to synthesis.evaluation.privacy_check_people people (3000) of the privacy unit, fits the same generator with the same settings on a third of them (the members), and asks whether two attacks tell those members from a third the proxy never saw, using the last third as the attacker's population data:"
+    status: supported
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_passes_a_fitted_release_and_reports_counts
+
+  - id: PRV-41
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "It catches copied people that a kernel density smooths away (on one table of 1000 people, a release that copied every member gave DOMIAS AUC 0.63 and this attack 1.00, means over 10 seeds; 20% copies fail through its TPR at FPR 1%)."
+    status: supported
+    evidence:
+      - check: C1740
+      - report: docs/assurance/evidence/G5/quick_check.json
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_catches_a_copying_generator
+
+  - id: PRV-42
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "Under a release that ignores who is a member, a false fail is rare (Prop. 1740, check C1740), and the check never changes the synthetic files: it runs after every file is written, on its own seeded random stream (Prop. 1741, check C1741; the CI job identity compares the files byte for byte)."
+    status: supported
+    note: Prop. 1740 bounds false alarms under the null of no membership signal; it does not say that a pass means no risk.
+    evidence:
+      - prop: prop:qcnull
+      - check: C1740
+      - prop: prop:qcident
+      - check: C1741
+      - test: tests/unit/test_privacy_quick.py::test_run_adds_the_check_and_keeps_the_release_identical
+      - report: .github/workflows/ci.yml
+      - code: tools/identity_check.py::main
+
+  - id: PRV-43
+    doc: docs/privacy.md
+    area: privacy-measured
+    quote: "| skipped | no privacy unit was found (name one in privacy.yaml for relsynth privacy), fewer than 50 people, or the unit's tables were fitted from in-database statistics and a sample (pushdown), which does not hold every row of a person |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_skips_without_unit_too_few_people_or_pushdown
+
+  - id: PRV-45
+    doc: docs/privacy.md
+    area: security
+    quote:
+      - "| error | the proxy could not be fitted; the bundle names the exception type (never its message, which could hold a credential) and the run is unaffected |"
+    status: supported
+    evidence:
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_reports_generator_errors_without_raising
+      - test: tests/unit/test_privacy_quick.py::test_pipeline_error_keeps_only_the_exception_type
+
+  - id: PRV-46
+    doc: docs/privacy.md
+    area: scope
+    quote: "Runs in differential privacy mode (--dp, --epsilon) have no quick check: their guarantee is the DP statement, and relsynth privacy audits it."
+    status: limitation
+    evidence:
+      - code: src/relsynth/cli.py::cmd_run_dp
+      - test: tests/unit/test_privacy_quick.py::test_dp_specs_never_reach_the_quick_check
+
+  - id: PRV-47
+    doc: docs/privacy.md
+    area: scope
+    quote: "When one attack cannot run (DOMIAS needs profiles that vary), the verdict covers the other one only; the result names the missing attack under `incomplete` and the printed line says so."
+    status: limitation
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - test: tests/unit/test_privacy_quick.py::test_an_attack_that_cannot_run_is_named
+
+  - id: PRV-44
+    doc: docs/privacy.md
+    area: scope
+    quote: "It never replaces relsynth privacy (every criterion, shadow models, every context), and a release outside the organisation still needs differential privacy."
+    status: limitation
+    evidence:
+      - code: src/relsynth/privacy/quick.py::quick_check
+      - prop: prop:pudp
 
   # ------------------------------------------------------------------ docs/dp.md (formal privacy, T07)
 
@@ -325,7 +416,7 @@ claims:
     doc: docs/dp.md
     area: privacy-formal
     quote:
-      - "Every DP run produces a statement (schema relsynth.dp-statement/1; write it with --dp-statement)."
+      - "Every DP run produces a statement (schema relsynth.dp-statement/1, or /2 for a run with several units; write it with --dp-statement)."
       - "the guarantee in ε, δ and ρ, and how it was computed (zCDP, converted with Canonne, Kamath and Steinke 2020);"
       - "It holds no data and no exact counts."
     status: supported
@@ -376,12 +467,12 @@ claims:
     evidence:
       - test: tests/unit/dp/test_dp.py::test_ordinary_pipeline_refuses_a_dp_spec
       - test: tests/unit/dp/test_dp.py::test_cli_refuses_tune_and_export_model_on_a_dp_spec
-    note: The CLI test covers tune and export-model; verify and doctor --apply are refused by the same guard but have no test of their own.
+      - test: tests/unit/dp/test_dp.py::test_cli_refuses_doctor_apply_on_a_dp_spec
 
   - id: DP-13
     doc: docs/dp.md
     area: scope
-    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), more than one privacy unit, composite parent keys (generated as (i, 1)), and values of pii, text and binary columns (placeholders)."
+    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, and values of pii, text and binary columns (placeholders)."
     status: limitation
     evidence:
       - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
@@ -468,7 +559,100 @@ claims:
     evidence:
       - report: docs/assurance/evidence/T07b/audit.jsonl
 
+  - id: DP-21
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "In AdventureWorks DW, FactInternetSalesReason (keyed by order number and line number) is owned by DimCustomer through FactInternetSales."
+      - "When a row reaches the unit along two paths, the attack suite counts it for every person those paths reach (Prop. 1700); DP mode still refuses such a table."
+    status: supported
+    evidence:
+      - prop: prop:unionown
+      - check: C1700
+      - check: C1701
+      - check: C1705
+
+  - id: DP-22
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "It is one more block of the table's marginals, so it costs no extra budget share (Prop. 1702)."
+      - "The seed then has orders with several lines, numbered 1, 2, … within each order, and child rows point to them by the full composite key."
+    status: supported
+    evidence:
+      - prop: prop:groups
+      - check: C1702
+      - check: C1703
+
+  - id: DP-23
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "Each unit has its own accountant, and its statistics read only its own tables, so the run is (ε, δ)-DP for one customer with all their rows and, separately, for one employee with all their rows (Prop. 1703)."
+      - "The budgets do not add up across units, because the units' tables are disjoint."
+      - "A person who is both a customer and an employee is protected for each role separately: their total loss is at most the sum of the two units' ε (and δ), not either one alone, and the statement says so (Prop. 1703)."
+      - "The plan refuses, before any read, a table that holds data of two units and a link between two units' data (drop it with drop_columns)."
+    status: supported
+    evidence:
+      - prop: prop:multiunit
+      - check: C1703
+      - check: C1704
+      - check: C1705
+
+  - id: DP-24
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "The statement of such a run has schema relsynth.dp-statement/2: unit is the list of units and units holds each unit's ε, ρ and tables."
+      - "A run must protect every unit of the domain that its source holds."
+      - "It reserves each unit's planned ρ in that unit's account before it reads data, and the whole reservation is refused if any unit's caps would be exceeded."
+      - "The manifest lists the units: privacy.unit is the list, each charge names its unit, and privacy.units holds each unit's total, statement and ledger entry."
+      - "The release rules are evaluated once per unit, with that unit's figures, and the release is allowed only if every unit allows it (Prop. 1704)."
+    status: supported
+    evidence:
+      - prop: prop:multigov
+      - test: tests/science/test_privacy_units_checks.py::test_c1704_run_states_one_guarantee_per_unit
+      - test: tests/science/test_privacy_units_checks.py::test_c1704_refusals_before_any_read
+      - test: tests/unit/governance/test_multi_unit.py::test_ledger_keeps_one_account_per_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_governed_two_unit_run_reserves_settles_and_records
+      - test: tests/unit/governance/test_multi_unit.py::test_domain_override_accepts_the_domains_units
+      - check: C1706
+
+  - id: DP-25
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time."
+      - "No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all."
+    status: supported
+    note: C1705 skips when the AdventureWorks bench cache is absent, so PR CI does not run it; C1703 runs in CI on a fixture, and the recorded run is the evidence for AdventureWorks DW.
+    evidence:
+      - check: C1705
+      - check: C1703
+      - report: docs/assurance/evidence/G1/aw_two_units.json
+
+  - id: DP-26
+    doc: docs/dp.md
+    area: statistics
+    quote: "At ε = 2 the private cap on rows per employee is 1, so the seed holds a few dozen reseller sales at most."
+    status: supported
+    evidence:
+      - report: docs/assurance/evidence/G1/aw_two_units.json
+
   # ------------------------------------------------------------------ docs/security.md
+
+  - id: DP-27
+    doc: docs/governance/guide.md
+    area: privacy-formal
+    quote:
+      - "A domain whose sources hold several populations (customers and employees) names them all: unit: {entities: [DimCustomer, DimEmployee]}."
+      - "A DP run of such a domain protects every unit its source holds, and is decided once per unit (dp.md, section 8)."
+    status: supported
+    evidence:
+      - prop: prop:multigov
+      - test: tests/unit/governance/test_multi_unit.py::test_policy_names_several_units_and_budgets_per_unit
+      - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
 
   - id: SEC-01
     doc: docs/security.md
@@ -581,14 +765,18 @@ claims:
     area: privacy-measured
     quote:
       - "Diagnostics bundles, verify reports and profile output hold counts and statistics, not rows."
-      - "Rows of pushed facts never leave the source as a whole; only aggregates and a sample do."
-    status: partial
-    note: The bundle test checks that no password is in it; there is no test that a bundle holds no row. Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103).
+      - "Of a pushed fact, relsynth keeps aggregates, a seeded Bernoulli sample of about `sample_rows` rows (it can be larger, up to every row, and is the whole table when the table has no more rows than `sample_rows`) and, for order headers and running balances, the first row of each group (every row, projected to the header columns, when each group has one row). Database servers and DuckDB pick the sample by a seeded hash of each row; a file source on the pandas engine draws it at random while streaming every row, so reordering the file changes it. On the pandas engine, statistics also load and keep whole columns of the fact, which stay in memory with the fitted model."
+    status: supported
+    note: Pushdown reads are aggregate queries plus a seeded sample (Props. 100 and 103), which is the whole table when the table has at most sample_rows rows (the full-sample test), and the first row per group of order headers and running balances (TableStats.first_rows; the header-split test). The row test searches bundle, verify report and profile for every customer identifier (in any format), for product and sale rows as their own fields side by side, and for every continuous value of the star scenario; at most five continuous values may appear verbatim (round numbers such as 50.0 occur as statistics).
     evidence:
+      - test: tests/unit/test_security.py::test_bundles_verify_reports_and_profiles_hold_no_rows
       - test: tests/unit/test_security.py::test_bundle_holds_no_password
       - prop: prop:pdsuff
       - prop: prop:hashsample
       - test: tests/unit/test_pushdown.py::test_full_sample_pushdown_equals_in_memory
+      - test: tests/unit/test_pushdown.py::test_header_split_without_unique_key_agrees
+      - test: tests/unit/test_sqlfuncs_stats.py::test_lazy_frame_stats_loads_only_needed_columns
+      - test: tests/unit/test_pushdown.py::test_pandas_file_pushdown_keeps_whole_columns_with_the_model
 
   - id: SEC-11
     doc: docs/security.md
@@ -655,6 +843,16 @@ claims:
       - test: tests/unit/service/test_service_api.py::test_spec_cannot_name_service_files
       - code: src/relsynth/service/policy.py::spec_refusals
     note: The test exercises the save path; the run-time check calls the same spec_refusals function from the worker.
+
+  - id: SEC-17
+    doc: docs/security.md
+    area: security
+    quote: "relsynth never writes to a source (as long as the run's target is not the source itself): it issues `SELECT` queries, read-only schema reflection (SQLite `PRAGMA`s, MySQL `SHOW`) and per-connection session settings (SQLite `PRAGMA foreign_keys=ON`, MySQL `SET time_zone`); pushdown reads are aggregate queries, a seeded sample and the first row of each order or running-balance group"
+    status: partial
+    evidence:
+      - test: tests/unit/test_security.py::test_only_select_is_issued_against_a_source
+      - prop: prop:pdsuff
+    note: Measured on SQLite only. The test hooks sqlite3's trace callback on every connection to the source, so it sees statements sent through SQLAlchemy and straight on the DBAPI cursor, during introspect, profile, run (pushdown off and on) and verify; all are SELECT, PRAGMAs that only read (schema reflection, the isolation level) or the connection's PRAGMA foreign_keys=ON, and the source file is unchanged. The server dialects share the connector code but their statements (MySQL SHOW and SET time_zone included) are not recorded, hence partial.
 
   # ------------------------------------------------------------------ docs/governance/guide.md (T08)
 
@@ -1156,10 +1354,11 @@ claims:
     doc: README.md
     area: security
     quote: "Bundles and profiles hold aggregates only, and profile --top must be asked for explicitly."
-    status: partial
-    note: As SEC-10, no test shows that a diagnostics bundle holds no rows.
+    status: supported
     evidence:
       - claim: SEC-10
+      - test: tests/unit/test_security.py::test_cli_profile_lists_values_only_with_top
+      - test: tests/unit/test_api.py::test_clone_profile_ping
 
   - id: RM-28
     doc: README.md
@@ -1793,155 +1992,25 @@ claims:
       - report: .github/dependabot.yml
       - test: tests/unit/test_scanner_fixes.py::test_urlopen_refuses_other_schemes
 
-  # ------------------------------------------------------------------ docs/privacy.md, small dimensions (G3)
-
-  - id: PRV-20
-    doc: docs/privacy.md
-    area: statistics
-    quote: "Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`)."
-    status: supported
-    evidence:
-      - prop: prop:segshrink
-      - prop: prop:ncguard
-      - report: docs/research/small-dimensions.md
-
-  - id: PRV-21
-    doc: docs/privacy.md
-    area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720)"
-    status: supported
-    evidence:
-      - prop: prop:segshrink
-      - check: C1720
-
-  - id: PRV-22
-    doc: docs/privacy.md
-    area: statistics
-    quote: "the change is at most `rows / (n + rows)` in total variation (Prop. 1721)"
-    status: supported
-    evidence:
-      - prop: prop:seglarge
-      - check: C1721
-
-  - id: PRV-23
-    doc: docs/privacy.md
+  - id: RM-60
+    doc: README.md
     area: privacy-measured
-    quote: "An exact copy of a real row that no other real row shares in the guard's encoding also counts (two real rows that differ only in rare levels share an encoding, so a copy of either is not flagged as exact)."
+    quote: "By default relsynth run ends with a quick membership check on a proxy release and prints one privacy line (except in DP mode, or when it is skipped: see docs/privacy.md); it never changes the synthetic files."
     status: supported
     evidence:
-      - test: tests/unit/test_small_dims.py::test_guard_rules
-      - check: C1722
+      - claim: PRV-42
+      - test: tests/unit/test_privacy_quick.py::test_run_adds_the_check_and_keeps_the_release_identical
 
-  - id: PRV-24
-    doc: docs/privacy.md
-    area: privacy-formal
-    quote: "It is not a privacy guarantee."
-    status: limitation
-    evidence:
-      - prop: prop:ncnotdp
-      - check: C1723
-
-  - id: PRV-25
-    doc: docs/privacy.md
-    area: privacy-formal
-    quote: "If the guard redraws until it succeeds, someone who knows the rule learns that no synthetic row sits inside a real record's ball, and Prop. 1723 shows that this rules out differential privacy for any ε, given a generator that can produce rows near the record."
-    status: limitation
-    evidence:
-      - prop: prop:ncnotdp
-      - check: C1723
-
-  - id: PRV-32
-    doc: docs/privacy.md
-    area: scope
-    quote: "The guard runs on the tables the distance check covers, up to `privacy.near_copy_max_rows` rows (default 20,000; the search compares every synthetic row with every distinct real row, so its time grows with the square of the rows), and only when at least three of the distance columns are sampled by the table's model: a table with only two sampled distance columns and the rest computed (derived or aggregated columns) is not guarded."
-    status: supported
-    evidence:
-      - test: tests/unit/test_small_dims.py::test_settings_are_registered_with_defaults
-      - test: tests/unit/test_small_dims.py::test_nearest_matches_brute_force_in_small_blocks
-      - test: tests/unit/test_small_dims.py::test_guard_skips_small_or_narrow_tables
-      - code: src/relsynth/engine.py::Synthesizer::_near_copy_guard
-
-  - id: PRV-33
-    doc: docs/privacy.md
+  - id: RM-61
+    doc: README.md
     area: privacy-measured
-    quote:
-      - "Rows that are redrawn later to satisfy an attribute rule or a unique key, and rows whose values change through them (a group effect), are checked again in the same rejection, for at most `privacy.near_copy_rounds` rounds and half of `rules.max_rejection_rounds`, so the remaining rounds enforce the rules alone."
-      - "`kept` counts the near copies among the rows emitted, recounted after the rule redraws and group effects of the last step."
-      - "For an entity with a version history (SCD type 2), it is counted before the versions are added."
-      - "A row redrawn only for being a near copy that ends the rule budget breaking a rule gets its earlier rule-valid row back, hidden draws included, and the log counts those rows (`restored_after_rules`)."
+    quote: "| Quick privacy check (v2.2) | 1740–1741 false alarms of the quick check are bounded under no membership signal; the check leaves the release unchanged |"
     status: supported
     evidence:
-      - test: tests/unit/test_small_dims.py::test_rule_redraws_are_guarded_and_kept_counts_emitted_rows
-      - test: tests/unit/test_small_dims.py::test_kept_counts_emitted_rows_after_a_group_effect
-      - test: tests/unit/test_small_dims.py::test_near_copy_rejection_respects_both_round_limits
-      - test: tests/unit/test_small_dims.py::test_group_effect_rows_join_the_near_copy_recheck
-      - test: tests/unit/test_small_dims.py::test_near_copy_redraw_never_trades_a_valid_row_for_a_violation
-      - test: tests/unit/test_small_dims.py::test_restored_rows_keep_their_hidden_draws
-      - code: src/relsynth/engine.py::Synthesizer::_finish
-
-  - id: PRV-34
-    doc: docs/privacy.md
-    area: privacy-measured
-    quote:
-      - "It uses the distance check's encoding (rank scores of numbers and one-hot codes of the 20 most frequent levels of each categorical, so two rows that differ only in rarer levels look the same to it), but fits the ranks and levels on the real rows only, while the scorecard fits them on real and synthetic rows together; the two distances, and so the guard's decisions and the scorecard's ratio, can differ."
-    status: supported
-    evidence:
-      - test: tests/unit/test_small_dims.py::test_guard_encoding_is_fitted_on_real_rows_only
-      - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
-      - code: src/relsynth/evaluate.py
-
-  - id: PRV-30
-    doc: docs/privacy.md
-    area: privacy-formal
-    quote: "Prop. 1723 does not cover that case, and the guard gives no differential-privacy guarantee of its own."
-    status: limitation
-    evidence:
-      - prop: prop:ncnotdp
-
-  - id: PRV-31
-    doc: docs/privacy.md
-    area: privacy-formal
-    quote: "In DP mode (`synthesis.privacy.dp`) the engine is fitted on the DP seed database, so the guard measures distances to seed rows and is post-processing of the DP release: the DP guarantee stands, and the guard adds nothing to it."
-    status: supported
-    evidence:
-      - prop: prop:post
-      - test: tests/unit/dp/test_dp.py::test_stage2_keeps_the_near_copy_guard_on_the_seed
-      - code: src/relsynth/dp/__init__.py::synthesize
-
-  - id: PRV-26
-    doc: docs/privacy.md
-    area: scope
-    quote: "Ganev and De Cristofaro (2023) reconstruct records from exactly such holes."
-    status: scope
-    evidence:
-      - source: "G. Ganev, E. De Cristofaro, On the inadequacy of similarity-based privacy metrics, arXiv:2312.05114 (2023)"
-
-  - id: PRV-27
-    doc: docs/privacy.md
-    area: privacy-formal
-    quote: "The attacks above remain the privacy test, and DP mode remains the guarantee."
-    status: supported
-    evidence:
-      - claim: PRV-01
-      - prop: prop:ncnotdp
-
-  - id: PRV-28
-    doc: docs/privacy.md
-    area: privacy-measured
-    quote: "the scorecard's `dcr_ratio` for `DimProduct` was 0.40 to 0.65 at the 2.1 defaults, against a limit of 0.5"
-    status: supported
-    note: 0.40 is seed 12 and 0.64 seed 11 of the autotune report (CI runners); 0.42-0.65 are the full fits and paired draws of the small-dimensions report.
-    evidence:
-      - report: docs/research/small-dimensions.md
-      - report: docs/research/autotune-adventureworks.md
-
-  - id: PRV-29
-    doc: docs/privacy.md
-    area: privacy-measured
-    quote: "After the guard, the `dcr_ratio` of a guarded table no longer tests the generator on its own."
-    status: limitation
-    evidence:
-      - test: tests/science/test_small_dims_checks.py::test_c1722_scorecard_marks_a_guarded_table
+      - prop: prop:qcnull
+      - prop: prop:qcident
+      - check: C1740
+      - check: C1741
 
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}

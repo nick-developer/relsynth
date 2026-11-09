@@ -138,10 +138,18 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
         rec["scorecard"] = {"passed": sc.get("passed"), "total": sc.get("total")}
         # every scorecard item is in the diagnostics bundle (aggregates only)
         bundle = Path(tmp) / "bundle.json"
-        items = ((json.loads(bundle.read_text()).get("evaluation") or {}).get("scorecard") or {}).get("items", []) \
-            if bundle.exists() else []
+        bdoc = json.loads(bundle.read_text()) if bundle.exists() else {}
+        items = ((bdoc.get("evaluation") or {}).get("scorecard") or {}).get("items", [])
         checks = [{"id": f"scorecard:{i['area']}|{i['metric']}", "pass": bool(i["pass"]), "value": i.get("value"),
                    "limit": i.get("limit")} for i in items]
+        # the quick privacy check of `relsynth run` (G5): each attack's AUC is tracked for the drift rule R4
+        pcheck = bdoc.get("privacy_check") or {}
+        for att, v in (pcheck.get("attacks") or {}).items():
+            if v.get("auc") is not None:
+                checks.append({"id": f"metric:privacy_check_{att}_auc", "pass": None, "value": round(v["auc"], 6),
+                               "direction": "lower"})
+        if pcheck.get("status"):
+            rec["privacy_check"] = {"status": pcheck.get("status"), "seconds": pcheck.get("seconds")}
         if ds.checks is not None and out.exists():
             try:
                 for k, (real, syn) in ds.checks(location, out).items():

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import os
 import sys
 
 import numpy as np
@@ -167,6 +168,8 @@ def test_spark_executor_gives_the_same_output(shop):
     try:
         ex = SparkExecutor(workers=2)
     except Exception as e:  # noqa: BLE001 - no Java runtime
+        if os.environ.get("RELSYNTH_TEST_SPARK_REQUIRED"):   # CI: a Spark that cannot start is a failure
+            raise
         pytest.skip(f"no local Spark: {e}")
     try:
         ref, _ = sample_partitioned(shop, index=0, executor="local", partition_rows=300)

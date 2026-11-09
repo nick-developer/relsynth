@@ -281,8 +281,11 @@ def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public
         cfg = P.load_config(a.privacy_config) if a.privacy_config else P.load_config()
         cfg["contexts"] = G.contexts_from_policy(gv["policy"])
         if privacy is not None:
-            cfg["release"] = {"dp": {"epsilon": float(privacy["stated"]["epsilon"]),
-                                     "delta": float(privacy["stated"]["delta"]), "unit": privacy["unit"]}}
+            # several units: the guarantee of the unit the attack suite assesses (or of each, largest first)
+            pu = (privacy.get("units") or {}).get(cfg.get("unit"))
+            stated = (pu or privacy)["stated"]
+            cfg["release"] = {"dp": {"epsilon": float(stated["epsilon"]), "delta": float(stated["delta"]),
+                                     "unit": cfg.get("unit") if pu else privacy["unit"]}}
         rep = P.assess(s, cfg, generator=generator, progress=lambda m: out.line(m))
     report = report if privacy is not None else res.report
     sc = None
@@ -308,11 +311,14 @@ def _source_locator(spec):
 
 
 def _dp_override(a) -> dict:
-    o = {}
+    o: dict = {}
     if getattr(a, "epsilon", None) is not None:
         o["epsilon"] = float(a.epsilon)
-    if getattr(a, "dp_unit", None):
-        o["unit"] = a.dp_unit
+    if getattr(a, "dp_unit", None) is not None:
+        units = [u.strip() for u in a.dp_unit.split(",") if u.strip()]
+        if not units:
+            raise SpecError("--dp-unit expects one table or a comma-separated list of tables")
+        o["unit"] = units if len(units) > 1 else units[0]
     if getattr(a, "dp_measure", None):
         o["measure"] = a.dp_measure
     return o
@@ -330,26 +336,61 @@ def cmd_run_dp(a, out, s, gv):
         override = dp.domain_override(spec, gv["policy"], dom or "", override)
         led, run_id = G.Ledger(gv["reg"], gv["policy"]), G.new_run_id()
     pl, cfg, _ = dp.plan(spec, override)            # refuses before anything is reserved or read
-    out.line(f"DP plan: unit {cfg.unit}, rho {cfg.rho:.6g}, delta {cfg.delta:g}; tables of the unit: "
-             f"{', '.join(pl.order)}; public: {', '.join(pl.public) or 'none'}")
-    if led is not None:
+    if cfg.multi:
+        each = f"rho {cfg.rho:.6g} each" if not cfg.unit_rho else \
+            "rho " + ", ".join(f"{u} {cfg.rho_of(u):.6g}" for u in cfg.units)
+        out.line(f"DP plan: units {', '.join(cfg.units)}, {each}, delta {cfg.delta:g}; "
+                 + "; ".join(f"tables of {u}: {', '.join(pl.owned_by(u))}" for u in cfg.units)
+                 + f"; public: {', '.join(pl.public) or 'none'}")
+    else:
+        out.line(f"DP plan: unit {cfg.unit}, rho {cfg.rho:.6g}, delta {cfg.delta:g}; tables of the unit: "
+                 f"{', '.join(pl.order)}; public: {', '.join(pl.public) or 'none'}")
+    # a domain with several units keeps one account per unit (RFC-G1-01, Prop. 1704)
+    accounts = (cfg.units if cfg.multi else [cfg.unit]) if led is not None and gv["policy"].multi_unit(dom) else None
+    if led is not None and accounts:
+        led.reserve_units(dom, run_id, {u: (cfg.rho_of(u), cfg.delta * cfg.levels_delta_share) for u in accounts})
+        for u in accounts:
+            out.line(f"reserved rho {cfg.rho_of(u):.6g} in domain {dom!r}, account of {u}, for run {run_id}")
+    elif led is not None:
         led.reserve(dom, run_id, cfg.rho, cfg.delta * cfg.levels_delta_share)
         out.line(f"reserved rho {cfg.rho:.6g} in domain {dom!r} for run {run_id}")
     target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
     t0 = time.time()
     settled: list = []
+    settled_u: dict = {}
+
+    def _touch():
+        for u in accounts or [None]:
+            led.touch(dom, run_id, unit=u)
+
+    def _settle_units(per_unit):
+        for u in accounts or []:
+            settled_u[u] = led.settle(dom, run_id, per_unit[u]["rho"], per_unit[u]["delta"], unit=u)
+
+    def _settle(r, d):
+        if accounts:      # one unit of a domain with several: its own account
+            settled_u[accounts[0]] = led.settle(dom, run_id, r, d, unit=accounts[0])
+        else:
+            settled.append(led.settle(dom, run_id, r, d))
     res = dp.synthesize(spec, override=override, out=target, write=not a.no_write, scale=a.scale,
                         datasets=a.datasets, seed=a.seed, privacy=not a.no_privacy,
-                        before_read=(lambda: led.touch(dom, run_id)) if led else None,
-                        after_fit=(lambda r, d: settled.append(led.settle(dom, run_id, r, d))) if led else None)
+                        before_read=_touch if led else None, after_fit=_settle if led else None,
+                        after_fit_units=_settle_units if led else None)
     from .api import EvaluationReport
     rep = EvaluationReport(res.report["scorecard"]) if res.report.get("scorecard") is not None else None
     out.put(seconds=round(time.time() - t0, 1), rows={t: len(d) for t, d in res.data.items()},
             dp={"epsilon": res.epsilon, "delta": res.config.delta, "rho": res.rho, "delta_approx": res.delta,
-                "unit": res.config.unit, "charges": [c.to_manifest() for c in res.charges]},
+                "unit": res.config.units if res.config.multi else res.config.unit,
+                "charges": [c.to_manifest() for c in res.charges],
+                **({"units": res.per_unit} if res.per_unit else {})},
             written=[_mask(w) for w in (res.run.written if res.run else [])])
-    out.line(f"DP guarantee: ({res.epsilon:.4g}, {res.config.delta:g})-DP for one {res.config.unit} and all their rows "
-             f"(rho {res.rho:.6g})")
+    if res.per_unit:
+        for u, v in res.per_unit.items():
+            out.line(f"DP guarantee: ({v['epsilon']:.4g}, {res.config.delta:g})-DP for one {u} and all their rows "
+                     f"(rho {v['rho']:.6g})")
+    else:
+        out.line(f"DP guarantee: ({res.epsilon:.4g}, {res.config.delta:g})-DP for one {res.config.unit} and all their "
+                 f"rows (rho {res.rho:.6g})")
     if rep is not None:
         out.put(scorecard={"passed": rep.passed, "total": rep.total, "score": rep.score, "failed": rep.failed})
         _scorecard_lines(out, rep)
@@ -357,11 +398,22 @@ def cmd_run_dp(a, out, s, gv):
             Path(a.report).write_text(rep.to_markdown(), encoding="utf-8")
     if gv is not None:
         from .governance.accounting import dec
-        summ = led.summary(dom)
-        note = {"seq": settled[0], "domain_rho": dec(summ["rho"]), "domain_delta": dec(summ["delta_spent"], 30),
-                "domain_epsilon": dec(summ["epsilon"], 6)}
-        res.statement["domain"] = {"domain": dom, "epsilon_after_this_release": note["domain_epsilon"],
-                                   "delta": dec(summ["delta"], 30)}
+        if accounts:
+            notes = {}
+            for u in accounts:
+                summ = led.summary(dom, unit=u)
+                notes[u] = {"seq": settled_u[u], "domain_rho": dec(summ["rho"]),
+                            "domain_delta": dec(summ["delta_spent"], 30), "domain_epsilon": dec(summ["epsilon"], 6)}
+            res.statement["domain"] = {"domain": dom, "delta": dec(summ["delta"], 30),
+                                       "units": {u: {"epsilon_after_this_release": n["domain_epsilon"]}
+                                                 for u, n in notes.items()}}
+            note = notes if cfg.multi else notes[accounts[0]]
+        else:
+            summ = led.summary(dom)
+            note = {"seq": settled[0], "domain_rho": dec(summ["rho"]), "domain_delta": dec(summ["delta_spent"], 30),
+                    "domain_epsilon": dec(summ["epsilon"], 6)}
+            res.statement["domain"] = {"domain": dom, "epsilon_after_this_release": note["domain_epsilon"],
+                                       "delta": dec(summ["delta"], 30)}
         _record_governed(a, out, gv, res, s, privacy=dp.manifest_privacy(res, run_id, note),
                          dp_statement=res.statement, public_facts_only=cfg.spec_is_public,
                          generator=dp.generator(spec, override), report=rep)
@@ -384,7 +436,8 @@ def cmd_run(a, out):
     target = _location(a, "target") if (a.target or a.target_url_env) else (a.out or None)
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
-              privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False)
+              privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False,
+              privacy_check=not a.no_privacy_check)
     out.put(bundle=a.bundle, seconds=round(time.time() - t0, 1),
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
@@ -395,6 +448,10 @@ def cmd_run(a, out):
         _scorecard_lines(out, res.report)
         if a.report:
             Path(a.report).write_text(res.report.to_markdown(), encoding="utf-8")
+    if res.privacy_check is not None:
+        from .privacy.quick import line as privacy_line
+        out.put(privacy_check=res.privacy_check)
+        out.line(privacy_line(res.privacy_check))
     if a.bundle:
         out.line(f"diagnostics bundle -> {a.bundle}")
     if res.errors:
@@ -806,6 +863,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--bundle", default="diagnostics_bundle.json", help="diagnostics bundle path ('' for none)")
     s.add_argument("--report", help="also write the scorecard as Markdown")
     s.add_argument("--no-privacy", action="store_true", help="skip distance-to-closest-record checks")
+    s.add_argument("--no-privacy-check", action="store_true",
+                   help="skip the quick membership privacy check on a proxy release (docs/privacy.md)")
     s.add_argument("--no-write", action="store_true", help="score only; write no synthetic data")
     s.add_argument("--datasets", type=int, help="number of synthetic datasets (independent posterior draws)")
     s.add_argument("--mode", choices=["draw", "mean"], help="posterior draw (default) or posterior means")
@@ -825,7 +884,8 @@ def build_parser() -> argparse.ArgumentParser:
     d = s.add_argument_group("differential privacy (docs/dp.md)")
     d.add_argument("--dp", action="store_true", help="differentially private run (the spec's synthesis.privacy.dp)")
     d.add_argument("--epsilon", type=float, help="this run's epsilon (implies --dp; overrides the spec)")
-    d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's)")
+    d.add_argument("--dp-unit", help="the privacy unit table (default: the spec's, or the policy domain's); "
+                                     "several units separated by commas, each with the full budget (tables disjoint)")
     d.add_argument("--dp-measure", choices=["copula", "mst", "aim"],
                    help="what stage 1 measures beyond one-way histograms: a copula (default) or two-way marginals "
                         "chosen by MST or AIM (docs/dp.md sec. 7)")

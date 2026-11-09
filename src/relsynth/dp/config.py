@@ -5,8 +5,10 @@
       privacy:
         dp:
           enabled: true
-          unit: Customer                 # the privacy unit (the IR's, or the policy domain's)
+          unit: Customer                 # the privacy unit (the IR's, or the policy domain's),
+                                         # or a list: [DimCustomer, DimEmployee], each with this budget
           epsilon: 2.0                   # this run's budget, stated at delta ...
+                                         # (with several units, or one per unit: {DimCustomer: 2, DimEmployee: 1})
           delta: 1.0e-9                  # ... or give rho (zCDP) instead of epsilon
           public_tables: [Genre, MediaType, Track]   # or all_unowned: tables without data of the unit
           public: {Customer.Country: {levels: [GR, DE, FR]}, Invoice.Total: {min: 0, max: 50}}
@@ -55,6 +57,20 @@ class DPConfig:
     select_share: float = 0.5         # mst: share of the pairs budget spent on choosing the tree
     pair_bins: int = 8                # mst/aim: cells per coordinate in a two-way marginal (null included)
     aim_rounds: int | None = None     # aim: planned rounds (default 16 x nodes); annealing may use fewer
+    units: list = field(default_factory=list)   # every privacy unit (unit is the first); each gets rho and delta
+    unit_rho: dict = field(default_factory=dict)      # unit -> its own rho, when set per unit (rho is the largest)
+    unit_epsilon: dict = field(default_factory=dict)  # unit -> its own epsilon, when epsilon is set per unit
+
+    @property
+    def multi(self) -> bool:
+        return len(self.units) > 1
+
+    def rho_of(self, unit: str) -> float:
+        """The budget of one unit: its own when set per unit, else the run's."""
+        return float(self.unit_rho.get(unit, self.rho))
+
+    def epsilon_for(self, unit: str) -> float | None:
+        return self.unit_epsilon.get(unit, self.epsilon if not self.unit_epsilon else None)
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -74,8 +90,13 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
     unit = raw.get("unit")
     if not unit:
         raise PrivacyError("synthesis.privacy.dp.unit: name the table of the people DP protects (e.g. Customer)")
-    if unit not in spec["tables"]:
-        raise PrivacyError(f"synthesis.privacy.dp.unit: {unit!r} is not a table of the spec")
+    units = [str(u) for u in unit] if isinstance(unit, (list, tuple)) else [unit]
+    if not units or len(set(units)) != len(units):
+        raise PrivacyError("synthesis.privacy.dp.unit: a table, or a list of distinct tables")
+    for u in units:
+        if u not in spec["tables"]:
+            raise PrivacyError(f"synthesis.privacy.dp.unit: {u!r} is not a table of the spec")
+    unit = units[0]
     delta = raw.get("delta")
     if delta is None or not 0 < float(delta) <= 1e-5:
         raise PrivacyError("synthesis.privacy.dp.delta: set delta in (0, 1e-5]; NIST SP 800-226 sec. 2.3 calls larger "
@@ -84,12 +105,33 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
     from ..governance.accounting import rho_of
     if raw.get("rho") is not None and raw.get("epsilon") is not None:
         raise PrivacyError("synthesis.privacy.dp: give epsilon or rho, not both")
+    share = float(raw.get("levels_delta_share", 0.5))
+    unit_rho: dict = {}
+    unit_eps: dict = {}
+    for key in ("rho", "epsilon"):
+        v = raw.get(key)
+        if not isinstance(v, dict):
+            continue
+        # a budget per unit, set by hand (RFC-G1-01): every unit of the run, each its own value
+        if len(units) < 2 or set(map(str, v)) != set(units):
+            raise PrivacyError(f"synthesis.privacy.dp.{key}: a number, or with several units one value per unit "
+                               f"({', '.join(units)})")
+        for u in units:
+            x = float(v[u])
+            if not x > 0:
+                raise PrivacyError(f"synthesis.privacy.dp.{key}.{u}: the budget must be positive")
+            if key == "rho":
+                unit_rho[u] = x
+            else:
+                unit_eps[u] = x
+                unit_rho[u] = rho_of(x, delta * (1 - share))
     if raw.get("rho") is not None:
-        rho, eps = float(raw["rho"]), None
+        rho = max(unit_rho.values()) if unit_rho else float(raw["rho"])
+        eps = None
     elif raw.get("epsilon") is not None:
-        eps = float(raw["epsilon"])
-        share = float(raw.get("levels_delta_share", 0.5))
-        rho = rho_of(eps, delta * (1 - share))       # the rest of delta is for releasing category levels
+        eps = max(unit_eps.values()) if unit_eps else float(raw["epsilon"])
+        rho = max(unit_rho.values()) if unit_rho else rho_of(eps, delta * (1 - share))
+        # the rest of delta is for releasing category levels
     else:
         raise PrivacyError("synthesis.privacy.dp: set the run's budget (epsilon at delta, or rho); relsynth has no "
                            "default epsilon, see docs/governance/guide.md#choosing-epsilon")
@@ -128,4 +170,5 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
                     max_pair_cells=int(raw.get("max_pair_cells", 4096)),
                     select_share=float(raw.get("select_share", 0.5)),
                     pair_bins=int(raw.get("pair_bins", 8)),
-                    aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None)
+                    aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None, units=units,
+                    unit_rho=unit_rho, unit_epsilon=unit_eps)

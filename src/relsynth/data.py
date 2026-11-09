@@ -98,7 +98,7 @@ FILE_SUFFIXES = (".csv", ".csv.gz", ".parquet")
 
 def table_files(root) -> dict[str, Path]:
     """{table name: file} for the CSV (.csv, .csv.gz) and Parquet files of a folder."""
-    out = {}
+    out: dict = {}
     for p in sorted(Path(root).iterdir()):
         for suf in FILE_SUFFIXES:
             if p.is_file() and p.name.lower().endswith(suf):
@@ -213,7 +213,7 @@ def load_tables(spec, source=None, tables=None, partial=()) -> dict[str, pd.Data
     out = dict(tables) if tables is not None else read_source_tables(spec, list(spec["tables"]), src)
     from .prepare import computed_columns, prepare_source
     comp = computed_columns(spec)
-    notes = []
+    notes: list = []
     out = {t: coerce(df, spec["tables"][t], optional=set(comp[t]), notes=notes, table=t) for t, df in out.items()}
     load_tables.notes = notes
     for n in notes:

@@ -436,7 +436,8 @@ class Synthesizer:
             self.key_index[e] = pd.Index(keys.drop_duplicates())
             self.log["source"].setdefault(e, {})["rows"] = len(keys)
         # ---- fact layout (anchor, partner, virtual dimension, nesting)
-        self.fact_info, self.fact_key_index, self.fact_key_cols = {}, {}, {}
+        self.fact_info, self.fact_key_cols = {}, {}
+        self.fact_key_index: dict = {}
         for f in self.fact_order:
             self.fact_info[f] = self._fact_layout(f, tables)
         for c in self.facts:
@@ -595,7 +596,7 @@ class Synthesizer:
                 say(f"fit: attributes of {e} ({len(tables[e]):,} rows, {len(self.tm[e].cols)} modelled columns)")
                 self.tm[e].fit(groups=E[e].z, rng=rng, per_group_copula=True)
         self._post_edges()
-        self.fact_entity = {}
+        self.fact_entity: dict = {}
         for f in self.fact_order:
             say(f"fit: fact {f} ({len(tables[f]):,} rows)")
             self._post_fact(f, tables[f])

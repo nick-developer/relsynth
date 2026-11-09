@@ -1,0 +1,173 @@
+{
+ "schema": "relsynth.dp-statement/2",
+ "unit": [
+  "DimCustomer",
+  "DimEmployee"
+ ],
+ "adjacency": "add_remove",
+ "unit_meaning": "one DimCustomer together with every row of the tables it owns (DimCustomer, FactInternetSales, FactInternetSalesReason, FactSurveyResponse); one DimEmployee together with every row of the tables it owns (DimEmployee, FactResellerSales, FactSalesQuota)",
+ "guarantee": {
+  "epsilon": "2",
+  "delta": "0.000000001",
+  "rho": "0.054131659186",
+  "delta_approx": "0.0000000005",
+  "per": "each unit separately (the largest of the per-unit guarantees)"
+ },
+ "accounting": {
+  "method": "zero-concentrated DP (Bun and Steinke 2016); approximate zCDP for level selection",
+  "conversion": "Canonne, Kamath and Steinke 2020, Prop. 12, at delta - delta_approx",
+  "composition": "adaptive, rho and delta add",
+  "units": "each unit's charges add up separately; the units' tables are disjoint, so a unit's neighbouring database changes only the statistics of its own tables (parallel composition, Prop. 1703)"
+ },
+ "mechanisms": {
+  "discovery": [
+   "DimCustomer.CommuteDistance: level selection",
+   "DimCustomer.CommuteDistance: level selection (delta)",
+   "DimCustomer.EnglishEducation: level selection",
+   "DimCustomer.EnglishEducation: level selection (delta)",
+   "DimCustomer.EnglishOccupation: level selection",
+   "DimCustomer.EnglishOccupation: level selection (delta)",
+   "DimCustomer.FrenchEducation: level selection",
+   "DimCustomer.FrenchEducation: level selection (delta)",
+   "DimCustomer.FrenchOccupation: level selection",
+   "DimCustomer.FrenchOccupation: level selection (delta)",
+   "DimCustomer.Gender: level selection",
+   "DimCustomer.Gender: level selection (delta)",
+   "DimCustomer.HouseOwnerFlag: level selection",
+   "DimCustomer.HouseOwnerFlag: level selection (delta)",
+   "DimCustomer.MaritalStatus: level selection",
+   "DimCustomer.MaritalStatus: level selection (delta)",
+   "DimCustomer.SpanishEducation: level selection",
+   "DimCustomer.SpanishEducation: level selection (delta)",
+   "DimCustomer.SpanishOccupation: level selection",
+   "DimCustomer.SpanishOccupation: level selection (delta)",
+   "DimCustomer.Suffix: level selection",
+   "DimCustomer.Suffix: level selection (delta)",
+   "DimCustomer.Title: level selection",
+   "DimCustomer.Title: level selection (delta)",
+   "DimCustomer: numeric ranges",
+   "DimEmployee.DepartmentName: level selection",
+   "DimEmployee.DepartmentName: level selection (delta)",
+   "DimEmployee.Gender: level selection",
+   "DimEmployee.Gender: level selection (delta)",
+   "DimEmployee.MaritalStatus: level selection",
+   "DimEmployee.MaritalStatus: level selection (delta)",
+   "DimEmployee.ParentEmployeeNationalIDAlternateKey: level selection",
+   "DimEmployee.ParentEmployeeNationalIDAlternateKey: level selection (delta)",
+   "DimEmployee.SalariedFlag: level selection",
+   "DimEmployee.SalariedFlag: level selection (delta)",
+   "DimEmployee.SalesPersonFlag: level selection",
+   "DimEmployee.SalesPersonFlag: level selection (delta)",
+   "DimEmployee.Status: level selection",
+   "DimEmployee.Status: level selection (delta)",
+   "DimEmployee: numeric ranges",
+   "FactInternetSales.CarrierTrackingNumber: level selection",
+   "FactInternetSales.CarrierTrackingNumber: level selection (delta)",
+   "FactInternetSales.CustomerPONumber: level selection",
+   "FactInternetSales.CustomerPONumber: level selection (delta)",
+   "FactInternetSales: numeric ranges",
+   "FactResellerSales.CarrierTrackingNumber: level selection",
+   "FactResellerSales.CarrierTrackingNumber: level selection (delta)",
+   "FactResellerSales.CustomerPONumber: level selection",
+   "FactResellerSales.CustomerPONumber: level selection (delta)",
+   "FactResellerSales: numeric ranges",
+   "FactSalesQuota: numeric ranges"
+  ],
+  "fit": [
+   "DimCustomer: correlations",
+   "DimCustomer: marginals",
+   "DimEmployee: correlations",
+   "DimEmployee: marginals",
+   "FactInternetSales: correlations",
+   "FactInternetSales: marginals",
+   "FactInternetSales: rows per DimCustomer row",
+   "FactInternetSalesReason: correlations",
+   "FactInternetSalesReason: marginals",
+   "FactInternetSalesReason: rows per FactInternetSales row",
+   "FactResellerSales: correlations",
+   "FactResellerSales: marginals",
+   "FactResellerSales: rows per DimEmployee row",
+   "FactSalesQuota: correlations",
+   "FactSalesQuota: marginals",
+   "FactSalesQuota: rows per DimEmployee row",
+   "FactSurveyResponse: correlations",
+   "FactSurveyResponse: marginals",
+   "FactSurveyResponse: rows per DimCustomer row"
+  ]
+ },
+ "noise": {
+  "library": "opendp 0.16.0",
+  "distribution": "discrete Gaussian on integer statistics",
+  "randomness": "operating-system CSPRNG; not seeded and not recorded (the run is not reproducible)"
+ },
+ "post_processing": [
+  "the seed database decoded from the noisy statistics",
+  "the relsynth engine fitted to the seed database (posterior draws, segments, rules)",
+  "primary keys unique and every link valid by construction",
+  "rules declared in the spec hold as they did in non-DP mode"
+ ],
+ "public_inputs": {
+  "tables_released_as_given": [
+   "DatabaseLog",
+   "DimAccount",
+   "DimCurrency",
+   "DimDate",
+   "DimDepartmentGroup",
+   "DimGeography",
+   "DimOrganization",
+   "DimProduct",
+   "DimProductCategory",
+   "DimProductSubcategory",
+   "DimPromotion",
+   "DimReseller",
+   "DimSalesReason",
+   "DimSalesTerritory",
+   "DimScenario",
+   "FactAdditionalInternationalProductDescription",
+   "FactCallCenter",
+   "FactCurrencyRate",
+   "FactFinance",
+   "FactProductInventory",
+   "NewFactCurrencyRate",
+   "ProspectiveBuyer",
+   "sysdiagrams"
+  ],
+  "columns_declared_public": [],
+  "spec_is_public": false
+ },
+ "not_protected": [
+  "tables without data of DimCustomer or DimEmployee: DatabaseLog, DimAccount, DimCurrency, DimDate, DimDepartmentGroup, DimGeography, DimOrganization, DimProduct, DimProductCategory, DimProductSubcategory, DimPromotion, DimReseller, DimSalesReason, DimSalesTerritory, DimScenario, FactAdditionalInternationalProductDescription, FactCallCenter, FactCurrencyRate, FactFinance, FactProductInventory, NewFactCurrencyRate, ProspectiveBuyer, sysdiagrams"
+ ],
+ "hazards": [
+  "the spec was not declared public: values in it drawn from the data (levels, ranges, rules) are not covered by this guarantee",
+  "other releases of the same people made without DP are not covered by this guarantee",
+  "an empirical attack audit is an average-case check and does not bound outliers",
+  "rare category levels are suppressed and large contributions are truncated (bias)",
+  "a person who is both units at once (a customer who is also an employee) is protected for each role separately: the guarantees then add up"
+ ],
+ "units": {
+  "DimCustomer": {
+   "epsilon": "2",
+   "delta": "0.000000001",
+   "rho": "0.054131659186",
+   "delta_approx": "0.0000000005",
+   "tables": [
+    "DimCustomer",
+    "FactInternetSales",
+    "FactInternetSalesReason",
+    "FactSurveyResponse"
+   ]
+  },
+  "DimEmployee": {
+   "epsilon": "2",
+   "delta": "0.000000001",
+   "rho": "0.054131659186",
+   "delta_approx": "0.0000000005",
+   "tables": [
+    "DimEmployee",
+    "FactResellerSales",
+    "FactSalesQuota"
+   ]
+  }
+ }
+}
