@@ -321,3 +321,44 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     small["source"]["path"] = str(src / "src")
     m3, _ = _run(small, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
     assert m3.synthesizer._near_copy_guard("product") is None
+
+
+def test_shape_mode_reaches_the_segment_fits(tmp_path, monkeypatch):
+    """Through the production fit (SegmentMarginals._fit_marginals): in shape mode
+    with a positive weight, the segment fits of continuous columns get shift_prior and
+    the weight max(dirichlet_prior, rows); categorical columns and the table's own
+    marginal keep dirichlet_prior; and a segment's fitted median is its own (Prop. 1724 b)."""
+    from relsynth.generators import copula as cg
+
+    calls, orig = [], cg.Marginal.fit
+
+    def spy(cd, x, rng, **kw):
+        m = orig(cd, x, rng, **kw)
+        calls.append((cd, np.asarray(x), kw, m))
+        return m
+
+    monkeypatch.setattr(cg.Marginal, "fit", staticmethod(spy))
+    spec = _catalogue(tmp_path)
+    spec["synthesis"] = {"marginals": {"segment_prior_rows": 40.0, "segment_prior_mode": "shape"}}
+    rs.fit(spec, seed=3)
+    seg = [c for c in calls if c[2].get("prior") is not None]
+    top = [c for c in calls if c[2].get("prior") is None]
+    assert seg and top
+    cont = [c for c in seg if c[0].kind != "discrete"]
+    disc = [c for c in seg if c[0].kind == "discrete"]
+    assert cont and disc
+    assert all(c[2].get("shift_prior") is True and c[2]["dirichlet_a"] == 40.0 for c in cont)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in disc)
+    assert all(not c[2].get("shift_prior") for c in top)
+    # refitted with the same options as a posterior mean (bootstrap off), each segment
+    # marginal keeps the segment's median, up to the grid
+    u, checked = np.linspace(0, 1, 4001)[1:-1], 0
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        if len(x) < 5 or hi <= lo or not (lo <= np.median(x) <= hi):
+            continue
+        m = orig(cd, x, np.random.default_rng(0), **{**kw, "bootstrap": False})
+        checked += 1
+        assert abs(np.median(m.from_uniform(u)) - np.median(x)) < 0.05 * (hi - lo)
+    assert checked > 0
