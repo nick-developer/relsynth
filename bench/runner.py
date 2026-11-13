@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -80,6 +81,11 @@ def _run_child(cmd: list[str], env: dict) -> tuple[int, str, str, dict]:
     return p.returncode, out, err, {"cpu_seconds": round(ru.ru_utime + ru.ru_stime, 1), "peak_mib": round(peak, 1)}
 
 
+def _sha(path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 def _digest(folder: Path) -> str:
     """SHA-256 over the synthetic files, in name order."""
     import hashlib
@@ -101,19 +107,64 @@ def _assess(suite: str, name: str, location: str, arg: str, overrides: list[str]
     return doc["checks"], {"seconds": doc["seconds"], **cost}
 
 
+DOCUMENT_SETS = ("supplies", "analytics", "geospatial", "weather")   # the PR tier's MongoDB samples
+
+
+def run_documents(name: str, seed: int) -> dict:
+    """The MongoDB sample datasets through relsynth.documents (benchmarks/documents/run_documents.py), one item
+    per check: every synthetic document valid and every reference resolved (exact), and each calibrated shape
+    metric under its limit."""
+    from .datasets import CACHE
+    rec = {"dataset": name, "seed": seed}
+    with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
+        cmd = [sys.executable, str(ROOT / "benchmarks" / "documents" / "run_documents.py"), "--out", tmp,
+               "--cache", str(CACHE / "documents"), "--sets", ",".join(DOCUMENT_SETS), "--seed", str(seed)]
+        t0 = time.time()
+        rc, _o, err, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
+        rec["seconds"], rec["cost"] = round(time.time() - t0, 1), cost
+        checks, rows = [], {}
+        for st in DOCUMENT_SETS:
+            f = Path(tmp) / f"{st}.json"
+            if not f.exists():
+                rec["error"] = f"documents set {st} wrote no result ({rc}): {err[-1500:]}"
+                continue
+            r = json.loads(f.read_text(encoding="utf-8"))
+            rows.update({f"{st}.{c}": n for c, n in r["documents"].items()})
+            for c, v in r["collections"].items():
+                checks.append({"id": f"documents:{st}.{c}|valid", "pass": v["valid"] == 1.0, "value": v["valid"],
+                               "real": 1.0})
+                for m, (val, lim) in v["metrics"].items():
+                    checks.append({"id": f"documents:{st}.{c}|{m}", "pass": m not in v["fails"], "value": val,
+                                   "limit": lim})
+            for ref in r["references"]:
+                rid = ref.get("reference", "?")
+                checks.append({"id": f"documents:{st}|reference {rid}", "pass": ref["share"] == 1.0,
+                               "value": ref["share"], "real": 1.0})
+        rec["rows"], rec["checks"] = rows, checks
+    return rec
+
+
 def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str, ...] = (),
              suites: tuple[str, ...] = SUITES) -> dict:
     ds = DATASETS[name]
+    if ds.kind == "documents":
+        return run_documents(name, seed)
     location = ds.location()
     overrides = (*ds.overrides, *overrides)
     rec = {"dataset": name, "seed": seed, "pushdown": pushdown}
     if overrides:
         rec["overrides"] = list(overrides)
+    try:
+        spec_path = Path(ds.spec())
+    except Exception as e:  # noqa: BLE001 (an introspect failure is a result of the dataset, not a crash)
+        rec["error"] = f"spec: {e}"[-2000:]
+        return rec
+    rec["spec_sha256"] = _sha(spec_path)
     with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
         out = Path(tmp) / "synthetic"
 
         def synth(target: Path) -> tuple[int, str, str, dict, float]:
-            cmd = [sys.executable, "-m", "relsynth", "run", str(ds.spec()), *_source_overrides(location),
+            cmd = [sys.executable, "-m", "relsynth", "run", str(spec_path), *_source_overrides(location),
                    "--target", f"csv:{target}", "--seed", str(seed), "--pushdown", pushdown, "--bundle",
                    str(Path(tmp) / "bundle.json"), "--json", *[x for o in overrides for x in ("--set", o)]]
             t0 = time.time()
@@ -156,6 +207,13 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
                     checks.append(domain_item(k, real, syn))
             except Exception as e:  # noqa: BLE001 (a failing domain check is a result, not a crash)
                 rec["error"] = f"domain checks failed: {e!r}"
+        if ds.generic and out.exists():
+            from .checks import generic
+            try:
+                for k, (real, syn) in generic.checks(spec_path, location, out).items():
+                    checks.append(domain_item(k, real, syn))
+            except Exception as e:  # noqa: BLE001
+                rec["error"] = f"schema checks failed: {e!r}"
         # generation cost (docs/acceptance-metrics.md, generation_cost): recorded, compared as a note only
         n_rows = sum((rec.get("rows") or {}).values()) if isinstance(rec.get("rows"), dict) else None
         if n_rows:
@@ -243,12 +301,12 @@ def load_record(path: Path) -> dict:
     return rec
 
 
-def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: str = "auto",
+def run(datasets: list[str], seeds: list[int] | None, *, fake: bool = True, pushdown: str = "auto",
         out_dir: Path | None = None, label: str = "", overrides: tuple[str, ...] = (),
-        suites: tuple[str, ...] = SUITES) -> Path:
+        suites: tuple[str, ...] = SUITES, jobs: int = 1) -> Path:
     record = {"schema": SCHEMA, "relsynth": relsynth_version(), "git": git(), "machine": machine(),
               "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "label": label,
-              "seeds": seeds, "suites": list(suites), "runs": []}
+              "seeds": seeds or "per dataset", "suites": list(suites), "runs": []}
     if overrides:
         record["overrides"] = list(overrides)
     out_dir = Path(out_dir or ROOT / "bench" / "history")
@@ -281,24 +339,47 @@ def run(datasets: list[str], seeds: list[int], *, fake: bool = True, pushdown: s
 
     save()                                       # a record is valid JSON from the start
 
+    tasks = []
     for name in datasets:
         ok, why = available(name)
         if not ok:
             say(f"{name}: skipped ({why})")
             record["runs"].append({"dataset": name, "skipped": why})
             continue
-        for seed in seeds:
-            say(f"{name} seed {seed} ...")
-            r = run_real(name, seed, pushdown, overrides, suites)
-            sc = r.get("scorecard") or {}
-            failed = lambda *p: sum(1 for c in r.get("checks", []) if c["id"].startswith(p) and c["pass"] is False)  # noqa: E731
-            say(f"{name} seed {seed}: scorecard {sc.get('passed')}/{sc.get('total')}, {failed('domain')} domain "
-                f"identities broken, {failed('quality', 'area')} quality, {failed('privacy')} privacy and "
-                f"{failed('goal')} goal checks failed, {r.get('seconds')} s (+{(r.get('quality') or {}).get('seconds', 0)} s "
-                f"quality, +{(r.get('privacy') or {}).get('seconds', 0)} s privacy)"
-                + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
+        if jobs > 1 and DATASETS[name].kind == "relational":
+            try:                                 # build and draft once, before runs share them
+                DATASETS[name].location()
+                DATASETS[name].spec()
+            except Exception as e:  # noqa: BLE001 (reported by each run of the dataset)
+                say(f"{name}: build or draft failed: {e}")
+        tasks += [(name, seed) for seed in seeds or DATASETS[name].seeds]
+    order = {t: i for i, t in enumerate(tasks)}
+    lock = threading.Lock()
+
+    def one(task):
+        name, seed = task
+        say(f"{name} seed {seed} ...")
+        r = run_real(name, seed, pushdown, overrides, suites)
+        sc = r.get("scorecard") or {}
+        failed = lambda *p: sum(1 for c in r.get("checks", []) if c["id"].startswith(p) and c["pass"] is False)  # noqa: E731
+        say(f"{name} seed {seed}: scorecard {sc.get('passed')}/{sc.get('total')}, {failed('domain')} domain "
+            f"identities broken, {failed('quality', 'area')} quality, {failed('privacy')} privacy and "
+            f"{failed('goal')} goal checks failed, {r.get('seconds')} s (+{(r.get('quality') or {}).get('seconds', 0)} s "
+            f"quality, +{(r.get('privacy') or {}).get('seconds', 0)} s privacy)"
+            + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
+        with lock:
             record["runs"].append(r)
+            # the record lists runs in task order, whichever finished first
+            record["runs"].sort(key=lambda x: order.get((x["dataset"], x.get("seed")), -1))
             save()
+
+    if jobs > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=jobs) as pool:   # each run is its own processes; threads only wait
+            list(pool.map(one, tasks))
+    else:
+        for t in tasks:
+            one(t)
     if fake:
         say("fake suite (pytest -m science) ...")
         r = run_fake(os.environ.get("RELSYNTH_SCIENCE_SHARD"))

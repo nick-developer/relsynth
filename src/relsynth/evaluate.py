@@ -373,6 +373,8 @@ def _design(dfs, tspec, cols):
         cs = tspec["columns"][c]
         if _is_cat(cs, allv[c]):
             top = allv[c].astype(str).value_counts().index[:20]
+            if not len(top):                    # every value missing (binary columns are left empty): no feature
+                continue
             v = allv[c].astype(str)
             feats.append(np.column_stack([(v == t).to_numpy(float) for t in top]))
         else:

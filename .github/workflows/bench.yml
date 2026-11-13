@@ -1,22 +1,31 @@
 name: bench
 
-# The full benchmark: every public golden database (Chinook, AdventureWorks DW, Berka, ACS,
-# Contoso as SQLite and as Parquet) on five seeds and the statistical check
-# suite, compared with bench/baseline.json. bi/COREP is private and runs only
-# on the maintainer's machine (`python -m bench all` with RELSYNTH_BENCH_BI_DIR).
-# The history record is uploaded; commit it with a baseline change.
+# The weekly and monthly tiers of the benchmark matrix (G7; bench/README.md lists
+# the datasets of each tier and the features they cover): one job per dataset, or
+# per seed group where a dataset needs more than one job, built by
+# `python -m bench matrix --tier <tier>`, then the comparison with bench/baseline.json.
+# The PR tier runs in ci.yml on every pull request. Datasets marked for a bigger
+# runner (TPC-H SF100, Synthea 100k/1M) and the local tier (bi/COREP, research-only
+# sets) run on the maintainer's machine: `python -m bench all --tier monthly`.
+# The history records are uploaded; commit them with a baseline change.
 # docs/development/benchmarks.md describes the harness and the regression rule.
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 5 * * 6"
+    - cron: "0 5 * * 6"          # weekly tier, Saturdays
+    - cron: "0 3 2 * *"          # monthly tier, on the 2nd
   workflow_dispatch:
     inputs:
+      tier:
+        description: "Tier to run (weekly or monthly)"
+        default: weekly
+        type: choice
+        options: [weekly, monthly]
       seeds:
-        description: "Seeds"
-        default: "1,2,3,4,5"
+        description: "Seeds (default: each dataset's own)"
+        default: ""
       rebuild_baseline:
         description: "Commit a baseline built from this run's records to the dispatched branch (never main)"
         type: boolean
@@ -29,45 +38,58 @@ permissions:
   contents: read
 
 concurrency:
-  group: bench-${{ github.ref }}
+  group: bench-${{ github.ref }}-${{ inputs.tier || (github.event.schedule == '0 3 2 * *' && 'monthly') || 'weekly' }}
   cancel-in-progress: false
 
+env:
+  TIER: ${{ inputs.tier || (github.event.schedule == '0 3 2 * *' && 'monthly') || 'weekly' }}
+
 jobs:
+  plan:
+    if: ${{ !inputs.records_from_run }}
+    runs-on: ubuntu-latest
+    outputs:
+      parts: ${{ steps.m.outputs.parts }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[bench]"
+      - id: m
+        run: echo "parts=$(python -m bench matrix --tier "$TIER")" >> "$GITHUB_OUTPUT"
+
   bench:
-    # one job per database (in parallel); the fake suite runs in its own job
+    # one job per dataset (in parallel), each within a hosted runner's 6 hours
+    needs: plan
     if: ${{ !inputs.records_from_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        part:
-          - { name: chinook, datasets: "chinook chinook_x2", fake: "--no-fake" }
-          # AdventureWorks takes about 50 minutes per seed with the quality suite: two jobs
-          - { name: adventureworks-a, datasets: "adventureworks", fake: "--no-fake", seeds: "1,2,3" }
-          - { name: adventureworks-b, datasets: "adventureworks", fake: "--no-fake", seeds: "4,5" }
-          - { name: contoso, datasets: "contoso_sqlite contoso_parquet", fake: "--no-fake" }
-          - { name: berka, datasets: "berka", fake: "--no-fake" }
-          - { name: acs, datasets: "acs", fake: "--no-fake" }
-          - { name: fake, datasets: "", fake: "--fake-only" }
+        part: ${{ fromJSON(needs.plan.outputs.parts) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev,bench,benchmark]" datasketches
+      - name: Free disk space for the large sets
+        if: ${{ env.TIER == 'monthly' }}
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: bench/.cache
           key: bench-data-${{ matrix.part.datasets || 'fake' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
       - name: ${{ matrix.part.name }}
         env:
-          SEEDS: ${{ matrix.part.seeds || inputs.seeds || '1,2,3,4,5' }}
+          SEEDS: ${{ inputs.seeds || matrix.part.seeds }}
           DATASETS: ${{ matrix.part.datasets }}
           FAKE: ${{ matrix.part.fake }}
         run: |
           # shellcheck disable=SC2086
-          python -m bench run --datasets $DATASETS --seeds "$SEEDS" $FAKE --out-dir bench-out --label weekly
+          python -m bench run ${DATASETS:+--datasets $DATASETS} --seeds "$SEEDS" $FAKE --out-dir bench-out --label "$TIER"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: { name: "bench-history-${{ matrix.part.name }}", path: bench-out/ }
@@ -86,8 +108,8 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # one folder per job: parallel jobs can write records of the same name
         with: { pattern: bench-history-*, path: bench-out }
-      - name: Compare with the baseline (every dataset of the baseline must run)
-        run: python -m bench compare bench-out/*/*.json --full
+      - name: Compare with the baseline (every dataset of the tier must run)
+        run: python -m bench compare bench-out/*/*.json --full --tier "$TIER" --hosted
 
   baseline:
     # A baseline change on the dispatched branch: the records of this run (or of

@@ -145,8 +145,10 @@ def drift(b: dict, rs: list[dict]) -> tuple[list[str], list[str]]:
     return regs, notes
 
 
-def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str], list[str], dict]:
-    """(regressions, notes, per-dataset summary) of a record against a baseline."""
+def compare(baseline: dict, record: dict, full: bool = False,
+            expected: set | None = None) -> tuple[list[str], list[str], dict]:
+    """(regressions, notes, per-dataset summary) of a record against a baseline; with `full`, every dataset of
+    the baseline (or of `expected`, the datasets of the tiers that ran) must have run."""
     regressions, notes, summary = [], [], {}
     runs: dict = defaultdict(list)
     for r in record.get("runs", []):
@@ -199,6 +201,8 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
                 notes.append(f"{ds} seed {r.get('seed')}: {len(gone)} calibrated check(s) not reported, e.g. {gone[0]}")
     if full:
         for ds in baseline["datasets"]:
+            if expected is not None and ds not in expected:
+                continue
             if ds not in runs and not any(n.startswith(f"{ds}: skipped") or n.startswith(f"{ds} seed") for n in notes):
                 regressions.append(f"R3 {ds}: in the baseline but not run")
     return regressions, notes, summary

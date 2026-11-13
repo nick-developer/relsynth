@@ -336,13 +336,13 @@ jobs:
         run: pytest -m science -q tests/science
 
   bench:
-    # Regression check against bench/baseline.json on every change: Chinook on
-    # five seeds, Contoso (Parquet) and Berka (quality and privacy suites) on one.
-    # The full set of golden databases runs in bench.yml.
-    # docs/development/benchmarks.md describes the rule.
+    # Regression check against bench/baseline.json on every change: the PR tier of the
+    # benchmark matrix (Chinook on five seeds, Adult, the small stress schema and the
+    # MongoDB samples; under 15 minutes). The weekly and monthly tiers run in bench.yml.
+    # docs/development/benchmarks.md describes the tiers and the rule.
     needs: lint
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
@@ -354,12 +354,8 @@ jobs:
         with:
           path: bench/.cache
           key: bench-data-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
-      - name: Chinook, 5 seeds
-        run: python -m bench run --datasets chinook --seeds 1,2,3,4,5 --no-fake --out-dir bench-out --label ci
-      - name: Contoso (Parquet), seed 1
-        run: python -m bench run --datasets contoso_parquet --seeds 1 --no-fake --out-dir bench-out --label ci
-      - name: Berka, seed 1
-        run: python -m bench run --datasets berka --seeds 1 --no-fake --out-dir bench-out --label ci
+      - name: PR tier (Chinook x5, Adult, stress_s, MongoDB samples)
+        run: python -m bench run --tier pr --no-fake --jobs 4 --out-dir bench-out --label ci
       - name: Compare with the baseline
         run: |
           rc=0

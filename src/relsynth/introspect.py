@@ -330,7 +330,7 @@ class _Profiler(Discovery):
                                 "but the data fits " + ", ".join(f"{x['parent']} ({describe(x)})" for x in amb[:4])
                                 + " equally well")
                              + "; declare it under relationships, or it is synthesised as a plain column")
-        rels = acyclic(rels)
+        rels = self.break_declared_cycles(acyclic(rels))
         for r in rels:
             why = r.pop("_why", None)
             r.pop("_score", None)
@@ -340,6 +340,29 @@ class _Profiler(Discovery):
             if r["child"] == r["parent"]:
                 r["kind"] = "self_reference"
         self.rels = rels
+
+    def break_declared_cycles(self, rels):
+        """A cycle of declared links between different tables (department.head_id ->
+        employee, employee.department_id -> department) cannot be generated parents
+        first: the optional link of the cycle (the child column with the most NULLs,
+        then the smaller child table) is left out and its column kept as a plain
+        column.  acyclic() already dropped the inferred links of any cycle."""
+        from .keyfind import _find_cycle
+        while True:
+            g = {}
+            for r in rels:
+                if r["child"] != r["parent"] and isinstance(r["child_key"], str):
+                    g.setdefault(r["child"], []).append(r)
+            cyc = _find_cycle(g)
+            if not cyc:
+                return rels
+            drop = max(cyc, key=lambda r: (float(self.df[r["child"]][r["child_key"]].isna().mean()),
+                                           -self.counts[r["child"]], r["child"], r["child_key"]))
+            rels = [r for r in rels if r is not drop]
+            self.ask(f"ASK {drop['child']}.{drop['child_key']} -> {drop['parent']}: declared link closes a cycle "
+                     f"({' -> '.join(r['child'] for r in cyc)} -> {cyc[0]['child']}); left out and kept as a plain "
+                     "column, since tables are generated parents first (declare it under relationships if another "
+                     "link of the cycle should go instead)")
 
     def simple(self, t):
         return [r for r in self.rels if r["child"] == t and isinstance(r["child_key"], str) and r["parent"] != t]
@@ -404,10 +427,19 @@ class _Profiler(Discovery):
                              "would repeat at least 10 times)")
                 drop.remove(t)
         for t in drop:
-            self.ask(f"{t}: no primary key and no link to another table; left out of the draft "
-                     "(add it with a primary key to synthesise it)")
+            if any(r["child"] == t or r["parent"] == t for r in self.rels):
+                self.ask(f"{t}: no single-column primary key (only composite links reach it); left out of the draft, "
+                         "and the links to it are kept as plain columns (relsynth links to a parent through its "
+                         "primary key: add a single-column key to synthesise it with its links)")
+            else:
+                self.ask(f"{t}: no primary key and no link to another table; left out of the draft "
+                         "(add it with a primary key to synthesise it)")
             self.names.remove(t)
             self.rels = [r for r in self.rels if r["child"] != t and r["parent"] != t]
+        for t in self.names:
+            # a fact whose only links went with a dropped parent is an entity of its own, when it has a key
+            if self.role[t] == "fact" and self.pks[t] is not None and not any(r["child"] == t for r in self.rels):
+                self.role[t] = "entity"
 
     # ---------------------------------------------------------------- types
     def types(self):

@@ -329,7 +329,7 @@ A job that refreshes a test database every night and fails when quality drops:
   with: { name: diagnostics, path: diagnostics_bundle.json }
 ```
 
-Ready-made pipelines for GitHub Actions, GitLab CI, Azure DevOps and Jenkins are in [examples/ci/](examples/ci/), explained in [docs/cicd.md](docs/cicd.md). The package's own CI is in [.github/workflows/ci.yml](.github/workflows/ci.yml): lint, security and licence scans, types, unit tests on Python 3.10–3.13 and three operating systems, integration tests against live PostgreSQL, SQL Server, Oracle, MySQL, MariaDB, TimescaleDB, S3 and Azure stand-ins, warehouse stand-ins, the statistical check suite in four shards, the benchmark regression gate, the proofs build, and a signed wheel with an SBOM ([docs/development/ci.md](docs/development/ci.md)).
+Ready-made pipelines for GitHub Actions, GitLab CI, Azure DevOps and Jenkins are in [examples/ci/](examples/ci/), explained in [docs/cicd.md](docs/cicd.md). The package's own CI is in [.github/workflows/ci.yml](.github/workflows/ci.yml): lint, security and licence scans, types, unit tests on Python 3.10–3.13 and three operating systems, integration tests against live PostgreSQL, SQL Server, Oracle, MySQL, MariaDB, TimescaleDB, S3 and Azure stand-ins, warehouse stand-ins, the statistical check suite in four shards, the benchmark regression gate (the PR tier of the benchmark matrix; weekly and monthly tiers in [bench.yml](.github/workflows/bench.yml), datasets in [bench/README.md](bench/README.md)), the proofs build, and a signed wheel with an SBOM ([docs/development/ci.md](docs/development/ci.md)).
 
 ## Tables larger than memory
 

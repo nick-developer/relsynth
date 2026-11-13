@@ -65,7 +65,8 @@ text-lm = ["torch>=2.13", "transformers>=5.10", "peft>=0.12"]
 text-pii = ["presidio-analyzer>=2.2", "spacy>=3.7", "gliner>=0.2"]
 all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet,iceberg,delta]"]
 # the benchmark harness only (unpacks the Contoso release); py7zr is LGPL-2.1+, never a runtime dependency
-bench = ["py7zr>=1.1.3", "defusedxml>=0.7.1"]   # defusedxml (PSF-2.0): the XML of junit files and data dumps
+# defusedxml (PSF-2.0): the XML of junit files and data dumps; openpyxl (MIT): the Online Retail II workbook
+bench = ["py7zr>=1.1.3", "defusedxml>=0.7.1", "openpyxl>=3.1"]
 dev = [
     "relsynth[all,ir,gov,dp,service,documents]",
     "mongomock>=4.1",                        # document connector unit tests
