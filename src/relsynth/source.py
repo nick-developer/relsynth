@@ -322,12 +322,15 @@ class Source:
         import pyarrow.compute as pc
         pf = self._lazy[t]
         ty = pf.schema_arrow.field(c).type
-        if not (pa.types.is_integer(ty) or pa.types.is_floating(ty)):
+        dec = pa.types.is_decimal(ty)             # read as floats (normalise_frame does the same)
+        if not (pa.types.is_integer(ty) or pa.types.is_floating(ty) or dec):
             return None
         parts, n = [], 0
         for b in pf.iter_batches(batch_size=1 << 20, columns=[c]):
             col = b.column(0).drop_null()
-            if pa.types.is_floating(ty):
+            if dec:
+                col = col.cast(pa.float64())
+            if dec or pa.types.is_floating(ty):
                 col = col.filter(pc.invert(pc.is_nan(col)))
             n += len(col)
             parts.append(np.asarray(pc.unique(col)))
