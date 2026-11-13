@@ -10,6 +10,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -216,7 +217,8 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
     d.mkdir()
     pd.DataFrame({"id": range(1, 301), "name": [f"c{i % 40}" for i in range(300)]}).to_parquet(d / "customer.parquet")
     pd.DataFrame({"id": range(1, 3001), "customer_id": [1 + i % 300 for i in range(3000)],
-                  "amount": [float(i % 97) for i in range(3000)]}).to_parquet(d / "orders.parquet")
+                  "amount": [float(i % 97) for i in range(3000)],
+                  "store": [None if i % 7 == 0 else float(i % 13) for i in range(3000)]}).to_parquet(d / "orders.parquet")
     eager = src.Source({"kind": "parquet", "path": str(d)})
     monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", 0)
     lazy = src.Source({"kind": "parquet", "path": str(d)})
@@ -228,7 +230,12 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
                                   eager.rows_in("orders", "customer_id", [3, 7]))
     u, n = lazy.int_distinct("orders", "customer_id")
     assert n == 3000 and list(u) == list(range(1, 301)) and eager.int_distinct("orders", "customer_id") is None
+    from relsynth.keyfind import _as_int, _keyvals
+    for c in ("customer_id", "store", "amount"):          # the same key set as the whole-column path
+        k = _keyvals(eager.column("orders", c))
+        old = np.sort(_as_int(np.array(pd.unique(k.astype(object)), dtype=object)))
+        assert list(lazy.int_distinct("orders", c)[0]) == list(old), c
     part, whole = lazy.sample("orders", 500)
-    assert not whole and 350 < len(part) < 650 and list(part.columns) == ["id", "customer_id", "amount"]
+    assert not whole and 350 < len(part) < 650 and list(part.columns) == ["id", "customer_id", "amount", "store"]
     spec = rs.introspect(f"parquet:{d}", name="lazy", sample_rows=500)
     assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("orders", "customer")}

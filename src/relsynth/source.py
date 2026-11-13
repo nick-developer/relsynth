@@ -314,19 +314,31 @@ class Source:
         return out[use].reset_index(drop=True)
 
     def int_distinct(self, t, c):
-        """(sorted distinct values, non-null count) of an integer column of a large Parquet table, streamed
-        by row group (a 133-million-row column never becomes Python objects); None for any other column."""
+        """(sorted distinct values, non-null count) of an integer or float column of a large Parquet table,
+        streamed by row group (a 133-million-row column never becomes Python objects); None for any other."""
         if t not in self._lazy:
             return None
         import pyarrow as pa
         import pyarrow.compute as pc
         pf = self._lazy[t]
-        if not pa.types.is_integer(pf.schema_arrow.field(c).type):
+        ty = pf.schema_arrow.field(c).type
+        if not (pa.types.is_integer(ty) or pa.types.is_floating(ty)):
             return None
         parts, n = [], 0
         for b in pf.iter_batches(batch_size=1 << 20, columns=[c]):
-            col = b.column(0)
-            n += len(col) - col.null_count
-            parts.append(np.asarray(pc.unique(col.drop_null()).cast(pa.int64())))
-        u = np.unique(np.concatenate(parts)) if parts else np.empty(0, dtype=np.int64)
-        return u, n
+            col = b.column(0).drop_null()
+            if pa.types.is_floating(ty):
+                col = col.filter(pc.invert(pc.is_nan(col)))
+            n += len(col)
+            parts.append(np.asarray(pc.unique(col)))
+        if not parts:
+            return np.empty(0, dtype=np.int64), 0
+        u = np.unique(np.concatenate(parts))
+        if u.dtype.kind == "f":
+            # as canonical_keys and keyfind do on a whole column: whole numbers become integer keys; other
+            # values are cut to integers the way the object path's int64 conversion cuts them
+            if not np.isfinite(u).all():
+                return None
+            whole = bool((u == np.round(u)).all())
+            u = np.unique(u.astype(np.int64)) if whole else np.sort(u.astype(np.int64))
+        return u.astype(np.int64), n
