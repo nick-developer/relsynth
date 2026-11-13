@@ -77,16 +77,16 @@ The first version did not clip to the table's range and failed C48: shifted date
 
 **AdventureWorks**, the same five seeds as above (DimProduct DCR / scorecard of 1,267):
 
-| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 |
-|---|---|---|---|---|
-| 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.888 / 1212 |
-| 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.101 / 1200 |
-| 3 | 0.576 / 1214 | 1.010 / 1201 | 1.000 / 1211 | 1.035 / 1201 |
-| 11 | 0.549 / 1207 | 0.963 / 1198 | 0.737 / 1199 | 0.977 / 1201 |
-| 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 1.274 / 1196 |
-| Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.055 / 1202.0 |
+| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 | Shape 20, 2.2 code |
+|---|---|---|---|---|---|
+| 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.888 / 1212 | 1.124 / 1209 |
+| 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.101 / 1200 | 0.883 / 1203 |
+| 3 | 0.576 / 1214 | 1.010 / 1201 | 1.000 / 1211 | 1.035 / 1201 | 1.158 / 1204 |
+| 11 | 0.549 / 1207 | 0.963 / 1198 | 0.737 / 1199 | 0.977 / 1201 | 0.820 / 1208 |
+| 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 1.274 / 1196 | 0.586 / 1206 |
+| Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.055 / 1202.0 | 0.914 / 1206.0 |
 
-Shape 40 (fact tables not shrunk) keeps `DimProduct` at 0.88 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40.
+Shape 40 (fact tables not shrunk) keeps `DimProduct` at 0.88 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40. The last column is the 2.2.0 default (shape 20) refitted after the C75 fix and with fact tables never shrunk; it is the code that ships.
 
 ## Contoso and the default
 
