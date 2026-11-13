@@ -530,6 +530,15 @@ SYNTH_DOC = {
                          "z score of its pair repeats is below this ...",
     "facts.occupancy_min_expected": "... and at least this many repeats are expected under Poisson.",
     "facts.dp_count_sweeps": "Gibbs sweeps of the Dirichlet-process count law's conditional draw.",
+    "facts.segment_totals": "auto: the rows of a link with a count model are spread over the parent segments so "
+                            "that each segment's total follows the sum of its parents' counts (a Metropolis-"
+                            "Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep "
+                            "the source's count law; off: segments drawn from the link's segment weights alone "
+                            "(2.2 draws).",
+    "facts.segment_total_sweeps": "Sweeps (one proposal per row) of the facts.segment_totals kernel.",
+    "facts.dp_count_start": "Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, "
+                            "so rare large counts are reachable; Prop. 1782) or balanced (every count near the "
+                            "mean, 2.2 draws, which can never reach a count above the largest pair sum).",
     "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
     "rules.rake_max_cells": "Rule cells: largest joint table raked.",
     "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",

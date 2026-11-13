@@ -148,6 +148,105 @@ def _dp_floor(dp, mandatory):
     return {**dp, "min": 1}
 
 
+def _start_counts(f, M, R, rng):
+    """Start of the pairwise Gibbs chain of _conditional_counts: M i.i.d. draws
+    from f (unnormalised on 0..len(f)-1), brought to the total R by redrawing one
+    member at a time from f restricted to the values between its count and the
+    total (no overshoot).  The balanced start (every count R/M) cannot reach a
+    count above the largest pair sum it holds, so a segment's rare large counts
+    (a customer with 27 orders) were never drawn; from this start every observed
+    count is reachable and the chain begins near the conditional law (Prop. 1782)."""
+    p = f / f.sum()
+    N = rng.choice(len(f), size=M, p=p).astype(np.int64)
+    diff = int(R - N.sum())
+    cdf = np.cumsum(p)
+    steps = 0
+    while diff != 0 and steps < 20 * M:
+        steps += 1
+        j = int(rng.integers(M))
+        c = int(N[j])
+        lo, hi = (c + 1, c + diff) if diff > 0 else (c + diff, c - 1)
+        lo, hi = max(lo, 0), min(hi, len(f) - 1)
+        if lo > hi:
+            continue
+        mass = cdf[hi] - (cdf[lo - 1] if lo > 0 else 0.0)
+        if mass <= 0:
+            continue
+        u = (cdf[lo - 1] if lo > 0 else 0.0) + rng.random() * mass
+        v = int(min(max(np.searchsorted(cdf, u, side="right"), lo), hi))
+        diff -= v - c
+        N[j] = v
+    if diff != 0:                       # unreachable under f: spread the rest evenly
+        k = np.sign(diff)
+        for j in rng.permutation(M):
+            if diff == 0:
+                break
+            if N[j] + k >= 0:
+                N[j] += k
+                diff -= k
+    return N
+
+
+def _balance_totals(seg_of, zc, seg_p, M, dp, need, rng, sweeps=4):
+    """Parent segments of a count-model link's rows, given the parents' count law.
+
+    Rows draw their parent segment from phi, so the total of segment t is a
+    multinomial count whose variance is about its mean, while under the count law
+    the total of M_t parents is a sum of M_t draws from F_t, with variance M_t
+    var(F_t).  Counts drawn given a total far from M_t E(F_t) are tilted (more
+    ones and more large counts for an under-dispersed F), and the tilt adds up
+    over segments: AdventureWorks customers spread over 627 small segments got
+    24.9% instead of 29.5% with two orders.  This Metropolis-Hastings kernel has
+    target prod_i phi[z_i, t_i] * prod_t N(R_t; M_t mu_t, M_t s_t^2), with mu_t
+    and s_t^2 the mean and variance of segment t's DP predictive (the observed
+    counts; means rescaled so that they add up to the rows), using independence
+    proposals from each row's phi (which cancels in the ratio); moves that leave
+    a segment under its mandatory total are rejected (Prop. 1783).  One proposal
+    per row and sweep; rows are visited in random order."""
+    Kp = len(M)
+    M = np.asarray(M, float)
+    rows = np.flatnonzero(seg_of >= 0)
+    if Kp < 2 or len(rows) < 2:
+        return seg_of
+    mu, var = np.zeros(Kp), np.ones(Kp)
+    for t in range(Kp):
+        obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0)
+        if len(obs) > 1:
+            mu[t], var[t] = float(np.mean(obs)), max(float(np.var(obs)), 1e-3)
+        elif len(obs):
+            mu[t], var[t] = float(obs[0]), 1.0
+    tot = float((M * mu).sum())
+    if tot <= 0:
+        return seg_of
+    mu = mu * len(rows) / tot
+    m_t, v_t = M * mu, np.maximum(M * var, 0.25)
+    R = np.bincount(seg_of[rows], minlength=Kp).astype(float)
+    need = np.asarray(need, float) if need is not None else np.zeros(Kp)
+    # independence proposals from each row's phi, drawn in one batch per sweep
+    seg_of = seg_of.copy()
+    for _ in range(int(sweeps)):
+        order = rng.permutation(rows)
+        prop = np.empty(len(order), np.int64)
+        zo = zc[order]
+        for k in np.unique(zo):
+            ii = np.flatnonzero(zo == k)
+            prop[ii] = rng.choice(Kp, size=len(ii), p=seg_p[k])
+        u = np.log(rng.random(len(order)))
+        cur = seg_of[order]
+        for j in range(len(order)):
+            s_, t_ = cur[j], prop[j]
+            if s_ == t_ or R[s_] - 1 < need[s_] or M[t_] == 0:
+                continue
+            # log N(R_t + 1) - log N(R_t) + log N(R_s - 1) - log N(R_s)
+            d = (-(R[t_] + 1 - m_t[t_]) ** 2 + (R[t_] - m_t[t_]) ** 2) / (2 * v_t[t_]) \
+                + (-(R[s_] - 1 - m_t[s_]) ** 2 + (R[s_] - m_t[s_]) ** 2) / (2 * v_t[s_])
+            if u[j] < d:
+                R[s_] -= 1
+                R[t_] += 1
+                seg_of[order[j]] = t_
+    return seg_of
+
+
 def _cover_segments(seg_of, zc, need, phi, rng):
     """Moves rows between parent segments until segment t holds at least need[t]
     rows (seg_of = -1: a null link, never moved).  Each deficit is filled from the
@@ -2846,12 +2945,18 @@ class Synthesizer:
         return self._count_model(child, fan.astype(np.int64), p, setting=self.cfg["facts"]["count_model"],
                                  key=f"{name} count_model")
 
-    def _conditional_counts(self, R, M, obs, a, sweeps=None, mn=0, key=None):
+    def _conditional_counts(self, R, M, obs, a, sweeps=None, mn=0, key=None, base=None):
         """M counts, i.i.d. from the DP posterior predictive F (Bayesian-bootstrap
         weights on the observed counts plus mass a on Poisson(mean)), conditioned on
         summing to R.  Pairwise Gibbs: a pair's sum is kept and its split is redrawn
         from f(x) f(s - x), which leaves the conditional law invariant; the chain
-        starts from the balanced allocation."""
+        starts from the balanced allocation.
+
+        base: counts the members already hold (rows accepted in an earlier round of
+        a rejection loop).  The R new rows N are then drawn from the law of the
+        totals, prod_j f(base_j + N_j) given sum N = R, so a member's final count
+        follows F instead of the sum of two independent draws (Prop. 1782); the
+        split of a pair is redrawn from f(b_i + x) f(b_j + s - x)."""
         rng = self.rng
         if sweeps is None:
             sweeps = int(_setting(self, "facts", "dp_count_sweeps", 30))
@@ -2859,7 +2964,8 @@ class Synthesizer:
             return np.zeros(0, np.int64)
         n = len(obs)
         lam = obs.mean() if n else R / M
-        cmax = int(max(R, obs.max(initial=0))) + 1
+        b = np.zeros(M, np.int64) if base is None else np.asarray(base, np.int64)
+        cmax = int(max(R + b.max(initial=0), obs.max(initial=0))) + 1
         x = np.arange(cmax + 1)
         # base measure mn + Poisson(lam - mn) (mn = 1 under mandatory participation)
         lb = max(lam - mn, 1e-12)
@@ -2869,8 +2975,11 @@ class Synthesizer:
             w = self._bb(key if key is not None else ("counts", id(obs)), n, rng)
             np.add.at(f, np.minimum(obs, cmax), (n / (n + a)) * w)
         lf = np.log(np.maximum(f, 1e-300))
-        N = np.full(M, R // M, dtype=np.int64)
-        N[rng.permutation(M)[: R - N.sum()]] += 1
+        if base is None and M >= 2 and _setting(self, "facts", "dp_count_start", "draw") == "draw":
+            N = _start_counts(f, M, R, rng)
+        else:
+            N = np.full(M, R // M, dtype=np.int64)
+            N[rng.permutation(M)[: R - N.sum()]] += 1
         if M < 2:
             return N
         for _ in range(sweeps):
@@ -2880,6 +2989,10 @@ class Synthesizer:
             xs = np.arange(ssum.max() + 1)
             L = lf[np.minimum(xs[None, :], cmax)] + lf[np.minimum(np.maximum(ssum[:, None] - xs[None, :], 0), cmax)]
             L = np.where(xs[None, :] <= ssum[:, None], L, -np.inf)
+            if base is not None:
+                L = (lf[np.minimum(b[i][:, None] + xs[None, :], cmax)]
+                     + lf[np.minimum(b[j][:, None] + np.maximum(ssum[:, None] - xs[None, :], 0), cmax)])
+                L = np.where(xs[None, :] <= ssum[:, None], L, -np.inf)
             pick = gumbel_argmax(L, rng)
             N[i], N[j] = pick, ssum - pick
         return N
@@ -2890,15 +3003,21 @@ class Synthesizer:
         when the link has a count model (exchangeable counts per member)."""
         return np.ones(len(w)) if info.get("count_dp") else w
 
-    def _assign(self, info, t, rr, mm, wl, pkeys, res):
+    def _assign(self, info, t, rr, mm, wl, pkeys, res, deg=None, obs=None, cell=None):
         """Rows rr linked to members mm of parent segment t: counts from the link's
-        count model given their total (the source's dispersion), else i.i.d. by wl."""
+        count model given their total (the source's dispersion), else i.i.d. by wl.
+        deg: rows each parent already holds (by parent position), so the counts are
+        drawn as the rest of their totals (_conditional_counts base)."""
         rng = self.rng
         dp = info.get("count_dp")
-        if dp and len(rr) > 1:
-            obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0, np.int64)
+        if dp and (len(rr) > 1 or (deg is not None and len(rr))):
+            key = ("dp", id(dp), int(t))
+            if obs is None:
+                obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0, np.int64)
+            else:
+                key = ("dp", id(dp), int(t), "cell", cell)
             cnt = self._conditional_counts(len(rr), len(mm), obs, dp["a"], mn=dp.get("min", 0),
-                                           key=("dp", id(dp), int(t)))
+                                           key=key, base=None if deg is None else deg[mm])
             res[rng.permutation(rr)] = pkeys[np.repeat(mm, cnt)]
         else:
             ww = wl[mm] / wl[mm].sum()
@@ -2967,6 +3086,7 @@ class Synthesizer:
             Wv /= m[:, None]
             lix[J([None] * len(cols)) if cols else "\x00null"] = len(levels)       # a null link
             links.append({"r": r, "info": info, "zp": zp, "w": w, "Kp": Kp, "keys": keys[r["parent"]],
+                          "cell_obs": self._cell_count_law(info, r, cols, lix, J) if cols else {},
                           "coords": [i for i, _ in by_link.get(ck, [])], "lix": lix, "Wv": Wv,
                           "members": {(t, v): np.flatnonzero((zp == t) & (code == v))
                                       for t, v in zip(*np.nonzero(Wv > 0))}})
@@ -2984,7 +3104,7 @@ class Synthesizer:
             phi = L["info"]["phi"]
             L["phi_mix"] = (np.bincount(z, minlength=phi.shape[0]).astype(float) @ phi) / max(len(z), 1)
 
-        def draw(rows, cells, wcell, useg, mix=False):
+        def draw(rows, cells, wcell, useg, mix=False, deg=None):
             zc = np.zeros(len(rows), int) if mix else z[rows]
             Kc = 1 if mix else (int(zc.max()) + 1 if len(zc) else 0)
             R = np.tile(np.array([wcell.get(c, 1.0) for c in cells], float), (Kc, 1))
@@ -3037,12 +3157,36 @@ class Synthesizer:
                             tt[rr] = rng.choice(L["Kp"], size=len(rr), p=pt / pt.sum())
                 ok_t = np.flatnonzero(tt >= 0)
                 for (t, v), rr in pd.Series(np.arange(len(ok_t))).groupby([tt[ok_t], cv[ok_t]]).indices.items():
-                    self._assign(info, t, ok_t[rr], L["members"][(t, v)], L["w"], L["keys"], res)
+                    self._assign(info, t, ok_t[rr], L["members"][(t, v)], L["w"], L["keys"], res,
+                                 deg=None if deg is None else deg.get(r["name"]),
+                                 obs=L["cell_obs"].get((int(t), int(v))), cell=int(v))
                 prop[r["child_key"]] = res
                 segs[r["name"]] = tt
             return prop, pick, segs
         draw.links = links
         return draw
+
+    def _cell_count_law(self, info, r, cols, lix, J):
+        """The observed counts of a count-model link within each cell of its parent
+        segments: {(segment, level of cols): counts of the real parent rows of that
+        segment with that level}, for cells of at least facts.frailty_min_rows rows.
+        The cell sampler draws a cell's rows given their total from the cell's own
+        count law: the segment's law conditioned on a total far from its mean (a
+        country whose customers order less) tilts it and adds zeros (Prop. 1782)."""
+        dp, fan = info.get("count_dp"), info.get("obs")
+        real = (getattr(self, "_tables_for_fit", None) or {}).get(r["parent"])
+        ent = info["rel"].e2 if "rel" in info else None
+        if not dp or fan is None or real is None or ent is None or any(c not in real.columns for c in cols) \
+                or len(real) != len(fan) or len(ent.z) != len(fan):
+            return {}
+        code = np.array([lix.get(J(x), -1) for x in zip(*[_keystr(real[c]) for c in cols])])
+        zr = np.asarray(ent.z)
+        mn = int(_setting(self, "facts", "frailty_min_rows", 30))
+        out = {}
+        for (t, v), ii in pd.Series(np.arange(len(fan))).groupby([zr, code]).indices.items():
+            if v >= 0 and len(ii) >= mn:
+                out[(int(t), int(v))] = np.asarray(fan, dtype=np.int64)[ii]
+        return out
 
     def _anchor_from_key(self, r, df, out):
         """The anchor column read from the dimension row each link points to."""
@@ -3156,6 +3300,9 @@ class Synthesizer:
                     break
                 seg_of = draw_segments()
             seg_of = _cover_segments(seg_of, zc, need, phi, rng)
+        if dp and _setting(self, "facts", "segment_totals", "auto") == "auto":
+            seg_of = _balance_totals(seg_of, zc, seg_p, [len(m) for m in members], dp, need, rng,
+                                     sweeps=int(_setting(self, "facts", "segment_total_sweeps", 4)))
         for t in np.unique(seg_of[seg_of >= 0]):
             rr = np.flatnonzero(seg_of == t)
             m = members[t]
@@ -3370,6 +3517,21 @@ class Synthesizer:
                 tgt[L["r"]["name"]] = tg / max(tg.sum(), 1e-300)
 
             mixed = [0]
+            # links with a count model: rows redrawn after a rejection join the counts
+            # their parents already hold from accepted rows (Prop. 1782)
+            dplinks = [L for L in exact.links if L["info"].get("count_dp")]
+            pix = {L["r"]["name"]: pd.Index(L["keys"]) for L in dplinks}
+
+            def held(pending):
+                if not dplinks or len(pending) == len(df):
+                    return None
+                keep = np.ones(len(df), bool)
+                keep[pending] = False
+                out_ = {}
+                for L in dplinks:
+                    pos = pix[L["r"]["name"]].get_indexer(df[L["r"]["child_key"]].to_numpy(dtype=object)[keep])
+                    out_[L["r"]["name"]] = np.bincount(pos[pos >= 0], minlength=len(L["keys"]))
+                return out_
 
             def draw_all():
                 pending = np.arange(len(df))
@@ -3379,7 +3541,7 @@ class Synthesizer:
                         break
                     if it == 100:
                         mixed[0] += len(pending)
-                    prop, pick, segs = exact(pending, cells, wc, useg, mix=it >= 100)
+                    prop, pick, segs = exact(pending, cells, wc, useg, mix=it >= 100, deg=held(pending))
                     sub = df.iloc[pending].copy()
                     for c, v in prop.items():
                         sub[c] = v

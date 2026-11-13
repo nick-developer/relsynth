@@ -50,7 +50,9 @@ DEFAULT_SYNTHESIS = {
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
               "link_degree_min_rows": 50.0, "frailty_min_rows": 30, "occupancy_z": -4.0, "occupancy_min_expected": 10.0,
-              "dp_count_sweeps": 30},
+              "dp_count_sweeps": 30,
+              # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
+              "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
