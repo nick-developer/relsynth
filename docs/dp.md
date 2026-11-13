@@ -206,6 +206,17 @@ With a database source (SQLite, PostgreSQL, SQL Server, Oracle, MySQL, MariaDB, 
 
 For the same rows, the statistics are the same integers as in memory (Props. 1761 and 1762). Each is charged the same, so the run has the same guarantee (Prop. 1763). The rows kept under the cap are not the in-memory run's rows, because the database uses its own hash, but the truncation has the same stability property (Prop. 1760). Checks C1760 to C1764 (`pytest -m science tests/science/test_dp_pushdown_checks.py`) test this. C1761 finds every statistic identical in SQLite, in Parquet files read through DuckDB and in memory, and C1763 repeats the C902 sensitivity replay on a SQLite file. `tests/integration/test_servers.py` compares the statistics with the in-memory ones on each live server. The run report says where stage 1 ran (`stage1.source`) and the process's peak memory at the end of stage 1 (`stage1.peak_rss_mb`).
 
+**Results** (`tools/dp_pushdown_compare.py`, ε = 1, `measure: copula`, three runs each, 95 % t intervals; each run a fresh process on one machine; records in `docs/assurance/evidence/G2/pushdown_compare.jsonl`):
+
+| database | stage 1 | checks passing | stage 1 time | peak memory at the end of stage 1 |
+|---|---|---|---|---|
+| Contoso (SQLite, 105,000 customers) | in memory | 0.783 ± 0.092 | 16 s | 875–959 MB |
+| Contoso | in the database | 0.804 ± 0.069 | 30 s | 760–822 MB |
+| AdventureWorks DW (SQLite, 18,484 customers) | in memory | 0.890 ± 0.007 | 18 s | 750–811 MB |
+| AdventureWorks DW | in the database | 0.889 ± 0.012 | 19 s | 671–735 MB |
+
+The scorecards agree within the DP noise. Both databases fit in memory, so the saving at the end of stage 1 is small (about 10 %): most of the peak is the libraries the process loads (about 200 MB before any read) and the working arrays of one chunk. What the database path removes is the part that grows with the tables, since no owned table is ever held whole. On SQLite, stage 1 takes longer in the database because SQLite runs the window functions and joins on one core.
+
 The scorecard still compares the synthetic data with the real tables. A run with pushdown reads them for it after stage 2, as a non-DP run reads them (large facts as samples, under `synthesis.pushdown`).
 
 ## API
