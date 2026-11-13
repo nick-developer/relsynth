@@ -146,6 +146,8 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                 cols[c.name] = {"type": "categorical"}
             elif c.role == "key" and c.name in cols:
                 cols[c.name] = {"type": "categorical"}
+            elif c.role == "multihot" and c.name in cols:
+                cols[c.name] = {"type": "integer", "min": 0}
         if tl.kind != "root":
             t.pop("mode", None)
             if lay.children(tname):
