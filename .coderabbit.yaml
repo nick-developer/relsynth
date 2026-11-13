@@ -39,9 +39,14 @@ reviews:
       instructions: >-
         The PR touches DP, privacy attacks, governance, PII handling or text
         generation, or any sentence registered in docs/assurance/claims.yaml.
+  # Draft-aware and batched (docs/development/ci.md#coderabbit): drafts are
+  # skipped, one full review runs when the PR is marked ready, and later pushes
+  # are not re-reviewed one by one.  Ask for another pass with a single
+  # top-level "@coderabbitai review" comment.
   auto_review:
     enabled: true
     drafts: false
+    auto_incremental_review: false
     base_branches: [main]
     ignore_title_keywords: ["WIP", "DO NOT REVIEW"]
   path_filters:
@@ -240,7 +245,7 @@ reviews:
       enabled: true
 
 chat:
-  auto_reply: true
+  auto_reply: false               # answers only when tagged @coderabbitai; keeps the @claude comment quiet
 
 knowledge_base:
   opt_out: false
@@ -253,3 +258,4 @@ knowledge_base:
       - "CONTRIBUTING.md"
       - "docs/security.md"
       - "docs/development/ci.md"
+      - "CLAUDE.md"
