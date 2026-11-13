@@ -303,13 +303,15 @@ class Source:
         pf = self._lazy[t]
         use = list(cols) if cols else list(pf.schema_arrow.names)
         read = use if col in use else [*use, col]
+        import pyarrow as pa
         ks = set(map(str, keys))
         parts = []
-        for b in pf.iter_batches(batch_size=262_144, columns=read):
-            df = normalise_frame(b.to_pandas())
-            hit = df[col].astype(str).isin(ks)
+        for b in pf.iter_batches(batch_size=65_536, columns=read):
+            # only the key column becomes pandas; the other columns (long texts) only for the matching rows
+            k = normalise_frame(b.select([col]).to_pandas())[col]
+            hit = k.astype(str).isin(ks).to_numpy()
             if hit.any():
-                parts.append(df.loc[hit, use])
+                parts.append(normalise_frame(b.filter(pa.array(hit)).to_pandas())[use])
         out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)
         return out[use].reset_index(drop=True)
 
