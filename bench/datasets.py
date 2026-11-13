@@ -516,6 +516,44 @@ def _research() -> tuple[bool, str]:
             "and publish aggregates only (docs/datasets.md)")
 
 
+INTROSPECT_MAX_GIB = float(os.environ.get("BENCH_INTROSPECT_MAX_GIB", "12"))
+
+
+def _rss_gib(pid: int) -> float:
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / (1 << 20)
+    except OSError:
+        pass                            # not Linux, or the process has ended
+    return 0.0
+
+
+def _watch_memory(proc, name: str) -> int:
+    """Wait for introspect; print its resident memory every 5 minutes.  Above INTROSPECT_MAX_GIB (a 16 GB
+    runner would kill the job without a word) it is stopped with SIGABRT, and Python's fault handler prints
+    where every thread was, so the job log names the line that took the memory."""
+    import signal
+    import time
+    last = peak = 0.0
+    start = time.monotonic()
+    while proc.poll() is None:
+        time.sleep(2)
+        rss = _rss_gib(proc.pid)
+        peak = max(peak, rss)
+        if rss > INTROSPECT_MAX_GIB:
+            say(f"{name}: introspect uses {rss:.1f} GiB (limit {INTROSPECT_MAX_GIB:g}); stopped, traceback below")
+            proc.send_signal(signal.SIGABRT)
+            proc.wait()
+            return 137
+        if time.monotonic() - last >= 300:
+            last = time.monotonic()
+            say(f"{name}: introspect running {(last - start) / 60:.0f} min, memory {rss:.1f} GiB (peak {peak:.1f})")
+    say(f"{name}: introspect peak memory {peak:.1f} GiB")
+    return proc.returncode
+
+
 def _drafted(name: str) -> callable:
     """The unedited `relsynth introspect` draft of the dataset (relsynth 1.0 format, which bench/assess.py
     reads), made once per commit and dataset into the cache: G7 datasets run with the draft of the code under
@@ -532,13 +570,14 @@ def _drafted(name: str) -> callable:
         tmp = out.with_name(out.name + ".part.yaml")
         say(f"{name}: drafting the spec with relsynth introspect")
         # argument list without a shell; the paths sit under the operator's own bench cache
-        r = subprocess.run([sys.executable, "-m", "relsynth", "introspect", "--source", loc, "--out", str(tmp),  # noqa: S603  # nosemgrep
-                            "--name", name, "--format", "v1", "--log-level", "debug"], stdout=subprocess.DEVNULL,
-                           check=False)
+        proc = subprocess.Popen([sys.executable, "-m", "relsynth", "introspect", "--source", loc, "--out", str(tmp),  # noqa: S603  # nosemgrep
+                                 "--name", name, "--format", "v1", "--log-level", "debug"],
+                                stdout=subprocess.DEVNULL, env={**os.environ, "PYTHONFAULTHANDLER": "1"})
         # its progress goes to stderr, so a job log shows the stage where a large set stalls or runs out of memory,
         # and at debug level a failure prints its traceback there
-        if r.returncode or not tmp.exists():
-            raise RuntimeError(f"{name}: introspect failed ({r.returncode}); its messages are above")
+        code = _watch_memory(proc, name)
+        if code or not tmp.exists():
+            raise RuntimeError(f"{name}: introspect failed ({code}); its messages are above")
         tmp.replace(out)
         return out
     return spec
