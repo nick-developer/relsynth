@@ -73,7 +73,7 @@ The Berka bench also failed one calibrated item (`order` association, 0.155 agai
 
 The first version did not clip to the table's range and failed C48: shifted dates left the range of a keyed lookup (an exchange rate per order date, 0.990 of rows matched instead of 1). Clipping fixed it.
 
-**Science checks** with shape mode: C09, C19, C43 and C48 pass at 20 and at 40 rows. The full suite passes apart from C75 `t_unique_moves_fast` and C76. C76 needs the layer 2 data and fails the same way at 2.1 in this container (it is skipped in CI). C75 finds one duplicate of a link key after the moves; the same check fails on 4 of 8 synthesis seeds at 2.1 (0, 0, 1, 2, 0, 1, 0, 1 duplicates for seeds 1-8), so it is an existing engine issue that the seed of the check happened to miss.
+**Science checks** with shape mode: C09, C19, C43 and C48 pass at 20 and at 40 rows. The full suite passes apart from C75 `t_unique_moves_fast` and C76. C76 needs the layer 2 data and fails the same way at 2.1 in this container (it is skipped in CI). C75 found one duplicate of a link key after the moves; the same check failed on 4 of 8 synthesis seeds at 2.1 (0, 0, 1, 2, 0, 1, 0, 1 duplicates for seeds 1-8), an existing engine issue: the repair of unique keys over links could run out of proposals when nearly every parent needs exactly one child. This pull request fixes it (rows the link model cannot place get a uniformly drawn allowed parent), and C75 passes.
 
 **AdventureWorks**, the same five seeds as above (DimProduct DCR / scorecard of 1,267):
 
