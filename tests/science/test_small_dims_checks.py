@@ -36,8 +36,8 @@ def _own_mass(m, own):
 # --------------------------------------------------------------------- C1720
 def test_c1720_segment_shrinkage_weight_and_stream():
     """Prop. 1720: the predictive mass on the segment's own rows is n / (n + a)
-    (discrete: exactly, by the Dirichlet mean; continuous: E[V]), and the number
-    of random numbers drawn does not depend on a."""
+    (discrete: exactly, by the Dirichlet mean; continuous: E[V]), and the variates
+    drawn do not depend on a (the generator's state after them can)."""
     rng = np.random.default_rng(5)
     table = pd.Series(rng.choice(list("abcdefgh"), 3000, p=[.3, .2, .15, .1, .1, .05, .05, .05]))
     cd = Codec("x", {"type": "categorical"}, table)
@@ -57,12 +57,30 @@ def test_c1720_segment_shrinkage_weight_and_stream():
     cc = Codec("y", {"type": "float"}, pd.Series(vals))
     topc = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
     own = np.round(rng.gamma(2.0, size=12) * 100) / 100 + 50.0     # atoms far right of the table law
+    # (b) the variates drawn do not depend on a ...
+    class Counting:
+        def __init__(self, seed):
+            self.g, self.calls = np.random.default_rng(seed), []
+
+        def __getattr__(self, name):
+            f = getattr(self.g, name)
+            return (lambda *x, **k: (self.calls.append(name), f(*x, **k))[1]) if callable(f) else f
+
+    c0, c1 = Counting(11), Counting(11)
+    Marginal.fit(cc, own, c0, prior=topc, dirichlet_a=0.25, grid=64)
+    Marginal.fit(cc, own, c1, prior=topc, dirichlet_a=20.0, grid=64)
+    assert c0.calls == c1.calls and "beta" in c0.calls
+    # ... but the underlying random numbers can: the Beta is drawn by rejection, so
+    # the state after it differs for some seeds, and only a = a0 keeps the stream
+    differs = 0
+    for seed in range(300):
+        g0, g1, g2 = (np.random.default_rng(seed) for _ in range(3))
+        g0.beta(len(own), 0.25), g1.beta(len(own), 40.0), g2.beta(len(own), 0.25)
+        r0, r1, r2 = g0.random(), g1.random(), g2.random()
+        differs += r0 != r1
+        assert r0 == r2
+    assert differs > 0
     for a in (0.25, 20.0):
-        st0 = np.random.default_rng(11)
-        Marginal.fit(cc, own, st0, prior=topc, dirichlet_a=a, grid=64)
-        st1 = np.random.default_rng(11)
-        Marginal.fit(cc, own, st1, prior=topc, dirichlet_a=0.25 if a != 0.25 else 20.0, grid=64)
-        assert st0.random() == st1.random()          # same stream whatever a is
         mass = []
         for _ in range(3000):
             m = Marginal.fit(cc, own, rng, prior=topc, dirichlet_a=a, grid=256)
@@ -76,8 +94,8 @@ def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
     """Prop. 1724: in shape mode the posterior mean predictive (bootstrap=False)
     of a continuous segment has its sample median, up to the grid (b), every value
     lies in the smallest interval containing the table's knots and the segment's
-    values (c), the random stream does not change (d), and the
-    predictive moves by at most a / (n + a) whatever the two priors (e)."""
+    values (c), the random stream does not change at a fixed a (d), a median
+    beyond the table's range is pulled toward it, and the predictive moves by at most a / (n + a) whatever the two priors (e)."""
     rng = np.random.default_rng(7)
     vals = rng.gamma(2.0, size=4000)
     cc = Codec("y", {"type": "float"}, pd.Series(vals))
@@ -101,6 +119,14 @@ def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
         Marginal.fit(cc, own, s0, prior=top, dirichlet_a=40.0, shift_prior=True)
         Marginal.fit(cc, own, s1, prior=top, dirichlet_a=40.0)
         assert s0.random() == s1.random()
+    # (b) needs l <= m_g <= u: a segment beyond the table's largest knot keeps its
+    # values, but the clipped prior sits at u and pulls the predictive median below m_g
+    far = hi + np.array([5.0, 6.0, 7.0])
+    m = Marginal.fit(cc, far, rng, prior=top, dirichlet_a=40.0, grid=512, bootstrap=False,
+                     shift_prior=True)
+    v = m.from_uniform(u)
+    assert np.median(v) < np.median(far) - 1.0 and np.median(v) <= hi + 1e-9
+    assert v.max() <= far.max() + 1e-9
     # (e) with a prior that changes with a, the predictive moves by at most a / (n + a)
     for _ in range(500):
         V = int(rng.integers(2, 30))

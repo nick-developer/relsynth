@@ -8,7 +8,7 @@ Gap plan G3 (release 2.2.0). The AdventureWorks autotune runs ([autotune-adventu
 
 ## Options studied
 
-All numbers are `DimProduct` `dcr_ratio` (limit 0.5) and the AdventureWorks scorecard (1,257 items in this evaluation, without the privacy items). They come from two fitted models (seeds 1 and 12) and two sampling streams each. Every variant re-samples the same fitted model with the same random streams, so the comparisons are paired.
+All numbers are `DimProduct` `dcr_ratio` (limit 0.5) and the AdventureWorks scorecard (1,257 items in this evaluation, without the privacy items). They come from two fitted models (seeds 1 and 12) and two sampling streams each. Every variant re-samples the same fitted model with the same seeds, so the comparisons are paired.
 
 | Variant | DCR (4 paired draws) | Scorecard change vs defaults (paired) |
 |---|---|---|
@@ -22,7 +22,7 @@ All numbers are `DimProduct` `dcr_ratio` (limit 0.5) and the AdventureWorks scor
 
 - **Segment cap.** The cap applies per stratum, and the strata make the segments, so a lower cap barely changes them. It did not help, and it cost joins.
 - **Copula pooling.** Small segments already share the pooled copula, so pooling has nothing to act on here. It was dropped from the change.
-- **Marginal shrinkage** (`marginals.segment_prior_rows`) raises the weight of the table marginal in each segment's Dirichlet / Dirichlet-process posterior to that many rows. It is the hierarchical prior relsynth already has, made stronger for small segments. Segments of thousands of rows move by at most `rows / n` in total variation (Prop. 1721), and the random stream is unchanged (Prop. 1720). It works on every draw.
+- **Marginal shrinkage** (`marginals.segment_prior_rows`) raises the weight of the table marginal in each segment's Dirichlet / Dirichlet-process posterior to that many rows. It is the hierarchical prior relsynth already has, made stronger for small segments. Segments of thousands of rows move by at most `rows / n` in total variation (Prop. 1721). The variates drawn do not change with `rows`, but the generator's state after a Beta draw can, so only `rows: 0` reproduces the 2.1 stream (Prop. 1720). It works on every draw.
 - **Near-copy guard** (`privacy.near_copy`). It redraws rows that sit closer to a real row than that row's nearest distinct neighbour. Alone it is unreliable (0.52 on two draws), because the evaluation's metric ranks real and synthetic rows together and looks only at positive distances. It also rewrote rows in six AdventureWorks tables (24% of `ProspectiveBuyer`, 5% of `DimCustomer`), and on Chinook it broke `Track` associations on 4 of 5 seeds. Redrawing until it succeeds, it is not differentially private for any ε (Prop. 1723); with finite rounds it gives no DP guarantee of its own, and in DP mode it is post-processing of the seed database. It makes the DCR item of a guarded table circular. It ships as an opt-in safety net, off by default.
 
 **Choice:** marginal shrinkage with 20 rows was the first choice for the default, on entity tables only. The full validation below and the science suite showed that it weakens the dimension-fact links (see "Science checks"), so release 2.2 uses **shape-mode shrinkage with 40 rows** by default (see "Shape mode"), approved by Cod3r on 2026-11-08. The guard is opt-in.
@@ -69,7 +69,7 @@ The Berka bench also failed one calibrated item (`order` association, 0.155 agai
 
 ## Shape mode (the default)
 
-`marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the table's distribution moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the table's), clipped to the table's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. The segment's median does not move in the posterior mean (posterior draws vary around it, as without shrinkage), so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
+`marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the table's distribution moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the table's), clipped to the table's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. When the segment's median lies inside the table's range, it does not move in the posterior mean (posterior draws vary around it, as without shrinkage; a median beyond the range is pulled toward it), so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
 
 The first version did not clip to the table's range and failed C48: shifted dates left the range of a keyed lookup (an exchange rate per order date, 0.990 of rows matched instead of 1). Clipping fixed it.
 

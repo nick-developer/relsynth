@@ -349,16 +349,30 @@ def test_shape_mode_reaches_the_segment_fits(tmp_path, monkeypatch):
     assert cont and disc
     assert all(c[2].get("shift_prior") is True and c[2]["dirichlet_a"] == 40.0 for c in cont)
     assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in disc)
-    assert all(not c[2].get("shift_prior") for c in top)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in top)
     # refitted with the same options as a posterior mean (bootstrap off), each segment
     # marginal keeps the segment's median, up to the grid
-    u, checked = np.linspace(0, 1, 4001)[1:-1], 0
+    u, checked, small = np.linspace(0, 1, 4001)[1:-1], 0, 0
     for cd, x, kw, _m in cont:
         x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
         lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
-        if len(x) < 5 or hi <= lo or not (lo <= np.median(x) <= hi):
+        if len(x) < 1 or hi <= lo or not (lo <= np.median(x) <= hi):
             continue
         m = orig(cd, x, np.random.default_rng(0), **{**kw, "bootstrap": False})
         checked += 1
-        assert abs(np.median(m.from_uniform(u)) - np.median(x)) < 0.05 * (hi - lo)
+        small += len(x) < 5
+        assert abs(np.median(m.from_uniform(u)) - np.median(x)) < 0.05 * (hi - lo), (len(x), cd.name)
     assert checked > 0
+    # this catalogue has no segment under 5 rows: replay the production options of each
+    # continuous fit on its first 1-4 values, the shape of a tiny segment
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        for k in range(1, 5):
+            xs = x[:k]
+            if len(xs) < k or hi <= lo or not (lo <= np.median(xs) <= hi):
+                continue
+            m = orig(cd, xs, np.random.default_rng(0), **{**kw, "bootstrap": False})
+            small += 1
+            assert abs(np.median(m.from_uniform(u)) - np.median(xs)) < 0.05 * (hi - lo), (k, cd.name)
+    assert small > 0
