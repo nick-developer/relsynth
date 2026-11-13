@@ -244,6 +244,27 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
     assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("orders", "customer")}
 
 
+def test_rows_in_matches_float_keys_of_a_column_with_nulls(tmp_path, monkeypatch):
+    """A child key with NULLs comes back from Parquet as floats (2450815.0); the parent's rows are still
+    found (TPC-DS SF10: no parent row was found and the lookup search indexed an empty table)."""
+    import relsynth as rs
+    import relsynth.source as src
+    d = tmp_path / "pq"
+    d.mkdir()
+    pd.DataFrame({"item_sk": range(1, 2001), "category": [f"c{i % 10}" for i in range(2000)]}).to_parquet(
+        d / "item.parquet")
+    pd.DataFrame({"ticket": range(1, 6001), "item_sk": [None if i % 9 == 0 else float(1 + i * 31 % 2000)
+                                                        for i in range(6000)],
+                  "price": [float(i % 97) for i in range(6000)]}).to_parquet(d / "sales.parquet")
+    for lazy_rows in (10**9, 0):
+        monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", lazy_rows)
+        s = src.Source({"kind": "parquet", "path": str(d)})
+        assert len(s.rows_in("item", "item_sk", [32.0, 63.0, 5.0])) == 3
+        assert len(s.rows_in("sales", "item_sk", [32, 63])) == 6
+        spec = rs.introspect(f"parquet:{d}", name="nullkeys", sample_rows=500)
+        assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("sales", "item")}
+
+
 def test_introspect_keeps_one_self_reference_per_table(tmp_path):
     """posts.parent_id and posts.accepted_answer_id both point at posts (Stack Exchange): the run
     supports one self-reference, so the draft keeps the one with fewer NULLs."""

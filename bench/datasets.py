@@ -533,8 +533,10 @@ def _drafted(name: str) -> callable:
         say(f"{name}: drafting the spec with relsynth introspect")
         # argument list without a shell; the paths sit under the operator's own bench cache
         r = subprocess.run([sys.executable, "-m", "relsynth", "introspect", "--source", loc, "--out", str(tmp),  # noqa: S603  # nosemgrep
-                            "--name", name, "--format", "v1"], stdout=subprocess.DEVNULL, check=False)
-        # its progress goes to stderr, so a job log shows the stage where a large set stalls or runs out of memory
+                            "--name", name, "--format", "v1", "--log-level", "debug"], stdout=subprocess.DEVNULL,
+                           check=False)
+        # its progress goes to stderr, so a job log shows the stage where a large set stalls or runs out of memory,
+        # and at debug level a failure prints its traceback there
         if r.returncode or not tmp.exists():
             raise RuntimeError(f"{name}: introspect failed ({r.returncode}); its messages are above")
         tmp.replace(out)

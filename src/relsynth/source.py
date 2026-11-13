@@ -32,7 +32,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .data import FILE_KINDS, normalise_frame, read_table_file, table_files
+from .data import FILE_KINDS, canonical_keys, normalise_frame, read_table_file, table_files
 
 # up to this many rows the primary key is read to draw a seeded sample; beyond it the
 # dialect's random order is used (not reproducible, reported in the log)
@@ -54,6 +54,12 @@ def _large_parquet(path) -> bool:
     md = pq.ParquetFile(path).metadata
     return md.num_rows > LAZY_PARQUET_ROWS or \
         sum(md.row_group(i).total_byte_size for i in range(md.num_row_groups)) > LAZY_PARQUET_BYTES
+
+
+def _key_text(s) -> pd.Series:
+    """Keys as text for matching a file table's rows: a key column with NULLs comes back from Parquet as
+    floats (2450815.0), and integer-valued keys must match the integer column of the parent (2450815)."""
+    return canonical_keys(pd.Series(s).reset_index(drop=True)).astype(str)
 
 
 def _match(name, include, exclude):
@@ -263,8 +269,8 @@ class Source:
             return self._lazy_rows_in(t, col, keys, cols)
         if self.kind == "csv":
             df = self._frame(t)
-            ks = set(map(str, keys))
-            out = df[df[col].astype(str).isin(ks)]
+            ks = set(_key_text(keys))
+            out = df[_key_text(df[col]).isin(ks).to_numpy()]
             return (out[cols] if cols else out).reset_index(drop=True)
         from sqlalchemy import select
         tbl = self._tables[t]
@@ -299,17 +305,18 @@ class Source:
         return normalise_frame(df), False
 
     def _lazy_rows_in(self, t, col, keys, cols=None):
-        """Rows whose col is one of keys, compared as text (as for a CSV table), streamed by row group."""
+        """Rows whose col is one of keys, compared as canonical key text (as for a CSV table), streamed by row
+        group."""
         pf = self._lazy[t]
         use = list(cols) if cols else list(pf.schema_arrow.names)
         read = use if col in use else [*use, col]
         import pyarrow as pa
-        ks = set(map(str, keys))
+        ks = set(_key_text(keys))
         parts = []
         for b in pf.iter_batches(batch_size=65_536, columns=read):
             # only the key column becomes pandas; the other columns (long texts) only for the matching rows
             k = normalise_frame(b.select([col]).to_pandas())[col]
-            hit = k.astype(str).isin(ks).to_numpy()
+            hit = _key_text(k).isin(ks).to_numpy()
             if hit.any():
                 parts.append(normalise_frame(b.filter(pa.array(hit)).to_pandas())[use])
         out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)

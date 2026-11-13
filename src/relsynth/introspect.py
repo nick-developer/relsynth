@@ -578,6 +578,8 @@ class _Profiler(Discovery):
                 if pk is None:
                     continue
                 pr = self.parent_rows(p, pk, df[r["child_key"]].dropna().unique()).drop_duplicates(pk).reset_index(drop=True)
+                if not len(pr):                   # no sampled key found in the parent: nothing to look up
+                    continue
                 ix = pd.Index(canonical_keys(pr[pk]).astype(str))
                 pos = ix.get_indexer(canonical_keys(df[r["child_key"]]).astype(str))
                 for pc in pr.columns:
@@ -592,6 +594,8 @@ class _Profiler(Discovery):
                     k1 = np.where(pos >= 0, pr[r2["child_key"]].to_numpy(dtype=object)[np.maximum(pos, 0)], None)
                     prow2 = self.parent_rows(p2, pk2, pd.Series(k1).dropna().unique())
                     pr2 = prow2.drop_duplicates(pk2)
+                    if not len(pr2):
+                        continue
                     ix2 = pd.Index(canonical_keys(pr2[pk2]).astype(str))
                     pos2 = ix2.get_indexer(canonical_keys(pd.Series(k1)).astype(str))
                     for pc in pr2.columns:
