@@ -218,7 +218,7 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
     pd.DataFrame({"id": range(1, 3001), "customer_id": [1 + i % 300 for i in range(3000)],
                   "amount": [float(i % 97) for i in range(3000)]}).to_parquet(d / "orders.parquet")
     eager = src.Source({"kind": "parquet", "path": str(d)})
-    monkeypatch.setattr(src, "LAZY_PARQUET_BYTES", 0)
+    monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", 0)
     lazy = src.Source({"kind": "parquet", "path": str(d)})
     assert set(lazy._lazy) == {"customer", "orders"} and not eager._lazy
     assert lazy.count("orders") == eager.count("orders") == 3000
@@ -226,6 +226,8 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
     assert lazy.columns("orders", ["id", "amount"]).equals(eager.columns("orders", ["id", "amount"]))
     pd.testing.assert_frame_equal(lazy.rows_in("orders", "customer_id", [3, 7]),
                                   eager.rows_in("orders", "customer_id", [3, 7]))
+    u, n = lazy.int_distinct("orders", "customer_id")
+    assert n == 3000 and list(u) == list(range(1, 301)) and eager.int_distinct("orders", "customer_id") is None
     part, whole = lazy.sample("orders", 500)
     assert not whole and 350 < len(part) < 650 and list(part.columns) == ["id", "customer_id", "amount"]
     spec = rs.introspect(f"parquet:{d}", name="lazy", sample_rows=500)

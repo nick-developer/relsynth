@@ -17,10 +17,12 @@ of CSV or Parquet files (every read is normalised by data.normalise_frame):
 
 Binary columns are never read: they are reported as binary and left empty.
 
-A Parquet file larger than LAZY_PARQUET_BYTES (uncompressed) is not held in
-memory: counts come from its footer, samples are drawn while streaming its row
-groups, and columns or chosen rows are read on demand (a 60-million-row TPC-H
-lineitem or a table of long texts would not fit on a 16 GB machine otherwise).
+A Parquet file with more than LAZY_PARQUET_ROWS rows or LAZY_PARQUET_BYTES
+(uncompressed; pandas needs several times that) is not held in memory: counts
+come from its footer, samples are drawn while streaming its row groups, the
+distinct values of an integer column are collected group by group, and columns
+or chosen rows are read on demand (a 60-million-row TPC-H lineitem or a table
+of long texts would not fit on a 16 GB machine otherwise).
 """
 from __future__ import annotations
 
@@ -35,7 +37,8 @@ from .data import FILE_KINDS, normalise_frame, read_table_file, table_files
 # up to this many rows the primary key is read to draw a seeded sample; beyond it the
 # dialect's random order is used (not reproducible, reported in the log)
 KEY_SAMPLE_MAX_ROWS = 5_000_000
-LAZY_PARQUET_BYTES = 1 << 30
+LAZY_PARQUET_ROWS = 5_000_000
+LAZY_PARQUET_BYTES = 256 << 20
 BINARY_SQL = r"binary|blob|image|bytea|(^|\W)raw|varbinary|largebinary|_binary"
 
 
@@ -43,13 +46,14 @@ def is_binary_sqltype(t: str) -> bool:
     return bool(re.search(BINARY_SQL, str(t).lower()))
 
 
-def _parquet_bytes(path) -> int:
-    """Uncompressed size of a Parquet file from its footer (0 for any other file)."""
+def _large_parquet(path) -> bool:
+    """A Parquet file over LAZY_PARQUET_ROWS rows or LAZY_PARQUET_BYTES uncompressed (from its footer)."""
     if not str(path).lower().endswith(".parquet"):
-        return 0
+        return False
     import pyarrow.parquet as pq
     md = pq.ParquetFile(path).metadata
-    return sum(md.row_group(i).total_byte_size for i in range(md.num_row_groups))
+    return md.num_rows > LAZY_PARQUET_ROWS or \
+        sum(md.row_group(i).total_byte_size for i in range(md.num_row_groups)) > LAZY_PARQUET_BYTES
 
 
 def _match(name, include, exclude):
@@ -91,7 +95,7 @@ class Source:
             self._files = {t: p for t, p in table_files(source["path"]).items() if _match(t, include, exclude)}
             self._frames = {}
             for t in self._files:
-                if _parquet_bytes(self._files[t]) > LAZY_PARQUET_BYTES:
+                if _large_parquet(self._files[t]):
                     import pyarrow.parquet as pq
                     self._lazy[t] = pq.ParquetFile(self._files[t])
                     names = list(self._lazy[t].schema_arrow.names)
@@ -226,9 +230,9 @@ class Source:
     def column(self, t, c) -> pd.Series:
         """Every value of one column (cached)."""
         if (t, c) not in self._col_cache:
-            if t in self._lazy:
-                s = self._lazy_read(t, [c])[c]
-            elif self.kind == "csv":
+            if t in self._lazy:                   # read again when asked: a large table's columns are not kept
+                return self._lazy_read(t, [c])[c]
+            if self.kind == "csv":
                 s = self._frame(t)[c]
             else:
                 from sqlalchemy import select
@@ -308,3 +312,21 @@ class Source:
                 parts.append(df.loc[hit, use])
         out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)
         return out[use].reset_index(drop=True)
+
+    def int_distinct(self, t, c):
+        """(sorted distinct values, non-null count) of an integer column of a large Parquet table, streamed
+        by row group (a 133-million-row column never becomes Python objects); None for any other column."""
+        if t not in self._lazy:
+            return None
+        import pyarrow as pa
+        import pyarrow.compute as pc
+        pf = self._lazy[t]
+        if not pa.types.is_integer(pf.schema_arrow.field(c).type):
+            return None
+        parts, n = [], 0
+        for b in pf.iter_batches(batch_size=1 << 20, columns=[c]):
+            col = b.column(0)
+            n += len(col) - col.null_count
+            parts.append(np.asarray(pc.unique(col.drop_null()).cast(pa.int64())))
+        u = np.unique(np.concatenate(parts)) if parts else np.empty(0, dtype=np.int64)
+        return u, n

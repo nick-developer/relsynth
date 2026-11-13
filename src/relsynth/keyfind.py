@@ -401,8 +401,15 @@ class KeyFinder:
 
     def keyset(self, t, c):
         if (t, c) not in self._ks:
+            big = None if self.P.whole[t] else getattr(self.P.src, "int_distinct", lambda *_: None)(t, c)
+            if big is not None:                   # a large Parquet table: streamed, the same sorted values
+                self._ks[(t, c)] = big[0]
+                return big[0]
             s = self.P.df[t][c] if self.P.whole[t] else self.P.src.column(t, c)
             k = _keyvals(s)
+            if isinstance(k.dtype, pd.Int64Dtype):   # integer keys: the same sorted distinct values, without objects
+                self._ks[(t, c)] = np.unique(k.to_numpy(dtype=np.int64))
+                return self._ks[(t, c)]
             arr = np.array(pd.unique(k.astype(object)), dtype=object)
             ints = _as_int(arr)
             self._ks[(t, c)] = np.sort(ints) if ints is not None else np.sort(arr.astype(str))
@@ -420,8 +427,13 @@ class KeyFinder:
             s = df[c]
             if c in binary or s.isna().any() or not s.is_unique or not is_keylike(s):
                 continue
-            if not P.whole[t] and not P.src.column(t, c).is_unique:
-                continue
+            if not P.whole[t]:
+                big = getattr(P.src, "int_distinct", lambda *_: None)(t, c)
+                if big is not None:
+                    if len(big[0]) != P.src.count(t):   # every row has a value and no value repeats
+                        continue
+                elif not P.src.column(t, c).is_unique:
+                    continue
             L = s.astype(str).str.len().max()
             score_len = 1.0 / max(1.0, L - 8)
             score_pos = 1.0 / (i + 1)
@@ -482,6 +494,8 @@ class KeyFinder:
             x = {"parent": pt, "key": pk, "sigma": sigma, "chance": cl, "R": R, "C": C, "N": N,
                  "R_crit": r_crit(len(inc)), "forest": None, "p_forest": None, "v": len(vals)}
             if pt == t:
+                if sigma < 1.0:                 # not a hierarchy (below): skip reading every row
+                    continue
                 # pointers and keys of every row, also when the table is sampled
                 rows = P.df[t] if P.whole[t] else P.src.columns(t, [pk, c])
                 kk = canonical_keys(rows[pk]).astype(object).where(rows[pk].notna(), None).tolist()
