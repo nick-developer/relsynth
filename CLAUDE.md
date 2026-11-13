@@ -12,11 +12,15 @@ review rounds stay short.
 2. **Finish the coding while it is a draft.** Push as often as needed. Run the fast local checks
    for what you changed (ruff, mypy, the tests of the touched modules) before each push.
 3. **Mark it ready for review only when** the coding is complete and every other required check
-   (`ci`, `codeql`, `security`, and any workflow the change triggers) is green. Fix red checks while
-   still in draft; do not mark ready to "see what CodeRabbit says".
-4. **Wait for CodeRabbit to finish.** Marking ready starts one full review. It is finished when the
-   `CodeRabbit` commit status is no longer pending and its review (walkthrough plus inline comments)
-   is posted. Do not poll in a loop: let the PR activity wake you, or check once after a few minutes.
+   (`ci` always; `codeql` and `security` when the pull request targets `main`, since they run only
+   there; and any workflow the change triggers) is green. Fix red checks while still in draft; do
+   not mark ready to "see what CodeRabbit says".
+4. **Wait for CodeRabbit to finish.** Marking a pull request to `main` ready starts one full review.
+   CodeRabbit reviews only pull requests to `main` on its own (`base_branches`), so for a stacked
+   pull request, or if no review has started a few minutes after marking ready, post one top-level
+   `@coderabbitai review` comment instead. The review is finished when the `CodeRabbit` commit
+   status is no longer pending and its review (walkthrough plus inline comments) is posted. Do not
+   poll in a loop: let the PR activity wake you, or check once after a few minutes.
 5. **Leave one top-level comment** on the pull request, and nothing else:
 
    ```
