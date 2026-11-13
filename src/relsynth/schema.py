@@ -175,6 +175,11 @@ S = {
         "min_entities": ("int", 30, "Segments with fewer entities use the pooled parameters."),
         "redraws": ("int", 10, "Redraws of an entity whose new times break a check rule; then the engine's times "
                     "are kept."),
+        "calendar": ("auto | pooled | segment", "auto", "One trend and season profile per segment, or one shared "
+                     "by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers "
+                     "it (Prop. 1784); small segments share one."),
+        "calendar_draw": ("bool", False, "Draw the calendar from its posterior for each dataset. Off: the calendar "
+                          "stays at its posterior mean and the life times carry the uncertainty (Prop. 1784)."),
     },
     "sequence_window": {
         "start": ("column", None, "Column of the entity: first possible event time."),

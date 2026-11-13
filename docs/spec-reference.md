@@ -394,6 +394,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `shrinkage` | number | `1.0` | Prior standard deviation of a segment's parameters around the pooled fit. |
 | `min_entities` | int | `30` | Segments with fewer entities use the pooled parameters. |
 | `redraws` | int | `10` | Redraws of an entity whose new times break a check rule; then the engine's times are kept. |
+| `calendar` | auto | pooled | segment | `auto` | One trend and season profile per segment, or one shared by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers it (Prop. 1784); small segments share one. |
+| `calendar_draw` | bool | `False` | Draw the calendar from its posterior for each dataset. Off: the calendar stays at its posterior mean and the life times carry the uncertainty (Prop. 1784). |
 
 ### `sequence.window`
 
@@ -705,6 +707,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.occupancy_z` | `-4.0` | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
 | `facts.occupancy_min_expected` | `10.0` | ... and at least this many repeats are expected under Poisson. |
 | `facts.dp_count_sweeps` | `30` | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
+| `facts.segment_totals` | `auto` | auto: the rows of a link with a count model are spread over the parent segments so that each segment's total follows the sum of its parents' counts (a Metropolis-Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep the source's count law; off: segments drawn from the link's segment weights alone (2.2 draws). |
+| `facts.segment_total_sweeps` | `4` | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
+| `facts.dp_count_start` | `draw` | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |

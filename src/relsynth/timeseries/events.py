@@ -246,8 +246,13 @@ class SequenceModel:
     segment of each entity row and window (A, B) the entity windows in days.
     """
 
-    def __init__(self, bucket="month", weekly=True, hourly=None, shrinkage=1.0, min_entities=30, calibration=3):
+    def __init__(self, bucket="month", weekly=True, hourly=None, shrinkage=1.0, min_entities=30, calibration=3,
+                 calendar="segment", calendar_draw=True):
         self.intensity = Intensity(bucket, weekly, hourly)
+        if calendar not in ("auto", "pooled", "segment"):
+            raise ValueError("sequence.calendar must be auto, pooled or segment")
+        self.calendar = calendar
+        self.calendar_draw = bool(calendar_draw)
         self.shrinkage = float(shrinkage)
         self.min_entities = int(min_entities)
         self.calibration = int(calibration)
@@ -273,6 +278,7 @@ class SequenceModel:
         ok &= (t >= np.maximum(A[np.maximum(owner, 0)], t0)) & (t < np.minimum(B[np.maximum(owner, 0)], t1))
         self.null_rate = float(np.mean(~np.isfinite(np.asarray(t, dtype=float)))) if len(t) else 0.0
         expo, inner = self._exposure(t[ok], owner[ok], seg_of_owner, t0, t1)
+        self.intensity.pooled = self._pool_calendar(t[ok], seg_of_owner[owner[ok]], t0, t1)
         self.intensity.fit(t[ok], seg_of_owner[owner[ok]], self.K, t0, t1, self.datetime,
                            exposure=expo, interior=inner)
         self.stats = self._stats(t[ok], owner[ok], seg_of_owner, A, B)
@@ -282,6 +288,34 @@ class SequenceModel:
         self.redraw(None)
         self.fitted = True
         return self
+
+    def _pool_calendar(self, t, seg, t0, t1):
+        """Whether the segments share one calendar.  auto: Bayes factor of one
+        bucket profile per segment against one shared profile, each with a
+        uniform Dirichlet prior (Dirichlet-multinomial marginals of the bucket
+        counts; the multinomial coefficients cancel); segments get their own
+        profile only when the evidence for it is decisive (log BF > log 100).
+        Profiles of small segments are noise that the life times then learn to
+        follow, so the model reproduces the source's segments and not its
+        population (AdventureWorks customers: 627 segments of about 30; Prop. 1784)."""
+        if self.calendar != "auto":
+            self.fit_log["calendar"] = self.calendar
+            return self.calendar == "pooled"
+        if self.K < 2 or not len(t):
+            self.fit_log["calendar"] = "pooled (one segment)"
+            return True
+        I = Intensity(self.intensity.bucket, False, None)
+        I.fit(t, np.zeros(len(t), np.int64), 1, t0, t1, self.datetime)
+        b = I.bucket_of_day[np.clip(np.floor(t).astype(np.int64) - I.d0, 0, I.ndays - 1)]
+        C = np.zeros((self.K, I.B))
+        np.add.at(C, (seg, b), 1.0)
+
+        def ldm(c):                      # log Dirichlet-multinomial(c | 1), without the coefficient
+            return float(gammaln(c.shape[-1]) - gammaln(c.sum() + c.shape[-1]) + gammaln(c + 1).sum())
+        lbf = sum(ldm(C[k]) for k in range(self.K)) - ldm(C.sum(0))
+        pooled = lbf <= np.log(100.0)
+        self.fit_log["calendar"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
+        return pooled
 
     def _calibrate(self, t, owner, seg_of_owner, A, B, rng, iters=None):
         """Moment-match the calendar profile: the bridge itself puts more events
@@ -299,16 +333,17 @@ class SequenceModel:
         n_ent = np.bincount(owner, minlength=len(seg_of_owner))
         seg_e = seg_of_owner
         b_real = I.bucket_of_day[np.clip(np.floor(t).astype(np.int64) - I.d0, 0, I.ndays - 1)]
-        real = np.zeros((self.K, I.B))
-        np.add.at(real, (seg_of_owner[owner], b_real), 1.0)
+        crow = I.seg(seg_of_owner)                     # calendar row of each entity
+        real = np.zeros((I.K, I.B))
+        np.add.at(real, (crow[owner], b_real), 1.0)
         self.fit_log["calibration"] = []
         for _ in range(int(iters)):
             self.redraw(None)
-            sim = np.zeros((self.K, I.B))
+            sim = np.zeros((I.K, I.B))
             for r in range(2):
                 st, so = self.sample(n_ent, seg_e, A, B, np.random.default_rng([int(rng.integers(2 ** 31)), r]))
                 bs = I.bucket_of_day[np.clip(np.floor(st).astype(np.int64) - I.d0, 0, I.ndays - 1)]
-                np.add.at(sim, (seg_e[so], bs), 0.5)
+                np.add.at(sim, (I.seg(seg_e[so]), bs), 0.5)
             ratio = (real + 1.0) / (sim + 1.0)
             tvd = float(0.5 * np.abs(real / max(real.sum(), 1) - sim / max(sim.sum(), 1)).sum())
             self.fit_log["calibration"].append(round(tvd, 5))
@@ -397,9 +432,12 @@ class SequenceModel:
         self.theta_hat = np.tile(PRIOR_MEAN, (self.K, 1))
         self.theta_cov = np.tile(np.diag(PRIOR_SD ** 2), (self.K, 1, 1))
         cal = self.fit_log.get("calibration") if keep_log else None
+        choice = self.fit_log.get("calendar")
         self.fit_log = {"segments": {}}
         if cal is not None:
             self.fit_log["calibration"] = cal
+        if choice is not None:
+            self.fit_log["calendar"] = choice
         self.life = [_Lifetime().fit(np.ones(1, np.int64), np.full(1, 0.5), np.full(1, np.nan))] * self.K
         if st is None:
             return
@@ -411,9 +449,13 @@ class SequenceModel:
         self.fit_log["pooled"] = {"theta": dict(zip(NAMES, np.round(th0, 4).tolist())), "converged": ok0,
                                   "entities": pooled.n_entities}
         sd = np.full(NPAR, self.shrinkage)
+        # calendar auto and pooled by the Bayes factor: the segments do not differ in
+        # when their events happen, so their life times and gaps are pooled too (their
+        # own fits on a few dozen entities overfit; Prop. 1784)
+        share = self.calendar == "auto" and bool(getattr(self.intensity, "pooled", False))
         for k in range(self.K):
             m = st["seg"] == k
-            if m.sum() < self.min_entities:
+            if share or m.sum() < self.min_entities:
                 self.theta_hat[k], self.theta_cov[k] = th0, cov0
                 self.life[k] = _Lifetime().fit(pooled.n, pooled.h, pooled.q)
                 self.fit_log["segments"][k] = {"entities": int(m.sum()), "pooled": True}
@@ -446,8 +488,13 @@ class SequenceModel:
             self.rate_ab[k] = np.exp(x)
 
     def redraw(self, rng=None):
-        """One posterior draw of every parameter (rng given) or posterior means."""
-        self.intensity.draw(rng)
+        """One posterior draw of every parameter (rng given) or posterior means.
+        calendar_draw False keeps the calendar at its posterior mean: the life
+        times are fitted in its operational time, so their posterior already
+        carries when entities are active, and drawing the two independently
+        double counts it (AdventureWorks internet orders: 10 of 11 checks with
+        the mean calendar, 5 with a drawn one; Prop. 1784)."""
+        self.intensity.draw(rng if getattr(self, "calendar_draw", True) else None)
         if rng is None:
             self.theta = self.theta_hat.copy()
         else:
