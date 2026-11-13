@@ -117,18 +117,34 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Both settings are opt-in: shrinkage 0 and the guard off reproduce 2.1."""
-    m, base = _run(shop, marginals__segment_prior_rows=20.0)
+    """Shape-mode shrinkage (20 rows) is on by default, the guard is off, and
+    0 rows (the 2.1 fit) give other values."""
+    m, base = _run(shop)
     assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
-    m0, _ = _run(shop)
-    assert m0.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0   # opt-in: 2.1 output by default
+    assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
     _, zero = _run(shop, marginals__segment_prior_rows=0.0)
-    b, z = dict(base), dict(zero)
-    assert any(not b[t].equals(z[t]) for t in b)
-    # the same random stream (Prop. 1720 b): same row counts in every table
-    assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
+    b, f = dict(base), dict(zero)
+    assert set(b) == set(f)
+    assert any(not b[t].equals(f[t]) for t in b)
+
+
+def test_zero_rows_gives_the_21_output_in_every_mode(shop):
+    """segment_prior_rows: 0 turns shrinkage off in every mode: shape and numeric
+    give the same tables as table mode at 0, which is the 2.1 output."""
+    _, table = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode="table")
+    for mode in ("shape", "numeric"):
+        _, other = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode=mode)
+        assert set(other) == set(table)
+        for t in table:
+            pd.testing.assert_frame_equal(other[t], table[t], check_exact=True)
+    # a positive value below dirichlet_prior (0.25) gives the weight a = max(0.25, rows) = 0.25,
+    # so every mode at 0.01 rows is the 2.1 fit too (shape and numeric fall back to table)
+    for mode in ("table", "shape", "numeric"):
+        _, small = _run(shop, marginals__segment_prior_rows=0.01, marginals__segment_prior_mode=mode)
+        for t in table:
+            pd.testing.assert_frame_equal(small[t], table[t], check_exact=True)
 
 
 def _catalogue(d):
@@ -305,3 +321,58 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     small["source"]["path"] = str(src / "src")
     m3, _ = _run(small, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
     assert m3.synthesizer._near_copy_guard("product") is None
+
+
+def test_shape_mode_reaches_the_segment_fits(tmp_path, monkeypatch):
+    """Through the production fit (SegmentMarginals._fit_marginals): in shape mode
+    with a positive weight, the segment fits of continuous columns get shift_prior and
+    the weight max(dirichlet_prior, rows); categorical columns and the table's own
+    marginal keep dirichlet_prior; and a segment's fitted median is its own (Prop. 1724 b)."""
+    from relsynth.generators import copula as cg
+
+    calls, orig = [], cg.Marginal.fit
+
+    def spy(cd, x, rng, **kw):
+        m = orig(cd, x, rng, **kw)
+        calls.append((cd, np.asarray(x), kw, m))
+        return m
+
+    monkeypatch.setattr(cg.Marginal, "fit", staticmethod(spy))
+    spec = _catalogue(tmp_path)
+    spec["synthesis"] = {"marginals": {"segment_prior_rows": 40.0, "segment_prior_mode": "shape"}}
+    rs.fit(spec, seed=3)
+    seg = [c for c in calls if c[2].get("prior") is not None]
+    top = [c for c in calls if c[2].get("prior") is None]
+    assert seg and top
+    cont = [c for c in seg if c[0].kind != "discrete"]
+    disc = [c for c in seg if c[0].kind == "discrete"]
+    assert cont and disc
+    assert all(c[2].get("shift_prior") is True and c[2]["dirichlet_a"] == 40.0 for c in cont)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in disc)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in top)
+    # refitted with the same options as a posterior mean (bootstrap off), each segment
+    # marginal keeps the segment's median, up to the grid
+    u, checked, small = np.linspace(0, 1, 4001)[1:-1], 0, 0
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        if len(x) < 1 or hi <= lo or not (lo <= np.median(x) <= hi):
+            continue
+        m = orig(cd, x, np.random.default_rng(0), **{**kw, "bootstrap": False})
+        checked += 1
+        small += len(x) < 5
+        assert abs(np.median(m.from_uniform(u)) - np.median(x)) < 0.05 * (hi - lo), (len(x), cd.name)
+    assert checked > 0
+    # this catalogue has no segment under 5 rows: replay the production options of each
+    # continuous fit on its first 1-4 values, the shape of a tiny segment
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        for k in range(1, 5):
+            xs = x[:k]
+            if len(xs) < k or hi <= lo or not (lo <= np.median(xs) <= hi):
+                continue
+            m = orig(cd, xs, np.random.default_rng(0), **{**kw, "bootstrap": False})
+            small += 1
+            assert abs(np.median(m.from_uniform(u)) - np.median(xs)) < 0.05 * (hi - lo), (k, cd.name)
+    assert small > 0

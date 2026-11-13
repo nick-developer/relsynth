@@ -3426,6 +3426,38 @@ class Synthesizer:
             rows = rng.permutation(np.flatnonzero(~valid))
             try_move(rows, propose(rows, blocks[rounds % len(blocks)]), False)
             rounds += 1
+        # rows the link model's proposals could not place (its segment draws can keep
+        # pointing at parent segments whose keys are all taken, as when nearly every
+        # parent row needs exactly one child): the repair reaches a valid state with
+        # parents drawn uniformly over the allowed parent rows.  It runs only for rows
+        # that would otherwise break a declared unique key or key rule, so it changes
+        # no output that already satisfied them; the later sweeps then mix as before.
+        fallback = 0
+        if (~valid).any():
+            before = int((~valid).sum())
+            empty = 0  # consecutive blocks without any allowed parent
+            for it in range(int(_setting(self, "repair", "constraint_rounds", 200))):
+                if not (~valid).any():
+                    break
+                rows = rng.permutation(np.flatnonzero(~valid))
+                prop = {}
+                for r in blocks[it % len(blocks)]:
+                    pk_ = np.asarray(keys[r["parent"]], dtype=object)
+                    mask = getattr(self, "_edge_masks", {}).get(r["name"])
+                    allowed = np.flatnonzero(np.asarray(mask) > 0) if mask is not None and len(mask) == len(pk_) \
+                        else np.arange(len(pk_))
+                    if not len(allowed):
+                        continue
+                    prop[r["child_key"]] = pk_[allowed[rng.integers(len(allowed), size=len(rows))]]
+                if not prop:
+                    # skip a block with no allowed parent; stop once no block has one
+                    empty += 1
+                    if empty >= len(blocks):
+                        break
+                    continue
+                empty = 0
+                try_move(rows, prop, False)
+            fallback = before - int((~valid).sum())
 
         def sweep(n):
             for _ in range(n):
@@ -3453,6 +3485,8 @@ class Synthesizer:
         left = int((~valid).sum())
         self.sample_log["uniqueness"][e] = {"repair_rounds": rounds, "unresolved_rows": left, "sweeps": sweeps,
                                             "seconds": round(time.time() - t0, 1)}
+        if fallback:
+            self.sample_log["uniqueness"][e]["rows_placed_uniformly"] = fallback
         if exact_log:
             rlog = exact_log
         if rlog:

@@ -191,6 +191,8 @@ META: dict[str, dict] = dict([
     _p("marginals.segment_prior_rows", type="float", low=0, high=200, tunable=True, scale="linear",
        affects=_FID_ASSOC + _FID_MARG + _JOIN + _PRIV,
        direction={f: -1 for f in _FID_ASSOC + _FID_MARG + _JOIN} | {f: +1 for f in _PRIV}),
+    _p("marginals.segment_prior_mode", type="choice", choices=("table", "numeric", "shape"), tunable=True,
+       affects=_FID_ASSOC + _FID_MARG + _JOIN + _PRIV),
     _p("facts.min_group_rows", type="int", low=0, high=1e9, tunable=True, scale="log", affects=_JOIN + _FID_ASSOC,
        direction={f: -1 for f in _JOIN + _FID_ASSOC}),
     _p("facts.frailty", type="choice", choices=("auto", "on", "off"), tunable=True, affects=_CARD),

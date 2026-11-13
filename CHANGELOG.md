@@ -4,6 +4,19 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ## Unreleased
 
+### Changed
+
+- **Small dimensions keep a privacy margin by default (gap plan G3).** Shape-mode segment shrinkage is on for entity tables (`marginals.segment_prior_rows: 20`, `marginals.segment_prior_mode: shape`): each number or date column of a segment takes 20 rows' weight from the parent distribution moved to the segment's median and spread, inside the parent's range, so segments keep their location in the posterior mean (Prop. 1724). On AdventureWorks the `DimProduct` distance-to-closest-record ratio rises from 0.50-0.65 to 0.59-1.16 over five seeds (mean 0.57 to 0.91, limit 0.5; one seed stays at its 2.1 level), at a cost of 2 of 1,267 scorecard items on average (40 rows: 0.89-1.27 for 6 items). The cost is in the fact tables of Contoso: shrinking the product table shifts which products the facts buy, their price distributions move from 0.025-0.045 to about 0.09 (Wasserstein on normal scores, limit 0.05) and the fidelity pass rate drops from about 0.92 to 0.91; the bench baseline was rebuilt to accept it (owner's decision). 2.2.0 shipped the shrinkage opt-in (default 0 rows). Default output changes for every database with small entity segments; `marginals.segment_prior_rows: 0` restores the 2.1 output.
+
+### Added
+
+- **`marginals.segment_prior_mode`** (`shape`, the default, `table` or `numeric`) says what a segment is shrunk toward. In `shape` mode only continuous columns are shrunk, toward the parent distribution (the table's, or a coarse group's) moved to the segment's median and scaled to its interquartile range inside the parent's range, so the dimension-fact links that `table` mode breaks (science checks C09, C19, C43) hold. Fact tables, and segments of at most `dirichlet_prior` rows, keep the 2.1 fit.
+- Proposition 1724 (`docs/proofs/sec_g3_smalldims.tex`) with check C1724 and claim PRV-35. Prop. 1720(b) is corrected: the variates drawn do not depend on the weight, but NumPy's rejection Beta sampler can leave a different generator state, so only weights up to `dirichlet_prior` reproduce the 2.1 stream (C1720 checks this).
+
+### Fixed
+
+- **Entity unique keys over links are met when the link model runs out of room.** When nearly every parent row needs exactly one child (an account per customer at scale 1.15), the repair could end with rows still breaking a unique key over a link (science check C75 found a duplicate customer key). Rows the link model's proposals cannot place now get a parent drawn uniformly over the allowed parent rows, accepted only when every key and key rule holds; the sample log counts them (`uniqueness.<table>.rows_placed_uniformly`). Output that already met its keys is unchanged.
+
 ## 2.2.0 (2026-11-13)
 
 Draws change for the same seed in two places: `cart` output (smoothing is now on by default) and DP-mode output (composite keys, groups). Default copula output without DP is byte-identical to 2.1.0.

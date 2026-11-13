@@ -1312,7 +1312,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "The small-dimension settings of release 2.2 (`marginals.segment_prior_rows`, `privacy.near_copy`) are off by default and keep that output."
+      - "Release 2.2.0 kept that output (its small-dimension settings were off by default); the next release changes one default on purpose (shape-mode segment shrinkage for small dimension tables, `marginals.segment_prior_rows: 20`), and setting it to 0 restores the 2.1 output."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -2044,17 +2044,18 @@ claims:
   - id: PRV-20
     doc: docs/privacy.md
     area: statistics
-    quote: "Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`)."
+    quote: "Two settings deal with this (Props. 1720-1724 in `docs/proofs/sec_g3_smalldims.tex`)."
     status: supported
     evidence:
       - prop: prop:segshrink
+      - prop: prop:segshape
       - prop: prop:ncguard
       - report: docs/research/small-dimensions.md
 
   - id: PRV-21
     doc: docs/privacy.md
     area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720)"
+    quote: "a segment of `n` rows keeps the share `n / (n + a)` of its own distribution, where `a` is the larger of `rows` and `marginals.dirichlet_prior` (0.25 by default), and takes the rest from the prior (Prop. 1720; for a continuous column `n` counts the segment's non-null values, at most `marginals.max_obs`, so a sparse column keeps less)"
     status: supported
     evidence:
       - prop: prop:segshrink
@@ -2063,11 +2064,13 @@ claims:
   - id: PRV-22
     doc: docs/privacy.md
     area: statistics
-    quote: "the change is at most `rows / (n + rows)` in total variation (Prop. 1721)"
+    quote: "the posterior predictive changes by at most `a / (n + a)` in total variation (Props. 1721 and 1724), in every mode (the fitted marginal adds the interpolation between its grid points)"
     status: supported
     evidence:
       - prop: prop:seglarge
+      - prop: prop:segshape
       - check: C1721
+      - check: C1724
 
   - id: PRV-23
     doc: docs/privacy.md
@@ -2135,6 +2138,22 @@ claims:
       - test: tests/unit/test_small_dims.py::test_guard_encoding_is_fitted_on_real_rows_only
       - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
       - code: src/relsynth/evaluate.py
+
+  - id: PRV-35
+    doc: docs/privacy.md
+    area: statistics
+    quote:
+      - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the parent distribution (the table's, or a coarse group's when the segment has one) moved to the segment's median and scaled to its interquartile range, inside the parent's range: a segment whose median lies inside the parent's range (the table's, or a coarse group's when the segment has one) keeps it in the posterior mean, up to the interpolation between grid points (Prop. 1724; each posterior draw varies around it, as without shrinkage; a median outside that range is pulled toward it), so what the fact tables read from it (which products sell, at what price) stays in place in the posterior mean, and only the exact values of its few rows are smoothed."
+      - "With `table`, every column is shrunk toward the table's own distribution; this also moves each segment toward the table and weakens the joins (with 20 rows the fake-data science checks C09, C19 and C43 fail, and the AdventureWorks scorecard loses 7.8 of 1,267 items on average)."
+      - "Shrinkage lowers how often a segment reproduces its own values; it does not rule out exact copies."
+      - "With `segment_prior_rows: 0` (or any value up to `dirichlet_prior`) every mode gives the 2.1 output."
+    status: supported
+    evidence:
+      - prop: prop:segshape
+      - check: C1724
+      - report: docs/research/small-dimensions.md
+      - code: src/relsynth/marginals.py::Marginal::fit
+      - test: tests/unit/test_small_dims.py::test_zero_rows_gives_the_21_output_in_every_mode
 
   - id: PRV-30
     doc: docs/privacy.md

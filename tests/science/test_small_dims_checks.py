@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Checks C1720-C1723: small-dimension privacy (gap plan G3;
-docs/proofs/sec_g3_smalldims.tex, Props. 1720-1723), tested on the shipped
+"""Checks C1720-C1724: small-dimension privacy (gap plan G3;
+docs/proofs/sec_g3_smalldims.tex, Props. 1720-1724), tested on the shipped
 code (`marginals.segment_prior_rows`, `relsynth.nearcopy`, the engine's guard).
 
     pytest -m science tests/science/test_small_dims_checks.py
@@ -36,8 +36,8 @@ def _own_mass(m, own):
 # --------------------------------------------------------------------- C1720
 def test_c1720_segment_shrinkage_weight_and_stream():
     """Prop. 1720: the predictive mass on the segment's own rows is n / (n + a)
-    (discrete: exactly, by the Dirichlet mean; continuous: E[V]), and the number
-    of random numbers drawn does not depend on a."""
+    (discrete: exactly, by the Dirichlet mean; continuous: E[V]), and the variates
+    drawn do not depend on a (the generator's state after them can)."""
     rng = np.random.default_rng(5)
     table = pd.Series(rng.choice(list("abcdefgh"), 3000, p=[.3, .2, .15, .1, .1, .05, .05, .05]))
     cd = Codec("x", {"type": "categorical"}, table)
@@ -57,12 +57,30 @@ def test_c1720_segment_shrinkage_weight_and_stream():
     cc = Codec("y", {"type": "float"}, pd.Series(vals))
     topc = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
     own = np.round(rng.gamma(2.0, size=12) * 100) / 100 + 50.0     # atoms far right of the table law
+    # (b) the variates drawn do not depend on a ...
+    class Counting:
+        def __init__(self, seed):
+            self.g, self.calls = np.random.default_rng(seed), []
+
+        def __getattr__(self, name):
+            f = getattr(self.g, name)
+            return (lambda *x, **k: (self.calls.append(name), f(*x, **k))[1]) if callable(f) else f
+
+    c0, c1 = Counting(11), Counting(11)
+    Marginal.fit(cc, own, c0, prior=topc, dirichlet_a=0.25, grid=64)
+    Marginal.fit(cc, own, c1, prior=topc, dirichlet_a=20.0, grid=64)
+    assert c0.calls == c1.calls and "beta" in c0.calls
+    # ... but the underlying random numbers can: the Beta is drawn by rejection, so
+    # the state after it differs for some seeds, and only a = a0 keeps the stream
+    differs = 0
+    for seed in range(300):
+        g0, g1, g2 = (np.random.default_rng(seed) for _ in range(3))
+        g0.beta(len(own), 0.25), g1.beta(len(own), 40.0), g2.beta(len(own), 0.25)
+        r0, r1, r2 = g0.random(), g1.random(), g2.random()
+        differs += r0 != r1
+        assert r0 == r2
+    assert differs > 0
     for a in (0.25, 20.0):
-        st0 = np.random.default_rng(11)
-        Marginal.fit(cc, own, st0, prior=topc, dirichlet_a=a, grid=64)
-        st1 = np.random.default_rng(11)
-        Marginal.fit(cc, own, st1, prior=topc, dirichlet_a=0.25 if a != 0.25 else 20.0, grid=64)
-        assert st0.random() == st1.random()          # same stream whatever a is
         mass = []
         for _ in range(3000):
             m = Marginal.fit(cc, own, rng, prior=topc, dirichlet_a=a, grid=256)
@@ -70,6 +88,87 @@ def test_c1720_segment_shrinkage_weight_and_stream():
         w = len(own) / (len(own) + a)
         assert abs(np.mean(mass) - w) < 0.03, (a, np.mean(mass), w)
 
+
+# --------------------------------------------------------------------- C1724
+def test_c1724_shape_shrinkage_keeps_location_range_and_stream():
+    """Prop. 1724: in shape mode the posterior mean predictive (bootstrap=False)
+    of a continuous segment has its sample median, up to the grid (b), every value
+    lies in the smallest interval containing the table's knots and the segment's
+    values (c), the random stream does not change at a fixed a (d), a median
+    beyond the table's range is pulled toward it, and the predictive moves by at most a / (n + a) whatever the two priors (e)."""
+    rng = np.random.default_rng(7)
+    vals = rng.gamma(2.0, size=4000)
+    cc = Codec("y", {"type": "float"}, pd.Series(vals))
+    top = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
+    lo, hi = top.knots_v[0], top.knots_v[-1]
+    u = np.linspace(0, 1, 20001)[1:-1]
+    for own in (np.array([6.1, 6.4, 6.6, 7.0, 7.2, 7.9]),          # right tail of the table
+                np.array([0.20, 0.25, 0.3]),                       # left tail, three rows
+                np.array([3.0] * 5)):                              # identical values
+        for a in (20.0, 40.0):
+            m = Marginal.fit(cc, own, rng, prior=top, dirichlet_a=a, grid=512, bootstrap=False,
+                             shift_prior=True)
+            v = m.from_uniform(u)
+            assert abs(np.median(v) - np.median(own)) < 0.02 * (hi - lo), (own, a, np.median(v))
+            assert v.min() >= min(lo, own.min()) - 1e-9 and v.max() <= max(hi, own.max()) + 1e-9
+            # the table-mode prior moves the median toward the table's
+            t = Marginal.fit(cc, own, rng, prior=top, dirichlet_a=a, grid=512, bootstrap=False)
+            if own.std() > 0:
+                assert abs(np.median(t.from_uniform(u)) - np.median(own)) > abs(np.median(v) - np.median(own))
+        s0, s1 = np.random.default_rng(3), np.random.default_rng(3)
+        Marginal.fit(cc, own, s0, prior=top, dirichlet_a=40.0, shift_prior=True)
+        Marginal.fit(cc, own, s1, prior=top, dirichlet_a=40.0)
+        assert s0.random() == s1.random()
+    # (b) needs l <= m_g <= u: a segment beyond the table's largest knot keeps its
+    # values, but the clipped prior sits at u and pulls the predictive median below m_g
+    far = hi + np.array([5.0, 6.0, 7.0])
+    m = Marginal.fit(cc, far, rng, prior=top, dirichlet_a=40.0, grid=512, bootstrap=False,
+                     shift_prior=True)
+    v = m.from_uniform(u)
+    assert np.median(v) < np.median(far) - 1.0 and np.median(v) <= hi + 1e-9
+    assert v.max() <= far.max() + 1e-9
+    # (e) with a prior that changes with a, the predictive moves by at most a / (n + a)
+    for _ in range(500):
+        V = int(rng.integers(2, 30))
+        e = rng.dirichlet(np.ones(V) * 0.3)
+        G, H = rng.dirichlet(np.ones(V) * 0.3), rng.dirichlet(np.ones(V) * 0.3)
+        n = int(rng.integers(1, 5000))
+        a0 = float(rng.uniform(0.0, 5.0))
+        a = float(rng.uniform(a0, 200.0))
+        wa, w0 = n / (n + a), n / (n + a0)
+        tv = 0.5 * np.abs(wa * e + (1 - wa) * G - (w0 * e + (1 - w0) * H)).sum()
+        assert tv <= a / (n + a) + 1e-12
+    # a positive segment_prior_rows below dirichlet_prior: the weight is a = dirichlet_prior,
+    # and the bound is a / (n + a), not rows / (n + rows)
+    dp, rows = 0.25, 0.01
+    a = max(dp, rows)
+    for _ in range(200):
+        V = int(rng.integers(2, 30))
+        e, G, H = (rng.dirichlet(np.ones(V) * 0.3) for _ in range(3))
+        n = int(rng.integers(1, 50))
+        wa, w0 = n / (n + a), n / (n + dp)
+        tv = 0.5 * np.abs(wa * e + (1 - wa) * G - (w0 * e + (1 - w0) * H)).sum()
+        assert tv <= a / (n + a) + 1e-12
+
+
+
+def test_c1724_positive_tail_trim_can_leave_the_interval():
+    """Prop. 1724(c) is stated for tail_trim 0: a positive tail_trim extrapolates the
+    end knots on purpose, so a value can fall below both the table's lowest knot and
+    the segment's lowest value (here the first trimmed quantile sits on that bound and
+    the next one above it)."""
+    rng = np.random.default_rng(7)
+    vals = rng.uniform(0, 10, size=4000)
+    cc = Codec("y", {"type": "float"}, pd.Series(vals))
+    top = Marginal.fit(cc, vals, rng, bootstrap=False, grid=64)
+    lo = top.knots_v[0]
+    own = np.r_[np.full(6, lo), np.linspace(lo + 1, lo + 4, 20)]
+    u = np.linspace(0, 1, 20001)[1:-1]
+    kw = dict(prior=top, dirichlet_a=40.0, grid=16, bootstrap=False, shift_prior=True)
+    trimmed = Marginal.fit(cc, own, rng, tail_trim=0.1, **kw).from_uniform(u)
+    assert trimmed.min() < min(lo, own.min())
+    plain = Marginal.fit(cc, own, rng, **kw).from_uniform(u)
+    assert plain.min() >= min(lo, own.min()) - 1e-12
 
 # --------------------------------------------------------------------- C1721
 def test_c1721_large_segments_move_by_at_most_a_over_n():
