@@ -57,11 +57,14 @@ def _selected(a) -> list[str]:
     return [n for t in _tiers(a.tier) for n in tier_datasets(t)]
 
 
-def matrix(tier: str) -> list[dict]:
+def matrix(tier: str, only: list[str] | None = None) -> list[dict]:
     """The CI jobs of a tier: one per dataset, or one per seed group (`jobs`); datasets that need a bigger
-    runner (runner "maintainer") and datasets that cannot run on a hosted runner (local tier) are left out."""
+    runner (runner "maintainer") and datasets that cannot run on a hosted runner (local tier) are left out.
+    `only` keeps the named datasets (and "fake" for the statistical suite)."""
     out = []
     for n in tier_datasets(tier):
+        if only and n not in only:
+            continue
         d = DATASETS[n]
         if d.runner != "github" or not d.public:
             continue
@@ -69,7 +72,7 @@ def matrix(tier: str) -> list[dict]:
         for i, g in enumerate(groups):
             out.append({"name": n if len(groups) == 1 else f"{n}-{chr(97 + i)}", "datasets": n,
                         "seeds": ",".join(map(str, g)), "fake": "--no-fake"})
-    if tier == "weekly":                         # the statistical check suite runs with the weekly bench
+    if tier == "weekly" and (not only or "fake" in only):   # the statistical check suite runs with the weekly bench
         out.append({"name": "fake", "datasets": "", "seeds": "1", "fake": "--fake-only"})
     return out
 
@@ -182,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tier", default=None, help="with --full: only the datasets of these tiers must have run")
     p.add_argument("--hosted", action="store_true", help="with --tier: only the datasets a GitHub-hosted runner "
                    "runs (bench.yml leaves out the bigger-runner and local sets)")
+    p.add_argument("--only", default="", help="with --tier: only these datasets must have run (bench.yml `only`)")
     p = sub.add_parser("baseline")
     p.add_argument("records", nargs="+")
     p.add_argument("--out", default=str(BASELINE))
@@ -189,7 +193,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--datasets", nargs="*", choices=sorted(DATASETS))
     p.add_argument("--tier", default=DEFAULT_TIERS)
     sub.add_parser("list")
-    sub.add_parser("matrix").add_argument("--tier", required=True, choices=TIERS)
+    m = sub.add_parser("matrix")
+    m.add_argument("--tier", required=True, choices=TIERS)
+    m.add_argument("--only", default="", help="comma-separated datasets of the tier to keep (and fake)")
     sub.add_parser("coverage").add_argument("--check", action="store_true",
                                             help="exit 1 when a required feature has fewer than two datasets")
     a = ap.parse_args(argv)
@@ -200,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{n:16s} {d.tier:8s} {'available' if ok else 'unavailable: ' + why}  {d.note}")
         return 0
     if a.cmd == "matrix":
-        print(json.dumps(matrix(a.tier)))
+        print(json.dumps(matrix(a.tier, [x for x in a.only.split(",") if x] or None)))
         return 0
     if a.cmd == "coverage":
         table, short = coverage_table()
@@ -228,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         if a.tier:
             expected = {p["datasets"] or "fake" for t in _tiers(a.tier) for p in matrix(t)} if a.hosted else \
                 {*(n for t in _tiers(a.tier) for n in tier_datasets(t)), *(["fake"] if "weekly" in a.tier else [])}
+            if a.only:
+                expected &= set(a.only.split(","))
         return cmd_compare([Path(r) for r in a.record] or [_newest()], Path(a.baseline), a.full,
                            os.environ.get("GITHUB_STEP_SUMMARY"), expected=expected)
     if a.cmd == "baseline":

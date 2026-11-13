@@ -26,6 +26,9 @@ on:
       seeds:
         description: "Seeds (default: each dataset's own)"
         default: ""
+      only:
+        description: "Comma-separated datasets of the tier to run (default: all; 'fake' is the statistical suite)"
+        default: ""
       rebuild_baseline:
         description: "Commit a baseline built from this run's records to the dispatched branch (never main)"
         type: boolean
@@ -57,7 +60,9 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -e ".[bench]"
       - id: m
-        run: echo "parts=$(python -m bench matrix --tier "$TIER")" >> "$GITHUB_OUTPUT"
+        env:
+          ONLY: ${{ inputs.only }}
+        run: echo "parts=$(python -m bench matrix --tier "$TIER" --only "$ONLY")" >> "$GITHUB_OUTPUT"
 
   bench:
     # one job per dataset (in parallel), each within a hosted runner's 6 hours
@@ -109,14 +114,16 @@ jobs:
         # one folder per job: parallel jobs can write records of the same name
         with: { pattern: bench-history-*, path: bench-out }
       - name: Compare with the baseline (every dataset of the tier must run)
-        run: python -m bench compare bench-out/*/*.json --full --tier "$TIER" --hosted
+        env:
+          ONLY: ${{ inputs.only }}
+        run: python -m bench compare bench-out/*/*.json --full --tier "$TIER" --hosted --only "$ONLY"
 
   baseline:
     # A baseline change on the dispatched branch: the records of this run (or of
     # records_from_run) become bench/history/ files and bench/baseline.json, in a
     # signed-off commit that the pull request then reviews with the rest.
     needs: bench
-    if: ${{ always() && inputs.rebuild_baseline && github.ref != 'refs/heads/main' && needs.bench.result != 'failure' }}
+    if: ${{ always() && inputs.rebuild_baseline && !inputs.only && github.ref != 'refs/heads/main' && needs.bench.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
