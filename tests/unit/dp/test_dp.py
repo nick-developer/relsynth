@@ -93,6 +93,29 @@ def test_pushdown_setting_is_parsed_and_picks_where_stage1_reads(star, star_sqli
         RW.source_for(files, "on")
 
 
+def test_seed_keeps_a_row_when_every_row_breaks_a_rule(star):
+    """A small seed where every order breaks a check rule (the dp-eval audit's crash):
+    the seed keeps the row that breaks the fewest and re-attaches one child, so
+    stage 2 has tables to fit instead of failing on an empty fact."""
+    from relsynth.dp import relational as R
+    from relsynth.pipeline import execute
+    t, s = star
+    s = copy.deepcopy(s)
+    s["rules"] = list(s.get("rules") or []) + [{"table": "customer", "type": "check", "expr": "age < 0"},
+                                               {"table": "sales", "type": "check", "expr": "quantity < 0"}]
+    spec = _spec(s)
+    cfg = dp.parse(spec)
+    pl = R.make_plan(spec, cfg)
+    res = {k: v.copy() for k, v in t.items()}
+    R._enforce_checks(spec, pl, res)
+    assert len(res["customer"]) == 1 and len(res["sales"]) == 1
+    assert res["sales"]["customer_id"].isin(res["customer"]["customer_id"]).all()
+    s2 = dp.stage2_spec(spec)
+    s2["rules"] = [r for r in s2["rules"] if r["expr"] not in ("age < 0", "quantity < 0")]
+    run = execute(s2, tables=res, out=False, write=False, seed=1, evaluate_data=False, privacy=False)
+    assert not run.exceptions, run.exceptions
+
+
 def test_cli_reads_several_units_separated_by_commas():
     from types import SimpleNamespace
 

@@ -148,13 +148,10 @@ def _check_pushdown_source(spec: dict) -> None:
     """Refuse `pushdown: on` on a source without SQL, before anything is read."""
     from ..data import source_connector
     from .rows import sql_connector
-    conn = source_connector(spec)
-    try:
+    with source_connector(spec) as conn:
         if sql_connector(conn) is None:
             raise PrivacyError(f"synthesis.privacy.dp.pushdown: on needs a database source (or files with DuckDB); "
                                f"the source is {conn.kind}; nothing was read")
-    finally:
-        conn.close()
 
 
 def _peak_rss_mb() -> float | None:

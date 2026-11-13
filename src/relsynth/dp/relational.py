@@ -1047,23 +1047,41 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
         if P.parent_rel is not None:
             r = P.parent_rel
             ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
-            keep = set(_key_list(res[r["parent"]], pk))
+            par = res[r["parent"]]
+            keep = set(_key_list(par, pk))
             df = res[t]
             # a boolean array, not a list: an empty list would select no columns
-            res[t] = df[np.array([k in keep for k in _key_list(df, ck)], dtype=bool)].reset_index(drop=True)
+            mask = np.array([k in keep for k in _key_list(df, ck)], dtype=bool)
+            if len(df) and len(par) and not mask.any():
+                # every parent row of this table was dropped: keep one row under a kept parent row, so
+                # stage 2 has a table to fit (as decode keeps one child row; post-processing)
+                df = df.iloc[:1].copy()
+                for c, pc in zip(ck, pk):
+                    df[c] = par[pc].iloc[:1].to_numpy()
+                mask = np.ones(1, dtype=bool)
+            res[t] = df[mask].reset_index(drop=True)
+        bad = None
+        df = res[t]
         for rule in spec.get("rules") or []:
-            if rule.get("table") != t or rule.get("type") != "check" or not len(res[t]):
+            if rule.get("table") != t or rule.get("type") != "check" or not len(df):
                 continue
-            df = res[t]
             try:
-                ok = check_mask(df, rule["expr"], make_resolver(spec, t, df, res))
+                ok = np.asarray(check_mask(df, rule["expr"], make_resolver(spec, t, df, res)), dtype=bool)
             except (KeyError, ValueError) as e:
                 log.debug("DP seed: rule %r not checked: %s", rule["expr"], e)
                 continue
             if (~ok).any():
-                log.info("DP seed: %s: %d of %d rows break %r and are dropped", t, int((~ok).sum()), len(df),
-                         rule["expr"])
-                res[t] = df[ok].reset_index(drop=True)
+                log.info("DP seed: %s: %d of %d rows break %r", t, int((~ok).sum()), len(df), rule["expr"])
+                bad = (~ok).astype(int) if bad is None else bad + (~ok)
+        if bad is not None:
+            ok = bad == 0
+            if not ok.any():
+                # every row breaks a rule (a small seed, many cross-table rules): keep the row that breaks
+                # the fewest, rather than an empty table stage 2 cannot fit (post-processing)
+                ok = np.zeros(len(df), dtype=bool)
+                ok[int(np.argmin(bad))] = True
+                log.info("DP seed: %s: every row breaks a check rule; the row breaking the fewest is kept", t)
+            res[t] = df[ok].reset_index(drop=True)
 
 
 def _nearest_corr_cov(S):
