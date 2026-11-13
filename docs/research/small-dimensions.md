@@ -25,7 +25,7 @@ All numbers are `DimProduct` `dcr_ratio` (limit 0.5) and the AdventureWorks scor
 - **Marginal shrinkage** (`marginals.segment_prior_rows`) raises the weight of the table marginal in each segment's Dirichlet / Dirichlet-process posterior to that many rows. It is the hierarchical prior relsynth already has, made stronger for small segments. The posterior predictive of a segment of thousands of rows moves by at most `rows / n` in total variation (Prop. 1721; the bound is for the predictive mixture, not for each posterior draw or for the fitted marginal on its grid). The variates drawn do not change with `rows`, but the generator's state after a Beta draw can, so only `rows: 0` reproduces the 2.1 stream (Prop. 1720). It applies to every draw, in that each one is drawn from the shrunk posterior.
 - **Near-copy guard** (`privacy.near_copy`). It redraws rows that sit closer to a real row than that row's nearest distinct neighbour. Alone it is unreliable (0.52 on two draws), because the evaluation's metric ranks real and synthetic rows together and looks only at positive distances. It also rewrote rows in six AdventureWorks tables (24% of `ProspectiveBuyer`, 5% of `DimCustomer`), and on Chinook it broke `Track` associations on 4 of 5 seeds. Redrawing until it succeeds, it is not differentially private for any ε (Prop. 1723); with finite rounds it gives no DP guarantee of its own, and in DP mode it is post-processing of the seed database. It makes the DCR item of a guarded table circular. It ships as an opt-in safety net, off by default.
 
-**Choice:** marginal shrinkage with 20 rows was the first choice for the default, on entity tables only. The full validation below and the science suite showed that it weakens the dimension-fact links (see "Science checks"), so the default became shape-mode shrinkage (see "Shape mode"), approved by Cod3r on 2026-11-08, first with 40 rows. The CI bench then showed a fidelity cost in Contoso's fact tables, and Cod3r chose **shape-mode shrinkage with 20 rows** as the default of release 2.2 on 2026-11-13, with a rebuilt bench baseline (see "Contoso and the default"). The guard is opt-in.
+**Choice:** marginal shrinkage with 20 rows was the first choice for the default, on entity tables only. The full validation below and the science suite showed that it weakens the dimension-fact links (see "Science checks"), so the default became shape-mode shrinkage (see "Shape mode"), approved by Cod3r on 2026-11-08, first with 40 rows. The CI bench then showed a fidelity cost in Contoso's fact tables, and Cod3r chose **shape-mode shrinkage with 20 rows** as the default on 2026-11-13 (2.2.0 shipped the shrinkage opt-in; the default changes in the next release), with a rebuilt bench baseline (see "Contoso and the default"). The guard is opt-in.
 
 **Cost.** Over the four paired draws the AdventureWorks scorecard drops by 3 items on average out of 1,257. The draw-to-draw spread at the defaults is about ±5. The items that fail more often are systematic: `FactInternetSales` joined product prices (`ListPrice`, `DealerPrice`, `StandardCost` `join_ks`, 3 of 4 draws), `StartDate` `join_ks`, and the `FactInternetSales` discriminator. Internet sales are concentrated on a few products. When those products' prices are shrunk toward the catalogue, the price distribution weighted by sales moves. This is the price of not reproducing small product families. A deployment that needs these joins exactly can set `marginals.segment_prior_rows: 0` (the 2.1 behaviour), or set it per table under `per_table`.
 
@@ -77,7 +77,7 @@ The first version did not clip to the table's range and failed C48: shifted date
 
 **AdventureWorks**, the same five seeds as above (DimProduct DCR / scorecard of 1,267):
 
-| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 | Shape 20, 2.2 code |
+| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 | Shape 20, shipped code |
 |---|---|---|---|---|---|
 | 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.888 / 1212 | 1.124 / 1209 |
 | 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.101 / 1200 | 0.883 / 1203 |
@@ -86,7 +86,7 @@ The first version did not clip to the table's range and failed C48: shifted date
 | 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 1.274 / 1196 | 0.586 / 1206 |
 | Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.055 / 1202.0 | 0.914 / 1206.0 |
 
-Shape 40 (fact tables not shrunk) keeps `DimProduct` at 0.88 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40. The last column is the 2.2.0 default (shape 20) refitted after the C75 fix and with fact tables never shrunk; it is the code that ships.
+Shape 40 (fact tables not shrunk) keeps `DimProduct` at 0.88 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40. The last column is the new default (shape 20) refitted after the C75 fix and with fact tables never shrunk; it is the code that ships.
 
 ## Contoso and the default
 
@@ -101,7 +101,7 @@ The CI bench of the pull request ran Chinook, Contoso (Parquet) and Berka with s
 
 The fact tables copy the product's price (`UnitPrice = ProductKey.Price` times a factor), but leaving `Price` and `Cost` out of the shrinkage does not fix it: the joined `Brand` and `Manufacturer`, which are never shrunk, move too (TVD 0.021 to 0.033-0.051), so the facts buy a different mix of products. That variant also lowered the AdventureWorks `DimProduct` ratio (0.74 on seed 2) and was dropped.
 
-**Default (2.2.0), the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` ratios of 1.124, 0.883, 1.158, 0.820 and 0.586 on seeds 1, 2, 3, 11 and 12 (mean 0.91; 2.1: 0.50-0.65, mean 0.57), with scorecards of 1209, 1203, 1204, 1208 and 1206 (mean 1206.0, 2.0 items below 2.1's 1208.0). Seed 12 stays at its 2.1 level (0.586 against 0.581), so 20 rows lift the margin on most seeds but do not guarantee it; 40 rows gave 0.89 or more on every seed for 6 items. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
+**Default after 2.2.0, the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` ratios of 1.124, 0.883, 1.158, 0.820 and 0.586 on seeds 1, 2, 3, 11 and 12 (mean 0.91; 2.1: 0.50-0.65, mean 0.57), with scorecards of 1209, 1203, 1204, 1208 and 1206 (mean 1206.0, 2.0 items below 2.1's 1208.0). Seed 12 stays at its 2.1 level (0.586 against 0.581), so 20 rows lift the margin on most seeds but do not guarantee it; 40 rows gave 0.89 or more on every seed for 6 items. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
 
 ## Open items
 

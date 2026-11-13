@@ -2,6 +2,8 @@
 
 **Bayesian synthetic data for whole relational databases.** relsynth reads a database (Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, SQLite), a cloud warehouse (Databricks SQL, Microsoft Fabric, Snowflake, BigQuery), a lakehouse table (Apache Iceberg, Delta Lake) or a folder of CSV or Parquet files. It identifies the tables, keys, links and business rules, fits one Bayesian model of the whole schema, and writes a synthetic database with the same table structure. Every primary and foreign key resolves, every rule holds, and the statistics match the source. Each statement the engine relies on is a numbered proposition with a proof ([docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf)) and a test that checks it.
 
+Release 2.2 closes privacy gaps found by a roadmap audit: **several privacy units** in one DP run with composite keys followed and generated, a **quick privacy check** at the end of `relsynth run` by default (not in DP mode), an opt-in **privacy margin for small dimension tables** (segment shrinkage and a near-copy guard), privacy benchmarks for **every built-in generator**, and `cart` smoothing continuous values by default. See the [changelog](CHANGELOG.md#220-2026-11-13) for the other skip conditions.
+
 Release 2.1 adds **document databases** (MongoDB, Cosmos DB, DynamoDB, Couchbase, JSON), **row-conditioned synthetic text** with differentially private methods, a PII layer and a leakage audit, **agents** that draft and explain while people decide, **two-way marginals** (MST, AIM) in DP mode, a **claim register and assurance case** for privacy, legal and audit teams, and wider **security scanning** with fixes for every finding. See the [changelog](CHANGELOG.md#210-2026-11-07).
 
 Release 2.0 adds an optional **differential privacy mode** with a per-person guarantee, **privacy attacks** and a report per release context, **governance** (signed manifests, a privacy budget ledger, policy and approvals), **time series and event sequences**, **partitioned generation** on many processes or Spark, **generator plug-ins**, a canonical **IR 2.0** document for the data estate, adjustable **engine settings** with **autotune**, and a **service** with an API, a web UI and single sign-on for running relsynth for many teams. See the [changelog](CHANGELOG.md).
@@ -109,15 +111,15 @@ pip install "relsynth[text-pii]"           # optional: Presidio, spaCy and GLiNE
 From a checkout or a wheel file:
 
 ```bash
-pip install .                   # or: pip install relsynth-2.1.0-py3-none-any.whl
+pip install .                   # or: pip install relsynth-2.2.0-py3-none-any.whl
 relsynth version                # versions of relsynth and its main dependencies
 ```
 
 A container image is described in the [Dockerfile](Dockerfile) (all drivers and ODBC Driver 18 included):
 
 ```bash
-docker build -t relsynth:2.1.0 .
-docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:2.1.0 run /work/spec.yaml --json
+docker build -t relsynth:2.2.0 .
+docker run --rm -v "$PWD:/work" -e PGPASSWORD relsynth:2.2.0 run /work/spec.yaml --json
 ```
 
 ## Quick start (command line)
@@ -319,7 +321,7 @@ A job that refreshes a test database every night and fails when quality drops:
 
 ```yaml
 # .github/workflows/synthetic-data.yml (excerpt)
-- run: pip install "relsynth[postgres]==2.1.0"
+- run: pip install "relsynth[postgres]==2.2.0"
 - run: relsynth check spec.yaml --connect --json
 - run: relsynth run spec.yaml --target-url-env TEST_DB_URL --fail-under 0.98 --json > run.json
   env:
@@ -369,7 +371,7 @@ The relational part of the model is unchanged: Proposition 100 proves it, and a 
 
 - **Time series** ([docs/timeseries.md](docs/timeseries.md)). `tables.<t>.sequence` redraws the times of an entity's events from a point-process model (calendar in operational time, life-time copula, gamma renewal gaps), keeping keys, counts and rules. `tables.<t>.series` synthesises regular readings with daily, weekly and yearly profiles. `relsynth extend` adds the events after a dataset day by day; a stepwise run equals one long run. TimescaleDB hypertables are read and created.
 - **Generator plug-ins** ([docs/generators.md](docs/generators.md), [docs/compute.md](docs/compute.md)). `tables.<t>.generator` picks the model of a table's columns; the engine keeps keys, links, segments, counts and rules whatever the generator. Third-party generators install through the `relsynth.generators` entry point; `compute.yaml` presets control GPUs.
-- **Engine settings and autotune** ([docs/settings.md](docs/settings.md), [docs/autotune.md](docs/autotune.md)). 101 settings with type, range and the checks they affect, from defaults, a settings file, presets (`fast`, `thorough`), the spec or `--set`. Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte. Release 2.2 changes one default on purpose (shape-mode segment shrinkage for small dimension tables, `marginals.segment_prior_rows: 20`); setting it to 0 restores the 2.1 output. `relsynth autotune` separates systematic failures from noise over several seeds and changes settings until your objectives hold, or says why they cannot.
+- **Engine settings and autotune** ([docs/settings.md](docs/settings.md), [docs/autotune.md](docs/autotune.md)). 101 settings with type, range and the checks they affect, from defaults, a settings file, presets (`fast`, `thorough`), the spec or `--set`. Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte. Release 2.2.0 kept that output (its small-dimension settings were off by default); the next release changes one default on purpose (shape-mode segment shrinkage for small dimension tables, `marginals.segment_prior_rows: 20`), and setting it to 0 restores the 2.1 output. `relsynth autotune` separates systematic failures from noise over several seeds and changes settings until your objectives hold, or says why they cannot.
 - **Partitioned generation** ([docs/runtime.md](docs/runtime.md)). `synthesis.runtime` runs fact rows in partitions on the `local`, `process` or `spark` executor. Each partition draws from a Philox stream keyed by seed, dataset, fact and partition, so the output is the same for 1, 8 or 64 workers and for Spark (Prop. 950).
 - **IR 2.0** ([docs/ir-guide.md](docs/ir-guide.md)). One versioned document describes a data estate: entities with shapes (record, document, node, edge, event), nested arrays, keys, references, hierarchies, time and versioning, partitions, rules and the privacy unit. 1.0 specs convert without loss (same synthetic data); ODCS v3 data contracts and OpenLineage are exported and checked.
 
@@ -445,6 +447,8 @@ Tuning knobs and measurements: [docs/pushdown.md](docs/pushdown.md#performance).
 
 ## Validation
 
+**Release 2.2.** The check suite adds C1700–C1706 (privacy units), C1720–C1723 (small dimensions) and C1740–C1741 (quick privacy check): 162 science tests in four CI shards, next to about 990 unit, end-to-end, security and live-server tests. The benchmark's privacy suite now attacks the copula, cart and independent generators on ACS and Berka. Without DP, the default (copula) output is byte-identical to 2.1.0; `cart` output and DP-mode output change for the same seed, as listed in the [changelog](CHANGELOG.md#220-2026-11-13).
+
 **Release 2.1.** The check suite adds C1300–C1306 (DP two-way marginals), C1400–C1405 (document databases), C1500–C1507 (synthetic text) and C1600–C1604 (agents): 141 science tests in four CI shards, next to about 930 unit, end-to-end, security and live-server integration tests. New CI jobs measure the agents (122 of 124 review answers correct on four real databases), the document pipeline against a MongoDB 7 server and real dumps, and DP two-way marginals against smartnoise-synth on ACS (`dp-eval`). Draws for the same seed are unchanged with default settings.
 
 **Release 2.0.** The statistical check suite now has C00–C82 plus the 2.0 checks C600–C606 (privacy attacks), C800–C803 (governance), C900–C906 (differential privacy) and C1200–C1206 (time series), with the generator propositions 700–706 tested in tests/unit/test_generators.py: 113 science tests, all run in CI on every pull request in four shards, next to about 800 unit, end-to-end, security and live-server integration tests. A benchmark harness (`bench/`) reruns the real databases (bi/COREP, Chinook, AdventureWorks DW, Contoso, plus Berka, ACS PUMS and a doubled Chinook) on every change and flags drift against a five-seed baseline. Draws for the same seed change on databases with link tables, because degree laws are now the default (`synthesis.facts.link_degree: segment` restores the 1.0 draws); the [changelog](CHANGELOG.md) lists every change.
@@ -471,7 +475,7 @@ In both modes, every key resolves, every unique key but one holds (an AdventureW
 The method is described in two papers shipped with the package:
 
 - [docs/proofs/algorithms.pdf](docs/proofs/algorithms.pdf): the layer 1 algorithms, with complexity and proofs. It covers the Bayesian Gaussian copula, latent segments from in-database sufficient statistics, the merge step and differential privacy on summaries.
-- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 178 propositions with proofs, each tied to a numbered check. They are grouped as follows:
+- [docs/proofs/relsynth-proofs.pdf](docs/proofs/relsynth-proofs.pdf): 189 propositions with proofs, each tied to a numbered check. They are grouped as follows:
 
 | Area | Propositions (examples) |
 |---|---|
@@ -491,6 +495,8 @@ The method is described in two papers shipped with the package:
 | Time and scale (v2.0) | **1200–1206** time change, gamma renewal bridge, sequence posterior, calibrated limits, incremental runs; degree laws of link tables; **950–954** worker independence, partitions keep the law, keys across partitions, drift tests |
 | Synthetic text (v2.1) | **1500–1507** canary exposure under DP; DP n-gram release; user-level DP-GD; Private Evolution votes; expected exposure; near-duplicate search; PII placeholders; consistency with the row |
 | Agents (v2.1) | **1600–1604** data minimisation, containment of any model output, evidence first, grounded wording, no authority without a person |
+| Privacy units (v2.2) | **1700–1704** ownership is the union over all paths, composite links included; real composite keys in the DP seed; several units with one account each; governed multi-unit runs |
+| Small dimensions (v2.2) | **1720–1723** segment shrinkage toward the table's marginal; the near-copy guard only redraws rows and keeps keys and rules |
 | Quick privacy check (v2.2) | **1740–1741** false alarms of the quick check are bounded under no membership signal; the check leaves the release unchanged |
 
 [docs/theory.md](docs/theory.md) gives a readable summary of the model and of the six v1.0 propositions, with the proofs in full.
