@@ -715,6 +715,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
 | `structure.conditional_inclusion` | `auto` | auto | none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | `10.0` | Expected references needed to call a level excluded (Bayes factor e^n). |
+| `structure.inclusion_fk_levels` | `True` | Also test the levels of the parent's own foreign keys with up to 50 values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
 | `structure.participation` | `auto` | auto | none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto | none: unique keys of two foreign keys become grains. |
@@ -729,6 +730,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
 | `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
+| `rules.balance_floor` | `auto` | Running balances (cumulative rules) that are negative on at most 1% of source rows are stocks with a floor of 0, like the never-negative ones: auto or off (G4). |
 | `repair.pair_tries` | `200` | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | `200` | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | `200` | Rounds of anchor thinning (participation of facts). |

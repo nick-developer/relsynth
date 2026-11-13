@@ -93,7 +93,9 @@ validates against the inferred schema (Prop. 1400).
 1. **Shred.** Each collection becomes a root table; each array, map and optional sub-document becomes a child table
    with `_parent` and `_pos` (or `_key`). Absent, null and the type of a union field are a tag column `<path>__t`,
    an array's length is a column `<path>__n` modelled with its parent's other columns, and numbers of several types
-   share one column. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
+   share one column. A set array of one scalar type with at most 16 distinct values (tags of an item) is not a child
+   table: it is one integer column per value on its holder (`<path>__h<i>`, 0 absent, else 1 + its position), so
+   which values a document holds is modelled jointly with its other fields, and a value never repeats (Prop. 1785). The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
    `nest(shred(D))` gives `D` back exactly (Prop. 1401).
 2. **Synthesise** with the relational engine: a Bayesian copula per table, latent segments across tables, exact keys
    and links, and a Dirichlet-process law for the number of elements per parent.
@@ -103,8 +105,8 @@ validates against the inferred schema (Prop. 1400).
    (an array outside the source's length range, a repeated element in a set, a field outside its variant, a missing
    required field) is replaced by a value of another *synthetic* document at the same path, never by a source value. An optional field that no synthetic value can repair is dropped.
    Every repair is counted by kind and path in the report (`repairs`); many repairs of one kind say the model misses
-   a dependence. Set arrays with a small vocabulary are the common case: duplicates the engine draws are resampled
-   without replacement and counted as `set` repairs.
+   a dependence. Set arrays with a larger vocabulary (mflix genres, languages) are the common case: duplicates the
+   engine draws are resampled without replacement and counted as `set` repairs.
 
 ## Quality report
 
