@@ -253,6 +253,7 @@ class Intensity:
         return out
 
     def summary(self):
-        return {"bucket": self.bucket, "buckets": self.B, "pooled": bool(getattr(self, "pooled", False)), "days": self.ndays, "weekly": self.weekly,
+        return {"bucket": self.bucket, "buckets": self.B, "pooled": bool(getattr(self, "pooled", False)),
+                "days": self.ndays, "weekly": self.weekly,
                 "hourly": self.hourly, "events": int(self.n_events),
                 "weekday_rate": [round(float(x), 3) for x in self.w]}
