@@ -38,6 +38,7 @@ from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, Tr
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
 from .settings import table_config
 from .table_model import TableModel
+from . import binary as _binary
 from . import textgen as _textgen
 from .text import TextModel
 from .transform import Plan, offset_keys
@@ -2429,6 +2430,12 @@ class Synthesizer:
                 elif cs["type"] == "constant":
                     v = tables[t][c].dropna()
                     self.pii[(t, c)] = ("const", v.iloc[0] if len(v) else None)
+                elif cs["type"] == "binary":
+                    bo = _binary.column_options(cs, self.cfg)
+                    if bo["generator"] != "none" and c in tables[t].columns:
+                        k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
+                        self.pii[(t, c)] = _binary.BinaryColumn(bo["generator"], bo["mime"], k).fit(tables[t][c])
+                        self.log["decisions"].setdefault(t, {})[f"{c} binary"] = self.pii[(t, c)].info
                 elif cs["type"] == "id" and c != ts.get("primary_key") and c in tables[t].columns:
                     # natural keys and codes ('0101001', 'BK-M68B-38'): new values of the
                     # source's shapes, unique; integers without leading zeros stay 1..n
@@ -4504,8 +4511,11 @@ class Synthesizer:
                 df[c] = self.pii[(t, c)].generate(n, rng)
             elif cs["type"] == "constant":
                 df[c] = self.pii[(t, c)][1]
+            elif cs["type"] == "binary" and isinstance(self.pii.get((t, c)), _binary.BinaryColumn):
+                # own stream: the data stream (and so every other column) draws as without it
+                df[c] = self.pii[(t, c)].generate(n, _binary.stream(rng, t, c), getattr(self, "_mode", "draw"))
             elif cs["type"] == "binary":
-                df[c] = None          # images and files are not synthesised
+                df[c] = None          # synthesis.binary.generator: none (2.1)
             else:
                 df[c] = None          # filled by an aggregate rule
         # hidden draws stay with the frame until sample() ends (an SCD recompute reuses them)

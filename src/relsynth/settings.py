@@ -253,6 +253,7 @@ META: dict[str, dict] = dict([
     _p("evaluation.discriminator_rows", type="int", low=100, high=1e9),
     _p("evaluation.privacy_check", type="bool"),
     _p("evaluation.privacy_check_people", type="int", low=50, high=1e7),
+    _p("binary.generator", type="choice", choices=("none", "placeholder", "random")),
     _p("privacy.suppress_small_counts", type="int", low=0, high=1e6),
     _p("privacy.dp", type="map", nullable=True),
     _p("privacy.near_copy", type="choice", choices=("auto", "off")),

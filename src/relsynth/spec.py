@@ -75,6 +75,10 @@ DEFAULT_SYNTHESIS = {
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
     # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
     # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
+    # binary columns (relsynth.binary, G4): none keeps them NULL (2.1); placeholder writes a
+    # valid tiny file of the source's MIME type padded to a length from the source's length
+    # law; random writes random bytes of such a length.  Source bytes are never copied.
+    "binary": {"generator": "none"},
     "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
                 "near_copy_rounds": 20, "near_copy_max_rows": 20_000},
     # fit large fact tables from statistics computed in the database and a bounded
@@ -497,6 +501,17 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                 g = (c.get("pii") or {}).get("generator")
                 if g not in PII_GENERATORS:
                     errs.append(f"{tname}.{cname}: pii.generator must be one of {sorted(PII_GENERATORS)}")
+            if c.get("binary") is not None:
+                bo = c["binary"]
+                if c.get("type") != "binary":
+                    errs.append(f"{tname}.{cname}: binary options apply to binary columns only")
+                elif not isinstance(bo, dict):
+                    errs.append(f"{tname}.{cname}: binary must be a mapping {{generator, mime}}")
+                else:
+                    if bo.get("generator", "none") not in ("none", "placeholder", "random"):
+                        errs.append(f"{tname}.{cname}: binary.generator must be one of none, placeholder, random")
+                    if bo.get("mime") is not None and not isinstance(bo["mime"], str):
+                        errs.append(f"{tname}.{cname}: binary.mime must be a MIME type such as image/png")
             if c.get("type") == "text":
                 to = c.get("text") or {}
                 cond = to.get("condition_on")

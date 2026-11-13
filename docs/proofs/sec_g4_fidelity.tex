@@ -1,0 +1,28 @@
+%=====================================================================
+\section{Engine fidelity and binary columns (v2.3)}\label{sec:g4fidelity}
+% numbered from 1780 (gap plan G4 range); the shared counter is restored at the end
+\newcounter{savedpropgfour}\setcounter{savedpropgfour}{\value{proposition}}
+Gap plan G4 closes fidelity gaps found by the time-series, document and autotune work, and gives binary columns (images, documents, files) synthetic content; relsynth 2.1 wrote them as NULL (guide \texttt{docs/binary.md}; code \texttt{relsynth/binary.py}). Each proposition is tested by a check in \texttt{tests/science/test\_g4\_checks.py}.
+
+\subsection*{Binary columns}
+A binary column's source values $v_1,\dots,v_N$ (some null) are summarised by the number of nulls $N_0$ and, for each non-null value, a cell $c(v)=(m(v),\ell(v))$: $m(v)$ is the MIME type read from the first bytes (pooled into \texttt{application/octet-stream} when the type has fewer than $k$ values, $k=\texttt{privacy.suppress\_small\_counts}$), and $\ell(v)$ is the length $|v|$ itself when at least $k$ values of type $m(v)$ have that length, otherwise the bin $\lfloor\log_2|v|\rfloor$. With counts $n_c$, a dataset draws $p\sim\mathrm{Beta}(N_0+\tfrac12,\,N-N_0+\tfrac12)$ and $w\sim\mathrm{Dir}(n_c+\tfrac12)$ (or uses their means), and each synthetic value is null with probability $p$, otherwise of cell $c\sim w$, with length $\ell$ or $\lfloor 2^{b+U}\rfloor$, $U\sim\mathrm{U}(0,1)$, for a bin $b$; its content is a fixed placeholder file of type $m$ padded with zero bytes to that length, or uniform random bytes.
+
+\setcounter{proposition}{1779}
+\begin{proposition}[The binary stream changes nothing else]\label{prop:binstream}
+Let the data stream $G$ of a dataset have state $s$ when a table's binary columns are filled. The values of column $c$ are drawn from a Philox generator keyed by $(\texttt{binary}, t, c, H(s))$, $H$ a hash of the state that does not advance $G$. Then (a) $G$'s sequence of draws, and so every other column and table of the dataset, is the same for every value of \texttt{binary.generator}, and (b) two partitions or datasets whose data streams differ at that point get independent binary values (up to hash collisions of probability $2^{-128}$).
+\end{proposition}
+\begin{proof}
+(a) Reading $G$'s state is not a draw, and the binary values are drawn only from the derived generator, so the draws taken from $G$ before and after are identical; every later column and table reads $G$ only. (b) Different states give different keys except on a collision of the 128-bit key (SHA-256 truncated, \texttt{relsynth.runtime.streams}), and Philox streams of distinct keys are treated as independent (Prop.~950).
+\end{proof}
+\noindent Check C1780 fits a star schema with a binary photo column, samples it with the generator \texttt{none} and \texttt{placeholder}, and compares every other column byte for byte.
+
+\setcounter{proposition}{1780}
+\begin{proposition}[What a binary column releases]\label{prop:binrelease}
+Given the cell counts $(N_0, n_c)$, the synthetic values are independent of the source bytes. In particular (a) no synthetic value is a function of the content of a source value beyond its type and length class; (b) a length shared by fewer than $k$ values of its type is released only through its bin's count; (c) for \texttt{random}, a synthetic value of length $L$ equals a given source value with probability at most $256^{-L}$.
+\end{proposition}
+\begin{proof}
+The generator reads the source only through $N_0$ and the counts $n_c$ (the fitted object stores nothing else), and draws content from relsynth's placeholders and the binary stream, which is independent of the data (Prop.~\ref{prop:binstream}). (a) and (b) follow from the definition of the cells. (c) The $L$ bytes are uniform and independent of the source value, so the match probability is $256^{-L}$ for a source value of length $L$ and zero for any other length.
+\end{proof}
+\noindent The type and length summary is not differentially private (an exact length with $k$ or more values is released), so DP mode keeps binary columns NULL. Check C1781 fits a column of 2{,}000 values with one shared "no image" length, compares the synthetic null share, exact length and bin shares with the source under their posterior intervals, and checks that no synthetic value equals a source value.
+
+\setcounter{proposition}{\value{savedpropgfour}}
