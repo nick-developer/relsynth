@@ -242,3 +242,31 @@ def test_introspect_reads_a_large_parquet_file_on_demand(tmp_path, monkeypatch):
     assert not whole and 350 < len(part) < 650 and list(part.columns) == ["id", "customer_id", "amount", "store", "qty"]
     spec = rs.introspect(f"parquet:{d}", name="lazy", sample_rows=500)
     assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("orders", "customer")}
+
+
+def test_introspect_keeps_one_self_reference_per_table(tmp_path):
+    """posts.parent_id and posts.accepted_answer_id both point at posts (Stack Exchange): the run
+    supports one self-reference, so the draft keeps the one with fewer NULLs."""
+    import relsynth as rs
+    from bench.builders.sqlite_ddl import create_table, insert_rows
+    db = tmp_path / "p.db"
+    con = sqlite3.connect(db)
+    con.execute("PRAGMA foreign_keys = OFF")
+    create_table(con, "posts", [("id", "INTEGER", True), ("parent_id", "INTEGER", False),
+                                ("accepted_answer_id", "INTEGER", False), ("score", "INTEGER", True)], ["id"],
+                 foreign_keys=[(["parent_id"], "posts", ["id"]), (["accepted_answer_id"], "posts", ["id"])])
+    rows = []
+    for q in range(1, 201):                      # questions 1..200, answers 201..800
+        rows.append([q, None, 200 + q if q % 4 == 0 else None, q % 9])
+    for a in range(201, 801):
+        rows.append([a, 1 + a % 200, None, a % 5])
+    insert_rows(con, "posts", ["id", "parent_id", "accepted_answer_id", "score"], rows)
+    con.commit()
+    con.close()
+    spec = rs.introspect(f"sqlite:{db}", name="p")
+    selfs = [r for r in spec.resolved["relationships"] if r["child"] == r["parent"] == "posts"]
+    assert [r["child_key"] for r in selfs] == ["parent_id"]
+    from relsynth.spec import load_spec, validate
+    spec.save(tmp_path / "p.yaml")
+    assert validate(load_spec(str(tmp_path / "p.yaml"))) == []
+    assert any("posts.accepted_answer_id -> posts: a second self-reference" in x for x in spec.raw.get("review", []))

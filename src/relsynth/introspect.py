@@ -330,7 +330,7 @@ class _Profiler(Discovery):
                                 "but the data fits " + ", ".join(f"{x['parent']} ({describe(x)})" for x in amb[:4])
                                 + " equally well")
                              + "; declare it under relationships, or it is synthesised as a plain column")
-        rels = self.break_declared_cycles(acyclic(rels))
+        rels = self.one_self_reference(self.break_declared_cycles(acyclic(rels)))
         for r in rels:
             why = r.pop("_why", None)
             r.pop("_score", None)
@@ -363,6 +363,27 @@ class _Profiler(Discovery):
                      f"({' -> '.join(r['child'] for r in cyc)} -> {cyc[0]['child']}); left out and kept as a plain "
                      "column, since tables are generated parents first (declare it under relationships if another "
                      "link of the cycle should go instead)")
+
+    def one_self_reference(self, rels):
+        """The engine generates one self-reference per table (a tree); a second one
+        (posts.ParentId and posts.AcceptedAnswerId -> posts) is left out and kept as a
+        plain column: the link with the fewest NULLs stays, as break_declared_cycles
+        drops the most optional link of a cycle."""
+        own: dict = {}
+        for r in rels:
+            if r["child"] == r["parent"] and isinstance(r["child_key"], str):
+                own.setdefault(r["child"], []).append(r)
+        drop = []
+        for t, rs in own.items():
+            if len(rs) < 2:
+                continue
+            rs = sorted(rs, key=lambda r: (float(self.df[t][r["child_key"]].isna().mean()), r["child_key"]))
+            for r in rs[1:]:
+                drop.append(r)
+                self.ask(f"ASK {t}.{r['child_key']} -> {t}: a second self-reference of {t} (after "
+                         f"{rs[0]['child_key']}); left out and kept as a plain column, since a table has one "
+                         "self-reference (declare it under relationships instead of the other if it is the tree)")
+        return [r for r in rels if not any(r is d for d in drop)]
 
     def simple(self, t):
         return [r for r in self.rels if r["child"] == t and isinstance(r["child_key"], str) and r["parent"] != t]
