@@ -33,7 +33,7 @@ The full suite, including the live database servers and the statistical check su
    | Anything else | `feat/…`, `docs/…`, `ci/…`, `refactor/…`, `test/…` |
 
 3. Commit in small, reviewable steps (see below), each signed off.
-4. Open a pull request to `main` and fill in the template, including the test evidence.
+4. Open a pull request to `main` **as a draft** and fill in the template, including the test evidence. Mark it ready for review once the coding is done and the other checks are green; CodeRabbit reviews it then, once (see [CodeRabbit](docs/development/ci.md#coderabbit)). AI agents follow the workflow in [CLAUDE.md](CLAUDE.md).
 5. CI must be green and a code owner must approve. Maintainers merge with **squash** or **rebase**, never a merge commit, so history stays linear.
 6. Delete the branch after the merge.
 

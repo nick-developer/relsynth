@@ -40,11 +40,20 @@ CodeQL's `py/cyclic-import` note is filtered out in the config: its cycles run t
 
 `codeql.yml` is an advanced setup: the repository's CodeQL default setup must be switched off (Settings > Code security > CodeQL analysis > Switch to advanced), or GitHub rejects the workflow's results. CodeQL, Semgrep, gitleaks and zizmor run weekly as well; dependency-review runs on pull requests only.
 
+### CodeRabbit
+
 [CodeRabbit](https://coderabbit.ai) reviews every pull request with [`.coderabbit.yaml`](../../.coderabbit.yaml). It comments; it does not approve or merge.
 
 - **Security pre-merge checks**: four failing checks and one warning: no secrets at rest or in logs; tenant isolation and authorisation in the service; untrusted input reaching a dangerous sink (paths, SQL, subprocess, eval, unsafe YAML or pickle, regular expressions, outbound URLs, HTML); privacy guarantees matching the proofs and the claim register; workflow and deployment hardening (warning).
 - **Path instructions** for the service, the DP/privacy/governance code, synthetic text, agents, connectors, specs and generators, the runtime's use of pickle, workflows, images, the Helm chart, tests, dependencies and docs.
 - **Scanners** run by CodeRabbit: ruff, Semgrep with the project rules, gitleaks, Checkov, OSV-Scanner, actionlint, shellcheck, hadolint, yamllint and markdownlint, plus the results of this repository's checks.
+
+The review is draft-aware and batched, to avoid repeated reviews of half-finished work:
+
+- Drafts are not reviewed. Open pull requests as drafts and mark them ready once the coding is finished and the other checks are green; that starts one full review.
+- Later pushes are not reviewed one by one (`auto_incremental_review: false`). Ask for another pass with a single top-level `@coderabbitai review` comment.
+- CodeRabbit answers only when tagged (`chat.auto_reply: false`).
+- Findings are handled in one batch from one top-level comment, never by replying to each inline comment. The agent workflow is in [`CLAUDE.md`](../../CLAUDE.md).
 
 The scanners themselves are supply-chain inputs. Semgrep and zizmor install from [`.github/requirements/`](../../.github/requirements/) with `pip install --require-hashes` (every dependency checked against its SHA-256); the gitleaks image is pinned by digest and runs as the runner's user with a read-only root filesystem, a read-only checkout, no capabilities, `no-new-privileges` and no network. Semgrep's SARIF is cleaned by [`.github/scripts/sarif_clean.py`](../../.github/scripts/sarif_clean.py) before upload: suppressed results are dropped and the matched source text is removed, and the pull-request gate prints only rule, path and line, so a secret that `p/secrets` finds is not copied into an artefact or a log.
 
