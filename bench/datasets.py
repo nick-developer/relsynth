@@ -47,7 +47,20 @@ REL_TRIAL = {  # table -> SHA-256 (the LFS object id of the commit above, read 2
 }
 
 # name -> (url, sha256); checked 2026-10-26 against the copies used in layer 2
-NYC_TLC = {1: "c4d59da7bbc8abaeeeb1727947ee93d9891a71acb42854bd80db1571b2030510"}   # month -> SHA-256
+NYC_TLC = {   # month of 2024 -> SHA-256 of the yellow-taxi trip file
+    1: "c4d59da7bbc8abaeeeb1727947ee93d9891a71acb42854bd80db1571b2030510",
+    2: "c76c43c18c6c6664080dd920baab4928988d5786a6b65980792ca7cd796f9f20",
+    3: "2d4cdc8fb96726cdd3803b13b02d2e61e71d45720aff0ebc693a8bdd1f249823",
+    4: "ce37f736c7cf9e92164c850ef2b502a8f7bb590fc1804b6edbcb80293da01b89",
+    5: "1974230be2b5a3ea92e47b5eb77f32dbf1de896d81ad8df4ab6faba52749ad23",
+    6: "677cf14c8347f745b583f012fbdba072334c6c4efa17bfd6a64369f2ba30329c",
+    7: "af12d6b04daeb78550799ae99933d495b27d715b6dbb0fad9bb750a4537d3070",
+    8: "7315643dd16bafc03e27d9903edbfd35404c2550a695d0da0a3e73852d940cfb",
+    9: "2f42e4a383a6635de803001462848d0aee2b47f6ce899126805d2d05361fb843",
+    10: "d19fe05aa0b259af24eb47051735293287f1e6dc263ba04030ec1ab4c6ec2650",
+    11: "5ef321876de5007a7c147a347389133fc94fd7ac28f82eb1d57d8f2cf05cfd3b",
+    12: "41ebf7db80bebde60c58e5143c14cdf38ad04a0f3e3ff44215b3e240d55f6c78",
+}
 
 DOWNLOADS = {
     "Chinook_Sqlite.sqlite": ("https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sqlite",
@@ -108,7 +121,8 @@ DOWNLOADS = {
                              "572e36277c2390fbfde10664750731e0a86f55e33470d91919085f0408e67bfb"),
     "coffee.stackexchange.com.7z": ("https://archive.org/download/stackexchange/coffee.stackexchange.com.7z",
                                     "ed92031e75185b1e5549ae257b5280423941d17751042b0369b1f2d3e8d90952"),
-    "taxi_zone_lookup.csv": ("https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv", ""),
+    "taxi_zone_lookup.csv": ("https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv",
+                             "1a99e105092230f8620f301edcca7f80d3080642ff404d28ed957d3fa222c8ed"),
     **{f"yellow_tripdata_2024-{m:02d}.parquet": (
         f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-{m:02d}.parquet", NYC_TLC.get(m, ""))
        for m in range(1, 13)},
