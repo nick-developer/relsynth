@@ -499,7 +499,7 @@ SYNTH_DOC = {
     "runtime.master": "spark executor: the master URL when no Spark session is active (default local[workers]).",
     "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle; a binary column's "
                                      "length shared by fewer values is only released as its power-of-two bin.",
-    "binary.generator": "Content of binary columns (images, files): none keeps NULL (2.1); placeholder writes a valid "
+    "binary.generator": "Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid "
                         "tiny file of the value's MIME type padded with zero bytes to a length drawn from the "
                         "source's length law; random writes random bytes of such a length. Never copies source "
                         "bytes; changes only the binary columns (docs/binary.md).",

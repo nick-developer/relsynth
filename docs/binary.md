@@ -2,12 +2,12 @@
 
 Binary columns hold images, documents and other files (`varbinary`, `BLOB`, `bytea`, `image`, Parquet binary,
 `0x`-hex text in CSV exports). relsynth 2.1 wrote them as NULL. Since gap plan G4 they can get synthetic content
-that never contains a byte of the source.
+that never contains a byte of the source, by default (`placeholder`; `none` restores 2.1).
 
 ```yaml
 synthesis:
   binary:
-    generator: placeholder      # none (default, NULL) | placeholder | random
+    generator: placeholder      # placeholder (default) | random | none (NULL, as in 2.1)
 tables:
   DimProduct:
     columns:

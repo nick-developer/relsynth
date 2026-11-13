@@ -75,10 +75,11 @@ DEFAULT_SYNTHESIS = {
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
     # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
     # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
-    # binary columns (relsynth.binary, G4): none keeps them NULL (2.1); placeholder writes a
+    # binary columns (relsynth.binary, G4; default placeholder, approved by Cod3r 2026-11-13): none
+    # keeps them NULL (2.1); placeholder writes a
     # valid tiny file of the source's MIME type padded to a length from the source's length
     # law; random writes random bytes of such a length.  Source bytes are never copied.
-    "binary": {"generator": "none"},
+    "binary": {"generator": "placeholder"},
     "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
                 "near_copy_rounds": 20, "near_copy_max_rows": 20_000},
     # fit large fact tables from statistics computed in the database and a bounded

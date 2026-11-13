@@ -741,7 +741,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `evaluation.privacy_check_people` | `3000` | People sampled for the quick privacy check (a third fit the proxy, a third are unseen, a third are the attacker's reference). |
 | `per_table` | `{}` | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
 | `settings_file` | `None` | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
-| `binary.generator` | `none` | Content of binary columns (images, files): none keeps NULL (2.1); placeholder writes a valid tiny file of the value's MIME type padded with zero bytes to a length drawn from the source's length law; random writes random bytes of such a length. Never copies source bytes; changes only the binary columns (docs/binary.md). |
+| `binary.generator` | `placeholder` | Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid tiny file of the value's MIME type padded with zero bytes to a length drawn from the source's length law; random writes random bytes of such a length. Never copies source bytes; changes only the binary columns (docs/binary.md). |
 | `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle; a binary column's length shared by fewer values is only released as its power-of-two bin. |
 | `privacy.dp` | `None` | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
 | `privacy.near_copy` | `off` | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
@@ -775,7 +775,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `lookup` | a value read from a parent or a reference table | `lookup: fk.col` or `{table, match, value}`, `map`, `default` |
 | `sequence` | line numbers | `within`, `start` |
 | `constant` | left out of modelling | |
-| `binary` | images, documents, files: NULL by default, or synthetic content that never copies source bytes ([binary.md](binary.md)) | `binary: {generator: none \| placeholder \| random, mime}` |
+| `binary` | images, documents, files: placeholder files by default (or random bytes, or NULL), synthetic content that never copies source bytes ([binary.md](binary.md)) | `binary: {generator: none \| placeholder \| random, mime}` |
 
 ### Expressions
 

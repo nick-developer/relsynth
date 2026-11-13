@@ -213,4 +213,4 @@ def column_options(cs: dict, synthesis: dict) -> dict:
     synthesis.binary."""
     base = dict((synthesis or {}).get("binary") or {})
     own = cs.get("binary") or {}
-    return {"generator": own.get("generator", base.get("generator", "none")), "mime": own.get("mime")}
+    return {"generator": own.get("generator", base.get("generator", "placeholder")), "mime": own.get("mime")}

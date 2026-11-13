@@ -40,7 +40,7 @@ def _blobs(n=400, seed=0):
 
 
 def test_settings_and_schema():
-    assert DEFAULT_SYNTHESIS["binary"]["generator"] == "none"           # opt-in: 2.1 output by default
+    assert DEFAULT_SYNTHESIS["binary"]["generator"] == "placeholder"    # default on (Cod3r, 2026-11-13)
     assert registry()["binary.generator"].choices == ("none", "placeholder", "random")
     assert column_options({"binary": {"generator": "random"}}, {"binary": {"generator": "placeholder"}}) == \
         {"generator": "random", "mime": None}
