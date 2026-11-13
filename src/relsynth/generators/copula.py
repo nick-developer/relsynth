@@ -44,7 +44,7 @@ class SegmentMarginals(TableGenerator):
         # mode is the 2.1 fit.
         seg_rows = self._segment_prior()
         kw_seg = {**kw, "dirichlet_a": max(mcfg["dirichlet_prior"], seg_rows)}
-        mode = str(mcfg.get("segment_prior_mode", "table")) if seg_rows > 0 else "table"
+        mode = str(mcfg.get("segment_prior_mode", "table")) if seg_rows > mcfg["dirichlet_prior"] else "table"
         kw_seg_of = (lambda cd: kw_seg if mode == "table" else
                      (kw if cd.kind == "discrete" else {**kw_seg, "shift_prior": mode == "shape"}))
         if parent:

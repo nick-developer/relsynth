@@ -2028,7 +2028,7 @@ claims:
   - id: PRV-21
     doc: docs/privacy.md
     area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + a)` of its own distribution, where `a` is the larger of `rows` and `marginals.dirichlet_prior` (0.25 by default), and takes the rest from the prior (Prop. 1720)"
+    quote: "a segment of `n` rows keeps the share `n / (n + a)` of its own distribution, where `a` is the larger of `rows` and `marginals.dirichlet_prior` (0.25 by default), and takes the rest from the prior (Prop. 1720; for a continuous column `n` counts the segment's non-null values, at most `marginals.max_obs`, so a sparse column keeps less)"
     status: supported
     evidence:
       - prop: prop:segshrink
@@ -2119,7 +2119,7 @@ claims:
       - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the table's distribution moved to the segment's median and scaled to its interquartile range, inside the table's range: a segment whose median lies inside the table's range keeps it in the posterior mean (Prop. 1724; each posterior draw varies around it, as without shrinkage; a median outside the range is pulled toward it), so what the fact tables read from it (which products sell, at what price) stays in place in the posterior mean, and only the exact values of its few rows are smoothed."
       - "With `table`, every column is shrunk toward the table's own distribution; this also moves each segment toward the table and weakens the joins (with 20 rows the fake-data science checks C09, C19 and C43 fail, and the AdventureWorks scorecard loses 7.8 of 1,267 items on average)."
       - "Shrinkage lowers how often a segment reproduces its own values; it does not rule out exact copies."
-      - "With `segment_prior_rows: 0` every mode gives the 2.1 output."
+      - "With `segment_prior_rows: 0` (or any value up to `dirichlet_prior`) every mode gives the 2.1 output."
     status: supported
     evidence:
       - prop: prop:segshape
