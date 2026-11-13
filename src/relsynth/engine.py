@@ -3435,6 +3435,7 @@ class Synthesizer:
         fallback = 0
         if (~valid).any():
             before = int((~valid).sum())
+            empty = 0  # consecutive blocks without any allowed parent
             for it in range(int(_setting(self, "repair", "constraint_rounds", 200))):
                 if not (~valid).any():
                     break
@@ -3449,7 +3450,12 @@ class Synthesizer:
                         continue
                     prop[r["child_key"]] = pk_[allowed[rng.integers(len(allowed), size=len(rows))]]
                 if not prop:
-                    break
+                    # skip a block with no allowed parent; stop once no block has one
+                    empty += 1
+                    if empty >= len(blocks):
+                        break
+                    continue
+                empty = 0
                 try_move(rows, prop, False)
             fallback = before - int((~valid).sum())
 
