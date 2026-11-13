@@ -88,16 +88,21 @@ def synthesize(spec_or_path, *, tables: dict | None = None, override: dict | Non
     # each unit's own budget: the run's, or the one set for that unit (RFC-G1-01)
     accts = {u: Accountant(cfg.rho_of(u), cfg.delta * cfg.levels_delta_share) for u in units}
     acct = accts[units[0]]
+    from .rows import source_for
+    if cfg.pushdown == "on" and tables is None:
+        _check_pushdown_source(spec)           # refused before the ledger's touch
     if before_read is not None:
         before_read()
-    if tables is None:
-        from ..pushdown import load_for_fit
-        real = load_for_fit(spec, mode="off").tables
-    else:
-        from ..data import coerce
-        real = {t: coerce(df, spec["tables"][t], optional=set()) if t in spec["tables"] else df
-                for t, df in tables.items()}
-    model = fit(spec, real, cfg, accts if cfg.multi else acct, pl)
+    rss0 = _peak_rss_mb()
+    src, why = source_for(spec, cfg.pushdown, tables)
+    try:
+        model = fit(spec, src, cfg, accts if cfg.multi else acct, pl)
+    finally:
+        src.close()
+    model.report["stage1"] = {"source": "database" if src.pushdown else "memory",
+                              **({"why_memory": why} if why and tables is None else {}),
+                              "peak_rss_before_mb": rss0, "peak_rss_mb": _peak_rss_mb()}
+    real = getattr(src, "real", None)
     per_unit: dict = {}
     if cfg.multi:
         for u, a in accts.items():
@@ -127,11 +132,37 @@ def synthesize(spec_or_path, *, tables: dict | None = None, override: dict | Non
     rep = {"seconds_stage1": round(t_fit, 2), "seconds_total": round(time.time() - t0, 2), **model.report}
     if evaluate:
         from ..evaluate import evaluate as _ev
+        if real is None:
+            # stage 1 read nothing into memory; the scorecard compares with the real tables, read as a
+            # non-DP run reads them (large facts as samples under the spec's synthesis.pushdown)
+            from ..pushdown import load_for_fit
+            real = load_for_fit(spec).tables
         rep["scorecard"] = _ev(s2, real, run.data, privacy=privacy,
                                sample_log=run.synthesizer.sample_log if run.synthesizer else None)
     return DPResult(data=run.data or {}, seed=seed_db, statement=st,
                     charges=[c for a in accts.values() for c in a.charges], rho=rho, delta=d0, epsilon=eps,
                     config=cfg, run=run, real=real, report=rep, per_unit=per_unit)
+
+
+def _check_pushdown_source(spec: dict) -> None:
+    """Refuse `pushdown: on` on a source without SQL, before anything is read."""
+    from ..data import source_connector
+    from .rows import sql_connector
+    with source_connector(spec) as conn:
+        if sql_connector(conn) is None:
+            raise PrivacyError(f"synthesis.privacy.dp.pushdown: on needs a database source (or files with DuckDB); "
+                               f"the source is {conn.kind}; nothing was read")
+
+
+def _peak_rss_mb() -> float | None:
+    """The process's peak resident memory so far, in MB (None where unknown)."""
+    try:
+        import resource
+        import sys
+        r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return round(r / (1024 * 1024 if sys.platform == "darwin" else 1024), 1)
+    except (ImportError, OSError, ValueError):
+        return None
 
 
 def statement(spec, cfg: DPConfig, pl, acct: Accountant, eps: float, ledger_note: dict | None = None,

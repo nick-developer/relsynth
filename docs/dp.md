@@ -37,7 +37,7 @@ relsynth has no default ε. A DP run without `epsilon` or `rho` is refused, and 
 ## 2. What happens
 
 1. **Plan, before any read.** relsynth finds the tables that hold data of the unit: those with a chain of foreign keys to it. Every other table must be listed in `public_tables`, or `all_unowned` must be set. The plan refuses three cases, before reading anything or charging the budget: a table with two chains to the unit, a self-reference on an owned table, and a foreign key between owned tables off the chain.
-2. **Stage 1: noisy statistics.** relsynth reads the real tables once. For each owned table it releases the following, all as integers with discrete Gaussian noise from OpenDP:
+2. **Stage 1: noisy statistics.** relsynth reads the real tables once (inside the source database when it can, section 9). For each owned table it releases the following, all as integers with discrete Gaussian noise from OpenDP:
    - ranges of numeric columns, found on a fixed logarithmic grid;
    - category levels, by partition selection (rare levels are dropped);
    - one histogram per column and the row count;
@@ -83,7 +83,7 @@ relsynth run spec.yaml --epsilon 1 --registry registry/ --context partner --rele
 
 What DP mode refuses: `tune`, `verify`, `export-model` and `doctor --apply` refuse a DP spec, because they would turn real data into models or spec values outside the accounting. The ordinary pipeline (`relsynth.run`, `execute`) also refuses a DP spec rather than run it without DP. Run those on a copy of the spec without the `dp` section, for internal use only.
 
-Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2. Several units and composite keys are in section 8.
+Not supported yet: a table that holds data of two units, and values of `pii`, `text` and `binary` columns (placeholders). Views are derived in stage 2. Several units and composite keys are in section 8.
 
 ## 6. Utility against ε
 
@@ -185,6 +185,39 @@ A governed run (`--registry`) with several units needs a domain that names them:
 Checks C1700 to C1706 (`pytest -m science tests/science/test_privacy_units_checks.py`) test this. C1705 removes the busiest customer and the busiest sales representative of AdventureWorks DW one at a time. No statistic of their own unit moves by more than its charged sensitivity, and no statistic of the other unit moves at all.
 
 Small units give little. AdventureWorks has 296 employees, of whom 17 are sales representatives with about 3,600 reseller sales each. At ε = 2 the private cap on rows per employee is 1, so the seed holds a few dozen reseller sales at most.
+
+## 9. Stage 1 inside the database (`pushdown`)
+
+```yaml
+synthesis:
+  privacy:
+    dp:
+      unit: Customer
+      epsilon: 1.0
+      delta: 1.0e-9
+      pushdown: auto        # auto (default) | on | off
+```
+
+With a database source (SQLite, PostgreSQL, SQL Server, Oracle, MySQL, MariaDB, the cloud warehouses) or with files read through DuckDB, stage 1 runs inside the source database and no owned table is loaded into memory. `auto` does this whenever the source allows it. `on` refuses a source that does not (CSV or Parquet files without DuckDB) before anything is read or reserved. `off` loads every owned table, as releases before 2.3 did. A run given its tables in memory (`dp.synthesize(..., tables=...)`, or the attack audit's shadow runs) works in memory.
+
+- **Contribution bounding** is a window function: `ROW_NUMBER() OVER (PARTITION BY` the parent key `ORDER BY` a seeded hash of the row's key`)`, up to the cap for each parent row, over the rows whose parent row was kept. The hash seed is drawn for each run.
+- **Statistics** come from frequency tables: a `GROUP BY` of the columns a statistic reads, with `COUNT(*)`. Rows per parent row and rows per group are `GROUP BY` queries too. The correlation sums and the two-way tables read the frequency table of each row's modelled columns, its capped child counts and its parent row's columns (a join).
+- Only frequency tables leave the database, in chunks of 200,000 tuples. Public tables are read whole, as before, because they are released as given.
+
+For the same rows, the statistics are the same integers as in memory (Props. 1761 and 1762). Each is charged the same, so the run has the same guarantee (Prop. 1763). The rows kept under the cap are not the in-memory run's rows, because the database uses its own hash, but the truncation has the same stability property (Prop. 1760). Checks C1760 to C1764 (`pytest -m science tests/science/test_dp_pushdown_checks.py`) test this. C1761 finds every statistic identical in SQLite, in Parquet files read through DuckDB and in memory, and C1763 repeats the C902 sensitivity replay on a SQLite file. `tests/integration/test_servers.py` compares the statistics with the in-memory ones on each live server. The run report says where stage 1 ran (`stage1.source`) and the process's peak memory at the end of stage 1 (`stage1.peak_rss_mb`).
+
+**Results** (`tools/dp_pushdown_compare.py`, ε = 1, `measure: copula`, three runs each, 95 % t intervals; each run a fresh process on one machine; records in `docs/assurance/evidence/G2/pushdown_compare.jsonl`):
+
+| database | stage 1 | checks passing | stage 1 time | peak memory at the end of stage 1 |
+|---|---|---|---|---|
+| Contoso (SQLite, 105,000 customers) | in memory | 0.783 ± 0.092 | 16 s | 875–959 MB |
+| Contoso | in the database | 0.804 ± 0.069 | 30 s | 760–822 MB |
+| AdventureWorks DW (SQLite, 18,484 customers) | in memory | 0.890 ± 0.007 | 18 s | 750–811 MB |
+| AdventureWorks DW | in the database | 0.889 ± 0.012 | 19 s | 671–735 MB |
+
+The scorecards agree within the DP noise. Both databases fit in memory, so the saving at the end of stage 1 is small (about 10 %): most of the peak is the libraries the process loads (about 200 MB before any read) and the working arrays of one chunk. What the database path removes is the part that grows with the tables, since no owned table is ever held whole. On SQLite, stage 1 takes longer in the database because SQLite runs the window functions and joins on one core.
+
+The scorecard still compares the synthetic data with the real tables. A run with pushdown reads them for it after stage 2, as a non-DP run reads them (large facts as samples, under `synthesis.pushdown`).
 
 ## API
 

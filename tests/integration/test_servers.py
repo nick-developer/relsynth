@@ -91,6 +91,59 @@ def test_full_sample_pushdown_matches_sqlite_in_memory(star_on_server, star_sqli
                                       check_dtype=False, obj=t)
 
 
+def test_dp_stage1_in_the_database_matches_memory(star_on_server, star_sqlite, monkeypatch):
+    """G2 (Props. 1760-1762) on a live server: with nothing truncated, every exact
+    statistic DP stage 1 releases is the same in the server as in memory; with a
+    cap of 2, no customer keeps more than 2 sales."""
+    pytest.importorskip("opendp")
+    import relsynth.dp as dp
+    from relsynth.dp import mechanisms as M
+    from relsynth.dp import relational as R
+    from relsynth.dp import rows as RW
+    from relsynth.spec import load_spec
+    kind, spec, _ = star_on_server
+    lite = copy.deepcopy(star_sqlite[0])
+    deg = int(scenario("S2_star")[0]["sales"].groupby("customer_id").size().max())
+
+    def with_dp(s):
+        s = copy.deepcopy(s)
+        s.setdefault("synthesis", {}).setdefault("privacy", {})["dp"] = {
+            "unit": "customer", "epsilon": 2.0, "delta": 1e-9, "public_tables": ["product"],
+            "spec_is_public": True, "max_degree": {"sales": deg}}
+        return load_spec(s)
+
+    def exact(s, src):
+        calls = []
+
+        def rec(values, sensitivity, rho, acct, stage, mechanism):
+            acct.charge(M.Charge(stage, mechanism, rho))
+            calls.append((mechanism, np.asarray(values, dtype=np.int64).ravel().copy(), float(sensitivity)))
+            return calls[-1][1]
+        monkeypatch.setattr(R, "gaussian", rec)
+        cfg = dp.parse(s)
+        try:
+            R.fit(s, src, cfg, M.Accountant(cfg.rho, cfg.delta), R.make_plan(s, cfg))
+        finally:
+            src.close()
+        return calls
+    srv, mem = with_dp(spec), with_dp(lite)
+    conn = from_spec(srv["source"])
+    a = exact(srv, RW.SqlSource(srv, conn, owner=conn, seed=99))
+    b = exact(mem, RW.source_for(mem, "off")[0])
+    assert [x[0] for x in a] == [x[0] for x in b]
+    for (m, va, sa_), (_, vb, sb) in zip(a, b):
+        assert sa_ == sb, m
+        np.testing.assert_array_equal(va, vb, err_msg=f"{kind}: {m}")
+    conn = from_spec(srv["source"])
+    src = RW.SqlSource(srv, conn, owner=conn, seed=7)
+    try:
+        kept = src.unit("customer").bound("sales", ["customer_id"], ["customer_id"], 2)
+        sizes = pd.concat([c.assign(w=w) for c, w in kept.groups(["customer_id"])])
+        assert sizes["w"].max() <= 2 and kept.n == int(sizes["w"].sum())
+    finally:
+        src.close()
+
+
 def test_write_synthetic_to_server_in_every_mode(server, star_sqlite):
     kind, tgt, schema = server
     spec, _ = star_sqlite
