@@ -101,7 +101,7 @@ The CI bench of the pull request ran Chinook, Contoso (Parquet) and Berka with s
 
 The fact tables copy the product's price (`UnitPrice = ProductKey.Price` times a factor), but leaving `Price` and `Cost` out of the shrinkage does not fix it: the joined `Brand` and `Manufacturer`, which are never shrunk, move too (TVD 0.021 to 0.033-0.051), so the facts buy a different mix of products. That variant also lowered the AdventureWorks `DimProduct` ratio (0.74 on seed 2) and was dropped.
 
-**Default (2.2.0), the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` AW20RANGE over the five seeds (scorecard AW20MEAN on average, AW20COST items below 2.1); 40 rows give more margin and cost more fidelity. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
+**Default (2.2.0), the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` ratios of 1.124, 0.883, 1.158, 0.820 and 0.586 on seeds 1, 2, 3, 11 and 12 (mean 0.91; 2.1: 0.50-0.65, mean 0.57), with scorecards of 1209, 1203, 1204, 1208 and 1206 (mean 1206.0, 2.0 items below 2.1's 1208.0). Seed 12 stays at its 2.1 level (0.586 against 0.581), so 20 rows lift the margin on most seeds but do not guarantee it; 40 rows gave 0.89 or more on every seed for 6 items. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
 
 ## Open items
 
