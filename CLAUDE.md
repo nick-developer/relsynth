@@ -28,9 +28,9 @@ review rounds stay short.
    nitpicks are optional; take them only when they are cheap and clearly right. Push the fixes as
    one commit (or a few, by topic), not one commit per comment.
 6. **Never reply to individual CodeRabbit inline comments** and never tag `@claude` or
-   `@coderabbitai` on an inline thread. If a suggestion is wrong, say so once, in the summary below.
-7. **Summarise once.** After the batch is pushed, edit or add a single top-level comment listing
-   what was fixed and which findings were declined, with a one-line reason each.
+   `@coderabbitai` on an inline thread. Do not add more top-level comments either.
+7. **Record the outcome in the fix commit.** Its message lists what was fixed and which findings
+   were declined, with a one-line reason each, so the pull request keeps a single agent comment.
 8. **No automatic re-review.** Incremental reviews are off
    (`reviews.auto_review.auto_incremental_review: false`), so the fix push is not reviewed again.
    Ask for a second pass with one top-level `@coderabbitai review` comment only when the fixes were
