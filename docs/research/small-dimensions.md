@@ -67,7 +67,7 @@ With shrinkage 20 on by default, three fake-data checks of the science suite fai
 
 The Berka bench also failed one calibrated item (`order` association, 0.155 against a limit of 0.15). The cause is the same as the AdventureWorks price joins: the segments of a dimension carry what the facts depend on (which products sell, at what price), and shrinking each segment toward the table weakens exactly that link. Shape mode, below, keeps each segment's location and shrinks only its shape.
 
-## Shape mode (the default)
+## Shape mode (the default mode)
 
 `marginals.segment_prior_mode: shape` shrinks only continuous columns, and its prior is the parent distribution (the table's, or a coarse group's when the segment has one) moved to the segment's median and scaled to its interquartile range (at least `a / (4 (n + a))` of the parent's), clipped to the parent's range (Prop. 1724). Categorical columns keep the weight `dirichlet_prior`. When the segment's median lies inside the parent's range (the table's or a coarse group's), it does not move in the posterior mean, up to the grid interpolation (posterior draws vary around it, as without shrinkage; a median beyond the range is pulled toward it), so the fact tables' view of a segment (which products sell, at what price) stays, and only the exact values of its few rows are smoothed.
 
@@ -77,21 +77,34 @@ The first version did not clip to the table's range and failed C48: shifted date
 
 **AdventureWorks**, the same five seeds as above (DimProduct DCR / scorecard of 1,267):
 
-| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 (default) |
+| Seed | 2.1 | Table 20 | Shape 20 | Shape 40 |
 |---|---|---|---|---|
-| 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.847 / 1215 |
-| 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.136 / 1203 |
-| 3 | 0.576 / 1214 | 1.010 / 1201 | 1.000 / 1211 | 1.244 / 1200 |
-| 11 | 0.549 / 1207 | 0.963 / 1198 | 0.737 / 1199 | 1.019 / 1193 |
-| 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 0.972 / 1199 |
-| Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.044 / 1202.0 |
+| 1 | 0.501 / 1215 | 0.969 / 1202 | 0.822 / 1216 | 0.888 / 1212 |
+| 2 | 0.648 / 1202 | 0.963 / 1202 | 0.853 / 1201 | 1.101 / 1200 |
+| 3 | 0.576 / 1214 | 1.010 / 1201 | 1.000 / 1211 | 1.035 / 1201 |
+| 11 | 0.549 / 1207 | 0.963 / 1198 | 0.737 / 1199 | 0.977 / 1201 |
+| 12 | 0.581 / 1202 | 1.101 / 1198 | 0.586 / 1203 | 1.274 / 1196 |
+| Mean | 0.571 / 1208.0 | 1.001 / 1200.2 | 0.800 / 1206.0 | 1.055 / 1202.0 |
 
-Shape 40 keeps `DimProduct` at 0.85 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40.
+Shape 40 (fact tables not shrunk) keeps `DimProduct` at 0.88 or more on every seed, for 6 scorecard items on average (0.5%). Shape 20 costs 2 items but comes within 0.09 of the limit on seed 12. The other dimension tables stay at 1.0 or more with shape 40.
 
-`tools/identity_check.py` reports every scenario as different at the new default, by design (approved). With `marginals.segment_prior_rows: 0` it reproduces 2.1 byte for byte.
+## Contoso and the default
+
+The CI bench of the pull request ran Chinook, Contoso (Parquet) and Berka with shape 40 as the default. Chinook and Berka did not regress. Contoso did: 18 quality items failed that pass at 2.1, all of them prices of the fact tables (`sales` and `orderrows` UnitPrice, NetPrice and UnitCost), and the fidelity pass rate fell from 0.93 to 0.885. Local runs, Wasserstein distance on normal scores for `sales.UnitPrice` (limit 0.05) and the fidelity pass rate:
+
+| Contoso | Seed 1 | Seed 2 |
+|---|---|---|
+| 0 rows (2.1) | 0.025 / 0.933 | 0.043 / 0.915 |
+| Shape 20 | 0.092 / 0.907 | |
+| Shape 40 | 0.107 / 0.885 | 0.099 / 0.877 |
+| Shape 40, columns that fact tables read left out | 0.095 / 0.907 | |
+
+The fact tables copy the product's price (`UnitPrice = ProductKey.Price` times a factor), but leaving `Price` and `Cost` out of the shrinkage does not fix it: the joined `Brand` and `Manufacturer`, which are never shrunk, move too (TVD 0.021 to 0.033-0.051), so the facts buy a different mix of products. That variant also lowered the AdventureWorks `DimProduct` ratio (0.74 on seed 2) and was dropped.
+
+**Default (2.2.0), the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` AW20RANGE over the five seeds (scorecard AW20MEAN on average, AW20COST items below 2.1); 40 rows give more margin and cost more fidelity. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
 
 ## Open items
 
-- Chinook, Contoso and Berka with shape mode run in the CI bench job of the pull request.
+- Why shrinking a dimension's numbers shifts which products the Contoso facts buy is not explained yet (a candidate: the facts' link or attribute models read the product's segment-level values). A fix would remove the Contoso cost.
 - The autotune rerun the gap plan asks for (`segments.default_cap`, the doctor's parts, `facts.*`) needs the CI autotune workflow (4.5 hours). It is best started after this pull request merges. `marginals.segment_prior_rows` and `marginals.segment_prior_mode` are registered as tunable.
 - `dcr_ratio` remains a guard, not a privacy test (T06). The privacy attacks (`relsynth privacy`) on AdventureWorks have not been rerun for this change.

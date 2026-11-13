@@ -20,7 +20,7 @@ In the notation of Prop.~\ref{prop:segshrink}, with the same prior law $F_0$ und
 \begin{proof}
 Both predictives are mixtures $w e+(1-w)F_0$ with weights $w_a=n/(n+a)$ and $w_{a_0}=n/(n+a_0)$, so their difference is $(w_{a_0}-w_a)(e-F_0)$ and its total variation is $|w_{a_0}-w_a|\,\mathrm{TV}(e,F_0)$, with $w_{a_0}-w_a=n(a-a_0)/((n+a)(n+a_0))\le(a-a_0)/(n+a)$ and $\mathrm{TV}\le1$.
 \end{proof}
-\noindent With the default of 40 rows a segment of 2{,}000 rows moves by at most 2\%, a segment of 30 rows by up to 57\%. Fact tables are not shrunk: their segments are blocks of the relational model, not groups of records. Check C1721 computes both sides for random $e$, $F_0$, $n$ and $a$. When the prior changes with $a$, as in shape mode, Prop.~\ref{prop:segshape}(e) gives the bound $a/(n+a)$ instead.
+\noindent With the default of 20 rows a segment of 2{,}000 rows moves by at most 1\%, a segment of 30 rows by up to 40\%. Fact tables are not shrunk: their segments are blocks of the relational model, not groups of records. Check C1721 computes both sides for random $e$, $F_0$, $n$ and $a$. When the prior changes with $a$, as in shape mode, Prop.~\ref{prop:segshape}(e) gives the bound $a/(n+a)$ instead.
 
 \setcounter{proposition}{1721}
 \begin{proposition}[The near-copy guard]\label{prop:ncguard}

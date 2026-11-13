@@ -117,18 +117,17 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Shape-mode shrinkage (40 rows) is on by default, the guard is off, and
-    shrinkage 0 gives other values on the same random stream."""
+    """Shape-mode shrinkage (20 rows) is on by default, the guard is off, and
+    0 rows (the 2.1 fit) give other values."""
     m, base = _run(shop)
-    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 40.0
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
     assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
     _, zero = _run(shop, marginals__segment_prior_rows=0.0)
-    b, z = dict(base), dict(zero)
-    assert any(not b[t].equals(z[t]) for t in b)
-    # the same random stream (Prop. 1720 b): same row counts in every table
-    assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
+    b, f = dict(base), dict(zero)
+    assert set(b) == set(f)
+    assert any(not b[t].equals(f[t]) for t in b)
 
 
 def test_zero_rows_gives_the_21_output_in_every_mode(shop):

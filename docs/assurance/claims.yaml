@@ -1312,7 +1312,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "Release 2.2 changes one default on purpose (shape-mode segment shrinkage, `marginals.segment_prior_rows: 40`); setting it to 0 restores the 2.1 output."
+      - "Release 2.2 changes one default on purpose (shape-mode segment shrinkage for small dimension tables, `marginals.segment_prior_rows: 20`); setting it to 0 restores the 2.1 output."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
