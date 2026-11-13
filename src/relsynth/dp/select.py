@@ -238,20 +238,24 @@ def _combine(meas: dict, e, y, var):
         meas[e] = (y.astype(float), var)
 
 
-def select_and_measure(method: str, table: str, nodes: dict, cells: dict, n_hat: float, c: int, rho: float,
+def select_and_measure(method: str, table: str, nodes: dict, cells: dict | None, n_hat: float, c: int, rho: float,
                        acct: Accountant, gaussian, *, max_cells: int, select_share: float, rounds: int | None,
-                       report: dict) -> Forest:
+                       report: dict, exact: dict | None = None) -> Forest:
     """Spend `rho` on choosing and measuring two-way marginals of one table;
     return the fitted forest.  `cells[v]` holds each row's cell of node v
     (truncated rows; parent nodes from the parent row).  Every released score
     vector has L-infinity sensitivity c and every two-way histogram L2
-    sensitivity c (Prop. 1301)."""
+    sensitivity c (Prop. 1301).  `exact` gives the candidates' exact two-way
+    tables instead of `cells` (counted in the database; Prop. 1762)."""
     cand = candidates(nodes, max_cells)
     meas: dict = {}
     sigma_of = (lambda r: c / math.sqrt(2 * r))
     if not cand or rho <= 0:
         return estimate(nodes, meas, n_hat)
-    exact = {e: pair_counts(cells, e[0], e[1], nodes[e[0]].k, nodes[e[1]].k) for e in cand}
+    if exact is None:
+        if cells is None:
+            raise ValueError("select_and_measure needs cells or exact")
+        exact = {e: pair_counts(cells, e[0], e[1], nodes[e[0]].k, nodes[e[1]].k) for e in cand}
     base = estimate(nodes, meas, n_hat)
     chosen: list = []
     if method == "mst":

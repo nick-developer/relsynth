@@ -472,7 +472,7 @@ claims:
   - id: DP-13
     doc: docs/dp.md
     area: scope
-    quote: "Not supported yet: in-database pushdown in DP mode (every owned table is loaded), a table that holds data of two units, and values of pii, text and binary columns (placeholders)."
+    quote: "Not supported yet: a table that holds data of two units, and values of pii, text and binary columns (placeholders)."
     status: limitation
     evidence:
       - test: tests/unit/dp/test_dp.py::test_plan_traces_ownership_and_public_tables
@@ -653,6 +653,46 @@ claims:
       - prop: prop:multigov
       - test: tests/unit/governance/test_multi_unit.py::test_policy_names_several_units_and_budgets_per_unit
       - test: tests/unit/governance/test_multi_unit.py::test_release_is_decided_for_each_unit
+
+  - id: DP-28
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "With a database source (SQLite, PostgreSQL, SQL Server, Oracle, MySQL, MariaDB, the cloud warehouses) or with files read through DuckDB, stage 1 runs inside the source database and no owned table is loaded into memory."
+      - "on refuses a source that does not (CSV or Parquet files without DuckDB) before anything is read or reserved."
+    status: supported
+    evidence:
+      - prop: prop:chunks
+      - check: C1764
+      - test: tests/science/test_dp_pushdown_checks.py::test_c1764_pushdown_on_refuses_a_file_source_before_reading
+      - test: tests/integration/test_servers.py::test_dp_stage1_in_the_database_matches_memory
+
+  - id: DP-29
+    doc: docs/dp.md
+    area: privacy-formal
+    quote:
+      - "For the same rows, the statistics are the same integers as in memory (Props. 1761 and 1762)."
+      - "Each is charged the same, so the run has the same guarantee (Prop. 1763)."
+      - "The rows kept under the cap are not the in-memory run's rows, because the database uses its own hash, but the truncation has the same stability property (Prop. 1760)."
+    status: supported
+    evidence:
+      - prop: prop:sqlbound
+      - prop: prop:freq
+      - prop: prop:joint
+      - prop: prop:chunks
+      - check: C1760
+      - check: C1761
+      - check: C1763
+
+  - id: DP-30
+    doc: docs/dp.md
+    area: privacy-formal
+    quote: "C1761 finds every statistic identical in SQLite, in Parquet files read through DuckDB and in memory, and C1763 repeats the C902 sensitivity replay on a SQLite file."
+    status: supported
+    evidence:
+      - check: C1761
+      - check: C1762
+      - check: C1763
 
   - id: SEC-01
     doc: docs/security.md
@@ -1306,6 +1346,15 @@ claims:
     evidence:
       - claim: DP-14
       - report: docs/assurance/evidence/T07/audit_contoso_eps1.jsonl
+
+  - id: RM-62
+    doc: README.md
+    area: privacy-formal
+    quote: "Stage 1 runs inside the source database when the source has SQL (or DuckDB over files): the database bounds each person's rows and returns frequency tables, so no owned table is loaded into memory (synthesis.privacy.dp.pushdown)."
+    status: supported
+    evidence:
+      - claim: DP-28
+      - claim: DP-29
 
   - id: RM-24
     doc: README.md
