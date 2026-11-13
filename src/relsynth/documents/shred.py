@@ -46,7 +46,7 @@ POS = "_pos"
 KEY = "_key"
 #: a scalar array with set semantics and at most this many distinct elements is a
 #: set of flags on its holder (multi-hot) instead of a child table (G4; 0 turns it off)
-MULTIHOT_MAX = 16
+MULTIHOT_MAX = 32
 
 
 @dataclass

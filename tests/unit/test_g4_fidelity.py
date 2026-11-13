@@ -131,3 +131,13 @@ def test_multihot_round_trip_and_length_matching():
     assert [len(d["tags"]) for d in out] == f["items"]["tags__n"].tolist()
     assert all(len(set(d["tags"])) == len(d["tags"]) for d in out)
     assert out == sh.nest(lay, f, keep_ids=True)["items"]     # seeded by holder
+
+
+def test_spec_drafts_no_rule_on_multihot_cells(tmp_path):
+    from relsynth.documents.relational import spec_for, write_sqlite
+    docs = _tag_docs(400)
+    lay = sh.build_layout({"items": profile_collection("items", docs)}, [])
+    db = write_sqlite(lay, sh.shred(lay, {"items": docs}), tmp_path / "t.sqlite")
+    raw = spec_for(lay, db)
+    assert not [r for r in raw.get("rules", []) if "__h" in repr(r)]
+    assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0}

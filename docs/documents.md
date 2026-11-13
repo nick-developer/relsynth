@@ -93,7 +93,7 @@ validates against the inferred schema (Prop. 1400).
 1. **Shred.** Each collection becomes a root table; each array, map and optional sub-document becomes a child table
    with `_parent` and `_pos` (or `_key`). Absent, null and the type of a union field are a tag column `<path>__t`,
    an array's length is a column `<path>__n` modelled with its parent's other columns, and numbers of several types
-   share one column. A set array of one scalar type with at most 16 distinct values (tags of an item) is not a child
+   share one column. A set array of one scalar type with at most 32 distinct values (tags of an item, movie genres) is not a child
    table: it is one integer column per value on its holder (`<path>__h<i>`, 0 absent, else 1 + its position), so
    which values a document holds is modelled jointly with its other fields, and a value never repeats (Prop. 1785). The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
    `nest(shred(D))` gives `D` back exactly (Prop. 1401).
