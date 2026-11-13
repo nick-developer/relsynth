@@ -1012,7 +1012,7 @@ claims:
     area: scope
     quote:
       - "Each statement the engine relies on is a numbered proposition with a proof (docs/proofs/relsynth-proofs.pdf) and a test that checks it."
-      - "relsynth-proofs.pdf: 178 propositions with proofs, each tied to a numbered check."
+      - "relsynth-proofs.pdf: 189 propositions with proofs, each tied to a numbered check."
     status: partial
     note: The count is checked (test below), and checks name their propositions, but no tool verifies that every proposition has a check of its own.
     evidence:
@@ -1991,6 +1991,33 @@ claims:
       - report: .github/workflows/security.yml
       - report: .github/dependabot.yml
       - test: tests/unit/test_scanner_fixes.py::test_urlopen_refuses_other_schemes
+
+  - id: RM-48
+    doc: README.md
+    area: scope
+    quote: "Release 2.2 closes privacy gaps found by a roadmap audit: several privacy units in one DP run with composite keys followed and generated, a quick privacy check at the end of every relsynth run, an opt-in privacy margin for small dimension tables (segment shrinkage and a near-copy guard), privacy benchmarks for every built-in generator, and cart smoothing continuous values by default."
+    status: partial
+    note: Summary of the 2.2 guides (docs/dp.md section 8, docs/privacy.md). "Every relsynth run" excludes DP runs and runs without a privacy unit of at least 50 people, as docs/privacy.md states.
+    evidence:
+      - claim: DP-21
+      - claim: PRV-40
+      - claim: PRV-20
+      - check: C1700
+      - check: C1703
+      - check: C1720
+      - check: C1740
+      - report: benchmarks/privacy.yaml
+
+  - id: RM-49
+    doc: README.md
+    area: structure
+    quote: "Without DP, the default (copula) output is byte-identical to 2.1.0; cart output and DP-mode output change for the same seed, as listed in the changelog."
+    status: supported
+    note: The CI job identity compares synthetic files byte for byte with main under default settings on every pull request; G1, G3, G5 and G15 passed it. G5 changed cart's default smoothing, and G1 changed DP-mode keys (CHANGELOG 2.2.0).
+    evidence:
+      - code: tools/identity_check.py
+      - report: .github/workflows/ci.yml
+      - report: CHANGELOG.md
 
   - id: RM-60
     doc: README.md
