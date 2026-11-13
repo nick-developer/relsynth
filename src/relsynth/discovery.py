@@ -208,9 +208,14 @@ class Discovery:
                 if n * (n - 1) / (2 * space) >= 10:
                     # the sample only screens: unique and non-null on every row
                     if not self.whole[t]:
-                        full = self.src.columns(t, list(combo))
-                        if full.isna().any().any() or full.duplicated().any():
-                            continue
+                        big = getattr(self.src, "nulls_and_repeats", lambda *_: None)(t, list(combo))
+                        if big is not None:              # a large Parquet table: counted by DuckDB
+                            if big[0] or big[1]:
+                                continue
+                        else:
+                            full = self.src.columns(t, list(combo))
+                            if full.isna().any().any() or full.duplicated().any():
+                                continue
                     return list(combo)
         return None
 

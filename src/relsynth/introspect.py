@@ -957,7 +957,8 @@ class _Profiler(Discovery):
                 expected = n * (n - 1) / (2 * space)      # repeated pairs expected if the columns were drawn independently
                 if expected >= 10 and not self.whole[t]:
                     # the sample only screens: the pair must be unique on every row
-                    if self.src.columns(t, [a, b]).dropna().duplicated().any():
+                    big = getattr(self.src, "nulls_and_repeats", lambda *_: None)(t, [a, b])
+                    if big[1] if big is not None else self.src.columns(t, [a, b]).dropna().duplicated().any():
                         self.ask(f"{t}: [{a}, {b}] has no repeat in the sample but repeats in the whole table; "
                                  "not a unique key")
                         continue
@@ -979,8 +980,10 @@ class _Profiler(Discovery):
             p, pk = r["parent"], self.pks.get(r["parent"])
             if pk is None:
                 return False
-            pv = self.full_keys(p, pk)
             cv = _keyset(self.df[t][r["child_key"]])
+            if not self.whole[p] and len(cv) < 0.99 * self.counts.get(p, 0):
+                return False                      # fewer sampled keys than 99% of the parent's (unique) keys
+            pv = self.full_keys(p, pk)
             return bool(pv) and len(pv & cv) >= 0.99 * len(pv)
         depth = {r["parent"]: sum(1 for x in self.simple(r["parent"])) for r in fks}
         # the 'one' side whose row counts are kept: the table the fact is named after;

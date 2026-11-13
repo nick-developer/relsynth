@@ -265,6 +265,24 @@ def test_rows_in_matches_float_keys_of_a_column_with_nulls(tmp_path, monkeypatch
         assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("sales", "item")}
 
 
+def test_nulls_and_repeats_of_a_large_parquet_table_match_pandas(tmp_path, monkeypatch):
+    """The whole-table uniqueness test of a large Parquet table runs in DuckDB (bounded memory) with the
+    answer of the pandas test it replaces."""
+    import relsynth.source as src
+    d = tmp_path / "pq"
+    d.mkdir()
+    df = pd.DataFrame({"a": [1, 2, 3, 1, None, 4], "b": [1, 1, 1, 2, 5, 1], "c d": [1, 1, 1, 1, 1, 1],
+                       "x": [0.5, 1.5, 2.5, 3.5, 4.5, 0.5]})
+    df.to_parquet(d / "t.parquet")
+    assert src.Source({"kind": "parquet", "path": str(d)}).nulls_and_repeats("t", ["a"]) is None
+    monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", 0)
+    s = src.Source({"kind": "parquet", "path": str(d)})
+    for cols in (["a"], ["a", "b"], ["b", "c d"], ["x"], ["x", "b"], ["c d"]):
+        full = df[cols]
+        assert s.nulls_and_repeats("t", cols) == (bool(full.isna().any().any()),
+                                                  bool(full.dropna().duplicated().any())), cols
+
+
 def test_introspect_keeps_one_self_reference_per_table(tmp_path):
     """posts.parent_id and posts.accepted_answer_id both point at posts (Stack Exchange): the run
     supports one self-reference, so the draft keeps the one with fewer NULLs."""

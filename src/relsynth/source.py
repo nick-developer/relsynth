@@ -322,6 +322,34 @@ class Source:
         out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)
         return out[use].reset_index(drop=True)
 
+    def nulls_and_repeats(self, t, cols):
+        """(any NULL in cols, any repeated combination among the rows without NULLs) of a large Parquet
+        table, counted by DuckDB in bounded memory (pandas would hold every row of a 133-million-row table
+        and hash it); None for any other table."""
+        if t not in self._lazy:
+            return None
+        import tempfile
+
+        import duckdb
+        from duckdb import ColumnExpression, FunctionExpression
+        notnull = None
+        for c in cols:
+            e = ColumnExpression(str(c)).isnotnull()
+            notnull = e if notnull is None else notnull & e
+        with tempfile.TemporaryDirectory() as tmp:
+            con = duckdb.connect(config={"memory_limit": "2GB", "temp_directory": tmp})
+            try:
+                con.execute("SET enable_progress_bar = false")
+                rel = con.read_parquet(str(self._files[t]))
+                nulls = bool(rel.filter(~notnull).limit(1).fetchall())
+                keys = [ColumnExpression(str(c)) for c in cols]
+                full = rel.filter(notnull).project(*keys)
+                n = FunctionExpression("count_star")
+                reps = full.aggregate([n]).fetchall()[0][0] != full.distinct().aggregate([n]).fetchall()[0][0]
+            finally:
+                con.close()
+        return bool(nulls), bool(reps)
+
     def int_distinct(self, t, c):
         """(sorted distinct values, non-null count) of an integer or float column of a large Parquet table,
         streamed by row group (a 133-million-row column never becomes Python objects); None for any other."""
