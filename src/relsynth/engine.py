@@ -450,6 +450,15 @@ def say(msg):
 
 
 
+def _cind_name(c: str) -> str:
+    """Readable name of an inclusion level column: a parent's parent column
+    (``key\x1ftable\x1fcolumn``) reads key.column."""
+    if "\x1f" in c:
+        gk, _, gc = c.split("\x1f")
+        return f"{gk}.{gc}"
+    return c
+
+
 def _setting(obj, group, key, default):
     """A setting of the synthesis block (relsynth.settings), default when absent.
     A function, not a method: the science checks call engine methods on bare
@@ -584,9 +593,17 @@ class Synthesizer:
                         r["opening"] = float(vals[cnt.argmax()])
                 # a balance that is never negative in the source (a stock) keeps a floor of 0
                 ny, ymin = self._balance_range(r, tables)
-                if r.get("floor") is None and ny >= 30 and ymin is not None and ymin >= 0 and \
+                if r.get("floor") is None and ny >= 30 and ymin is not None and \
                         _subtracted_column(r["step"], tables[r["table"]]) is not None:
-                    r["floor"] = 0.0
+                    if ymin >= 0:
+                        r["floor"] = 0.0
+                    elif _setting(self, "rules", "balance_floor", "auto") == "auto":
+                        # a stock that dips below 0 only on a few rows (G4: AW inventory, 0.4 %)
+                        # is a stock too: without the floor independent steps make a random
+                        # walk that goes negative on many rows (11 % on AW)
+                        yv = pd.to_numeric(tables[r["table"]][r["column"]], errors="coerce").dropna()
+                        if len(yv) and float((yv < 0).mean()) <= 0.01:
+                            r["floor"] = 0.0
         # ---- attribute models (unfitted; give features for segmentation)
         say("fit: encoding columns")
         self.tm = {}
@@ -5473,13 +5490,35 @@ class Synthesizer:
                     continue
                 excl = []
                 # strata columns are generated (exactly per stratum), so they can carry a rule
+                # the parent's own foreign keys with few levels too (G4): products of a
+                # subcategory that is never sold online are links two hops away whose
+                # pairs (sale, subcategory) the source never has
+                pfks = {x["child_key"] for x in self.fk[p]} \
+                    if _setting(self, "structure", "inclusion_fk_levels", True) else set()
                 skip = self._excluded(p) - set(self.lookups[p]) - set(self.derived[p]) \
-                    - {getattr(self, "attr_strata", {}).get(p)}
-                for c, cs in T[p]["columns"].items():
-                    if c in skip or c not in par or cs["type"] in ("text", "pii", "id", "binary", "constant"):
+                    - {getattr(self, "attr_strata", {}).get(p)} - pfks
+                cand = [(c, cs, par[c]) for c, cs in T[p]["columns"].items()
+                        if not (c in skip or c not in par or cs["type"] in ("text", "pii", "binary", "constant")
+                                or (cs["type"] == "id" and c not in pfks))]
+                # one hop further (product -> subcategory -> category): a category that is
+                # never sold spreads over many small subcategories, none of which alone
+                # carries the evidence
+                for x in self.fk[p] if pfks else ():
+                    g, gk = x["parent"], x["child_key"]
+                    if g == p or g not in tables or gk not in par or T[g]["role"] != "entity":
                         continue
-                    col = par[c]
-                    if cs["type"] in ("categorical", "boolean") and col.nunique() <= 50:
+                    gt = tables[g].drop_duplicates(T[g]["primary_key"])
+                    gmap = gt.set_index(_keystr(gt[T[g]["primary_key"]]))
+                    for gc, gcs in T[g]["columns"].items():
+                        if gc not in gt or gc == T[g]["primary_key"] or gcs["type"] not in ("categorical", "boolean", "id"):
+                            continue
+                        if gcs["type"] == "id" and gc not in {y["child_key"] for y in self.fk[g]}:
+                            continue
+                        mapped = gmap[gc].reindex(_keystr(par[gk]).to_numpy())
+                        cand.append((f"{gk}\x1f{g}\x1f{gc}", {"type": "categorical"},
+                                     pd.Series(mapped.to_numpy(), index=par.index)))
+                for c, cs, col in cand:
+                    if (cs["type"] in ("categorical", "boolean") or c in pfks) and col.nunique() <= 50:
                         lev = _keystr(col).fillna("\x00null").to_numpy(dtype=object)
                     else:
                         lev = np.where(col.isna().to_numpy(), "\x00null", "value").astype(object)
@@ -5494,7 +5533,8 @@ class Synthesizer:
                     self.cind[(t, r["child_key"])] = excl
                     self.log["decisions"].setdefault(t, {})[f"{r['name']} inclusion"] = (
                         "never references parent rows with " + "; ".join(
-                            f"{c} {'null' if v is None else ('set' if isval else '= ' + str(v))}" for c, v, isval in excl))
+                            f"{_cind_name(c)} {'null' if v is None else ('set' if isval else '= ' + str(v))}"
+                            for c, v, isval in excl))
 
     def _inclusion_mask(self, t, r, n, out):
         """1 for parent rows the link can point at, 0 for excluded levels."""
@@ -5506,9 +5546,17 @@ class Synthesizer:
         if len(par) != n:
             return mask
         for c, v, isval in rules:
-            if c not in par:
+            if "\x1f" in c:            # a level of the parent's parent (product -> subcategory -> category)
+                gk, g, gc = c.split("\x1f")
+                if gk not in par or g not in out or gc not in out[g]:
+                    continue
+                gt = out[g].drop_duplicates(self.spec["tables"][g]["primary_key"])
+                gmap = gt.set_index(_keystr(gt[self.spec["tables"][g]["primary_key"]]))[gc]
+                col = pd.Series(gmap.reindex(_keystr(par[gk]).to_numpy()).to_numpy(), index=par.index)
+            elif c not in par:
                 continue
-            col = par[c]
+            else:
+                col = par[c]
             if v is None:
                 mask[col.isna().to_numpy()] = 0
             elif isval:

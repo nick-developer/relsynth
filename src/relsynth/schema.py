@@ -473,6 +473,10 @@ SYNTH_DOC = {
     "structure.beta_prior": "Beta prior of link and occupancy rates.",
     "structure.conditional_inclusion": "auto | none: links never point at excluded parent levels.",
     "structure.inclusion_min_expected": "Expected references needed to call a level excluded (Bayes factor e^n).",
+    "structure.inclusion_fk_levels": "Also test the levels of the parent's own foreign keys with up to 50 values (a "
+                                     "product subcategory never sold online), so links never reach a parent of a "
+                                     "level the source never reaches through them, also one hop further (a product category through the "
+                                     "subcategory key) (G4).",
     "structure.participation": "auto | none: hurdle on the share of parents without children.",
     "uniqueness.mh_sweeps": "Sweeps of the unique-key sampler.",
     "uniqueness.grain": "auto | none: unique keys of two foreign keys become grains.",
@@ -546,6 +550,8 @@ SYNTH_DOC = {
                             "mean, 2.2 draws, which can never reach a count above the largest pair sum).",
     "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
     "rules.rake_max_cells": "Rule cells: largest joint table raked.",
+    "rules.balance_floor": "Running balances (cumulative rules) that are negative on at most 1% of source rows are "
+                           "stocks with a floor of 0, like the never-negative ones: auto or off (G4).",
     "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",
     "repair.constraint_rounds": "Redraw rounds of entity rows that break a check rule or a unique key.",
     "repair.thin_rounds": "Rounds of anchor thinning (participation of facts).",

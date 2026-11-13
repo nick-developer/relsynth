@@ -54,12 +54,13 @@ DEFAULT_SYNTHESIS = {
               # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
               "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
-                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
+                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
+                  "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
-    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000},
+    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000, "balance_floor": "auto"},
     # effort spent repairing a draw before it is kept as it is (relsynth 1.0 constants)
     "repair": {"pair_tries": 200, "constraint_rounds": 200, "thin_rounds": 200, "tree_redraws": 40,
                "unique_code_rounds": 50, "participation_rounds": 4, "occupancy_rounds": 20},

@@ -313,7 +313,7 @@ class SequenceModel:
         def ldm(c):                      # log Dirichlet-multinomial(c | 1), without the coefficient
             return float(gammaln(c.shape[-1]) - gammaln(c.sum() + c.shape[-1]) + gammaln(c + 1).sum())
         lbf = sum(ldm(C[k]) for k in range(self.K)) - ldm(C.sum(0))
-        pooled = lbf <= np.log(100.0)
+        pooled = bool(lbf <= np.log(100.0))
         self.fit_log["calendar"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
         return pooled
 

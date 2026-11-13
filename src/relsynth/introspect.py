@@ -105,7 +105,8 @@ def _infer_type(name, s: pd.Series, sqltype="", person=False, rows=None, party=F
     parties (is_party_table); rows: its row count."""
     from .source import is_binary_sqltype
     if is_binary_sqltype(sqltype) or s.dropna().head(50).map(lambda v: isinstance(v, (bytes, bytearray, memoryview))).any():
-        return {"type": "binary"}, "binary data (images, files): placeholder files of the source's types and lengths (synthesis.binary.generator)"
+        return {"type": "binary"}, ("binary data (images, files): placeholder files of the source's types and lengths "
+                                    "(synthesis.binary.generator)")
     n = s.notna().sum()
     if n == 0:
         return {"type": "constant"}, "all values are empty"
