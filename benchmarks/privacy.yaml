@@ -34,3 +34,8 @@ contoso_sqlite:
   unit: Customer
   sensitive: [Sales.NetPrice.mean]
   quasi_identifiers: [Gender, Age, Country, GeoAreaKey]
+
+adult:                                            # G7 PR tier: one row per person
+  unit: adult
+  sensitive: [label, capital-gain]                # income class and capital gains
+  quasi_identifiers: [age, sex, race, native-country, education, marital-status]

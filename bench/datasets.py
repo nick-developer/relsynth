@@ -47,6 +47,8 @@ REL_TRIAL = {  # table -> SHA-256 (the LFS object id of the commit above, read 2
 }
 
 # name -> (url, sha256); checked 2026-10-26 against the copies used in layer 2
+NYC_TLC = {1: "c4d59da7bbc8abaeeeb1727947ee93d9891a71acb42854bd80db1571b2030510"}   # month -> SHA-256
+
 DOWNLOADS = {
     "Chinook_Sqlite.sqlite": ("https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sqlite",
                               "bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a"),
@@ -100,12 +102,15 @@ DOWNLOADS = {
     # pinned from the first download on a GitHub-hosted runner (hosts this repository's build environment cannot
     # reach); an empty digest makes download() fail and print the file's SHA-256 for pinning
     "mimic-iv-clinical-database-demo-2.2.zip": (
-        "https://physionet.org/static/published-projects/mimic-iv-demo/mimic-iv-clinical-database-demo-2.2.zip", ""),
-    "online_retail_ii.zip": ("https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip", ""),
-    "coffee.stackexchange.com.7z": ("https://archive.org/download/stackexchange/coffee.stackexchange.com.7z", ""),
+        "https://physionet.org/static/published-projects/mimic-iv-demo/mimic-iv-clinical-database-demo-2.2.zip",
+        "97301a03820e8f41af211cf3462ddc19aefe75bbed05f11753859affaafeb8ec"),
+    "online_retail_ii.zip": ("https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip",
+                             "572e36277c2390fbfde10664750731e0a86f55e33470d91919085f0408e67bfb"),
+    "coffee.stackexchange.com.7z": ("https://archive.org/download/stackexchange/coffee.stackexchange.com.7z",
+                                    "ed92031e75185b1e5549ae257b5280423941d17751042b0369b1f2d3e8d90952"),
     "taxi_zone_lookup.csv": ("https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv", ""),
     **{f"yellow_tripdata_2024-{m:02d}.parquet": (
-        f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-{m:02d}.parquet", "")
+        f"https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-{m:02d}.parquet", NYC_TLC.get(m, ""))
        for m in range(1, 13)},
     # RelBench rel-trial (ClinicalTrials.gov via AACT; the relbench-v1 card says cc-by-sa-4.0) and the Open Food
     # Facts product database (ODbL), both at a pinned Hugging Face commit; SHA-256 = the LFS object id
@@ -113,7 +118,7 @@ DOWNLOADS = {
     "openfoodfacts-food.parquet": (
         "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/"
         "8673ac5e7af06427071fb435c7c8f95d7e51c4a7/food.parquet",
-        "75cd6b587551e6b15974c3df4c0d89503f2f9ed920cc5af1dc4bbf55e502679a"),
+        "e70c5043101cfcf2f7c7c451c80b327384fe073a2738e4ee1febfeb4a0bde474"),
     # the T12 mirror of UCI ElectricityLoadDiagrams20112014 (CC BY 4.0), as benchmarks/timeseries pins it
     "electricity.txt.gz": ("https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/"
                            "master/electricity/electricity.txt.gz",
@@ -153,6 +158,22 @@ def download(name: str) -> Path:
         raise RuntimeError(f"{name}: SHA-256 {got} does not match the pinned {digest}")
     tmp.replace(path)
     return path
+
+
+def download_all(names: list[str]) -> list[Path]:
+    """Every file, downloaded and verified; the unpinned ones are all fetched first and reported
+    together, so that one runner pass prints every digest a set needs."""
+    paths, unpinned = [], []
+    for n in names:
+        try:
+            paths.append(download(n))
+        except RuntimeError as e:
+            if "no SHA-256 pinned yet" not in str(e):
+                raise
+            unpinned.append(str(e))
+    if unpinned:
+        raise RuntimeError("\n".join(unpinned))
+    return paths
 
 
 def _builder(script: str, *args) -> None:
@@ -278,6 +299,7 @@ class Dataset:
     coverage: tuple = ()
     kind: str = "relational"                        # "documents": benchmarks/documents (MongoDB samples)
     requires: callable | None = None                # -> (available, why not)
+    minutes: float = 0.0                            # a seed's usual minutes on a runner: --jobs starts long runs first
 
 
 def _spec(name):
@@ -395,6 +417,11 @@ def _sdv(name: str) -> callable:
                           lambda: download(f"{name}-metadata.json"), OUT)
 
 
+# The copula's rank-likelihood chain on the 500-column table of stress_m/l keeps extending (R-hat over 125k
+# correlation entries, up to copula.max_iterations 3000 at about 15 s per sweep): over 45 minutes for that one
+# table on 4 cores (G7 finding F4, roadmap/reports/G7.md). The bench caps the chain at its first 120 iterations
+# so that the run fits a hosted runner's 6 hours; the spec is otherwise the unedited draft.
+STRESS_BUDGET = ("synthesis.copula.max_iterations=120",)
 # the stress schema's sizes: tables, snowflake depth, wide-table columns, fact rows (bench/builders/stress_schema.py)
 STRESS = {"stress_s": (24, 4, 60, 20_000), "stress_m": (120, 8, 500, 200_000), "stress_l": (300, 8, 500, 5_000_000)}
 
@@ -412,7 +439,8 @@ def build_stress(name: str) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".part")
     say(f"building {name} ({tables} tables, depth {depth}, {wide} columns, {rows:,} fact rows)")
-    subprocess.run([sys.executable, str(HERE / "builders" / "stress_schema.py"), str(tmp), "--tables", str(tables),  # noqa: S603
+    # argument list without a shell; the paths sit under the operator's own bench cache
+    subprocess.run([sys.executable, str(HERE / "builders" / "stress_schema.py"), str(tmp), "--tables", str(tables),  # noqa: S603  # nosemgrep
                     "--depth", str(depth), "--wide", str(wide), "--rows", str(rows)], check=True,
                    stdout=subprocess.DEVNULL)
     tmp.replace(out)
@@ -434,15 +462,16 @@ def build_rel_trial() -> Path:
 
 
 def build_nyc_tlc(months: int) -> Path:
-    files = [lambda m=m: download(f"yellow_tripdata_2024-{m:02d}.parquet") for m in range(1, months + 1)]
     out = CACHE / f"nyc_tlc_{months}m" / "parquet"
     if out.is_dir() and any(out.glob("*.parquet")):
         return out
-    paths = [f() for f in files]
+    zones, *paths = download_all(["taxi_zone_lookup.csv",
+                                  *(f"yellow_tripdata_2024-{m:02d}.parquet" for m in range(1, months + 1))])
     tmp = out.with_name("parquet.part")
     shutil.rmtree(tmp, ignore_errors=True)
     say(f"building NYC TLC trips, {months} month(s)")
-    subprocess.run([sys.executable, str(HERE / "builders" / "nyc_tlc_parquet.py"), str(download("taxi_zone_lookup.csv")),  # noqa: S603
+    # argument list without a shell; the paths sit under the operator's own bench cache
+    subprocess.run([sys.executable, str(HERE / "builders" / "nyc_tlc_parquet.py"), str(zones),  # noqa: S603  # nosemgrep
                     str(tmp), *map(str, paths)], check=True, stdout=subprocess.DEVNULL)
     tmp.replace(out)
     return out
@@ -488,7 +517,8 @@ def _drafted(name: str) -> callable:
         loc = DATASETS[name].location()
         tmp = out.with_name(out.name + ".part.yaml")
         say(f"{name}: drafting the spec with relsynth introspect")
-        r = subprocess.run([sys.executable, "-m", "relsynth", "introspect", "--source", loc, "--out", str(tmp),  # noqa: S603
+        # argument list without a shell; the paths sit under the operator's own bench cache
+        r = subprocess.run([sys.executable, "-m", "relsynth", "introspect", "--source", loc, "--out", str(tmp),  # noqa: S603  # nosemgrep
                             "--name", name, "--format", "v1"], capture_output=True, text=True, check=False,
                            env={**os.environ, "RELSYNTH_QUIET": "1"})
         if r.returncode or not tmp.exists():
@@ -502,7 +532,7 @@ DATASETS = {
     # ---------------------------------------------------------------- the 2.0 golden databases (frozen specs)
     "chinook": Dataset("chinook", lambda: f"sqlite:{build_chinook()}", _spec("chinook"),
                        note="Chinook 1.4.5 (11 tables); spec = examples/chinook_model/spec.yaml", repro=True,
-                       tier="pr", generic=True,
+                       tier="pr", generic=True, minutes=2.5,
                        coverage=("size_mb", "self_reference", "many_to_many", "small_privacy_units", "events")),
     "adventureworks": Dataset("adventureworks", lambda: f"sqlite:{build_adventureworks()}", _spec("adventureworks"),
                               _aw_checks, note="AdventureWorks DW 2022 as SQLite (27 tables, 1.05M rows); checks G1-G14",
@@ -530,7 +560,7 @@ DATASETS = {
     # ---------------------------------------------------------------- G7 matrix (unedited introspect drafts)
     "adult": Dataset("adult", lambda: f"sqlite:{_sdv('adult')()}", _drafted("adult"),
                      note="UCI Adult (32,561 people, 15 columns; SDV copy, CC BY 4.0)", tier="pr", seeds=(1,),
-                     generic=True, privacy={"shadow": {"enabled": False}},
+                     generic=True, privacy={"shadow": {"enabled": False}}, quality=AW_QUALITY, minutes=6,   # PR budget
                      coverage=("single_table", "size_mb", "messy_values", "skew")),
     "covtype": Dataset("covtype", lambda: f"sqlite:{_sdv('covtype')()}", _drafted("covtype"),
                        note="UCI CoverType (581,012 rows, 55 columns: 44 binary indicators; SDV copy, CC BY 4.0)",
@@ -609,24 +639,27 @@ DATASETS = {
                           seeds=(1,), generic=True, coverage=("tables_10_plus", "scd", "composite_keys", "size_10gb")),
     "stress_s": Dataset("stress_s", lambda: f"sqlite:{build_stress('stress_s')}", _drafted("stress_s"),
                         note="schema stress generator, small (27 tables, depth 4, 60-column table, 26k rows)",
-                        tier="pr", seeds=(1,), generic=True, repro=True,
+                        tier="pr", seeds=(1,), generic=True, repro=True, quality=AW_QUALITY, minutes=8,
                         coverage=("tables_10_plus", "snowflake_depth_4", "self_reference", "many_to_many",
                                   "composite_keys", "cyclic_keys", "binary_columns", "regular_series", "skew",
                                   "messy_values", "size_mb")),
     "stress_m": Dataset("stress_m", lambda: f"sqlite:{build_stress('stress_m')}", _drafted("stress_m"),
+                        overrides=STRESS_BUDGET,
                         note="schema stress generator, medium (120 tables, depth 8, 500-column table, 340k rows)",
                         seeds=(1,), generic=True,
                         coverage=("tables_100_plus", "snowflake_depth_4", "self_reference", "many_to_many",
                                   "composite_keys", "cyclic_keys", "binary_columns", "wide_tables", "regular_series",
                                   "skew", "messy_values")),
     "stress_l": Dataset("stress_l", lambda: f"sqlite:{build_stress('stress_l')}", _drafted("stress_l"),
+                        overrides=STRESS_BUDGET,
                         note="schema stress generator, large (300 tables, depth 8, 500-column table, 5M fact rows)",
                         tier="monthly", seeds=(1,), generic=True,
                         coverage=("tables_100_plus", "snowflake_depth_4", "wide_tables", "cyclic_keys",
                                   "binary_columns", "skew", "size_gb")),
     "mongodb_samples": Dataset("mongodb_samples", lambda: "documents:mongodb", lambda: None, kind="documents",
                                note="MongoDB sample datasets (supplies, analytics, geospatial, training) through "
-                                    "relsynth.documents", tier="pr", seeds=(1,),
+                                    "relsynth.documents", tier="pr", seeds=(1,), minutes=8,
+                               quality={"splits": 3},     # calibration splits of the shape limits (PR budget)
                                coverage=("nested_documents", "size_mb", "high_cardinality")),
     "imdb_movielens": Dataset("imdb_movielens", lambda: f"sqlite:{_sdv('imdb_movielens')()}",
                               _drafted("imdb_movielens"), tier="local", seeds=(1,), generic=True,

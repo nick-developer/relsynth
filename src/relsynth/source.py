@@ -16,6 +16,11 @@ of CSV or Parquet files (every read is normalised by data.normalise_frame):
   an order's lines, a product's history, a parent's children.
 
 Binary columns are never read: they are reported as binary and left empty.
+
+A Parquet file larger than LAZY_PARQUET_BYTES (uncompressed) is not held in
+memory: counts come from its footer, samples are drawn while streaming its row
+groups, and columns or chosen rows are read on demand (a 60-million-row TPC-H
+lineitem or a table of long texts would not fit on a 16 GB machine otherwise).
 """
 from __future__ import annotations
 
@@ -30,11 +35,21 @@ from .data import FILE_KINDS, normalise_frame, read_table_file, table_files
 # up to this many rows the primary key is read to draw a seeded sample; beyond it the
 # dialect's random order is used (not reproducible, reported in the log)
 KEY_SAMPLE_MAX_ROWS = 5_000_000
+LAZY_PARQUET_BYTES = 1 << 30
 BINARY_SQL = r"binary|blob|image|bytea|(^|\W)raw|varbinary|largebinary|_binary"
 
 
 def is_binary_sqltype(t: str) -> bool:
     return bool(re.search(BINARY_SQL, str(t).lower()))
+
+
+def _parquet_bytes(path) -> int:
+    """Uncompressed size of a Parquet file from its footer (0 for any other file)."""
+    if not str(path).lower().endswith(".parquet"):
+        return 0
+    import pyarrow.parquet as pq
+    md = pq.ParquetFile(path).metadata
+    return sum(md.row_group(i).total_byte_size for i in range(md.num_row_groups))
 
 
 def _match(name, include, exclude):
@@ -55,6 +70,7 @@ class Source:
         self.random_order = True
         self._col_cache: dict = {}
         self.unseeded: list = []
+        self._lazy: dict = {}                 # table -> pyarrow ParquetFile read on demand
         if self.kind in ("iceberg", "delta"):
             # lakehouse tables: read like files (whole, in memory), keys as recorded
             from .connectors import from_spec
@@ -75,8 +91,13 @@ class Source:
             self._files = {t: p for t, p in table_files(source["path"]).items() if _match(t, include, exclude)}
             self._frames = {}
             for t in self._files:
-                df = self._frame(t)
-                self.meta[t] = {"pk": [], "fks": [], "uniques": [], "types": {c: "" for c in df.columns},
+                if _parquet_bytes(self._files[t]) > LAZY_PARQUET_BYTES:
+                    import pyarrow.parquet as pq
+                    self._lazy[t] = pq.ParquetFile(self._files[t])
+                    names = list(self._lazy[t].schema_arrow.names)
+                else:
+                    names = list(self._frame(t).columns)
+                self.meta[t] = {"pk": [], "fks": [], "uniques": [], "types": {c: "" for c in names},
                                 "binary": []}
             self.names = list(self._files)
             return
@@ -134,6 +155,8 @@ class Source:
 
     # ---------------------------------------------------------------- api
     def count(self, t) -> int:
+        if t in self._lazy:
+            return int(self._lazy[t].metadata.num_rows)
         if self.kind == "csv":
             return len(self._frame(t))
         if t not in self._counts:
@@ -143,6 +166,8 @@ class Source:
         return self._counts[t]
 
     def _cols(self, t):
+        if t in self._lazy:
+            return list(self._lazy[t].schema_arrow.names)
         if self.kind == "csv":
             return list(self._frame(t).columns)
         return [c for c in self._tables[t].columns.keys() if c not in self.meta[t]["binary"]]
@@ -158,6 +183,8 @@ class Source:
     def sample(self, t, n):
         """(rows, is_whole_table)"""
         total = self.count(t)
+        if t in self._lazy:
+            return self._lazy_sample(t, n, total)
         if self.kind == "csv":
             df = self._frame(t)
             if total <= n:
@@ -199,7 +226,9 @@ class Source:
     def column(self, t, c) -> pd.Series:
         """Every value of one column (cached)."""
         if (t, c) not in self._col_cache:
-            if self.kind == "csv":
+            if t in self._lazy:
+                s = self._lazy_read(t, [c])[c]
+            elif self.kind == "csv":
                 s = self._frame(t)[c]
             else:
                 from sqlalchemy import select
@@ -212,6 +241,8 @@ class Source:
         """Every row of several columns, read together in one query (aligned row by
         row), for tests on the whole table: a composite key, a self-reference."""
         cols = list(cols)
+        if t in self._lazy:
+            return self._lazy_read(t, cols)
         if self.kind == "csv":
             return self._frame(t)[cols].reset_index(drop=True)
         from sqlalchemy import select
@@ -224,6 +255,8 @@ class Source:
         """All rows of t whose column col takes one of the given values."""
         keys = [k for k in pd.unique(pd.Series(list(keys), dtype=object)) if k is not None and not
                 (isinstance(k, float) and np.isnan(k))]
+        if t in self._lazy:
+            return self._lazy_rows_in(t, col, keys, cols)
         if self.kind == "csv":
             df = self._frame(t)
             ks = set(map(str, keys))
@@ -241,3 +274,37 @@ class Source:
         df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)
         df.columns = [str(c) for c in df.columns]
         return df
+
+    # ---------------------------------------------------------------- large Parquet files
+    def _lazy_read(self, t, cols) -> pd.DataFrame:
+        return normalise_frame(self._lazy[t].read(columns=list(cols)).to_pandas())[list(cols)].reset_index(drop=True)
+
+    def _lazy_sample(self, t, n, total):
+        """A seeded Bernoulli(n / rows) sample drawn while streaming the row groups."""
+        pf = self._lazy[t]
+        if total <= n:
+            return normalise_frame(pf.read().to_pandas()), True
+        rng = np.random.default_rng([self.seed, sum(map(ord, t))])
+        q = n / total
+        parts = []
+        for b in pf.iter_batches(batch_size=65_536):
+            keep = np.flatnonzero(rng.random(b.num_rows) < q)
+            if len(keep):
+                parts.append(b.take(keep).to_pandas())
+        df = pd.concat(parts, ignore_index=True) if parts else pf.schema_arrow.empty_table().to_pandas()
+        return normalise_frame(df), False
+
+    def _lazy_rows_in(self, t, col, keys, cols=None):
+        """Rows whose col is one of keys, compared as text (as for a CSV table), streamed by row group."""
+        pf = self._lazy[t]
+        use = list(cols) if cols else list(pf.schema_arrow.names)
+        read = use if col in use else [*use, col]
+        ks = set(map(str, keys))
+        parts = []
+        for b in pf.iter_batches(batch_size=262_144, columns=read):
+            df = normalise_frame(b.to_pandas())
+            hit = df[col].astype(str).isin(ks)
+            if hit.any():
+                parts.append(df.loc[hit, use])
+        out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=use)
+        return out[use].reset_index(drop=True)

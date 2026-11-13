@@ -118,7 +118,8 @@ def run_documents(name: str, seed: int) -> dict:
     rec = {"dataset": name, "seed": seed}
     with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
         cmd = [sys.executable, str(ROOT / "benchmarks" / "documents" / "run_documents.py"), "--out", tmp,
-               "--cache", str(CACHE / "documents"), "--sets", ",".join(DOCUMENT_SETS), "--seed", str(seed)]
+               "--cache", str(CACHE / "documents"), "--sets", ",".join(DOCUMENT_SETS), "--seed", str(seed),
+               "--splits", str((DATASETS[name].quality or {}).get("splits", 10))]
         t0 = time.time()
         rc, _o, err, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
         rec["seconds"], rec["cost"] = round(time.time() - t0, 1), cost
@@ -376,7 +377,8 @@ def run(datasets: list[str], seeds: list[int] | None, *, fake: bool = True, push
     if jobs > 1:
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=jobs) as pool:   # each run is its own processes; threads only wait
-            list(pool.map(one, tasks))
+            # the longest runs start first, so that the slowest set does not start last and set the wall time
+            list(pool.map(one, sorted(tasks, key=lambda t: -DATASETS[t[0]].minutes)))
     else:
         for t in tasks:
             one(t)

@@ -25,4 +25,5 @@ subprocess.run(["java", "-Xmx6g", "-jar", str(jar), "-p", str(n), "-s", "7", "-c
 csv = out / "csv"
 if not any(csv.glob("patients.csv")):
     raise SystemExit(f"Synthea wrote no patients.csv under {csv}")
-print(f"{sum(1 for _ in open(csv / 'patients.csv', encoding='utf-8')) - 1} patients")
+with open(csv / "patients.csv", encoding="utf-8") as fh:
+    print(f"{sum(1 for _ in fh) - 1} patients")
