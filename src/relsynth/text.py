@@ -31,6 +31,8 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 DIGITS = re.compile(r"\d{5,}")
 BOS, EOS = "<s>", "</s>"
 CDF_CACHE_FLOATS = 30_000_000      # about 240 MB of cached next-token laws per text model
+CHUNK_TOKENS = 4_000_000           # tokens per span of the packed fit
+RARE_PART = 8_000_000              # runs per hash partition of the no-copy guard
 
 
 WORD = re.compile(r"[^\W_]")
@@ -66,138 +68,164 @@ class TextModel:
         texts = [("" if t is None or (isinstance(t, float) and np.isnan(t)) else str(t)) for t in texts]
         classes = [None] * len(texts) if classes is None else list(classes)
         self._tabs = None
-        # tokens are interned to integer ids in first-seen order, so long free text costs
-        # 4 bytes a token instead of a string object, a tuple per n-gram and a Counter
-        # per context (rel-trial's descriptions needed more than 12 GiB that way)
+        # tokens are interned to integer ids in first-seen order and every pass below runs
+        # over spans of about CHUNK_TOKENS tokens, so long free text costs 4 bytes a token
+        # and a bounded working set, instead of a string per token, a tuple per n-gram and
+        # a Counter per context (rel-trial's descriptions needed more than 12 GiB that way)
         tid: dict = {}
         rows = []
         for t in texts:
             ts = ([t] if t else []) if self.whole else tokenize(t)
-            rows.append(np.fromiter((tid.setdefault(w, len(tid)) for w in ts), dtype=np.int64, count=len(ts)))
+            rows.append(np.fromiter((tid.setdefault(w, len(tid)) for w in ts), dtype=np.int32, count=len(ts)))
         tokens = list(tid)
+        del tid
+        nt = len(tokens)
         lens = np.fromiter((len(r) for r in rows), dtype=np.int64, count=len(rows))
-        ids = np.concatenate(rows) if rows else np.zeros(0, np.int64)
-        del rows
+        spans = _spans(lens, CHUNK_TOKENS)
+
+        def span(lo, hi):
+            n = lens[lo:hi]
+            ids = np.concatenate(rows[lo:hi]).astype(np.int64) if n.sum() else np.zeros(0, np.int64)
+            return ids, n, np.cumsum(n) - n
+
         # rows holding each token: the vocabulary keeps tokens of at least k rows, in
         # first-seen order (it, and the draws, must not depend on the hash seed)
-        rid = np.repeat(np.arange(len(lens)), lens)
-        first = np.ones(len(ids), bool)
-        if len(ids):
-            o = np.lexsort((ids, rid))
-            dup = (ids[o][1:] == ids[o][:-1]) & (rid[o][1:] == rid[o][:-1])
-            first[o[1:][dup]] = False
-        rows_with = np.bincount(ids[first], minlength=len(tokens))
-        del first
+        rows_with = np.zeros(nt, np.int64)
+        for lo, hi in spans:
+            ids, n, _ = span(lo, hi)
+            if len(ids):
+                u = np.unique(np.repeat(np.arange(len(n), dtype=np.int64), n) * nt + ids)
+                rows_with += np.bincount(u % nt, minlength=nt)
         self.vocab = [w for w, c in zip(tokens, rows_with) if c >= self.k] + [EOS]
         self.widx = {w: i for i, w in enumerate(self.vocab)}
         V = len(self.vocab)
         self.null_rate = float(np.mean([len(t) == 0 for t in texts])) if texts else 0.0
-        tmap = np.fromiter((self.widx.get(w, -1) for w in tokens), dtype=np.int64, count=len(tokens))
-        A = tmap[ids]                       # vocabulary index of each source token, -1 outside it
-        nonempty = lens > 0
-        starts = np.concatenate([[0], np.cumsum(lens)[:-1]]) if len(lens) else lens
-        # word coverage: share of non-empty rows that keep a word of the vocabulary
+        tmap = np.fromiter((self.widx.get(w, -1) for w in tokens), dtype=np.int64, count=nt)
         good = np.fromiter(((self.widx.get(w, -1) >= 0) and (self.whole or bool(WORD.search(w))) for w in tokens),
-                           dtype=bool, count=len(tokens))
-        if nonempty.any():
-            keep = np.logical_or.reduceat(good[ids], starts[nonempty])
-            self.word_coverage = float(np.mean(keep))
-        else:
-            self.word_coverage = 0.0
+                           dtype=bool, count=nt)
+        # word coverage (share of non-empty rows that keep a word of the vocabulary) and the
+        # whole texts held by fewer than k rows; outputs are made of vocabulary tokens, so
+        # only texts made entirely of them can ever be matched
+        kept, text_freq = [], Counter()
+        for lo, hi in spans:
+            ids, n, st = span(lo, hi)
+            ne = n > 0
+            if ne.any():
+                kept.append(np.logical_or.reduceat(good[ids], st[ne]))
+            inv = np.zeros(len(ids) + 1, np.int64)
+            np.cumsum(tmap[ids] < 0, out=inv[1:])
+            for j in np.flatnonzero(inv[st + n] == inv[st]):
+                text_freq[" ".join(tokens[x] for x in rows[lo + j])] += 1
+        keep = np.concatenate(kept) if kept else np.zeros(0, bool)
+        self.word_coverage = float(np.mean(keep)) if len(keep) else 0.0
         self.surrogate = self.word_coverage < 0.5
-        # whole texts held by fewer than k rows; outputs are made of vocabulary tokens,
-        # so only texts made entirely of them can ever be matched
-        inv = np.zeros(len(ids) + 1, np.int64)
-        np.cumsum(A < 0, out=inv[1:])
-        allv = (inv[starts + lens] - inv[starts]) == 0
-        text_freq = Counter(" ".join(tokens[j] for j in ids[s:s + n])
-                            for s, n, ok in zip(starts.tolist(), lens.tolist(), allv.tolist()) if ok)
         self.rare_texts = {t for t, c in text_freq.items() if c < self.k}
-        del text_freq
-        self._rare_ngram_index(A, inv, starts, lens)
+        del text_freq, kept, keep
+        self._rare_ngram_index(rows, lens, spans, span, tmap)
         # class -> context -> next-token counts, packed: key = class, then each context
         # token, in base V + 1 (the start padding is V unless "<s>" is itself a token)
         cls: dict = {}
-        cid = np.fromiter((cls.setdefault(c, len(cls)) for c, ne in zip(classes, nonempty.tolist()) if ne),
-                          dtype=np.int64)
+        cid_row = np.fromiter((cls.setdefault(c, len(cls)) if n else -1 for c, n in zip(classes, lens.tolist())),
+                              dtype=np.int64, count=len(lens))
         self.classes = set(cls)
         B, bos, N = V + 1, self.widx.get(BOS, V), self.N
         if B ** max(N - 1, 0) * max(len(cls), 1) >= 2 ** 62:
-            del A, ids, inv
+            del rows
             return self._fit_dicts(texts, classes)
         self._cls, self._B, self._bos = cls, B, bos
-        q = A[A >= 0]
-        m = np.add.reduceat((A >= 0).astype(np.int64), starts[nonempty]) if nonempty.any() else np.zeros(0, np.int64)
-        del A, ids, inv
-        seg = m + N + 1                                    # padding + vocabulary tokens + end
-        S = np.full(int(seg.sum()), bos, np.int64)
-        sstart = np.concatenate([[0], np.cumsum(seg)[:-1]]) if len(seg) else seg
-        tgt_row = np.repeat(np.arange(len(seg)), m + 1)
-        P = np.arange(len(tgt_row)) - np.repeat(np.concatenate([[0], np.cumsum(m + 1)[:-1]]) if len(m) else m,
-                                                 m + 1) + np.repeat(sstart + N, m + 1)
-        qrow = np.repeat(np.arange(len(m)), m)
-        qpos = np.arange(len(q)) - np.repeat(np.concatenate([[0], np.cumsum(m)[:-1]]) if len(m) else m, m)
-        S[sstart[qrow] + N + qpos] = q
-        S[sstart + seg - 1] = self.widx[EOS]
-        del q, qrow, qpos
-        w = S[P]
         G = np.ones(V)
-        G += np.bincount(w, minlength=V)[:V]
-        tc = cid[tgt_row]
-        del tgt_row
+        parts: list = [[] for _ in range(N)]
+        for lo, hi in spans:
+            ids, n, st = span(lo, hi)
+            ne = n > 0
+            if not ne.any():
+                continue
+            A = tmap[ids]
+            q = A[A >= 0]
+            m = np.add.reduceat((A >= 0).astype(np.int64), st[ne])
+            del A, ids
+            seg = m + N + 1                                # padding + vocabulary tokens + end
+            S = np.full(int(seg.sum()), bos, np.int64)
+            sstart = np.cumsum(seg) - seg
+            P = np.arange(int((m + 1).sum())) - np.repeat(np.cumsum(m + 1) - (m + 1), m + 1) \
+                + np.repeat(sstart + N, m + 1)
+            qpos = np.arange(len(q)) - np.repeat(np.cumsum(m) - m, m)
+            S[np.repeat(sstart, m) + N + qpos] = q
+            S[sstart + seg - 1] = self.widx[EOS]
+            del q, qpos
+            w = S[P]
+            G += np.bincount(w, minlength=V)[:V]
+            tc = np.repeat(cid_row[lo:hi][ne], m + 1)
+            for k in range(N):
+                key = tc.copy()
+                for j in range(k):
+                    key *= B
+                    key += S[P - k + j]
+                parts[k].append(_runs(key, w.astype(np.int32), np.ones(len(w), np.int32)))
+            del S, P, w, tc
         self._tabs = []
-        for n in range(N):
-            key = tc.copy()
-            for j in range(n):
-                key *= B
-                key += S[P - n + j]
-            o = np.lexsort((w, key))
-            ks, ws = key[o], w[o]
-            del o, key
-            new = np.ones(len(ks), bool)
-            new[1:] = (ks[1:] != ks[:-1]) | (ws[1:] != ws[:-1])
-            at = np.flatnonzero(new)
-            cnt = np.diff(np.append(at, len(ks))).astype(float)
-            ck, cw = ks[at], ws[at].astype(np.int32)
+        for k in range(N):
+            ks = np.concatenate([x[0] for x in parts[k]]) if parts[k] else np.zeros(0, np.int64)
+            ws = np.concatenate([x[1] for x in parts[k]]) if parts[k] else np.zeros(0, np.int32)
+            cs = np.concatenate([x[2] for x in parts[k]]) if parts[k] else np.zeros(0, np.int32)
+            parts[k] = None
+            ck, cw, cnt = _runs(ks, ws, cs)
+            del ks, ws, cs
             newc = np.ones(len(ck), bool)
             newc[1:] = ck[1:] != ck[:-1]
             off = np.append(np.flatnonzero(newc), len(ck))
-            self._tabs.append((ck[newc], off, cw, cnt))
-            del ks, ws
+            self._tabs.append((ck[newc], off, cw, cnt))       # counts stay int32 (exact; cast in dist)
         self.counts = None
         self.pG = G / G.sum()
         self._cdf_cache, self._whole_cache = {}, {}
         return self
 
-    def _rare_ngram_index(self, A, inv, starts, lens):
+    def _rare_ngram_index(self, rows, lens, spans, span, tmap):
         """Runs of L vocabulary tokens that occur in fewer than k source rows, kept as
         sorted pairs of independent 64-bit hashes (a false match needs a 128-bit
         collision).  Runs with a token outside the vocabulary are left out: outputs
-        are made of vocabulary tokens only, so they can never match one."""
+        are made of vocabulary tokens only, so they can never match one.  The runs are
+        counted in hash partitions of at most about 8 million, hashed span by span."""
         L = self.L
         self.rare_ngrams = None
         empty = np.zeros(0, np.uint64)
         self._rare = (empty, empty)
-        ok = lens >= L
-        if not ok.any():
+        total = int(np.maximum(lens - L + 1, 0).sum())
+        if not total:
             return
-        n_win = lens[ok] - L + 1
-        st = np.repeat(starts[ok], n_win) + (np.arange(int(n_win.sum())) - np.repeat(
-            np.concatenate([[0], np.cumsum(n_win)[:-1]]), n_win))
-        row = np.repeat(np.flatnonzero(ok), n_win)
-        clean = (inv[st + L] - inv[st]) == 0
-        st, row = st[clean], row[clean]
-        if not len(st):
-            return
-        h1, h2 = _window_hashes(A, st, L)
-        del st
+        nparts = max(1, -(-total // RARE_PART))
         rare1, rare2 = [], []
-        parts = 1 << max(0, min(6, int(np.log2(max(len(h1), 1) / 4e6)) + 1))
-        for p in range(parts):
-            sel = np.flatnonzero((h1 & np.uint64(parts - 1)) == p) if parts > 1 else slice(None)
-            a, b, r = h1[sel], h2[sel], row[sel]
+        for p in range(nparts):
+            got = []
+            for lo, hi in spans:
+                ids, n, st = span(lo, hi)
+                ok = n >= L
+                if not ok.any():
+                    continue
+                A = tmap[ids]
+                inv = np.zeros(len(A) + 1, np.int64)
+                np.cumsum(A < 0, out=inv[1:])
+                nw = n[ok] - L + 1
+                ws = np.repeat(st[ok], nw) + (np.arange(int(nw.sum())) - np.repeat(np.cumsum(nw) - nw, nw))
+                row = np.repeat(np.flatnonzero(ok) + lo, nw)
+                clean = inv[ws + L] == inv[ws]
+                ws, row = ws[clean], row[clean]
+                if not len(ws):
+                    continue
+                h1, h2 = _window_hashes(A, ws, L)
+                if nparts > 1:
+                    sel = (h1 % np.uint64(nparts)) == p
+                    h1, h2, row = h1[sel], h2[sel], row[sel]
+                got.append((h1, h2, row))
+            if not got:
+                continue
+            a = np.concatenate([g[0] for g in got])
+            b = np.concatenate([g[1] for g in got])
+            r = np.concatenate([g[2] for g in got])
+            del got
             o = np.lexsort((r, b, a))
             a, b, r = a[o], b[o], r[o]
+            del o
             new = np.ones(len(a), bool)
             new[1:] = (a[1:] != a[:-1]) | (b[1:] != b[:-1]) | (r[1:] != r[:-1])
             a, b = a[new], b[new]                     # one entry per (n-gram, row)
@@ -207,9 +235,10 @@ class TextModel:
             nrows = np.diff(np.append(at, len(a)))
             rare1.append(a[at][nrows < self.k])
             rare2.append(b[at][nrows < self.k])
-        r1, r2 = np.concatenate(rare1), np.concatenate(rare2)
-        o = np.lexsort((r2, r1))
-        self._rare = (r1[o], r2[o])
+        if rare1:
+            r1, r2 = np.concatenate(rare1), np.concatenate(rare2)
+            o = np.lexsort((r2, r1))
+            self._rare = (r1[o], r2[o])
 
     def _fit_dicts(self, texts, classes):
         """The reference implementation with nested Counters (used when the packed
@@ -371,6 +400,31 @@ class TextModel:
             out.append(fill_placeholders(detok(t), rng) if t else f"{label} {rng.integers(10**5):05d}")
         self.last_rejected = rejected
         return out
+
+
+def _spans(lens, size):
+    """Consecutive row ranges [lo, hi) of about `size` tokens each (one row may exceed it)."""
+    out, lo, acc = [], 0, 0
+    for i, n in enumerate(lens.tolist()):
+        acc += n
+        if acc >= size:
+            out.append((lo, i + 1))
+            lo, acc = i + 1, 0
+    if lo < len(lens):
+        out.append((lo, len(lens)))
+    return out
+
+
+def _runs(key, w, cnt):
+    """(key, w) pairs sorted, with the counts of equal pairs summed."""
+    if not len(key):
+        return key, w, cnt
+    o = np.lexsort((w, key))
+    ks, ws, cs = key[o], w[o], cnt[o]
+    new = np.ones(len(ks), bool)
+    new[1:] = (ks[1:] != ks[:-1]) | (ws[1:] != ws[:-1])
+    at = np.flatnonzero(new)
+    return ks[at], ws[at], np.add.reduceat(cs, at)
 
 
 _M = (np.uint64(0x9E3779B97F4A7C15), np.uint64(0xC2B2AE3D27D4EB4F))

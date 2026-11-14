@@ -116,7 +116,11 @@ jobs:
       - name: Compare with the baseline (every dataset of the tier must run)
         env:
           ONLY: ${{ inputs.only }}
-        run: python -m bench compare bench-out/*/*.json --full --tier "$TIER" --hosted --only "$ONLY"
+        # download-artifact extracts a lone artifact (a dispatch with `only` of one set) straight into
+        # bench-out/, and several into one folder each: take the records of both layouts
+        run: |
+          shopt -s nullglob
+          python -m bench compare bench-out/*.json bench-out/*/*.json --full --tier "$TIER" --hosted --only "$ONLY"
 
   baseline:
     # A baseline change on the dispatched branch: the records of this run (or of
