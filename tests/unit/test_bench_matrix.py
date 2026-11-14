@@ -448,3 +448,11 @@ def test_joined_view_gathers_the_merged_columns(tmp_path):
     assert list(lazy.columns) == list(frame.columns)
     for c in frame.columns:
         pd.testing.assert_series_equal(lazy[c], frame[c], check_names=False)
+
+
+def test_a_watchdog_abort_keeps_its_traceback_in_the_record():
+    from bench.runner import _tail
+    err = ("Fatal Python error: Aborted\n\nCurrent thread 0x1 (most recent call first):\n"
+           '  File "evaluate.py", line 297 in _assoc_fast\n\nExtension modules: ' + "m, " * 2000 + "(total: 2000)\n")
+    assert _tail(err, 1500).endswith("in _assoc_fast")
+    assert _tail("plain error text", 5) == " text"

@@ -130,13 +130,24 @@ def _digest(folder: Path) -> str:
     return h.hexdigest()
 
 
+def _tail(err: str, n: int) -> str:
+    """The last n characters of a child's stderr, or, when the memory watchdog aborted it, its
+    faulthandler traceback (the stack sits before the list of extension modules, which alone
+    fills the tail)."""
+    i = err.rfind("Current thread")
+    if i >= 0:
+        j = err.find("Extension modules", i)
+        return err[i:j if j > i else None].strip()[:n]
+    return err[-n:]
+
+
 def _assess(suite: str, name: str, location: str, arg: str, overrides: list[str], tmp: str) -> tuple[list, dict]:
     out = Path(tmp) / f"{suite}.json"
     cmd = [sys.executable, "-m", "bench.assess", suite, name, location, arg, str(out),
            *[x for o in overrides for x in ("--set", o)]]
     rc, _o, err, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
     if rc or not out.exists():
-        return [], {"error": f"{suite} assessment failed ({rc}): {err[-1500:]}"}
+        return [], {"error": f"{suite} assessment failed ({rc}): {_tail(err, 1500)}"}
     doc = json.loads(out.read_text(encoding="utf-8"))
     return doc["checks"], {"seconds": doc["seconds"], **cost}
 
@@ -161,7 +172,7 @@ def run_documents(name: str, seed: int) -> dict:
         for st in DOCUMENT_SETS:
             f = Path(tmp) / f"{st}.json"
             if not f.exists():
-                rec["error"] = f"documents set {st} wrote no result ({rc}): {err[-1500:]}"
+                rec["error"] = f"documents set {st} wrote no result ({rc}): {_tail(err, 1500)}"
                 continue
             r = json.loads(f.read_text(encoding="utf-8"))
             rows.update({f"{st}.{c}": n for c, n in r["documents"].items()})
@@ -213,7 +224,7 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
         try:
             doc = json.loads(stdout)
         except json.JSONDecodeError:
-            rec["error"] = (stderr or stdout)[-2000:]
+            rec["error"] = _tail(stderr or stdout, 2000)
             return rec
         rec["exit_code"] = doc.get("exit_code")
         rec["rows"] = doc.get("rows")
@@ -221,7 +232,7 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
         if doc.get("errors"):
             rec["error"] = json.dumps(doc["errors"])[-2000:]
         elif rc not in (0, 1):                   # 1 is a quality gate, which the scorecard reports anyway
-            rec["error"] = f"relsynth exited with {rc}: " + (stderr or "")[-2000:]
+            rec["error"] = f"relsynth exited with {rc}: " + _tail(stderr or "", 2000)
         sc = doc.get("scorecard") or {}
         rec["scorecard"] = {"passed": sc.get("passed"), "total": sc.get("total")}
         # every scorecard item is in the diagnostics bundle (aggregates only)

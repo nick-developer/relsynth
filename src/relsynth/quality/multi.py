@@ -134,7 +134,12 @@ def hop_views(spec, tables, max_hops=2, only=None):
     """Denormalised views along foreign-key paths: {(path name, hops):
     (view, bottom table, bottom columns, top table, top columns)} with top-table
     columns prefixed '^.'; `only` limits them to the paths of those names."""
-    out = {}
+    return dict(_iter_hop_views(spec, tables, max_hops, only))
+
+
+def _iter_hop_views(spec, tables, max_hops=2, only=None):
+    """hop_views one path at a time, in the same order; which paths are yielded depends on
+    the spec only, so two calls over different tables yield the same keys."""
     for name, p, pk, c, fk in relations(spec):
         if only is not None and name not in only:
             continue
@@ -142,7 +147,7 @@ def hop_views(spec, tables, max_hops=2, only=None):
         cc = attribute_columns(spec, c)
         if pc and cc:
             v = _join(tables, c, fk, p, pk, pc, "^.")
-            out[(name, 1)] = (v, c, cc, p, pc)
+            yield (name, 1), (v, c, cc, p, pc)
     if max_hops >= 2:
         for name, gp, gpk, p, ppk, fk1, c, fk2 in two_hop_chains(spec):
             if only is not None and name not in only:
@@ -159,20 +164,19 @@ def hop_views(spec, tables, max_hops=2, only=None):
             g.columns = ["^." + x for x in g.columns]
             v = v.assign(_k=keystr(v["_mid_fk"]).fillna("__null__").to_numpy()).merge(
                 g.assign(_k=keystr(g["^." + gpk]).to_numpy()), on="_k", how="left").drop(columns="_k")
-            out[(name, 2)] = (v, c, cc, gp, gc)
-    return out
+            yield (name, 2), (v, c, cc, gp, gc)
 
 
 def hop_trends(spec, real, other, max_hops=2, max_rows=20000, seed=0, only=None):
     """{path: {"hops", "mean", "min", "worst", "pairs": {pair: [score, |diff| ]}}}
     for each 1- and 2-hop path (or those named in `only`), comparing pairs
     (bottom column, top column)."""
-    vr, vo = hop_views(spec, real, max_hops, only), hop_views(spec, other, max_hops, only)
+    # one path's two views at a time: all of them at once held gigabytes on TPC-DS (an
+    # 11.7M-row inventory and 3M store_sales rows, each joined along every path)
     out = {}
-    for key, (a, c, cc, p, pc) in vr.items():
-        if key not in vo:
-            continue
-        b = vo[key][0]
+    for (key, (a, c, cc, p, pc)), (key_o, (b, *_)) in zip(_iter_hop_views(spec, real, max_hops, only),
+                                                          _iter_hop_views(spec, other, max_hops, only)):
+        assert key == key_o
         if len(a) > max_rows:
             a = a.sample(max_rows, random_state=seed)
         if len(b) > max_rows:
