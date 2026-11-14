@@ -24,7 +24,7 @@ from pathlib import Path
 
 import defusedxml.ElementTree as ET  # XML without entity expansion or external entities
 
-from .datasets import DATASETS, available, is_private, private_store, say
+from .datasets import DATASETS, INTROSPECT_MAX_GIB, _rss_gib, available, is_private, private_store, say
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = 1
@@ -67,12 +67,34 @@ def _source_overrides(location: str) -> list[str]:
 SUITES = ("scorecard", "quality", "privacy", "repro")
 
 
+def _watch(p, label: str, done: threading.Event) -> None:
+    """Print a child's resident memory every 5 minutes; above INTROSPECT_MAX_GIB stop it with SIGABRT, so
+    Python's fault handler writes where it was into its stderr (kept in the record) instead of a 16 GB runner
+    being killed without a word."""
+    import signal
+    start = last = time.monotonic()
+    peak = 0.0
+    while not done.wait(2):
+        rss = _rss_gib(p.pid)
+        peak = max(peak, rss)
+        if rss > INTROSPECT_MAX_GIB:
+            say(f"{label}: {rss:.1f} GiB (limit {INTROSPECT_MAX_GIB:g}); stopped, its traceback is in the record")
+            p.send_signal(signal.SIGABRT)
+            return
+        if time.monotonic() - last >= 300:
+            last = time.monotonic()
+            say(f"{label}: running {(last - start) / 60:.0f} min, memory {rss:.1f} GiB (peak {peak:.1f})")
+
+
 def _run_child(cmd: list[str], env: dict) -> tuple[int, str, str, dict]:
     """(exit code, stdout, stderr, cost) of a child process; cost is its own CPU
     seconds and peak resident memory (os.wait4 reads them for this child only)."""
     with tempfile.TemporaryFile() as fo, tempfile.TemporaryFile() as fe:
-        p = subprocess.Popen(cmd, stdout=fo, stderr=fe, env=env)  # noqa: S603
+        p = subprocess.Popen(cmd, stdout=fo, stderr=fe, env={**env, "PYTHONFAULTHANDLER": "1"})  # noqa: S603
+        done = threading.Event()
+        threading.Thread(target=_watch, args=(p, " ".join(map(str, cmd[2:4])), done), daemon=True).start()
         _, status, ru = os.wait4(p.pid, 0)
+        done.set()
         p.returncode = os.waitstatus_to_exitcode(status)
         fo.seek(0)
         fe.seek(0)
