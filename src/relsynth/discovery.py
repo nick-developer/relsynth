@@ -817,7 +817,7 @@ class Discovery:
                        if r.get("table") == t and r.get("type") == "derive"}
             usable = [c for c, cs in self.cols[t].items() if c not in keys and c not in derived
                       and cs["type"] in ("categorical", "integer", "boolean") and not cs.get("offset_from")
-                      and df[c].nunique() >= 2]
+                      and df[c].nunique() >= 2 and nameable(c)]   # the anchor is checked by a rule
             levels = {c: df[c].nunique() for c in usable}
             codes = {c: canon(df[c]) for c in usable}
             det = {}

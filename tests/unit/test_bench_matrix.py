@@ -399,8 +399,10 @@ def test_introspect_drafts_no_rule_over_column_names_the_language_cannot_write(t
     import relsynth as rs
     rng = np.random.default_rng(3)
     lo = rng.integers(0, 50, 3000)
+    det = rng.integers(0, 60, 3000)
     df = pd.DataFrame({"id": np.arange(3000), "num persons": lo, "age": lo + rng.integers(1, 40, 3000),
-                       "low": lo, "high": lo + rng.integers(1, 40, 3000)})
+                       "low": lo, "high": lo + rng.integers(1, 40, 3000), "detailed code": det,
+                       "major code": np.array([f"m{i}" for i in range(10)])[det // 6]})
     db = tmp_path / "s.db"
     with sqlite3.connect(db) as con:
         df.to_sql("people", con, index=False)
@@ -408,6 +410,10 @@ def test_introspect_drafts_no_rule_over_column_names_the_language_cannot_write(t
     exprs = [r.get("expr", "") for r in spec.raw.get("rules", [])]
     assert not any("num persons" in e for e in exprs)
     assert "low < high" in exprs
+    # a code that determines a label (a virtual dimension anchored by a rule) is not drafted either
+    assert all("detailed code" not in d["key"] for d in spec.raw["tables"]["people"].get("dimensions", []))
+    r = rs.run(spec, write=False, privacy=False, seed=1)
+    assert r.ok, r.errors if hasattr(r, "errors") else r
 
 
 def test_cramers_v_of_many_levels_uses_observed_cells_and_matches_the_dense_table():
