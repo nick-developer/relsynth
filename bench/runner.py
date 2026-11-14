@@ -86,15 +86,27 @@ def _watch(p, label: str, done: threading.Event) -> None:
             say(f"{label}: running {(last - start) / 60:.0f} min, memory {rss:.1f} GiB (peak {peak:.1f})")
 
 
-def _run_child(cmd: list[str], env: dict) -> tuple[int, str, str, dict]:
+def _run_child(cmd: list[str], env: dict, echo: bool = False) -> tuple[int, str, str, dict]:
     """(exit code, stdout, stderr, cost) of a child process; cost is its own CPU
     seconds and peak resident memory (os.wait4 reads them for this child only)."""
     with tempfile.TemporaryFile() as fo, tempfile.TemporaryFile() as fe:
-        p = subprocess.Popen(cmd, stdout=fo, stderr=fe, env={**env, "PYTHONFAULTHANDLER": "1"})  # noqa: S603
+        p = subprocess.Popen(cmd, stdout=fo, stderr=subprocess.PIPE if echo else fe,  # noqa: S603
+                             env={**env, "PYTHONFAULTHANDLER": "1"})
         done = threading.Event()
         threading.Thread(target=_watch, args=(p, " ".join(map(str, cmd[2:4])), done), daemon=True).start()
+        tee = None
+        if echo:                 # progress lines in the job log as they come, and kept for the record
+            def copy():
+                for line in p.stderr:
+                    fe.write(line)
+                    sys.stderr.write(line.decode("utf-8", "replace"))
+                    sys.stderr.flush()
+            tee = threading.Thread(target=copy, daemon=True)
+            tee.start()
         _, status, ru = os.wait4(p.pid, 0)
         done.set()
+        if tee is not None:
+            tee.join(timeout=10)
         p.returncode = os.waitstatus_to_exitcode(status)
         fo.seek(0)
         fe.seek(0)
@@ -191,7 +203,9 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
                    "--target", f"csv:{target}", "--seed", str(seed), "--pushdown", pushdown, "--bundle",
                    str(Path(tmp) / "bundle.json"), "--json", *[x for o in overrides for x in ("--set", o)]]
             t0 = time.time()
-            rc, so, se, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1"})
+            # its progress (stage by stage) is echoed, so a job log shows where a large set spends its hours
+            rc, so, se, cost = _run_child(cmd, {k: v for k, v in os.environ.items() if k != "RELSYNTH_QUIET"},
+                                          echo=True)
             return rc, so, se, cost, round(time.time() - t0, 1)
 
         rc, stdout, stderr, cost, rec["seconds"] = synth(out)
