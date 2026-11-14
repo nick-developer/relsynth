@@ -361,3 +361,25 @@ def test_duckdb_files_default_to_half_the_memory():
 
     v = _half_memory()
     assert v is None or (v.endswith("MB") and int(v[:-2]) >= 256)
+
+
+def test_text_metrics_in_chunks_match_the_whole_corpus():
+    import importlib
+    import random
+
+    import pandas as pd
+
+    ev = importlib.import_module("relsynth.evaluate")
+    rnd = random.Random(0)
+    words = ["a", "B", "b", "x", "of", "42", "abc123", ",", "."]
+    real = [" ".join(rnd.choice(words) for _ in range(rnd.randint(0, 12))) for _ in range(80)]
+    syn = [rnd.choice(real) if rnd.random() < 0.4 else " ".join(rnd.choice(words) for _ in range(5)) for _ in range(60)]
+    rd, sd = pd.DataFrame({"t": real}), pd.DataFrame({"t": syn})
+    whole = ev.text_metrics(rd, sd, "t", None, L=3)
+    old = ev.TEXT_ROWS
+    try:
+        ev.TEXT_ROWS = 7
+        assert ev.text_metrics(rd, sd, "t", None, L=3) == whole
+    finally:
+        ev.TEXT_ROWS = old
+    assert whole["rare_exact_copies"] >= 0 and 0 < whole["distinct2_syn"] <= 1
