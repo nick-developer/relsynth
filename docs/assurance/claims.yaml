@@ -1708,6 +1708,17 @@ claims:
     - report: docs/adr/0011-document-databases.md
     - code: src/relsynth/documents/pipeline.py::DocumentSynthesizer::build_spec
 
+  - id: DOC-18
+    doc: docs/documents.md
+    area: structure
+    quote: "A set array of one scalar type with at most 16 distinct values (tags of an item) is not a child"
+    status: supported
+    evidence:
+    - prop: prop:multihot
+    - check: C1785
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_round_trip_and_length_matching
+    - code: src/relsynth/documents/shred.py::_multihot_value
+
   - id: RM-40
     doc: README.md
     area: structure

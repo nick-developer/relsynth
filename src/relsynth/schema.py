@@ -175,6 +175,11 @@ S = {
         "min_entities": ("int", 30, "Segments with fewer entities use the pooled parameters."),
         "redraws": ("int", 10, "Redraws of an entity whose new times break a check rule; then the engine's times "
                     "are kept."),
+        "calendar": ("auto | pooled | segment", "auto", "One trend and season profile per segment, or one shared "
+                     "by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers "
+                     "it (Prop. 1784); small segments share one."),
+        "calendar_draw": ("bool", False, "Draw the calendar from its posterior for each dataset. Off: the calendar "
+                          "stays at its posterior mean and the life times carry the uncertainty (Prop. 1784)."),
     },
     "sequence_window": {
         "start": ("column", None, "Column of the entity: first possible event time."),
@@ -239,6 +244,7 @@ S = {
                           "price)."),
         "text": ("text", None, "Options of a text column."),
         "pii": ("pii", None, "Options of a pii column."),
+        "binary": ("binary", None, "Options of a binary column (content generator, MIME type)."),
         "within": ("column", None, "For type sequence: numbered 1..n within each value of this column."),
         "start": ("int", 1, "For type sequence: first number."),
         "base_column": ("column", None, "For views: the base-table column this view column copies."),
@@ -299,6 +305,13 @@ S = {
     "pii": {
         "generator": ("email | person_name | phone | uuid | pattern", "pattern", "How identifiers are generated."),
         "pattern": ("str", None, "Shape for the pattern generator (learned when absent)."),
+    },
+    "binary": {
+        "generator": ("none | placeholder | random", "synthesis.binary.generator", "Content of the column: NULL, a "
+                      "valid tiny file of the value's MIME type padded to a length drawn from the source's length "
+                      "law, or random bytes of such a length. Source bytes are never copied (docs/binary.md)."),
+        "mime": ("str", "detected", "MIME type of every value (image/png, image/jpeg, image/gif, application/pdf, "
+                 "...) instead of the one read from each value's first bytes."),
     },
     "keyed_lookup": {
         "table": ("table", None, "Reference table (mode copy, no primary key)."),
@@ -460,6 +473,10 @@ SYNTH_DOC = {
     "structure.beta_prior": "Beta prior of link and occupancy rates.",
     "structure.conditional_inclusion": "auto | none: links never point at excluded parent levels.",
     "structure.inclusion_min_expected": "Expected references needed to call a level excluded (Bayes factor e^n).",
+    "structure.inclusion_fk_levels": "Also test the levels of the parent's own foreign keys with up to 50 values (a "
+                                     "product subcategory never sold online), so links never reach a parent of a "
+                                     "level the source never reaches through them, also one hop further (a product category through the "
+                                     "subcategory key) (G4).",
     "structure.participation": "auto | none: hurdle on the share of parents without children.",
     "uniqueness.mh_sweeps": "Sweeps of the unique-key sampler.",
     "uniqueness.grain": "auto | none: unique keys of two foreign keys become grains.",
@@ -489,7 +506,12 @@ SYNTH_DOC = {
                               "draws change.",
     "runtime.start": "process executor: fork (default on Linux), spawn or forkserver.",
     "runtime.master": "spark executor: the master URL when no Spark session is active (default local[workers]).",
-    "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
+    "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle; a binary column's "
+                                     "length shared by fewer values is only released as its power-of-two bin.",
+    "binary.generator": "Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid "
+                        "tiny file of the value's MIME type padded with zero bytes to a length drawn from the "
+                        "source's length law; random writes random bytes of such a length. Never copies source "
+                        "bytes; changes only the binary columns (docs/binary.md).",
     "privacy.near_copy": "auto: redraw entity rows that sit closer to a real row than that row's nearest distinct "
                          "real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. "
                          "A distance rule, not a privacy guarantee (docs/privacy.md).",
@@ -517,8 +539,19 @@ SYNTH_DOC = {
                          "z score of its pair repeats is below this ...",
     "facts.occupancy_min_expected": "... and at least this many repeats are expected under Poisson.",
     "facts.dp_count_sweeps": "Gibbs sweeps of the Dirichlet-process count law's conditional draw.",
+    "facts.segment_totals": "auto: the rows of a link with a count model are spread over the parent segments so "
+                            "that each segment's total follows the sum of its parents' counts (a Metropolis-"
+                            "Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep "
+                            "the source's count law; off: segments drawn from the link's segment weights alone "
+                            "(2.2 draws).",
+    "facts.segment_total_sweeps": "Sweeps (one proposal per row) of the facts.segment_totals kernel.",
+    "facts.dp_count_start": "Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, "
+                            "so rare large counts are reachable; Prop. 1782) or balanced (every count near the "
+                            "mean, 2.2 draws, which can never reach a count above the largest pair sum).",
     "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
     "rules.rake_max_cells": "Rule cells: largest joint table raked.",
+    "rules.balance_floor": "Running balances (cumulative rules) that are negative on at most 1% of source rows are "
+                           "stocks with a floor of 0, like the never-negative ones: auto or off (G4).",
     "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",
     "repair.constraint_rounds": "Redraw rounds of entity rows that break a check rule or a unique key.",
     "repair.thin_rounds": "Rounds of anchor thinning (participation of facts).",
@@ -555,7 +588,7 @@ INTERNAL = {"relationship": {"composite"}, "fact": {"anchor_key", "partner_key"}
 
 NESTED = {("spec", "source"): "source", ("spec", "target"): "target", ("table", "fact"): "fact",
           ("fact", "header"): "header", ("column", "text"): "text", ("text", "pii"): "text_pii", ("text", "dp"): "text_dp",
-          ("text", "lm"): "text_lm", ("text", "pe"): "text_pe", ("column", "pii"): "pii",
+          ("text", "lm"): "text_lm", ("text", "pe"): "text_pe", ("column", "pii"): "pii", ("column", "binary"): "binary",
           ("column", "distribution"): "distribution", ("table", "scd"): "scd", ("table", "bridge"): "bridge",
           ("table", "generator"): "generator", ("table", "sequence"): "sequence", ("table", "series"): "series",
           ("sequence", "window"): "sequence_window"}
@@ -632,7 +665,7 @@ def reference_tables():
               "fact": "`tables.<name>.fact`", "header": "`fact.header`", "dimension": "`tables.<name>.dimensions[]`",
               "column": "`tables.<name>.columns.<name>`", "text": "`columns.<name>.text`",
               "text_pii": "`text.pii`", "text_dp": "`text.dp`", "text_lm": "`text.lm`", "text_pe": "`text.pe`",
-              "pii": "`columns.<name>.pii`", "keyed_lookup": "`columns.<name>.lookup` (keyed)",
+              "pii": "`columns.<name>.pii`", "binary": "`columns.<name>.binary`", "keyed_lookup": "`columns.<name>.lookup` (keyed)",
               "distribution": "`columns.<name>.distribution`", "scd": "`tables.<name>.scd`",
               "bridge": "`tables.<name>.bridge`", "group_effect": "`tables.<name>.group_effects[]`",
               "link_affinity": "`tables.<name>.link_affinity[]`", "unique_where": "`unique[]` (filtered key)",

@@ -219,7 +219,13 @@ def test_dp_guard_reads_the_seed_rows_not_the_real_ones(star, monkeypatch):
     monkeypatch.setattr(nc.NearCopyGuard, "__init__", spy_init)
     spec = _spec(s, epsilon=1.0, spec_is_public=True)
     spec["synthesis"]["privacy"]["near_copy"] = "auto"
-    dp.synthesize(spec, tables=t, write=False, evaluate=False)
+    # the seed's size is noisy (OS-seeded DP noise): a seed customer table under
+    # the guard's 50-row minimum builds no guard, so run again (a few % per run)
+    for _ in range(5):
+        dp.synthesize(spec, tables=t, write=False, evaluate=False)
+        if seen:
+            break
+        seeds.clear()
     assert seen, "the scenario must build at least one guard"
     for real, cols in seen:
         match = [n for n, df in seeds.items() if len(df) == len(real) and set(cols) <= set(df.columns)

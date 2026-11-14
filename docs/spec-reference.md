@@ -394,6 +394,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `shrinkage` | number | `1.0` | Prior standard deviation of a segment's parameters around the pooled fit. |
 | `min_entities` | int | `30` | Segments with fewer entities use the pooled parameters. |
 | `redraws` | int | `10` | Redraws of an entity whose new times break a check rule; then the engine's times are kept. |
+| `calendar` | auto | pooled | segment | `auto` | One trend and season profile per segment, or one shared by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers it (Prop. 1784); small segments share one. |
+| `calendar_draw` | bool | `False` | Draw the calendar from its posterior for each dataset. Off: the calendar stays at its posterior mean and the life times carry the uncertainty (Prop. 1784). |
 
 ### `sequence.window`
 
@@ -459,6 +461,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `ratio_same_as` | column |  | Use the factor of another ratio column (unit cost moves with unit price). |
 | `text` | text |  | Options of a text column. |
 | `pii` | pii |  | Options of a pii column. |
+| `binary` | binary |  | Options of a binary column (content generator, MIME type). |
 | `within` | column |  | For type sequence: numbered 1..n within each value of this column. |
 | `start` | int | `1` | For type sequence: first number. |
 | `base_column` | column |  | For views: the base-table column this view column copies. |
@@ -533,6 +536,13 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 |---|---|---|---|
 | `generator` | email | person_name | phone | uuid | pattern | `pattern` | How identifiers are generated. |
 | `pattern` | str |  | Shape for the pattern generator (learned when absent). |
+
+### `columns.<name>.binary`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `generator` | none | placeholder | random | `synthesis.binary.generator` | Content of the column: NULL, a valid tiny file of the value's MIME type padded to a length drawn from the source's length law, or random bytes of such a length. Source bytes are never copied (docs/binary.md). |
+| `mime` | str | `detected` | MIME type of every value (image/png, image/jpeg, image/gif, application/pdf, ...) instead of the one read from each value's first bytes. |
 
 ### `columns.<name>.lookup` (keyed)
 
@@ -697,11 +707,15 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.occupancy_z` | `-4.0` | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
 | `facts.occupancy_min_expected` | `10.0` | ... and at least this many repeats are expected under Poisson. |
 | `facts.dp_count_sweeps` | `30` | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
+| `facts.segment_totals` | `auto` | auto: the rows of a link with a count model are spread over the parent segments so that each segment's total follows the sum of its parents' counts (a Metropolis-Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep the source's count law; off: segments drawn from the link's segment weights alone (2.2 draws). |
+| `facts.segment_total_sweeps` | `4` | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
+| `facts.dp_count_start` | `draw` | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
 | `structure.conditional_inclusion` | `auto` | auto | none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | `10.0` | Expected references needed to call a level excluded (Bayes factor e^n). |
+| `structure.inclusion_fk_levels` | `True` | Also test the levels of the parent's own foreign keys with up to 50 values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
 | `structure.participation` | `auto` | auto | none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto | none: unique keys of two foreign keys become grains. |
@@ -716,6 +730,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
 | `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
+| `rules.balance_floor` | `auto` | Running balances (cumulative rules) that are negative on at most 1% of source rows are stocks with a floor of 0, like the never-negative ones: auto or off (G4). |
 | `repair.pair_tries` | `200` | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | `200` | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | `200` | Rounds of anchor thinning (participation of facts). |
@@ -733,7 +748,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `evaluation.privacy_check_people` | `3000` | People sampled for the quick privacy check (a third fit the proxy, a third are unseen, a third are the attacker's reference). |
 | `per_table` | `{}` | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
 | `settings_file` | `None` | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
-| `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle. |
+| `binary.generator` | `placeholder` | Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid tiny file of the value's MIME type padded with zero bytes to a length drawn from the source's length law; random writes random bytes of such a length. Never copies source bytes; changes only the binary columns (docs/binary.md). |
+| `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle; a binary column's length shared by fewer values is only released as its power-of-two bin. |
 | `privacy.dp` | `None` | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
 | `privacy.near_copy` | `off` | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
 | `privacy.near_copy_ratio` | `1.0` | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
@@ -765,7 +781,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `pii` | direct identifiers | `pii: {generator: email \| person_name \| phone \| uuid \| pattern}` |
 | `lookup` | a value read from a parent or a reference table | `lookup: fk.col` or `{table, match, value}`, `map`, `default` |
 | `sequence` | line numbers | `within`, `start` |
-| `constant`, `binary` | left out of modelling; binary columns are written empty | |
+| `constant` | left out of modelling | |
+| `binary` | images, documents, files: placeholder files by default (or random bytes, or NULL), synthetic content that never copies source bytes ([binary.md](binary.md)) | `binary: {generator: none \| placeholder \| random, mime}` |
 
 ### Expressions
 

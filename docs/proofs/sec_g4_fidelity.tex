@@ -1,0 +1,87 @@
+%=====================================================================
+\section{Engine fidelity and binary columns (v2.3)}\label{sec:g4fidelity}
+% numbered from 1780 (gap plan G4 range); the shared counter is restored at the end
+\newcounter{savedpropgfour}\setcounter{savedpropgfour}{\value{proposition}}
+Gap plan G4 closes fidelity gaps found by the time-series, document and autotune work, and gives binary columns (images, documents, files) synthetic content; relsynth 2.1 wrote them as NULL (guide \texttt{docs/binary.md}; code \texttt{relsynth/binary.py}). Each proposition is tested by a check in \texttt{tests/science/test\_g4\_checks.py}.
+
+\subsection*{Binary columns}
+A binary column's source values $v_1,\dots,v_N$ (some null) are summarised by the number of nulls $N_0$ and, for each non-null value, a cell $c(v)=(m(v),\ell(v))$: $m(v)$ is the MIME type read from the first bytes (pooled into \texttt{application/octet-stream} when the type has fewer than $k$ values, $k=\texttt{privacy.suppress\_small\_counts}$), and $\ell(v)$ is the length $|v|$ itself when at least $k$ values of type $m(v)$ have that length, otherwise the bin $\lfloor\log_2|v|\rfloor$. With counts $n_c$, a dataset draws $p\sim\mathrm{Beta}(N_0+\tfrac12,\,N-N_0+\tfrac12)$ and $w\sim\mathrm{Dir}(n_c+\tfrac12)$ (or uses their means), and each synthetic value is null with probability $p$, otherwise of cell $c\sim w$, with length $\ell$ or $\lfloor 2^{b+U}\rfloor$, $U\sim\mathrm{U}(0,1)$, for a bin $b$; its content is a fixed placeholder file of type $m$ padded with zero bytes to that length, or uniform random bytes.
+
+\setcounter{proposition}{1779}
+\begin{proposition}[The binary stream changes nothing else]\label{prop:binstream}
+Let the data stream $G$ of a dataset have state $s$ when a table's binary columns are filled. The values of column $c$ are drawn from a Philox generator keyed by $(\texttt{binary}, t, c, H(s))$, $H$ a hash of the state that does not advance $G$. Then (a) $G$'s sequence of draws, and so every other column and table of the dataset, is the same for every value of \texttt{binary.generator}, and (b) two partitions or datasets whose data streams differ at that point get independent binary values (up to hash collisions of probability $2^{-128}$).
+\end{proposition}
+\begin{proof}
+(a) Reading $G$'s state is not a draw, and the binary values are drawn only from the derived generator, so the draws taken from $G$ before and after are identical; every later column and table reads $G$ only. (b) Different states give different keys except on a collision of the 128-bit key (SHA-256 truncated, \texttt{relsynth.runtime.streams}), and Philox streams of distinct keys are treated as independent (Prop.~950).
+\end{proof}
+\noindent Check C1780 fits a star schema with a binary photo column, samples it with the generator \texttt{none} and \texttt{placeholder}, and compares every other column byte for byte.
+
+\setcounter{proposition}{1780}
+\begin{proposition}[What a binary column releases]\label{prop:binrelease}
+Given the cell counts $(N_0, n_c)$, the synthetic values are independent of the source bytes. In particular (a) no synthetic value is a function of the content of a source value beyond its type and length class; (b) a length shared by fewer than $k$ values of its type is released only through its bin's count; (c) for \texttt{random}, a synthetic value of length $L$ equals a given source value with probability at most $256^{-L}$.
+\end{proposition}
+\begin{proof}
+The generator reads the source only through $N_0$ and the counts $n_c$ (the fitted object stores nothing else), and draws content from relsynth's placeholders and the binary stream, which is independent of the data (Prop.~\ref{prop:binstream}). (a) and (b) follow from the definition of the cells. (c) The $L$ bytes are uniform and independent of the source value, so the match probability is $256^{-L}$ for a source value of length $L$ and zero for any other length.
+\end{proof}
+\noindent The type and length summary is not differentially private (an exact length with $k$ or more values is released), so DP mode keeps binary columns NULL. Check C1781 fits a column of 2{,}000 values with one shared "no image" length, compares the synthetic null share, exact length and bin shares with the source under their posterior intervals, and checks that no synthetic value equals a source value.
+
+\subsection*{Counts of a link under rejection and segment totals}
+A count-model link draws the number of rows of each of the $M$ parents of a segment from the DP posterior predictive $F$ (masses $f$ on $0,1,\dots$) conditioned on their sum $R$, by a pairwise Gibbs chain. Two gaps were found on Contoso and AdventureWorks: rows rejected by the exact rule sampler were redrawn as an independent second draw added to the counts already held, and the chain started from the balanced allocation.
+
+\setcounter{proposition}{1781}
+\begin{proposition}[Counts given what parents already hold]\label{prop:basecounts}
+Let parents hold $b_j\ge 0$ accepted rows and let $R$ new rows be allocated. The pairwise chain whose pair update redraws $x$ from $f(b_i+x)\,f(b_j+s-x)$, $0\le x\le s$, $s=N_i+N_j$, leaves $\pi(N)\propto\prod_j f(b_j+N_j)\,\mathbf 1[\sum_j N_j=R]$ invariant, so the final counts $b_j+N_j$ follow $F$ conditioned on their total, not the law of $b_j$ plus an independent draw. Started from $M$ i.i.d.\ draws from $f$ brought to the total by single-member restricted redraws, every allocation with $\pi>0$ is reachable; the balanced start reaches no count above the largest pair sum it holds.
+\end{proposition}
+\begin{proof}
+The update is the exact conditional of $\pi$ given the other members and $N_i+N_j=s$, a Gibbs step, so $\pi$ is invariant. Pair moves transfer any amount between two members, so from any start with $\pi>0$ every allocation with $\pi>0$ is reached in at most $M-1$ moves when all intermediate allocations have positive mass; a start whose members are draws from $f$ holds counts in the support of $f$, which is what the balanced start lacks: a pair update never produces a count above the pair's sum, and all sums are $\le 2\lceil R/M\rceil$ at the start. The restricted redraws keep each member in $[0,R]$ and stop at the total.
+\end{proof}
+\noindent Check C1782 compares the counts of a segment drawn with and without a rejection round with exact enumeration of the conditional law on a small support.
+
+\setcounter{proposition}{1782}
+\begin{proposition}[Segment totals follow the count law]\label{prop:segtotals}
+Rows choose a parent segment from $\phi_{z,\cdot}$, so segment $t$'s total $R_t$ is multinomial with variance near its mean, while the sum of $M_t$ counts from $F_t$ has mean $M_t\mu_t$ and variance $M_t\sigma_t^2$. The Metropolis--Hastings kernel with independence proposals $t'\sim\phi_{z_i,\cdot}$ and acceptance $\min\{1,\ \mathcal N(R_{t'}+1;m_{t'},v_{t'})\,\mathcal N(R_s-1;m_s,v_s)/(\mathcal N(R_{t'};m_{t'},v_{t'})\,\mathcal N(R_s;m_s,v_s))\}$, moves that leave a segment under its mandatory total rejected, leaves $\prod_i\phi_{z_i,t_i}\prod_t\mathcal N(R_t;m_t,v_t)\,\mathbf 1[R\ge\mathrm{need}]$ invariant.
+\end{proposition}
+\begin{proof}
+For a move of row $i$ from $s$ to $t'$ the proposal ratio $q(s)/q(t')=\phi_{z_i,s}/\phi_{z_i,t'}$ cancels the $\phi$ factor of the target, leaving the ratio of the Normal factors of the two totals that change; the indicator is enforced by rejection. This is the standard independence MH acceptance, which satisfies detailed balance.
+\end{proof}
+\noindent Over totals, the target is the multinomial law of $\phi$ times the Normal factors, so when $\phi$ agrees with the count law in the mean (the fitted case) the precisions add and the totals' spread falls from the multinomial value towards $\sqrt{M_t\sigma_t^2}$. Check C1783 draws totals for segments with under-dispersed count laws and checks their mean and that spread.
+
+\subsection*{Sequence calendars}
+\setcounter{proposition}{1783}
+\begin{proposition}[One calendar unless the segments differ]\label{prop:poolcal}
+Let $n_{kb}$ be the events of segment $k$ in calendar bucket $b$. Under a uniform Dirichlet prior on each bucket profile, the log Bayes factor of separate profiles against one shared profile is $\sum_k[\log B(n_{k\cdot}+\mathbf 1)-\log B(\mathbf 1)]-[\log B(n_{\cdot\cdot}+\mathbf 1)-\log B(\mathbf 1)]$ ($B$ the multivariate Beta function, $n_{\cdot\cdot}$ the pooled counts). Pooling unless it exceeds $\log 100$ (calendar \texttt{auto}) chooses separate calendars with probability tending to one when the profiles differ and to zero when they are equal. With the calendar at its posterior mean (\texttt{calendar\_draw: false}) the variance of a synthetic bucket share is the predictive variance of the events alone; drawing the calendar too adds the posterior variance a second time on top of the per-entity life-time and gap draws.
+\end{proposition}
+\begin{proof}
+The Dirichlet-multinomial marginal likelihoods give the factor. When profiles are equal the factor is $O_p(1)$ minus a term growing like $\tfrac{(K-1)(B-1)}{2}\log n$ (BIC), so it falls under any fixed threshold; when they differ it grows linearly in $n$. The variance statement is the law of total variance: the synthetic share given the calendar has the events' multinomial variance, and a drawn calendar adds $\mathrm{Var}(\text{calendar}\mid\text{data})$, which the source's realised profile does not carry.
+\end{proof}
+\noindent Check C1784 fits sequences from one shared seasonal profile and from two different ones, and checks the choice and the bucket shares.
+
+\subsection*{Small set arrays}
+\setcounter{proposition}{1784}
+\begin{proposition}[Multi-hot set arrays]\label{prop:multihot}
+For a set array of scalars of one type with $V\le\texttt{MULTIHOT\_MAX}$ distinct values, shredding writes one integer per value (0 absent, else 1 plus its position) and the length $n$, and nesting rebuilds the array from the non-zero cells in position order, then drops the elements past the modelled length $\hat n$ or adds absent values drawn without replacement with the synthetic column shares. Then (a) the round trip of source documents is the identity, (b) a synthetic array never repeats a value (no \texttt{set} repair), and (c) its length is $\hat n$ clipped to the source's length bounds.
+\end{proposition}
+\begin{proof}
+(a) The positions of a set are distinct, so the order of the non-zero cells is the source order, and the length cell equals the number of non-zero cells. (b) Each value has one cell, and added values are drawn among absent ones without replacement. (c) By construction, the count is truncated or completed to $\hat n$, at most $V$.
+\end{proof}
+\noindent Check C1785 shreds and nests set arrays, compares the source and synthetic co-occurrence of values, and checks (a)--(c).
+
+\subsection*{Inclusion one hop further, and stocks}
+\setcounter{proposition}{1785}
+\begin{proposition}[Inclusion levels through a parent's key]\label{prop:twohop}
+A link from $t$ to parent $p$ with $D$ distinct referenced rows among $n$, and a categorical column $g.c$ of $p$'s parent $g$ reached by $p$'s key: under random selection of the referenced rows, a level held by $n_\ell$ rows of $p$ has no referenced row with probability at most $(1-n_\ell/n)^D\le e^{-Dn_\ell/n}$. Excluding the level when none is referenced and $Dn_\ell/n\ge 10$ is the rule of the one-hop case applied to the column $g.c$ mapped to $p$'s rows, and a category whose rows are spread over many subcategories is found although no subcategory alone reaches the threshold.
+\end{proposition}
+\begin{proof}
+The mapped column is a function of $p$'s rows, so the hypergeometric bound of the one-hop rule applies unchanged; the number of rows at a category is the sum over its subcategories, which can reach the threshold when none of the terms does.
+\end{proof}
+
+\setcounter{proposition}{1786}
+\begin{proposition}[A mostly non-negative balance is a stock]\label{prop:stockfloor}
+With a floor $0$, the running balance whose outflow on a row is cut to what the balance holds is never negative and equals the plain running sum on every row where the plain sum stays non-negative. Without a floor, i.i.d.\ steps of mean $\mu$ and variance $\sigma^2>0$ give a random walk whose share of negative rows tends to a positive constant over a horizon of order $(y_0/\sigma)^2$ rows.
+\end{proposition}
+\begin{proof}
+The first statement is the definition of the capped update, by induction over the rows of a group. For the second, by Donsker's theorem the walk $y_0+\sum_{i\le t}\varepsilon_i$ over $t\asymp (y_0/\sigma)^2$ rows is close to a Brownian motion started at a fixed multiple of its scale, which spends a positive share of time below 0.
+\end{proof}
+\noindent On AdventureWorks inventory (0.4\,\% negative balances in the source) the floor takes the synthetic share from 11.7\,\% to 0; checks C1786 and C1787 test both propositions on constructed data.
+
+\setcounter{proposition}{\value{savedpropgfour}}

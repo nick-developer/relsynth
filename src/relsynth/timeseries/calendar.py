@@ -79,7 +79,8 @@ class Intensity:
     and the observation window [t0, t1) in days.
     """
 
-    def __init__(self, bucket="month", weekly=True, hourly=None, prior_strength=2.0):
+    def __init__(self, bucket="month", weekly=True, hourly=None, prior_strength=2.0, pooled=False):
+        self.pooled = bool(pooled)          # one calendar shared by every segment (G4)
         self.bucket = bucket
         self.weekly = weekly
         self.hourly = hourly
@@ -93,6 +94,11 @@ class Intensity:
         t = np.asarray(t, dtype=float)
         interior = np.ones(len(t), bool) if interior is None else np.asarray(interior, bool)
         seg = np.asarray(seg, dtype=np.int64)
+        if self.pooled:
+            seg = np.zeros_like(seg)
+            if exposure is not None:
+                exposure = np.asarray(exposure, float).sum(0, keepdims=True)
+            K = 1
         ok = np.isfinite(t) & (t >= t0) & (t < t1)
         t, seg, interior = t[ok], seg[ok], interior[ok]
         self.K = int(K)
@@ -217,10 +223,15 @@ class Intensity:
         return self
 
     # ------------------------------------------------------------- maps
+    def seg(self, seg):
+        """The calendar row of each segment (all 0 for a pooled calendar)."""
+        seg = np.asarray(seg, dtype=np.int64)
+        return np.zeros_like(seg) if getattr(self, "pooled", False) else seg
+
     def forward(self, t, seg):
         """Operational time Lambda_seg(t) of times t (days)."""
         t = np.asarray(t, dtype=float)
-        seg = np.asarray(seg, dtype=np.int64)
+        seg = self.seg(seg)
         x = (t - self.d0) / self.width
         n = self.cell_mass.shape[1]
         i = np.clip(np.floor(x), 0, n - 1).astype(np.int64)
@@ -230,7 +241,7 @@ class Intensity:
     def inverse(self, u, seg):
         """Times t (days) with Lambda_seg(t) = u."""
         u = np.asarray(u, dtype=float)
-        seg = np.asarray(seg, dtype=np.int64)
+        seg = self.seg(seg)
         out = np.empty(len(u))
         for k in np.unique(seg):
             m = seg == k
@@ -242,6 +253,7 @@ class Intensity:
         return out
 
     def summary(self):
-        return {"bucket": self.bucket, "buckets": self.B, "days": self.ndays, "weekly": self.weekly,
+        return {"bucket": self.bucket, "buckets": self.B, "pooled": bool(getattr(self, "pooled", False)),
+                "days": self.ndays, "weekly": self.weekly,
                 "hourly": self.hourly, "events": int(self.n_events),
                 "weekday_rate": [round(float(x), 3) for x in self.w]}

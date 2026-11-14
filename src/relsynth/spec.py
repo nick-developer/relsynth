@@ -50,14 +50,17 @@ DEFAULT_SYNTHESIS = {
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
               "link_degree_min_rows": 50.0, "frailty_min_rows": 30, "occupancy_z": -4.0, "occupancy_min_expected": 10.0,
-              "dp_count_sweeps": 30},
+              "dp_count_sweeps": 30,
+              # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
+              "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
-                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
+                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
+                  "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
-    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000},
+    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000, "balance_floor": "auto"},
     # effort spent repairing a draw before it is kept as it is (relsynth 1.0 constants)
     "repair": {"pair_tries": 200, "constraint_rounds": 200, "thin_rounds": 200, "tree_redraws": 40,
                "unique_code_rounds": 50, "participation_rounds": 4, "occupancy_rounds": 20},
@@ -75,6 +78,11 @@ DEFAULT_SYNTHESIS = {
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
     # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
     # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
+    # binary columns (relsynth.binary, G4; default placeholder, approved by Cod3r 2026-11-13): none
+    # keeps them NULL (2.1); placeholder writes a
+    # valid tiny file of the source's MIME type padded to a length from the source's length
+    # law; random writes random bytes of such a length.  Source bytes are never copied.
+    "binary": {"generator": "placeholder"},
     "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
                 "near_copy_rounds": 20, "near_copy_max_rows": 20_000},
     # fit large fact tables from statistics computed in the database and a bounded
@@ -497,6 +505,17 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                 g = (c.get("pii") or {}).get("generator")
                 if g not in PII_GENERATORS:
                     errs.append(f"{tname}.{cname}: pii.generator must be one of {sorted(PII_GENERATORS)}")
+            if c.get("binary") is not None:
+                bo = c["binary"]
+                if c.get("type") != "binary":
+                    errs.append(f"{tname}.{cname}: binary options apply to binary columns only")
+                elif not isinstance(bo, dict):
+                    errs.append(f"{tname}.{cname}: binary must be a mapping {{generator, mime}}")
+                else:
+                    if bo.get("generator", "none") not in ("none", "placeholder", "random"):
+                        errs.append(f"{tname}.{cname}: binary.generator must be one of none, placeholder, random")
+                    if bo.get("mime") is not None and not isinstance(bo["mime"], str):
+                        errs.append(f"{tname}.{cname}: binary.mime must be a MIME type such as image/png")
             if c.get("type") == "text":
                 to = c.get("text") or {}
                 cond = to.get("condition_on")

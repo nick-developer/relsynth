@@ -63,11 +63,15 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `facts.occupancy_z` | float | `-4.0` | -1000 … 0 |  | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
 | `facts.occupancy_min_expected` | float | `10.0` | 0 … 1e+09 |  | ... and at least this many repeats are expected under Poisson. |
 | `facts.dp_count_sweeps` | int | `30` | 1 … 100000 |  | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
+| `facts.segment_totals` | choice | `auto` | auto, off | yes | auto: the rows of a link with a count model are spread over the parent segments so that each segment's total follows the sum of its parents' counts (a Metropolis-Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep the source's count law; off: segments drawn from the link's segment weights alone (2.2 draws). |
+| `facts.segment_total_sweeps` | int | `4` | 0 … 10000 |  | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
+| `facts.dp_count_start` | choice | `draw` | draw, balanced |  | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `structure.structural_prior` | float | `0.9` | 0 … 0.999 | yes | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | float | `3.0` | 0 … 1e+06 | yes | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | float | `0.5` | 1e-06 … 1e+06 | yes (log) | Beta prior of link and occupancy rates. |
 | `structure.conditional_inclusion` | choice | `auto` | auto, none | yes | auto | none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | float | `10.0` | 0 … 1e+09 | yes (log) | Expected references needed to call a level excluded (Bayes factor e^n). |
+| `structure.inclusion_fk_levels` | bool | `True` |  | yes | Also test the levels of the parent's own foreign keys with up to 50 values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
 | `structure.participation` | choice | `auto` | auto, none | yes | auto | none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | int | `20` | 0 … 1e+06 | yes (log) | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | choice | `auto` | auto, none |  | auto | none: unique keys of two foreign keys become grains. |
@@ -82,6 +86,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `rules.max_rejection_rounds` | int | `25` | 0 … 1e+06 | yes (log) | Redraw rounds for rows that fail a check rule. |
 | `rules.rake_max_levels` | int | `50` | 1 … 1e+07 |  | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | int | `2000` | 1 … 1e+09 |  | Rule cells: largest joint table raked. |
+| `rules.balance_floor` | choice | `auto` | auto, off |  | Running balances (cumulative rules) that are negative on at most 1% of source rows are stocks with a floor of 0, like the never-negative ones: auto or off (G4). |
 | `repair.pair_tries` | int | `200` | 0 … 1e+07 | yes (log) | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | int | `200` | 0 … 1e+07 | yes (log) | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | int | `200` | 0 … 1e+07 |  | Rounds of anchor thinning (participation of facts). |
@@ -99,7 +104,8 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `evaluation.privacy_check_people` | int | `3000` | 50 … 1e+07 |  | People sampled for the quick privacy check (a third fit the proxy, a third are unseen, a third are the attacker's reference). |
 | `per_table` | map | `{}` |  |  | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
 | `settings_file` | str | `None` |  |  | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
-| `privacy.suppress_small_counts` | int | `5` | 0 … 1e+06 |  | Counts below this are suppressed in the diagnostics bundle. |
+| `binary.generator` | choice | `placeholder` | none, placeholder, random |  | Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid tiny file of the value's MIME type padded with zero bytes to a length drawn from the source's length law; random writes random bytes of such a length. Never copies source bytes; changes only the binary columns (docs/binary.md). |
+| `privacy.suppress_small_counts` | int | `5` | 0 … 1e+06 |  | Counts below this are suppressed in the diagnostics bundle; a binary column's length shared by fewer values is only released as its power-of-two bin. |
 | `privacy.dp` | map | `None` |  |  | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
 | `privacy.near_copy` | choice | `off` | auto, off |  | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
 | `privacy.near_copy_ratio` | float | `1.0` | 0 … 100 |  | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
