@@ -58,3 +58,15 @@ Conventions used throughout:
 - **Quality gate.** In 2.x the default gate stays `--fail-under` on the 1.0 share of passed checks; the 2.0
   vector gate is opt-in with `relsynth evaluate --quality FILE --quality-gate` or `QualityReport.require()`.
   The default moves to the 2.0 vector in 3.0.
+
+## Roadmap targets closed as "won't do" (2026-11-07)
+
+The roadmap coverage audit of 2.1.0 found four roadmap targets that conflict with how relsynth works. The maintainer
+closed them on 2026-11-07; they are not measured and no release waits for them.
+
+| Roadmap target | Why it is closed | What relsynth does instead |
+|---|---|---|
+| Replace pandas with Polars (2.0 architecture) | Fitting time is spent in Gibbs sampling and copula kernels, not in dataframe operations (T04 profile) | DuckDB and in-database pushdown for large sources, pyarrow for file I/O, numba kernels as an option |
+| Unit-test coverage of 95% or more (2.0 testing) | A single coverage number invites tests written to the number rather than to the behaviour | Branch coverage per module in every CI run and a weekly mutation score with a baseline ([ci.md](development/ci.md#coverage)) |
+| Ray as the default distributed runtime (4.0) | Spark is already present in Databricks, Fabric, EMR and Synapse; Ray adds a cluster most users do not run ([ADR 0003](adr/0003-distributed-runtime.md)) | `local`, `process` and `spark` executors behind one interface; Ray can be added as a fourth |
+| Agent automation above 90% (north star) | Agents propose and people decide ([ADR 0016](adr/0016-agents.md)); automating approvals would remove the human gate | `relsynth agent` reviews, explains, diagnoses and drafts; every change and release needs a named person |
