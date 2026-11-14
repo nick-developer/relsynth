@@ -33,6 +33,7 @@ BOS, EOS = "<s>", "</s>"
 CDF_CACHE_FLOATS = 30_000_000      # about 240 MB of cached next-token laws per text model
 CHUNK_TOKENS = 4_000_000           # tokens per span of the packed fit
 RARE_PART = 8_000_000              # runs per hash partition of the no-copy guard
+FOLD_ROWS = 4_000_000              # span table entries folded into the running context table
 
 
 WORD = re.compile(r"[^\W_]")
@@ -162,6 +163,10 @@ class TextModel:
                     key *= B
                     key += S[P - k + j]
                 parts[k].append(_runs(key, w.astype(np.int32), np.ones(len(w), np.int32)))
+                # fold the span tables into one as soon as they outgrow it: the running table
+                # plus what waits stays near twice the final size, not the sum of all spans
+                if len(parts[k]) > 1 and sum(len(x[0]) for x in parts[k][1:]) >= max(len(parts[k][0][0]), FOLD_ROWS):
+                    parts[k] = [_runs(*(np.concatenate([x[i] for x in parts[k]]) for i in range(3)))]
             del S, P, w, tc
         self._tabs = []
         for k in range(N):
