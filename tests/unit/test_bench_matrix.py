@@ -318,3 +318,46 @@ def test_introspect_keeps_one_self_reference_per_table(tmp_path):
     spec.save(tmp_path / "p.yaml")
     assert validate(load_spec(str(tmp_path / "p.yaml"))) == []
     assert any("posts.accepted_answer_id -> posts: a second self-reference" in x for x in spec.raw.get("review", []))
+
+
+def test_group_rows_reads_at_most_about_a_million_rows_of_a_large_table():
+    import pandas as pd
+
+    from relsynth import discovery
+    from relsynth.discovery import Discovery
+
+    class Src:
+        def rows_in(self, t, col, keys):
+            self.keys = list(keys)
+            return pd.DataFrame({col: self.keys})
+
+    d = Discovery()
+    d.df = {"f": pd.DataFrame({"store": [1, 1, 2, 2, 3, 3, 4, 5]})}
+    d.whole, d.counts, d.src = {"f": False}, {"f": 8_000_000}, Src()
+    d.group_rows("f", "store", [3, 1, 2, 4])                 # 2M rows a store by the sample
+    assert d.src.keys == [3]
+    d.group_rows("f", "store", [4, 5, 1])                    # 1M each: the first key alone fits
+    assert d.src.keys == [4]
+    d.counts["f"] = 80_000                                   # small enough: every key, in order
+    d.group_rows("f", "store", [2, 4, 5, 1])
+    assert d.src.keys == [2, 4, 5, 1]
+    assert discovery.GROUP_ROWS == 1_000_000
+
+
+def test_coerce_keeps_typed_text_columns_as_they_are():
+    import numpy as np
+    import pandas as pd
+
+    from relsynth.data import coerce
+
+    for dt in ("str", "string", pd.StringDtype("python", na_value=np.nan)):
+        df = pd.DataFrame({"c": pd.Series(["a", None, "b c"], dtype=dt)})
+        out = coerce(df, {"columns": {"c": {"type": "text"}}})
+        assert out["c"].dtype == df["c"].dtype and out["c"].equals(df["c"])
+
+
+def test_duckdb_files_default_to_half_the_memory():
+    from relsynth.connectors.duckfiles import _half_memory
+
+    v = _half_memory()
+    assert v is None or (v.endswith("MB") and int(v[:-2]) >= 256)

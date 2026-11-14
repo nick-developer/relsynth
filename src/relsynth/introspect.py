@@ -688,7 +688,7 @@ class _Profiler(Discovery):
             d, hf, hc = best
             # complete orders: every row of a random set of document numbers
             keys = self.rng.choice(df[d].dropna().unique(), size=min(self.n_groups, df[d].nunique()), replace=False)
-            grp = df[df[d].isin(keys)] if self.whole[t] else self.src.rows_in(t, d, list(keys))
+            grp = self.group_rows(t, d, keys)
             line, line_start = None, 1
             for c in df.columns:
                 # a line number is often part of the declared key, hence typed id
@@ -825,7 +825,7 @@ class _Profiler(Discovery):
                 if done:
                     break
                 keys = self.rng.choice(df[g].dropna().unique(), size=min(60, df[g].nunique()), replace=False)
-                grp = df[df[g].isin(keys)] if self.whole[t] else self.src.rows_in(t, g, list(keys))
+                grp = self.group_rows(t, g, keys)
                 for o in orders:
                     if o == g:
                         continue

@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import Any
 
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -101,10 +102,20 @@ def _lit(text: str) -> str:
     return "'" + str(text).replace("'", "''") + "'"
 
 
+def _half_memory() -> str | None:
+    """Half of the machine's physical memory as a DuckDB size, or None if unknown."""
+    try:
+        total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, ValueError, OSError):
+        return None
+    return f"{max(total // 2 // 2**20, 256)}MB" if total > 0 else None
+
+
 class DuckDBFiles(SqlConnector):
     """The files of a FileConnector as views of an in-memory DuckDB database.
 
-    settings: memory_limit ('4GB'), threads, temp_directory (spill folder for
+    settings: memory_limit ('4GB'; default half of the machine's memory, as DuckDB
+    shares the process with the fit), threads, temp_directory (spill folder for
     larger-than-memory sorts and groupings)."""
 
     kind = "duckdb"
@@ -117,9 +128,15 @@ class DuckDBFiles(SqlConnector):
         # build it are kept and replayed on every new connection (after close())
         self._ddl: list[str] = ["SET preserve_insertion_order = true",
                                 f"CREATE SCHEMA IF NOT EXISTS {ROWS_SCHEMA}"]
+        limits = dict(self.settings)
+        if limits.get("memory_limit") is None and _half_memory():
+            # DuckDB's own default is 80% of the machine, but it shares this process with
+            # the pandas frames of the fit: GROUP BY statistics over a 41M-row fact took
+            # the run past 13 GiB on a 16 GB runner; at half the memory DuckDB spills
+            limits["memory_limit"] = _half_memory()
         for k in ("memory_limit", "threads", "temp_directory"):
-            if self.settings.get(k) is not None:
-                v = self.settings[k]
+            if limits.get(k) is not None:
+                v = limits[k]
                 self._ddl.insert(0, f"SET {k} = {int(v) if k == 'threads' else _lit(v)}")
         engine = sa.create_engine("duckdb:///:memory:", poolclass=sa.pool.StaticPool)
         super().__init__(engine=engine)

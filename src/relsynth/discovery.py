@@ -44,6 +44,8 @@ from .expr import names_in
 from .profiling import MIN_ROWS, MIN_SHARE, canon, decimals, is_dateish, significant
 
 CATLIKE = ("categorical", "integer", "boolean", "id")
+# rows read at most (by the sample's group sizes) when a rule is tested on complete groups of a large table
+GROUP_ROWS = 1_000_000
 
 
 def _lit(v):
@@ -164,6 +166,21 @@ class Discovery:
     @staticmethod
     def _through(pr, pos, c):
         return np.where(pos >= 0, pr[c].to_numpy(dtype=object)[np.maximum(pos, 0)], None)
+
+    def group_rows(self, t, col, keys):
+        """Every row of t whose col is one of keys (complete groups, keys drawn from the
+        sample).  For a table larger than its sample the keys are kept in the order drawn
+        while the rows the sample's group sizes predict stay under GROUP_ROWS (at least
+        one key): 60 of TPC-DS's 102 stores are 17 million store_sales rows."""
+        df = self.df[t]
+        if self.whole[t]:
+            return df[df[col].isin(keys)]
+        keys = list(keys)
+        scale = self.counts.get(t, len(df)) / max(len(df), 1)
+        est = df[col].value_counts().reindex(keys).fillna(1).to_numpy(dtype=float) * scale
+        if est.sum() > GROUP_ROWS:
+            keys = keys[:max(1, int(np.searchsorted(np.cumsum(est), GROUP_ROWS, side="right")))]
+        return self.src.rows_in(t, col, keys)
 
     def _ctype(self, t, c):
         return self.cols.get(t, {}).get(c, {}).get("type")
@@ -447,7 +464,7 @@ class Discovery:
                 if found or not cands or df[k].nunique() < MIN_ROWS:
                     continue
                 ks = self.rng.choice(df[k].dropna().unique(), size=min(self.n_groups, df[k].nunique()), replace=False)
-                grp = df[df[k].isin(ks)] if self.whole[t] else self.src.rows_in(t, k, list(ks))
+                grp = self.group_rows(t, k, ks)
                 kk = canonical_keys(grp[k]).astype(str)
                 for c in cands:
                     v = pd.to_numeric(grp[c], errors="coerce")
@@ -480,7 +497,7 @@ class Discovery:
                     continue
                 df = self.df[t]
                 ks = self.rng.choice(df[k].dropna().unique(), size=min(self.n_groups, df[k].nunique()), replace=False)
-                grp = df[df[k].isin(ks)] if self.whole[t] else self.src.rows_in(t, k, list(ks))
+                grp = self.group_rows(t, k, ks)
                 v = pd.to_numeric(grp[c], errors="coerce")
                 if v.isna().any():
                     continue
