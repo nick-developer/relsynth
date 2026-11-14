@@ -435,6 +435,9 @@ def _sdv(name: str) -> callable:
 # correlation entries, up to copula.max_iterations 3000 at about 15 s per sweep): over 45 minutes for that one
 # table on 4 cores (G7 finding F4, roadmap/reports/G7.md). The bench caps the chain at its first 120 iterations
 # so that the run fits a hosted runner's 6 hours; the spec is otherwise the unedited draft.
+# The quality suite's default 10 calibration splits refit the utility models (one-vs-rest logistic
+# regressions over the one-hot columns) 31 times per table, which on 120 tables took the job past 6 hours
+# although the run itself takes 7 minutes; stress_m/l use AdventureWorks' 3 splits (finding F13).
 STRESS_BUDGET = ("synthesis.copula.max_iterations=120",)
 # the stress schema's sizes: tables, snowflake depth, wide-table columns, fact rows (bench/builders/stress_schema.py)
 STRESS = {"stress_s": (24, 4, 60, 20_000), "stress_m": (120, 8, 500, 200_000), "stress_l": (300, 8, 500, 5_000_000)}
@@ -700,6 +703,7 @@ DATASETS = {
                                   "messy_values", "size_mb")),
     "stress_m": Dataset("stress_m", lambda: f"sqlite:{build_stress('stress_m')}", _drafted("stress_m"),
                         overrides=STRESS_BUDGET,
+                        quality=AW_QUALITY,
                         note="schema stress generator, medium (120 tables, depth 8, 500-column table, 340k rows)",
                         seeds=(1,), generic=True,
                         coverage=("tables_100_plus", "snowflake_depth_4", "self_reference", "many_to_many",
@@ -707,6 +711,7 @@ DATASETS = {
                                   "skew", "messy_values")),
     "stress_l": Dataset("stress_l", lambda: f"sqlite:{build_stress('stress_l')}", _drafted("stress_l"),
                         overrides=STRESS_BUDGET,
+                        quality=AW_QUALITY,
                         note="schema stress generator, large (300 tables, depth 8, 500-column table, 5M fact rows)",
                         tier="monthly", seeds=(1,), generic=True,
                         coverage=("tables_100_plus", "snowflake_depth_4", "wide_tables", "cyclic_keys",
