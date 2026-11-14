@@ -663,6 +663,10 @@ DATASETS = {
                              generic=True, coverage=("long_text", "self_reference", "skew", "messy_values")),
     "rel_trial": Dataset("rel_trial", lambda: f"parquet:{build_rel_trial()}", _drafted("rel_trial"),
                          note="RelBench rel-trial (15 tables, about 5.5M rows; ClinicalTrials.gov via AACT)",
+                         # its free text (titles, summaries, criteria of 273k studies) is drawn token by
+                         # token from n-gram laws over a vocabulary of tens of thousands of tokens: past
+                         # 6 hours on a 4-core hosted runner even after the 2x faster draws (finding F14)
+                         tier="monthly", runner="maintainer",
                          seeds=(1,), generic=True,
                          coverage=("tables_10_plus", "many_to_many", "long_text", "events", "size_gb")),
     "electricity": Dataset("electricity",

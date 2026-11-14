@@ -182,7 +182,7 @@ class TextModel:
             self._tabs.append((ck[newc], off, cw, cnt))       # counts stay int32 (exact; cast in dist)
         self.counts = None
         self.pG = G / G.sum()
-        self._cdf_cache, self._whole_cache = {}, {}
+        self._cdf_cache, self._whole_cache, self._level_cache = {}, {}, {}
         return self
 
     def _rare_ngram_index(self, rows, lens, spans, span, tmap):
@@ -284,7 +284,7 @@ class TextModel:
         self.surrogate = self.word_coverage < 0.5
         self.pG = G / G.sum()
         self.classes = set(self.counts)
-        self._cdf_cache, self._whole_cache = {}, {}
+        self._cdf_cache, self._whole_cache, self._level_cache = {}, {}, {}
         return self
 
     def dist(self, c, hist):
@@ -310,6 +310,7 @@ class TextModel:
         if c not in self.classes:
             return p
         base = self._cls[c]
+        memo = self.__dict__.setdefault("_level_cache", {})
         for n in range(self.N):
             key = base
             for tok in (hist[len(hist) - n:] if n else ()):
@@ -321,9 +322,22 @@ class TextModel:
             i = int(np.searchsorted(keys, key))
             if i == len(keys) or keys[i] != key:
                 break
-            v = np.zeros(len(self.vocab))
-            v[ws[off[i]:off[i + 1]]] = cnt[off[i]:off[i + 1]]
-            p = (v + self.beta * p) / (v.sum() + self.beta)
+            q = memo.pop((n, key), None) if n < self.N - 1 else None
+            if q is None:
+                # (v + beta * p) / (sum(v) + beta) with v the context's counts, element by
+                # element the same floating-point operations as the dense form, without
+                # building v: two passes over the vocabulary instead of five
+                c_ = cnt[off[i]:off[i + 1]]
+                q = p * self.beta
+                q[ws[off[i]:off[i + 1]]] += c_
+                q /= float(c_.sum()) + self.beta
+            if n < self.N - 1:
+                # the laws of the shorter contexts are shared by many longer ones (every
+                # draw starts from the class's law): kept, least recently used out first
+                while memo and (len(memo) + 1) * len(q) > CDF_CACHE_FLOATS:
+                    del memo[next(iter(memo))]
+                memo[(n, key)] = q
+            p = q
         return p
 
     def _cdf(self, c, hist):
@@ -333,13 +347,15 @@ class TextModel:
         so the draws (and the random stream) are identical to the uncached code."""
         key = (c, tuple(hist[len(hist) - self.N + 1:]) if self.N > 1 else ())
         cache = self.__dict__.setdefault("_cdf_cache", {})
-        cdf = cache.get(key)
+        cdf = cache.pop(key, None)
         if cdf is None:
             cdf = self.dist(c, hist).cumsum()
             cdf /= cdf[-1]
-            if len(cache) * len(cdf) > CDF_CACHE_FLOATS:
-                cache.clear()
-            cache[key] = cdf
+            # least recently used laws leave first: contexts are Zipf-distributed, so the
+            # frequent ones stay cached when a large vocabulary leaves room for few laws
+            while cache and (len(cache) + 1) * len(cdf) > CDF_CACHE_FLOATS:
+                del cache[next(iter(cache))]
+        cache[key] = cdf
         return cdf
 
     def _one(self, c, rng, max_len=120):

@@ -55,7 +55,6 @@ stress schema by `builders/stress_schema.py` from a seed).
 | `mimic_demo` | MIMIC-IV Clinical Database Demo 2.2 (100 patients, 31 tables; ODbL 1.0) | 1, 2, 3 | GitHub-hosted |
 | `online_retail_ii` | UCI Online Retail II (1.07M invoice lines as a 4-table star; CC BY 4.0) | 1, 2, 3 | GitHub-hosted |
 | `stackexchange` | coffee.stackexchange.com data dump (7 tables; CC BY-SA 4.0) | 1, 2, 3 | GitHub-hosted |
-| `rel_trial` | RelBench rel-trial (15 tables, about 5.5M rows; ClinicalTrials.gov via AACT) | 1 | GitHub-hosted |
 | `electricity` | UCI ElectricityLoadDiagrams20112014, last year hourly (321 meters, 2.8M rows); T12 spec | 1 | GitHub-hosted |
 | `nyc_tlc_1m` | NYC TLC yellow taxi trips 2024-01 (about 3M trips) and the zone lookup | 1 | GitHub-hosted |
 | `tpch_sf1` | TPC-H data generator at SF1 (8 tables, 8.7M rows; not TPC-H results) | 1 | GitHub-hosted |
@@ -75,6 +74,7 @@ stress schema by `builders/stress_schema.py` from a seed).
 | `tpch_sf100` | TPC-H data generator at SF100 (870M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
 | `tpcds_sf10` | TPC-DS data generator at SF10 (24 tables; not TPC-DS results) | 1 | GitHub-hosted |
 | `stress_l` | schema stress generator, large (300 tables, depth 8, 500-column table, 5M fact rows) | 1 | GitHub-hosted |
+| `rel_trial` | RelBench rel-trial (15 tables, about 5.5M rows; ClinicalTrials.gov via AACT) | 1 | bigger runner or maintainer machine |
 
 ### Tier `local`: only where the data is configured (private or research-only terms); aggregates only
 
@@ -92,23 +92,23 @@ two-set requirement are marked extra in `bench/datasets.py` (`REQUIRED_FEATURES`
 | Feature | Datasets (tier) | Sets |
 |---|---|---|
 | one table (microdata) (`single_table`) | acs (weekly), adult (pr), covtype (weekly), census_kdd (weekly) | 4 |
-| 10 or more tables (`tables_10_plus`) | adventureworks (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), rel_trial (weekly), tpcds_sf1 (weekly), tpcds_sf10 (monthly), stress_s (pr) | 9 |
+| 10 or more tables (`tables_10_plus`) | adventureworks (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), rel_trial (monthly), tpcds_sf1 (weekly), tpcds_sf10 (monthly), stress_s (pr) | 9 |
 | 100 or more tables (`tables_100_plus`) | stress_m (weekly), stress_l (monthly) | 2 |
 | KB to tens of MB (`size_mb`) | chinook (pr), adult (pr), stress_s (pr), mongodb_samples (pr) | 4 |
 | about 100 MB to 1 GB (`size_100mb`) | contoso_parquet (weekly), berka (weekly), covtype (weekly), census_kdd (weekly), electricity (weekly), nyc_tlc_1m (weekly) | 6 |
-| 1 GB to 10 GB (`size_gb`) | synthea_1k (weekly), rel_trial (weekly), nyc_tlc_12m (monthly), tpch_sf1 (weekly), tpcds_sf1 (weekly), stress_l (monthly) | 6 |
+| 1 GB to 10 GB (`size_gb`) | synthea_1k (weekly), rel_trial (monthly), nyc_tlc_12m (monthly), tpch_sf1 (weekly), tpcds_sf1 (weekly), stress_l (monthly) | 6 |
 | 10 GB to 100 GB (`size_10gb`) | synthea_100k (monthly), tpch_sf10 (monthly), tpcds_sf10 (monthly) | 3 |
 | 100 GB and more (`size_100gb`) | synthea_1m (monthly), tpch_sf100 (monthly) | 2 |
 | snowflake chains of depth 3 (`snowflake_depth_3`) | adventureworks (weekly), tpch_sf1 (weekly), tpcds_sf1 (weekly) | 3 |
 | snowflake chains of depth 4 or more (`snowflake_depth_4`) | stress_s (pr), stress_m (weekly), stress_l (monthly) | 3 |
 | self-references (trees) (`self_reference`) | chinook (pr), adventureworks (weekly), stackexchange (weekly), stress_s (pr), stress_m (weekly) | 5 |
 | a cycle of links between tables (`cyclic_keys`) | stress_s (pr), stress_m (weekly), stress_l (monthly) | 3 |
-| many-to-many bridges (`many_to_many`) | chinook (pr), berka (weekly), rel_trial (weekly), stress_s (pr), stress_m (weekly), imdb_movielens (local) | 6 |
+| many-to-many bridges (`many_to_many`) | chinook (pr), berka (weekly), rel_trial (monthly), stress_s (pr), stress_m (weekly), imdb_movielens (local) | 6 |
 | composite primary and foreign keys (`composite_keys`) | mimic_demo (weekly), tpch_sf1 (weekly), tpch_sf10 (monthly), tpch_sf100 (monthly), tpcds_sf1 (weekly), tpcds_sf10 (monthly), stress_s (pr), stress_m (weekly) | 8 |
 | slowly changing dimensions (type 2) (`scd`) | adventureworks (weekly), tpcds_sf1 (weekly), tpcds_sf10 (monthly) | 3 |
-| dated events (facts with a time column) (`events`) | chinook (pr), adventureworks (weekly), contoso_sqlite (monthly), contoso_parquet (weekly), berka (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), online_retail_ii (weekly), rel_trial (weekly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly) | 13 |
+| dated events (facts with a time column) (`events`) | chinook (pr), adventureworks (weekly), contoso_sqlite (monthly), contoso_parquet (weekly), berka (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), online_retail_ii (weekly), rel_trial (monthly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly) | 13 |
 | regular time series (one value per entity and step) (`regular_series`) | electricity (weekly), stress_s (pr), stress_m (weekly) | 3 |
-| long free text (`long_text`) | stackexchange (weekly), rel_trial (weekly), open_food_facts (monthly) | 3 |
+| long free text (`long_text`) | stackexchange (weekly), rel_trial (monthly), open_food_facts (monthly) | 3 |
 | nested documents and lists (`nested_documents`) | open_food_facts (monthly), mongodb_samples (pr) | 2 |
 | wide tables (50 or more columns) (`wide_tables`) | covtype (weekly), open_food_facts (monthly), stress_m (weekly), stress_l (monthly) | 4 |
 | binary columns (BLOB) (`binary_columns`) | stress_s (pr), stress_m (weekly), stress_l (monthly) | 3 |
