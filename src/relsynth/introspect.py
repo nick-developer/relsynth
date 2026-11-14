@@ -857,6 +857,10 @@ class _Profiler(Discovery):
                 continue
             keys = pdf[pk].dropna().unique()
             keys = self.rng.choice(keys, size=min(len(keys), 400), replace=False)
+            if not self.whole[t]:
+                # a parent's children are read whole: at most about GROUP_ROWS rows of a large
+                # child (400 days of TPC-DS SF10 are 6M store_sales rows), the other parents left out
+                keys = np.asarray(self.group_keys(t, r["child_key"], keys), dtype=keys.dtype)
             child = self.df[t][self.df[t][r["child_key"]].isin(keys)] if self.whole[t] else \
                 self.src.rows_in(t, r["child_key"], list(keys))
             if len(child) < 10:

@@ -301,9 +301,11 @@ def coerce(df: pd.DataFrame, tspec: dict, optional=(), notes=None, table="") -> 
             df[c] = canonical_keys(df[c])
         elif t in ("categorical", "text", "pii") and not is_binary(df[c]):
             s = df[c]
-            if _typed_text(s):
-                # already text: where(..., astype(str)) gives the same column back, after
-                # copying it into Python strings twice (gigabytes on a 15M-row table)
+            if _typed_text(s) or (s.dtype == object and pd.api.types.infer_dtype(s, skipna=True) in ("string", "empty")):
+                # already text (a string dtype, or objects that are all strings or missing, as
+                # normalise_frame leaves Parquet text): where(..., astype(str)) gives the same
+                # column back, after copying it into Python strings twice (gigabytes on a
+                # 15M-row table)
                 continue
             if pd.api.types.is_float_dtype(s) and s.isna().any() and _exact_integers(s.dropna()):
                 # integer codes read as floats because of a null: '1', not '1.0'

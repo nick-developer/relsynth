@@ -354,6 +354,13 @@ def test_coerce_keeps_typed_text_columns_as_they_are():
         df = pd.DataFrame({"c": pd.Series(["a", None, "b c"], dtype=dt)})
         out = coerce(df, {"columns": {"c": {"type": "text"}}})
         assert out["c"].dtype == df["c"].dtype and out["c"].equals(df["c"])
+    # Parquet text as normalise_frame leaves it: objects that are strings or missing
+    s = pd.Series(["a", None, "b c", np.nan], dtype=object)
+    df = pd.DataFrame({"c": s})
+    out = coerce(df, {"columns": {"c": {"type": "categorical"}}})
+    assert out["c"].equals(s.where(s.isna(), s.astype(str))) and out["c"].dtype == object
+    mixed = pd.DataFrame({"c": pd.Series([1, "a", None], dtype=object)})
+    assert coerce(mixed, {"columns": {"c": {"type": "text"}}})["c"].tolist() == ["1", "a", None]
 
 
 def test_duckdb_files_default_to_half_the_memory():

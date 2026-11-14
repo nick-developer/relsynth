@@ -175,12 +175,20 @@ class Discovery:
         df = self.df[t]
         if self.whole[t]:
             return df[df[col].isin(keys)]
+        return self.src.rows_in(t, col, self.group_keys(t, col, keys))
+
+    def group_keys(self, t, col, keys):
+        """The keys group_rows reads: all of them for a table read whole; otherwise those
+        drawn first while the rows the sample predicts stay under GROUP_ROWS."""
+        if self.whole[t]:
+            return keys
+        df = self.df[t]
         keys = list(keys)
         scale = self.counts.get(t, len(df)) / max(len(df), 1)
         est = df[col].value_counts().reindex(keys).fillna(1).to_numpy(dtype=float) * scale
         if est.sum() > GROUP_ROWS:
             keys = keys[:max(1, int(np.searchsorted(np.cumsum(est), GROUP_ROWS, side="right")))]
-        return self.src.rows_in(t, col, keys)
+        return keys
 
     def _ctype(self, t, c):
         return self.cols.get(t, {}).get(c, {}).get("type")

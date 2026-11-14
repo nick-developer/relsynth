@@ -439,6 +439,11 @@ def _sdv(name: str) -> callable:
 # regressions over the one-hot columns) 31 times per table, which on 120 tables took the job past 6 hours
 # although the run itself takes 7 minutes; stress_m/l use AdventureWorks' 3 splits (finding F13).
 STRESS_BUDGET = ("synthesis.copula.max_iterations=120",)
+# A fact of tens of millions of rows drawn in one block holds its latent normals and their uniforms for
+# every row at once (41M trips x 19 columns: two 6 GiB matrices on NYC TLC 12 months), past a hosted
+# runner's 16 GB. The largest sets draw their facts with the partitioned runtime (docs/runtime.md),
+# 1M rows at a time; the spec is otherwise the unedited draft.
+PARTITIONED = ("synthesis.runtime.executor=local",)
 # the stress schema's sizes: tables, snowflake depth, wide-table columns, fact rows (bench/builders/stress_schema.py)
 STRESS = {"stress_s": (24, 4, 60, 20_000), "stress_m": (120, 8, 500, 200_000), "stress_l": (300, 8, 500, 5_000_000)}
 
@@ -637,7 +642,7 @@ DATASETS = {
                             coverage=("tables_10_plus", "events", "size_10gb")),
     "synthea_1m": Dataset("synthea_1m", lambda: f"sqlite:{build_synthea(1_000_000)}", _drafted("synthea_1m"),
                           note="Synthea 3.4.0, 1,000,000 generated patients (Massachusetts, seed 7)", tier="monthly",
-                          seeds=(1,), runner="maintainer", generic=True, requires=_java,
+                          overrides=PARTITIONED, seeds=(1,), runner="maintainer", generic=True, requires=_java,
                           coverage=("tables_10_plus", "events", "size_100gb")),
     "mimic_demo": Dataset("mimic_demo",
                           _sqlite("mimic_demo/mimic.db", "mimic_sqlite.py", "mimic-iv-clinical-database-demo-2.2.zip"),
@@ -670,6 +675,7 @@ DATASETS = {
                           generic=True, coverage=("events", "messy_values", "skew", "size_100mb")),
     "nyc_tlc_12m": Dataset("nyc_tlc_12m", lambda: f"parquet:{build_nyc_tlc(12)}", _drafted("nyc_tlc_12m"),
                            note="NYC TLC yellow taxi trips 2024 (12 months, about 41M trips)", tier="monthly",
+                           overrides=PARTITIONED,
                            seeds=(1,), generic=True, coverage=("events", "messy_values", "skew", "size_gb")),
     "open_food_facts": Dataset("open_food_facts",
                                lambda: "parquet:" + str(_built("open_food_facts/parquet", "openfoodfacts_extract.py",
@@ -685,15 +691,17 @@ DATASETS = {
                         generic=True, coverage=("composite_keys", "size_gb", "snowflake_depth_3")),
     "tpch_sf10": Dataset("tpch_sf10", lambda: f"parquet:{build_tpc('tpch', 10)}", _drafted("tpch_sf10"),
                          note="TPC-H data generator at SF10 (87M rows; not TPC-H results)", tier="monthly",
-                         seeds=(1,), generic=True, coverage=("composite_keys", "size_10gb")),
+                         overrides=PARTITIONED, seeds=(1,), generic=True, coverage=("composite_keys", "size_10gb")),
     "tpch_sf100": Dataset("tpch_sf100", lambda: f"parquet:{build_tpc('tpch', 100)}", _drafted("tpch_sf100"),
                           note="TPC-H data generator at SF100 (870M rows; not TPC-H results)", tier="monthly",
+                          overrides=PARTITIONED,
                           seeds=(1,), runner="maintainer", generic=True, coverage=("composite_keys", "size_100gb")),
     "tpcds_sf1": Dataset("tpcds_sf1", lambda: f"parquet:{build_tpc('tpcds', 1)}", _drafted("tpcds_sf1"),
                          note="TPC-DS data generator at SF1 (24 tables; not TPC-DS results)", seeds=(1,), generic=True,
                          coverage=("tables_10_plus", "scd", "composite_keys", "snowflake_depth_3", "size_gb")),
     "tpcds_sf10": Dataset("tpcds_sf10", lambda: f"parquet:{build_tpc('tpcds', 10)}", _drafted("tpcds_sf10"),
                           note="TPC-DS data generator at SF10 (24 tables; not TPC-DS results)", tier="monthly",
+                          overrides=PARTITIONED,
                           seeds=(1,), generic=True, coverage=("tables_10_plus", "scd", "composite_keys", "size_10gb")),
     "stress_s": Dataset("stress_s", lambda: f"sqlite:{build_stress('stress_s')}", _drafted("stress_s"),
                         note="schema stress generator, small (27 tables, depth 4, 60-column table, 26k rows)",
