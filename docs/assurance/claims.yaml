@@ -1711,7 +1711,7 @@ claims:
   - id: DOC-18
     doc: docs/documents.md
     area: structure
-    quote: "A set array of one scalar type with at most 32 distinct values (tags of an item, movie genres) is not a child"
+    quote: "A set array of one scalar type with at most 16 distinct values (tags of an item) is not a child"
     status: supported
     evidence:
     - prop: prop:multihot
