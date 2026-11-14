@@ -162,16 +162,25 @@ def run_documents(name: str, seed: int) -> dict:
     from .datasets import CACHE
     rec = {"dataset": name, "seed": seed}
     with tempfile.TemporaryDirectory(prefix=f"bench-{name}-") as tmp:
-        cmd = [sys.executable, str(ROOT / "benchmarks" / "documents" / "run_documents.py"), "--out", tmp,
-               "--cache", str(CACHE / "documents"), "--sets", ",".join(DOCUMENT_SETS), "--seed", str(seed),
-               "--splits", str((DATASETS[name].quality or {}).get("splits", 10))]
+        def one(st):
+            # the sets are independent (each has its own seed-given model and work folder), so they run as
+            # parallel children: one after another they took 16 minutes, past the PR tier's 15
+            cmd = [sys.executable, str(ROOT / "benchmarks" / "documents" / "run_documents.py"), "--out", tmp,
+                   "--cache", str(CACHE / "documents"), "--sets", st, "--seed", str(seed),
+                   "--splits", str((DATASETS[name].quality or {}).get("splits", 10))]
+            return _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
+        from concurrent.futures import ThreadPoolExecutor
         t0 = time.time()
-        rc, _o, err, cost = _run_child(cmd, {**os.environ, "RELSYNTH_QUIET": "1", "PYTHONPATH": str(ROOT)})
-        rec["seconds"], rec["cost"] = round(time.time() - t0, 1), cost
+        with ThreadPoolExecutor(max_workers=len(DOCUMENT_SETS)) as pool:
+            done = dict(zip(DOCUMENT_SETS, pool.map(one, DOCUMENT_SETS)))
+        rec["seconds"] = round(time.time() - t0, 1)
+        rec["cost"] = {"cpu_seconds": round(sum(d[3]["cpu_seconds"] for d in done.values()), 1),
+                       "peak_mib": round(sum(d[3]["peak_mib"] for d in done.values()), 1)}
         checks, rows = [], {}
         for st in DOCUMENT_SETS:
             f = Path(tmp) / f"{st}.json"
             if not f.exists():
+                rc, _o, err, _c = done[st]
                 rec["error"] = f"documents set {st} wrote no result ({rc}): {_tail(err, 1500)}"
                 continue
             r = json.loads(f.read_text(encoding="utf-8"))
