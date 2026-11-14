@@ -864,14 +864,21 @@ def determining_columns(real, tspec, cols, bf=100.0):
     from .table_model import fd_log_bf
     cat = [c for c in cols if tspec["columns"][c]["type"] in ("categorical", "boolean")]
     codes = {c: pd.factorize(real[c].astype(object), use_na_sentinel=True)[0] for c in cat}
+    # levels of each column (with the missing value) and of each pair, counted once with
+    # integer arithmetic: a 500-column table has 250,000 ordered pairs
+    levels = {c: len(np.unique(v)) for c, v in codes.items()}
+    width = {c: int(v.max(initial=-1)) + 2 for c, v in codes.items()}
     drop = set()
     for b in cat:
+        cb = codes[b].astype(np.int64) + 1
         for a in cat:
             if a == b or a in drop:
                 continue
-            na = len(np.unique(codes[a]))
-            if len(set(zip(codes[a].tolist(), codes[b].tolist()))) <= na and na >= len(np.unique(codes[b])) \
-                    and fd_log_bf(codes[a], codes[b]) > np.log(bf):
+            na = levels[a]
+            if na < levels[b]:
+                continue
+            pairs = len(np.unique((codes[a].astype(np.int64) + 1) * width[b] + cb))
+            if pairs <= na and fd_log_bf(codes[a], codes[b]) > np.log(bf):
                 drop.add(b)
                 break
     return [c for c in cols if c not in drop]
