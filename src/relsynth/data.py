@@ -311,7 +311,8 @@ def coerce(df: pd.DataFrame, tspec: dict, optional=(), notes=None, table="") -> 
 
 def _exact_integers(v) -> bool:
     v = np.asarray(v, dtype=float)
-    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)))
+    # beyond the int64 range a whole number cannot become an Int64 key (a 20-digit barcode): kept as is
+    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)) and (np.abs(v) < 2.0**63).all())
 
 
 def is_stringlike(s: pd.Series) -> bool:

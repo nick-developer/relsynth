@@ -265,6 +265,15 @@ def test_rows_in_matches_float_keys_of_a_column_with_nulls(tmp_path, monkeypatch
         assert {(r["child"], r["parent"]) for r in spec.resolved["relationships"]} == {("sales", "item")}
 
 
+def test_canonical_keys_keep_codes_beyond_the_int64_range():
+    """Open Food Facts barcodes of 20+ digits: canonical_keys raised converting them through floats."""
+    from relsynth.data import canonical_keys
+    s = pd.Series(["12345678901234567890123", "98765432109876543210", None], dtype=object)
+    assert list(canonical_keys(s).dropna()) == ["12345678901234567890123", "98765432109876543210"]
+    assert list(canonical_keys(pd.Series([1.0, None, 3.0])).dropna()) == [1, 3]
+    assert list(canonical_keys(pd.Series([1e20, 2.0])).dropna()) == [1e20, 2.0]
+
+
 def test_nulls_and_repeats_of_a_large_parquet_table_match_pandas(tmp_path, monkeypatch):
     """The whole-table uniqueness test of a large Parquet table runs in DuckDB (bounded memory) with the
     answer of the pandas test it replaces."""
