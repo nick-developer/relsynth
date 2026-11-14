@@ -55,7 +55,7 @@ def test_ci_matrix_splits_seeds_and_leaves_out_bigger_runner_sets():
     aw = {p["name"]: p["seeds"] for p in weekly if p["datasets"] == "adventureworks"}
     assert aw == {"adventureworks-a": "1,2", "adventureworks-b": "3"}
     monthly = {p["datasets"] for p in matrix("monthly")}
-    assert "tpch_sf10" in monthly and "tpch_sf100" not in monthly and "synthea_1m" not in monthly
+    assert "stress_l" in monthly and "tpch_sf100" not in monthly and "tpch_sf10" not in monthly and "synthea_1m" not in monthly
     assert all(p["datasets"] not in tier_datasets("local") for t in ("weekly", "monthly") for p in matrix(t))
 
 

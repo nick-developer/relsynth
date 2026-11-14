@@ -68,11 +68,11 @@ stress schema by `builders/stress_schema.py` from a seed).
 | `contoso_sqlite` | Contoso V2 100k as SQLite with the generator's keys; checks T1-T17 | 1 | GitHub-hosted |
 | `synthea_100k` | Synthea 3.4.0, 100,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
 | `synthea_1m` | Synthea 3.4.0, 1,000,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
-| `nyc_tlc_12m` | NYC TLC yellow taxi trips 2024 (12 months, about 41M trips) | 1 | GitHub-hosted |
+| `nyc_tlc_12m` | NYC TLC yellow taxi trips 2024 (12 months, about 41M trips) | 1 | bigger runner or maintainer machine |
 | `open_food_facts` | Open Food Facts, 200,000-product extract of the 8 GB export (ODbL) | 1 | GitHub-hosted |
-| `tpch_sf10` | TPC-H data generator at SF10 (87M rows; not TPC-H results) | 1 | GitHub-hosted |
+| `tpch_sf10` | TPC-H data generator at SF10 (87M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
 | `tpch_sf100` | TPC-H data generator at SF100 (870M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
-| `tpcds_sf10` | TPC-DS data generator at SF10 (24 tables; not TPC-DS results) | 1 | GitHub-hosted |
+| `tpcds_sf10` | TPC-DS data generator at SF10 (24 tables; not TPC-DS results) | 1 | bigger runner or maintainer machine |
 | `stress_l` | schema stress generator, large (300 tables, depth 8, 500-column table, 5M fact rows) | 1 | GitHub-hosted |
 | `rel_trial` | RelBench rel-trial (15 tables, about 5.5M rows; ClinicalTrials.gov via AACT) | 1 | bigger runner or maintainer machine |
 

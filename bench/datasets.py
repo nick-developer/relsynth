@@ -444,6 +444,11 @@ STRESS_BUDGET = ("synthesis.copula.max_iterations=120",)
 # runner's 16 GB. The largest sets draw their facts with the partitioned runtime (docs/runtime.md),
 # 1M rows at a time; the spec is otherwise the unedited draft.
 PARTITIONED = ("synthesis.runtime.executor=local",)
+# Even so NYC TLC 12 months, TPC-H SF10 and TPC-DS SF10 pass 12 GiB on a 16 GB hosted runner wherever the
+# previous peak was cut (finding F15): the driver holds every synthetic row of the partitioned facts
+# (docs/runtime.md), a 15M-row entity table (TPC-H orders) is fitted from memory, and the pushed-down
+# facts' key statistics are canonicalised as Python objects. They run on a bigger runner until those
+# are streamed.
 # the stress schema's sizes: tables, snowflake depth, wide-table columns, fact rows (bench/builders/stress_schema.py)
 STRESS = {"stress_s": (24, 4, 60, 20_000), "stress_m": (120, 8, 500, 200_000), "stress_l": (300, 8, 500, 5_000_000)}
 
@@ -679,7 +684,7 @@ DATASETS = {
                           generic=True, coverage=("events", "messy_values", "skew", "size_100mb")),
     "nyc_tlc_12m": Dataset("nyc_tlc_12m", lambda: f"parquet:{build_nyc_tlc(12)}", _drafted("nyc_tlc_12m"),
                            note="NYC TLC yellow taxi trips 2024 (12 months, about 41M trips)", tier="monthly",
-                           overrides=PARTITIONED,
+                           runner="maintainer", overrides=PARTITIONED,
                            seeds=(1,), generic=True, coverage=("events", "messy_values", "skew", "size_gb")),
     "open_food_facts": Dataset("open_food_facts",
                                lambda: "parquet:" + str(_built("open_food_facts/parquet", "openfoodfacts_extract.py",
@@ -695,6 +700,7 @@ DATASETS = {
                         generic=True, coverage=("composite_keys", "size_gb", "snowflake_depth_3")),
     "tpch_sf10": Dataset("tpch_sf10", lambda: f"parquet:{build_tpc('tpch', 10)}", _drafted("tpch_sf10"),
                          note="TPC-H data generator at SF10 (87M rows; not TPC-H results)", tier="monthly",
+                         runner="maintainer",
                          overrides=PARTITIONED, seeds=(1,), generic=True, coverage=("composite_keys", "size_10gb")),
     "tpch_sf100": Dataset("tpch_sf100", lambda: f"parquet:{build_tpc('tpch', 100)}", _drafted("tpch_sf100"),
                           note="TPC-H data generator at SF100 (870M rows; not TPC-H results)", tier="monthly",
@@ -705,7 +711,7 @@ DATASETS = {
                          coverage=("tables_10_plus", "scd", "composite_keys", "snowflake_depth_3", "size_gb")),
     "tpcds_sf10": Dataset("tpcds_sf10", lambda: f"parquet:{build_tpc('tpcds', 10)}", _drafted("tpcds_sf10"),
                           note="TPC-DS data generator at SF10 (24 tables; not TPC-DS results)", tier="monthly",
-                          overrides=PARTITIONED,
+                          runner="maintainer", overrides=PARTITIONED,
                           seeds=(1,), generic=True, coverage=("tables_10_plus", "scd", "composite_keys", "size_10gb")),
     "stress_s": Dataset("stress_s", lambda: f"sqlite:{build_stress('stress_s')}", _drafted("stress_s"),
                         note="schema stress generator, small (27 tables, depth 4, 60-column table, 26k rows)",
