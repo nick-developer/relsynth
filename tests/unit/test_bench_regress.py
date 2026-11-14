@@ -84,6 +84,9 @@ def test_errors_and_missing_datasets_are_r3():
     assert reg == ["R3 db: in the baseline but not run"]
     reg, notes, _ = regress.compare(_baseline(), {"runs": [{"dataset": "db", "skipped": "private"}]}, full=True)
     assert reg == [] and notes
+    # a dataset of the tier without a run (its job stopped at the time limit) although not in the baseline yet
+    reg, _, _ = regress.compare(_baseline(), {"runs": []}, full=True, expected={"db", "new_set"})
+    assert reg == ["R3 db: in the baseline but not run", "R3 new_set: in the tier but not run"]
 
 
 def test_domain_item_judges_identities_only():

@@ -200,11 +200,14 @@ def compare(baseline: dict, record: dict, full: bool = False,
             if gone and r.get("checks"):
                 notes.append(f"{ds} seed {r.get('seed')}: {len(gone)} calibrated check(s) not reported, e.g. {gone[0]}")
     if full:
-        for ds in baseline["datasets"]:
+        # a dataset of the tiers that ran must have run even when the baseline does not have it yet:
+        # a job stopped at the runner's time limit leaves a record without its runs
+        for ds in sorted(set(baseline["datasets"]) | (expected or set())):
             if expected is not None and ds not in expected:
                 continue
             if ds not in runs and not any(n.startswith(f"{ds}: skipped") or n.startswith(f"{ds} seed") for n in notes):
-                regressions.append(f"R3 {ds}: in the baseline but not run")
+                where = "in the baseline" if ds in baseline["datasets"] else "in the tier"
+                regressions.append(f"R3 {ds}: {where} but not run")
     return regressions, notes, summary
 
 
