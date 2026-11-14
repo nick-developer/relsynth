@@ -390,3 +390,55 @@ def test_text_metrics_in_chunks_match_the_whole_corpus():
     finally:
         ev.TEXT_ROWS = old
     assert whole["rare_exact_copies"] >= 0 and 0 < whole["distinct2_syn"] <= 1
+
+
+def test_introspect_drafts_no_rule_over_column_names_the_language_cannot_write(tmp_path):
+    """census_kdd (SDV): 'num persons worked for employer' <= age held on the sample, and the
+    draft wrote it as a check the expression parser refuses (introspect failed). Rules leave
+    such columns out; columns with plain names still get theirs."""
+    import relsynth as rs
+    rng = np.random.default_rng(3)
+    lo = rng.integers(0, 50, 3000)
+    df = pd.DataFrame({"id": np.arange(3000), "num persons": lo, "age": lo + rng.integers(1, 40, 3000),
+                       "low": lo, "high": lo + rng.integers(1, 40, 3000)})
+    db = tmp_path / "s.db"
+    with sqlite3.connect(db) as con:
+        df.to_sql("people", con, index=False)
+    spec = rs.introspect(f"sqlite:{db}", name="s")
+    exprs = [r.get("expr", "") for r in spec.raw.get("rules", [])]
+    assert not any("num persons" in e for e in exprs)
+    assert "low < high" in exprs
+
+
+def test_cramers_v_of_many_levels_uses_observed_cells_and_matches_the_dense_table():
+    import importlib
+    E = importlib.import_module("relsynth.evaluate")
+    rng = np.random.default_rng(5)
+    for t in range(50):
+        n = int(rng.integers(20, 2000))
+        a = rng.integers(0, int(rng.integers(2, 40)), n)
+        b = (a + rng.integers(0, 5, n)) % 37 if t % 2 else rng.integers(0, 30, n)
+        ok = np.ones(n, bool)
+        assert abs(E._assoc_fast((ok, a), (ok, b), True, True) - E._cramers_v_sparse(a, b)) < 1e-12
+    a = rng.integers(0, 30000, 20000)
+    ok = np.ones(20000, bool)
+    assert 0 <= E._assoc_fast((ok, a), (ok, a[::-1].copy()), True, True) < 0.2   # 9e8 cells, sparse
+
+
+def test_joined_view_gathers_the_merged_columns(tmp_path):
+    import importlib
+    E = importlib.import_module("relsynth.evaluate")
+    spec = {"tables": {"f": {"primary_key": "id", "columns": {"id": {"type": "id"}, "d": {"type": "id"},
+                                                                 "x": {"type": "integer"}}},
+                       "d": {"primary_key": "k", "columns": {"k": {"type": "id"}, "g": {"type": "id"},
+                                                             "w": {"type": "float"}, "c": {"type": "categorical"}}},
+                       "g": {"primary_key": "k", "columns": {"k": {"type": "id"}, "n": {"type": "integer"}}}},
+            "relationships": [{"child": "f", "child_key": "d", "parent": "d", "kind": "many_to_one"},
+                              {"child": "d", "child_key": "g", "parent": "g", "kind": "many_to_one"}]}
+    tables = {"f": pd.DataFrame({"id": range(6), "d": [1, 2, None, 9, 1, 3], "x": range(6)}),
+              "d": pd.DataFrame({"k": [1, 2, 3], "g": [10, 11, 99], "w": [0.5, 1.5, 2.5], "c": ["a", "b", None]}),
+              "g": pd.DataFrame({"k": [10, 11], "n": [7, 8]})}
+    lazy, frame = E.joined_view(spec, tables, "f"), E._joined_frame(spec, tables, "f")
+    assert list(lazy.columns) == list(frame.columns)
+    for c in frame.columns:
+        pd.testing.assert_series_equal(lazy[c], frame[c], check_names=False)

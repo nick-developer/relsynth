@@ -39,6 +39,7 @@ import pandas as pd
 
 from .data import canonical_keys, is_stringlike
 from .discovery import Discovery
+from .expr import nameable
 from .profiling import (MIN_ROWS, MIN_SHARE, algebraic_rules, canon, choose_rules, cumulative_rule, decimals,
                         equality, fd_profile, is_dateish, parse_dates, sequence_share, significant)
 from .source import Source
@@ -788,7 +789,7 @@ class _Profiler(Discovery):
             df = self.df[t]
             cols = self.cols[t]
             keys = self.key_cols(t)
-            num = [c for c, cs in cols.items() if c not in keys and (cs["type"] in ("integer", "float") or (
+            num = [c for c, cs in cols.items() if c not in keys and nameable(c) and (cs["type"] in ("integer", "float") or (
                 cs["type"] == "lookup" and pd.api.types.is_numeric_dtype(pd.to_numeric(df[c], errors="coerce"))
                 and pd.to_numeric(df[c], errors="coerce").notna().mean() > 0.5))]
             if len(num) < 2 or len(df) < MIN_ROWS:
@@ -904,6 +905,8 @@ class _Profiler(Discovery):
                     # make each computed from the other (a cycle)
                     if of is not None and any(ccols.get(x, {}).get("type") == "lookup" and
                                               str(ccols[x]["lookup"]) == f"{r['child_key']}.{c}" for x in of.split(" * ")):
+                        continue
+                    if of is not None and not all(nameable(x) for x in of.split(" * ")):
                         continue
                     ck = (agg, of, isdate and of is not None and " * " not in of)
                     if ck not in agg_of:

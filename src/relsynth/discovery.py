@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 
 from .data import canonical_keys
-from .expr import names_in
+from .expr import nameable, names_in
 from .profiling import MIN_ROWS, MIN_SHARE, canon, decimals, is_dateish, significant
 
 CATLIKE = ("categorical", "integer", "boolean", "id")
@@ -631,6 +631,8 @@ class Discovery:
                 if best is None:
                     continue
                 share, x, unit, d, chance = best
+                if not (nameable(x) and nameable(y)):
+                    continue
                 fn_name = "years_between" if unit == "years" else "months_between"
                 rule = {"table": t, "type": "derive", "expr": f"{y} = {fn_name}({x}, '{d:%Y-%m-%d}')"}
                 if share < MIN_SHARE:
@@ -1283,7 +1285,8 @@ class Discovery:
                 {r["expr"].split("=")[0].strip() for r in self.rules if r.get("table") == t and r.get("type") == "derive"}
             ords = {}
             for c, cs in self.cols[t].items():
-                if c in keys or c in skip or cs["type"] not in ("integer", "float", "date", "datetime"):
+                if c in keys or c in skip or cs["type"] not in ("integer", "float", "date", "datetime") \
+                        or not nameable(c):
                     continue
                 isd = cs["type"] in ("date", "datetime")
                 v = pd.to_numeric(pd.Series(canon(df[c], as_date=isd)), errors="coerce").to_numpy(dtype=float)
@@ -1318,10 +1321,12 @@ class Discovery:
             dates = [c for c, cs in self.cols[t].items() if cs["type"] in ("date", "datetime") and c not in offs]
             # (a) dates inside a parent's date window
             for d in dates:
+                if not nameable(d):
+                    continue
                 dv = pd.to_numeric(pd.Series(canon(df[d], as_date=True)), errors="coerce").to_numpy(dtype=float)
                 for fk, (r, pr, pos) in hops.items():
                     for pc in pr.columns:
-                        if self._ctype(r["parent"], pc) not in ("date", "datetime"):
+                        if self._ctype(r["parent"], pc) not in ("date", "datetime") or not (nameable(fk) and nameable(pc)):
                             continue
                         pv = pd.to_numeric(pd.Series(canon(self._through(pr, pos, pc), as_date=True)),
                                            errors="coerce").to_numpy(dtype=float)
@@ -1346,19 +1351,20 @@ class Discovery:
             # (b) equalities with one exception member
             cols = {}
             for c, cs in self.cols[t].items():
-                if c in keys or cs["type"] in ("float", "text", "pii", "binary", "constant", "lookup") \
+                if c in keys or not nameable(c) or cs["type"] in ("float", "text", "pii", "binary", "constant", "lookup") \
                         or (cs["type"] == "lookup" and not is_dateish(df[c])):
                     continue
                 cols[c] = (None, canon(df[c], as_date=is_dateish(df[c])), cs["type"] in ("date", "datetime"))
             for fk, (r, pr, pos) in hops.items():
                 for pc in pr.columns:
                     pt = self._ctype(r["parent"], pc)
-                    if pc == self.pks.get(r["parent"]) or pt in ("float", "text", "pii", "binary", "constant", None):
+                    if pc == self.pks.get(r["parent"]) or pt in ("float", "text", "pii", "binary", "constant", None) \
+                            or not (nameable(fk) and nameable(pc)):
                         continue
                     v = self._through(pr, pos, pc)
                     isd = pt in ("date", "datetime")
                     cols[f"{fk}.{pc}"] = (fk, canon(v, as_date=isd), isd)
-            exc_fks = [fk for fk, (r, _, _) in hops.items() if r["parent"] in self.copy]
+            exc_fks = [fk for fk, (r, _, _) in hops.items() if r["parent"] in self.copy and nameable(fk)]
             done_pairs = set()
             names = list(cols)
             # integer codes over one dictionary of every column's values: equal values

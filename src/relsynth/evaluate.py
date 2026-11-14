@@ -271,6 +271,31 @@ def _prep_col(d, c, iscat):
     return ok, _num(s)
 
 
+# contingency cells held as a dense table in _assoc_fast; two columns with tens of thousands of
+# levels each (MIMIC's free-text-like codes) would make a table of hundreds of millions of cells
+DENSE_CELLS = 1 << 24
+
+
+def _cramers_v_sparse(a, b):
+    """The bias-corrected Cramer's V of _assoc_fast from the observed cells only: with
+    e = row total * column total / n over the non-empty rows and columns, the sum of
+    (ct - e)^2 / e over every cell is sum(ct^2 / e) over the observed cells minus n."""
+    ua, ia = np.unique(a, return_inverse=True)
+    ub, ib = np.unique(b, return_inverse=True)
+    r_, k_ = len(ua), len(ub)
+    if min(r_, k_) < 2:
+        return 0.0
+    n = float(len(a))
+    cell, ct = np.unique(ia.astype(np.int64) * k_ + ib, return_counts=True)
+    rs, cs = np.bincount(ia).astype(float), np.bincount(ib).astype(float)
+    e = rs[cell // k_] * cs[cell % k_] / n
+    chi2 = max(float((ct.astype(float) ** 2 / e).sum() - n), 0.0)
+    phi2 = max(chi2 / n - (k_ - 1) * (r_ - 1) / (n - 1), 0)
+    rc, kc = r_ - (r_ - 1) ** 2 / (n - 1), k_ - (k_ - 1) ** 2 / (n - 1)
+    den = min(kc - 1, rc - 1)
+    return float(np.sqrt(phi2 / den)) if den > 0 else 0.0
+
+
 def _assoc_fast(A, B, cx, cy):
     """_assoc on prepared columns (same statistic, without per-pair pandas work):
     contingency tables by bincount, ranks by rankdata.  Returns None when the
@@ -288,6 +313,8 @@ def _assoc_fast(A, B, cx, cy):
     if cx and cy:
         a, b = va[ok], vb[ok]
         kb = int(b.max()) + 1
+        if (int(a.max()) + 1) * kb > DENSE_CELLS:
+            return _cramers_v_sparse(a, b)
         ct = np.bincount(a * kb + b, minlength=(int(a.max()) + 1) * kb).reshape(-1, kb).astype(float)
         ct = ct[ct.sum(1) > 0][:, ct.sum(0) > 0]
         n = ct.sum()
@@ -500,7 +527,7 @@ def fk_integrity(child, fk, parent, pk):
     return float(keystr(v).isin(set(keystr(parent[pk]))).mean())
 
 
-def joined_view(spec, tables, fact, depth=3):
+def _joined_frame(spec, tables, fact, depth=3):
     """Denormalise a child table with the attributes of its ancestors (up to
     `depth` hops), prefixing columns with the path."""
     T = spec["tables"]
@@ -531,6 +558,70 @@ def joined_view(spec, tables, fact, depth=3):
         if not frontier:
             break
     return view
+
+
+class _JoinedView:
+    """joined_view without materialising it: the fact's own columns and, per path to an
+    ancestor, the row of that ancestor behind each fact row; a column is gathered when it
+    is read.  The same columns, in the same order and with the same values and dtypes
+    (missing matches as NaN, as a left merge gives) as the merged frame, which on a fact of
+    millions of rows with a hundred ancestor columns held gigabytes per side (TPC-DS)."""
+
+    def __init__(self, spec, tables, fact, depth=3):
+        T = spec["tables"]
+        self.n = len(tables[fact])
+        self.src = {c: (tables[fact][c], None) for c in tables[fact].columns}
+        frontier = [(fact, "")]
+        for _ in range(depth):
+            nxt = []
+            for t, prefix in frontier:
+                for r in spec["relationships"]:
+                    if r["child"] != t or r["kind"] != "many_to_one" or r.get("composite"):
+                        continue
+                    p = r["parent"]
+                    pk = T[p]["primary_key"]
+                    pcols = [c for c, cs in T[p]["columns"].items() if cs["type"] in MODELLED or c == pk
+                             or any(rr["child"] == p and rr["child_key"] == c for rr in spec["relationships"])]
+                    newp = f"{prefix}{r['child_key']}."
+                    left = f"{prefix}{r['child_key']}" if prefix else r["child_key"]
+                    if left not in self.src:
+                        continue
+                    rk = pd.Index(keystr(tables[p][pk]).to_numpy())
+                    if not rk.is_unique:
+                        raise _NotUnique
+                    pos = rk.get_indexer(keystr(self[left]).fillna("__null__").to_numpy())
+                    if any(newp + c in self.src for c in pcols):
+                        raise _NotUnique            # the merge would suffix the clashing names
+                    for c in pcols:
+                        self.src[newp + c] = (tables[p][c], pos)
+                    nxt.append((p, newp))
+            frontier = nxt
+            if not frontier:
+                break
+        self.columns = pd.Index(list(self.src))
+
+    def __getitem__(self, c):
+        s, pos = self.src[c]
+        s = s.reset_index(drop=True)
+        if pos is None:
+            return s
+        out = s.reindex(np.where(pos >= 0, pos, len(s)))
+        out.index = pd.RangeIndex(len(out))
+        return out
+
+
+class _NotUnique(Exception):
+    pass
+
+
+def joined_view(spec, tables, fact, depth=3):
+    """Denormalise a child table with the attributes of its ancestors (up to
+    `depth` hops), prefixing columns with the path.  Gathered column by column
+    (_JoinedView) unless a parent key repeats, when the left merge repeats fact rows."""
+    try:
+        return _JoinedView(spec, tables, fact, depth)
+    except _NotUnique:
+        return _joined_frame(spec, tables, fact, depth)
 
 
 def _kish(view, keycol, default):
