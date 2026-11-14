@@ -301,6 +301,12 @@ def coerce(df: pd.DataFrame, tspec: dict, optional=(), notes=None, table="") -> 
             df[c] = canonical_keys(df[c])
         elif t in ("categorical", "text", "pii") and not is_binary(df[c]):
             s = df[c]
+            if _typed_text(s) or (s.dtype == object and pd.api.types.infer_dtype(s, skipna=True) in ("string", "empty")):
+                # already text (a string dtype, or objects that are all strings or missing, as
+                # normalise_frame leaves Parquet text): where(..., astype(str)) gives the same
+                # column back, after copying it into Python strings twice (gigabytes on a
+                # 15M-row table)
+                continue
             if pd.api.types.is_float_dtype(s) and s.isna().any() and _exact_integers(s.dropna()):
                 # integer codes read as floats because of a null: '1', not '1.0'
                 df[c] = s.where(s.isna(), s.map(lambda x: str(int(x)), na_action="ignore"))
@@ -309,9 +315,21 @@ def coerce(df: pd.DataFrame, tspec: dict, optional=(), notes=None, table="") -> 
     return df
 
 
+def _typed_text(s: pd.Series) -> bool:
+    """A column of a pandas string dtype (pandas 3's default `str`) or an Arrow string type."""
+    dt = s.dtype
+    if isinstance(dt, pd.StringDtype):
+        return True
+    if not isinstance(dt, pd.ArrowDtype):
+        return False
+    import pyarrow as pa
+    return bool(pa.types.is_string(dt.pyarrow_dtype) or pa.types.is_large_string(dt.pyarrow_dtype))
+
+
 def _exact_integers(v) -> bool:
     v = np.asarray(v, dtype=float)
-    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)))
+    # beyond the int64 range a whole number cannot become an Int64 key (a 20-digit barcode): kept as is
+    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)) and (np.abs(v) < 2.0**63).all())
 
 
 def is_stringlike(s: pd.Series) -> bool:

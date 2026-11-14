@@ -9,7 +9,8 @@ python -m bench all
 
 `all` runs ruff, the unit and end-to-end tests, the live-server tests when
 `RELSYNTH_TEST_PG_URL`, `RELSYNTH_TEST_MSSQL_URL` or `RELSYNTH_TEST_ORACLE_URL`
-is set ([testing](../testing.md)), the golden databases on seeds 1 to 5, and the
+is set ([testing](../testing.md)), the databases of the PR and weekly tiers of the
+benchmark matrix on their own seeds (`--tier` picks others), and the
 statistical check suite (C00–C82 and the 2.x checks). It then compares the results with
 `bench/baseline.json` and exits with 1 on a regression. The first run downloads
 and builds the public databases (about 150 MB, 10 minutes); a full run takes
@@ -19,10 +20,12 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 
 | Command | What it does |
 |---|---|
-| `python -m bench list` | the datasets and whether each is available here |
-| `python -m bench fetch` | download (checked against pinned SHA-256 sums) and build the public databases |
-| `python -m bench run [--datasets ...] [--seeds 1,2,3,4,5] [--suites ...] [--no-fake \| --fake-only]` | synthesise and score; writes one history record |
-| `python -m bench compare [RECORD ...] [--full]` | a record (default: the newest in `bench/history/`), or the records of one run split over several jobs, against the baseline |
+| `python -m bench list` | the datasets, their tier and whether each is available here |
+| `python -m bench fetch [--tier ...]` | download (checked against pinned SHA-256 sums) or generate, and build the public databases |
+| `python -m bench run [--tier pr,weekly \| --datasets ...] [--seeds 1,2,3] [--jobs 4] [--suites ...] [--no-fake \| --fake-only]` | synthesise and score; writes one history record |
+| `python -m bench compare [RECORD ...] [--full [--tier ... [--hosted]]]` | a record (default: the newest in `bench/history/`), or the records of one run split over several jobs, against the baseline; `--full` with `--tier` requires only that tier's datasets |
+| `python -m bench matrix --tier weekly` | the tier's CI jobs as JSON (bench.yml) |
+| `python -m bench coverage [--check]` | the feature-by-dataset coverage list of `bench/README.md` |
 | `python -m bench baseline RECORD...` | rebuild `bench/baseline.json` from history records |
 | `python -m bench all` | everything above in order, then `compare --full` |
 
@@ -31,13 +34,13 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 | Dataset | Source | Checks |
 |---|---|---|
 | `chinook` | Chinook 1.4.5, SQLite (MIT) | scorecard, quality, determinism |
-| `chinook_x2` | Chinook drawn at `synthesis.scale.default` 2 | scorecard, quality (fan-out normalised by the scale) |
 | `adventureworks` | AdventureWorks DW install script, built into SQLite (MIT) | scorecard, G1–G14, quality (5/3 null splits) |
 | `contoso_sqlite` | Contoso V2 100k Parquet release plus the generator's DDL, built into SQLite (MIT) | scorecard, T1–T17, quality, privacy (customers) |
 | `contoso_parquet` | the same release read as raw Parquet files | scorecard, T1–T17, quality |
 | `berka` | Berka / PKDD'99 Czech bank (SyntheRela "financial": 8 tables, 1.08M rows), built into SQLite with SDV's keys | scorecard, F1–F16, quality, privacy (accounts) |
 | `acs` | ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns), built into SQLite | scorecard, A1–A14, quality, privacy with shadow models (people), determinism |
 | `bi_corep_lr` | the maintainer's private EBA COREP extract | scorecard, B1–B8, quality |
+| G7 matrix | 23 more datasets in the PR, weekly, monthly and local tiers ([bench/README.md](../../bench/README.md#the-benchmark-matrix-g7)) | scorecard, X1–X6, quality; privacy on Adult |
 | `fake` | the statistical check suite (pytest -m science) | C00–C78, C600–C606 and the other science checks |
 
 Berka and ACS were added on 2026-10-30 as the most complex databases of the
@@ -47,9 +50,13 @@ accounts, two parents of the district table, a 1M-row transaction fact with a
 time column, an `order` table whose name is an SQL keyword, derived and
 aggregate rules) and ACS the register's reference privacy dataset (structural
 missing values, a geography code, survey weights, sensitive income and
-disability items). TPC-DS (`dsdgen`, 24 tables) and MIMIC-IV demo (clinical,
-ODbL) are the next candidates; they need the DuckDB extension repository and
-physionet.org, which the environment that built this baseline could not reach.
+disability items). The G7 matrix (2026-11-13) added TPC-H and TPC-DS from
+DuckDB's generators, MIMIC-IV demo, Synthea, Stack Exchange, RelBench rel-trial,
+UCI sets, NYC TLC trips, Open Food Facts and a schema stress generator, in tiers
+by cost; Chinook at scale 2 (`chinook_x2`) was dropped as over-tested (the scale
+rule stays covered by C80 and the end-to-end tests). Downloads that the
+development environment could not reach are pinned from their first download
+on a GitHub-hosted runner.
 
 The download URLs and checksums are in `bench/datasets.py`; licences and terms
 are in the [dataset register](../datasets.md). Nothing downloaded is committed:
@@ -65,8 +72,9 @@ dataset ran), and `baseline` writes its baseline to
 `<RELSYNTH_BENCH_BI_DIR>/bench/baseline.json`. `compare` merges both where they
 are present.
 
-Each database runs with a frozen spec in `bench/specs/`: Chinook with the
-example spec, the others with the unedited 1.0 `introspect` draft. Freezing the
+Each 2.0 golden database runs with a frozen spec in `bench/specs/`: Chinook with the
+example spec, the others with the unedited 1.0 `introspect` draft (the G7
+datasets instead draft theirs at run time; bench/README.md says why). Freezing the
 spec separates a change of the engine from a change of what `introspect`
 proposes (a fresh Chinook draft adds a dependency AlbumId → MediaTypeId that
 costs two checks); `introspect` itself is covered by the unit and end-to-end
@@ -103,7 +111,7 @@ something:
 | Distributions (95%+, calibrated) | `goal:distribution_match`, `area:fidelity`, `quality:` column, pair, 3-way, precision/recall checks | all |
 | Cross-table structure | `quality:` fan-out, 2-hop fan-out, hop-trend and detection checks; `metric:cardinality_similarity_*`, `metric:k_hop_trend_*`, `metric:c2st_agg_accuracy_max` | multi-table databases |
 | Utility gap (<5%) | `goal:utility_gap`, `area:utility`, `metric:utility_gap_max` | all with targets |
-| Scale control | `chinook_x2`: integrity and rate-normalised fan-out at twice the size | Chinook |
+| Scale control | the quality report at another scale (C80); sizes from KB to 100 GB across the matrix | `fake`, matrix |
 | Generation failures (<0.1%) | R3 (a run that errors) | all |
 | Reproducibility | `goal:deterministic` | Chinook, ACS |
 | Singling out, linkage, inference (EDPB) | `privacy:record_isolation\|*`, `privacy:linkage\|*`, `privacy:inference\|*` | ACS, Berka, Contoso |

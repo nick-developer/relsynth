@@ -190,6 +190,8 @@ source: {kind: csv, path: ../extract, null_values: ["", "n/a", "NULL"]}
     duckdb: {memory_limit: 4GB, threads: 8, temp_directory: /scratch/duckdb}
   ```
 
+  Without a `memory_limit`, DuckDB is limited to half of the machine's memory (its own default is 80%), because it shares the process with the fitted frames.
+
   A CSV column read by DuckDB gets the type the pandas reader gives it. All fields are read as text, only the null tokens become nulls, and a column is a number when every value parses as one and none has a leading zero.
 - **Table names.** A table name must be a plain file name. Names with `/`, `\`, `..`, NUL or an absolute path are refused, and so is a name whose file resolves outside the folder (a symbolic link).
 

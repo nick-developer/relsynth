@@ -330,7 +330,7 @@ class _Profiler(Discovery):
                                 "but the data fits " + ", ".join(f"{x['parent']} ({describe(x)})" for x in amb[:4])
                                 + " equally well")
                              + "; declare it under relationships, or it is synthesised as a plain column")
-        rels = acyclic(rels)
+        rels = self.one_self_reference(self.break_declared_cycles(acyclic(rels)))
         for r in rels:
             why = r.pop("_why", None)
             r.pop("_score", None)
@@ -340,6 +340,50 @@ class _Profiler(Discovery):
             if r["child"] == r["parent"]:
                 r["kind"] = "self_reference"
         self.rels = rels
+
+    def break_declared_cycles(self, rels):
+        """A cycle of declared links between different tables (department.head_id ->
+        employee, employee.department_id -> department) cannot be generated parents
+        first: the optional link of the cycle (the child column with the most NULLs,
+        then the smaller child table) is left out and its column kept as a plain
+        column.  acyclic() already dropped the inferred links of any cycle."""
+        from .keyfind import _find_cycle
+        while True:
+            g = {}
+            for r in rels:
+                if r["child"] != r["parent"] and isinstance(r["child_key"], str):
+                    g.setdefault(r["child"], []).append(r)
+            cyc = _find_cycle(g)
+            if not cyc:
+                return rels
+            drop = max(cyc, key=lambda r: (float(self.df[r["child"]][r["child_key"]].isna().mean()),
+                                           -self.counts[r["child"]], r["child"], r["child_key"]))
+            rels = [r for r in rels if r is not drop]
+            self.ask(f"ASK {drop['child']}.{drop['child_key']} -> {drop['parent']}: declared link closes a cycle "
+                     f"({' -> '.join(r['child'] for r in cyc)} -> {cyc[0]['child']}); left out and kept as a plain "
+                     "column, since tables are generated parents first (declare it under relationships if another "
+                     "link of the cycle should go instead)")
+
+    def one_self_reference(self, rels):
+        """The engine generates one self-reference per table (a tree); a second one
+        (posts.ParentId and posts.AcceptedAnswerId -> posts) is left out and kept as a
+        plain column: the link with the fewest NULLs stays, as break_declared_cycles
+        drops the most optional link of a cycle."""
+        own: dict = {}
+        for r in rels:
+            if r["child"] == r["parent"] and isinstance(r["child_key"], str):
+                own.setdefault(r["child"], []).append(r)
+        drop = []
+        for t, rs in own.items():
+            if len(rs) < 2:
+                continue
+            rs = sorted(rs, key=lambda r: (float(self.df[t][r["child_key"]].isna().mean()), r["child_key"]))
+            for r in rs[1:]:
+                drop.append(r)
+                self.ask(f"ASK {t}.{r['child_key']} -> {t}: a second self-reference of {t} (after "
+                         f"{rs[0]['child_key']}); left out and kept as a plain column, since a table has one "
+                         "self-reference (declare it under relationships instead of the other if it is the tree)")
+        return [r for r in rels if not any(r is d for d in drop)]
 
     def simple(self, t):
         return [r for r in self.rels if r["child"] == t and isinstance(r["child_key"], str) and r["parent"] != t]
@@ -404,10 +448,19 @@ class _Profiler(Discovery):
                              "would repeat at least 10 times)")
                 drop.remove(t)
         for t in drop:
-            self.ask(f"{t}: no primary key and no link to another table; left out of the draft "
-                     "(add it with a primary key to synthesise it)")
+            if any(r["child"] == t or r["parent"] == t for r in self.rels):
+                self.ask(f"{t}: no single-column primary key (only composite links reach it); left out of the draft, "
+                         "and the links to it are kept as plain columns (relsynth links to a parent through its "
+                         "primary key: add a single-column key to synthesise it with its links)")
+            else:
+                self.ask(f"{t}: no primary key and no link to another table; left out of the draft "
+                         "(add it with a primary key to synthesise it)")
             self.names.remove(t)
             self.rels = [r for r in self.rels if r["child"] != t and r["parent"] != t]
+        for t in self.names:
+            # a fact whose only links went with a dropped parent is an entity of its own, when it has a key
+            if self.role[t] == "fact" and self.pks[t] is not None and not any(r["child"] == t for r in self.rels):
+                self.role[t] = "entity"
 
     # ---------------------------------------------------------------- types
     def types(self):
@@ -525,6 +578,8 @@ class _Profiler(Discovery):
                 if pk is None:
                     continue
                 pr = self.parent_rows(p, pk, df[r["child_key"]].dropna().unique()).drop_duplicates(pk).reset_index(drop=True)
+                if not len(pr):                   # no sampled key found in the parent: nothing to look up
+                    continue
                 ix = pd.Index(canonical_keys(pr[pk]).astype(str))
                 pos = ix.get_indexer(canonical_keys(df[r["child_key"]]).astype(str))
                 for pc in pr.columns:
@@ -539,6 +594,8 @@ class _Profiler(Discovery):
                     k1 = np.where(pos >= 0, pr[r2["child_key"]].to_numpy(dtype=object)[np.maximum(pos, 0)], None)
                     prow2 = self.parent_rows(p2, pk2, pd.Series(k1).dropna().unique())
                     pr2 = prow2.drop_duplicates(pk2)
+                    if not len(pr2):
+                        continue
                     ix2 = pd.Index(canonical_keys(pr2[pk2]).astype(str))
                     pos2 = ix2.get_indexer(canonical_keys(pd.Series(k1)).astype(str))
                     for pc in pr2.columns:
@@ -631,7 +688,7 @@ class _Profiler(Discovery):
             d, hf, hc = best
             # complete orders: every row of a random set of document numbers
             keys = self.rng.choice(df[d].dropna().unique(), size=min(self.n_groups, df[d].nunique()), replace=False)
-            grp = df[df[d].isin(keys)] if self.whole[t] else self.src.rows_in(t, d, list(keys))
+            grp = self.group_rows(t, d, keys)
             line, line_start = None, 1
             for c in df.columns:
                 # a line number is often part of the declared key, hence typed id
@@ -768,7 +825,7 @@ class _Profiler(Discovery):
                 if done:
                     break
                 keys = self.rng.choice(df[g].dropna().unique(), size=min(60, df[g].nunique()), replace=False)
-                grp = df[df[g].isin(keys)] if self.whole[t] else self.src.rows_in(t, g, list(keys))
+                grp = self.group_rows(t, g, keys)
                 for o in orders:
                     if o == g:
                         continue
@@ -800,6 +857,10 @@ class _Profiler(Discovery):
                 continue
             keys = pdf[pk].dropna().unique()
             keys = self.rng.choice(keys, size=min(len(keys), 400), replace=False)
+            if not self.whole[t]:
+                # a parent's children are read whole: at most about GROUP_ROWS rows of a large
+                # child (400 days of TPC-DS SF10 are 6M store_sales rows), the other parents left out
+                keys = np.asarray(self.group_keys(t, r["child_key"], keys), dtype=keys.dtype)
             child = self.df[t][self.df[t][r["child_key"]].isin(keys)] if self.whole[t] else \
                 self.src.rows_in(t, r["child_key"], list(keys))
             if len(child) < 10:
@@ -900,7 +961,8 @@ class _Profiler(Discovery):
                 expected = n * (n - 1) / (2 * space)      # repeated pairs expected if the columns were drawn independently
                 if expected >= 10 and not self.whole[t]:
                     # the sample only screens: the pair must be unique on every row
-                    if self.src.columns(t, [a, b]).dropna().duplicated().any():
+                    big = getattr(self.src, "nulls_and_repeats", lambda *_: None)(t, [a, b])
+                    if big[1] if big is not None else self.src.columns(t, [a, b]).dropna().duplicated().any():
                         self.ask(f"{t}: [{a}, {b}] has no repeat in the sample but repeats in the whole table; "
                                  "not a unique key")
                         continue
@@ -922,8 +984,10 @@ class _Profiler(Discovery):
             p, pk = r["parent"], self.pks.get(r["parent"])
             if pk is None:
                 return False
-            pv = self.full_keys(p, pk)
             cv = _keyset(self.df[t][r["child_key"]])
+            if not self.whole[p] and len(cv) < 0.99 * self.counts.get(p, 0):
+                return False                      # fewer sampled keys than 99% of the parent's (unique) keys
+            pv = self.full_keys(p, pk)
             return bool(pv) and len(pv & cv) >= 0.99 * len(pv)
         depth = {r["parent"]: sum(1 for x in self.simple(r["parent"])) for r in fks}
         # the 'one' side whose row counts are kept: the table the fact is named after;

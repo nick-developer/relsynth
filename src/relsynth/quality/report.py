@@ -272,7 +272,9 @@ def _path_checks(b, spec, real, syn, rng):
     for T, names in by_top.items():
         for _ in range(R):
             A, B = cal.split_db_root(spec, real, T, rng)
-            hn = mt.hop_trends(spec, A, B, cfg["max_hops"], cfg["max_rows"], cfg["seed"])
+            # only the paths under T: the others are not read from this split (and on a
+            # 120-table schema recomputing every path for every top table took hours)
+            hn = mt.hop_trends(spec, A, B, cfg["max_hops"], cfg["max_rows"], cfg["seed"], only=set(names))
             for name in names:
                 if name in hn:
                     nulls[name].append(hn[name])

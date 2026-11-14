@@ -373,6 +373,8 @@ def _design(dfs, tspec, cols):
         cs = tspec["columns"][c]
         if _is_cat(cs, allv[c]):
             top = allv[c].astype(str).value_counts().index[:20]
+            if not len(top):                    # every value missing (binary columns are left empty): no feature
+                continue
             v = allv[c].astype(str)
             feats.append(np.column_stack([(v == t).to_numpy(float) for t in top]))
         else:
@@ -808,38 +810,153 @@ def _nb_predict_sparse(cls, cnt, prior, V, tot, texts):
     return out
 
 
+def _word_counts(counts):
+    """_canon_counts of the words counted in `counts` (a Counter filled in order of
+    first appearance), built as _canon_counts builds it, so it is identical."""
+    if not counts:
+        return _canon_counts([])
+    labels = list(counts)
+    k = np.array([counts[w] for w in labels], dtype=np.int64)
+    out = pd.Series(k, index=pd.Index(labels, dtype=object)).sort_values(ascending=False)
+    return out / k.sum()
+
+
+TEXT_ROWS = 20_000                              # rows tokenised at a time by text_metrics
+
+
+def _text_chunks(values, vocab):
+    """Token lists of `values` in chunks of TEXT_ROWS rows, with the interned ids of
+    each chunk as one flat int64 array and the row offsets into it."""
+    for i in range(0, len(values), TEXT_ROWS):
+        toks = [WORD.findall(str(t)) for t in values[i:i + TEXT_ROWS]]
+        lens = np.fromiter((len(t) for t in toks), np.int64, len(toks))
+        ids = np.fromiter((vocab.setdefault(w, len(vocab)) for t in toks for w in t), np.int64, int(lens.sum()))
+        off = np.concatenate([[0], np.cumsum(lens)])
+        yield toks, ids, lens, off
+
+
+def _windows(ids, lens, off, L):
+    """128-bit hashes of every run of L tokens inside a row, with the row of each."""
+    from .text import _window_hashes
+    n = np.maximum(lens - L + 1, 0)
+    row = np.repeat(np.arange(len(lens)), n)
+    st = off[:-1][row] + (np.arange(len(row)) - np.repeat(np.cumsum(n) - n, n))
+    h1, h2 = _window_hashes(ids, st, L)
+    return h1, h2, row
+
+
+def _find(S1, S2, q1, q2):
+    """Index of each hash pair (q1, q2) in the table sorted by (S1, S2), or -1."""
+    out = np.full(len(q1), -1, np.int64)
+    if not len(S1) or not len(q1):
+        return out
+    pos = np.searchsorted(S1, q1)
+    todo = np.arange(len(q1))
+    while len(todo):
+        p = pos[todo]
+        live = p < len(S1)
+        todo, p = todo[live], p[live]
+        same = S1[p] == q1[todo]
+        todo, p = todo[same], p[same]
+        hit = S2[p] == q2[todo]
+        out[todo[hit]] = p[hit]
+        todo = todo[~hit]
+        pos[todo] += 1
+    return out
+
+
 def text_metrics(real_df, syn_df, col, cond, k=3, L=8, seed=0):
     r = real_df[[col] + ([cond] if cond else [])].dropna(subset=[col])
     s = syn_df[[col] + ([cond] if cond else [])].dropna(subset=[col])
     out = {"null_diff": float(abs(real_df[col].isna().mean() - syn_df[col].isna().mean()))}
-    rt = [WORD.findall(str(t)) for t in r[col]]
-    st = [WORD.findall(str(t)) for t in s[col]]
-    out["len_mean_real"] = float(np.mean([len(t) for t in rt])) if rt else 0
-    out["len_mean_syn"] = float(np.mean([len(t) for t in st])) if st else 0
-    rows_with = Counter()
-    for t in rt:
-        rows_with.update(set(t))
-    # the generator's guard counts tokens after scrubbing (an id "abc12345" is the
-    # word "abc" and a number placeholder there); a token that is rare in the raw
-    # text but held by >= k rows once scrubbed is allowed by the guard and is not a
-    # leak.  Tokens absent from the scrubbed text (parts of e-mails, long numbers)
-    # stay judged on the raw count.
+    # every statistic is accumulated chunk by chunk, so memory follows the vocabulary
+    # and the synthetic text's distinct runs, not the token lists of both corpora
+    # (a 3-million-row text column held them as Python lists of several GiB).
+    # Runs of L tokens are compared by 128-bit hashes of interned ids.
     from .text import tokenize as _scrub_tokens
+    rvals, svals = r[col].tolist(), s[col].tolist()
+    vocab = {}
+    # synthetic pass 1: distinct runs, distinct texts, bigrams, word counts
+    syn_len = 0
+    syn_text = {}
+    syn_words = Counter()
+    run1, run2, big = [], [], []
+    n_big = 0
+    for toks, ids, lens, off in _text_chunks(svals, vocab):
+        syn_len += int(lens.sum())
+        for t in toks:
+            syn_text.setdefault(" ".join(t), 0)
+            syn_words.update(w.lower() for w in t)
+        h1, h2, _ = _windows(ids, lens, off, L)
+        run1.append(h1)
+        run2.append(h2)
+        hb1, hb2, _ = _windows(ids, lens, off, 2)
+        n_big += len(hb1)
+        o = np.lexsort((hb2, hb1))
+        keep = np.ones(len(o), bool)
+        keep[1:] = (np.diff(hb1[o]) != 0) | (np.diff(hb2[o]) != 0)
+        big.append((hb1[o][keep], hb2[o][keep]))
+    S1 = np.concatenate(run1) if run1 else np.zeros(0, np.uint64)
+    S2 = np.concatenate(run2) if run2 else np.zeros(0, np.uint64)
+    o = np.lexsort((S2, S1))
+    S1, S2 = S1[o], S2[o]
+    keep = np.ones(len(S1), bool)
+    keep[1:] = (np.diff(S1) != 0) | (np.diff(S2) != 0)
+    S1, S2 = S1[keep], S2[keep]
+    del run1, run2
+    B1 = np.concatenate([b[0] for b in big]) if big else np.zeros(0, np.uint64)
+    B2 = np.concatenate([b[1] for b in big]) if big else np.zeros(0, np.uint64)
+    n_big_distinct = len(np.unique(np.stack([B1, B2], 1), axis=0)) if len(B1) else 0
+    del big, B1, B2
+    # real pass: token row counts (raw and scrubbed), counts of the synthetic runs and
+    # texts, word counts
+    real_len = 0
+    rows_with = Counter()
     rows_scrubbed = Counter()
-    for t in r[col]:
-        rows_scrubbed.update(set(_scrub_tokens(str(t))))
+    real_words = Counter()
+    run_rows = np.zeros(len(S1), np.int64)
+    for i, (toks, ids, lens, off) in enumerate(_text_chunks(rvals, vocab)):
+        real_len += int(lens.sum())
+        for t in toks:
+            rows_with.update(set(t))
+            real_words.update(w.lower() for w in t)
+            j = " ".join(t)
+            if j in syn_text:
+                syn_text[j] += 1
+        for t in rvals[i * TEXT_ROWS:(i + 1) * TEXT_ROWS]:
+            # the generator's guard counts tokens after scrubbing (an id "abc12345" is
+            # the word "abc" and a number placeholder there); a token that is rare in
+            # the raw text but held by >= k rows once scrubbed is allowed by the guard
+            # and is not a leak.  Tokens absent from the scrubbed text (parts of
+            # e-mails, long numbers) stay judged on the raw count.
+            rows_scrubbed.update(set(_scrub_tokens(str(t))))
+        h1, h2, row = _windows(ids, lens, off, L)
+        j = _find(S1, S2, h1, h2)
+        hit = j >= 0
+        if hit.any():
+            run_rows += np.bincount(np.unique(row[hit] * len(S1) + j[hit]) % len(S1), minlength=len(S1))
     rare = {w for w, c in rows_with.items() if c < k and rows_scrubbed.get(w, 0) < k}
-    out["rare_token_leaks"] = int(sum(any(w in rare for w in t) for t in st))
-    ngr = Counter()
-    for t in rt:
-        ngr.update({tuple(t[i:i + L]) for i in range(len(t) - L + 1)})
-    rare_ng = {g for g, c in ngr.items() if c < k}
-    out["rare_ngram_copies"] = int(sum(any(tuple(t[i:i + L]) in rare_ng for i in range(len(t) - L + 1)) for t in st))
-    tf = Counter(" ".join(t) for t in rt)
-    out["rare_exact_copies"] = int(sum(tf.get(" ".join(t), k) < k for t in st))
-    out["unigram_tvd"] = tvd([w.lower() for t in rt for w in t], [w.lower() for t in st for w in t])
-    big_s = [tuple(t[i:i + 2]) for t in st for i in range(len(t) - 1)]
-    out["distinct2_syn"] = float(len(set(big_s)) / max(len(big_s), 1))
+    rare_run = (run_rows > 0) & (run_rows < k)
+    # synthetic pass 2: rows holding a rare token, a rare run of L tokens or a rare text
+    leaks = copies = exact = 0
+    for toks, ids, lens, off in _text_chunks(svals, vocab):
+        leaks += sum(any(w in rare for w in t) for t in toks)
+        exact += sum(0 < syn_text[" ".join(t)] < k for t in toks)
+        h1, h2, row = _windows(ids, lens, off, L)
+        j = _find(S1, S2, h1, h2)
+        hit = j >= 0
+        flag = np.zeros(len(toks), bool)
+        flag[row[hit][rare_run[j[hit]]]] = True
+        copies += int(flag.sum())
+    out["len_mean_real"] = float(real_len / len(rvals)) if rvals else 0
+    out["len_mean_syn"] = float(syn_len / len(svals)) if svals else 0
+    out["rare_token_leaks"] = int(leaks)
+    out["rare_ngram_copies"] = int(copies)
+    out["rare_exact_copies"] = int(exact)
+    pa, pb = _word_counts(real_words), _word_counts(syn_words)
+    idx = pa.index.union(pb.index)
+    out["unigram_tvd"] = float(0.5 * (pa.reindex(idx, fill_value=0) - pb.reindex(idx, fill_value=0)).abs().sum())
+    out["distinct2_syn"] = float(n_big_distinct / max(n_big, 1))
     if cond and len(r) > 40 and len(s) > 20:
         rng = np.random.default_rng(seed)
         m = rng.random(len(r)) < 0.7
@@ -862,14 +979,21 @@ def determining_columns(real, tspec, cols, bf=100.0):
     from .table_model import fd_log_bf
     cat = [c for c in cols if tspec["columns"][c]["type"] in ("categorical", "boolean")]
     codes = {c: pd.factorize(real[c].astype(object), use_na_sentinel=True)[0] for c in cat}
+    # levels of each column (with the missing value) and of each pair, counted once with
+    # integer arithmetic: a 500-column table has 250,000 ordered pairs
+    levels = {c: len(np.unique(v)) for c, v in codes.items()}
+    width = {c: int(v.max(initial=-1)) + 2 for c, v in codes.items()}
     drop = set()
     for b in cat:
+        cb = codes[b].astype(np.int64) + 1
         for a in cat:
             if a == b or a in drop:
                 continue
-            na = len(np.unique(codes[a]))
-            if len(set(zip(codes[a].tolist(), codes[b].tolist()))) <= na and na >= len(np.unique(codes[b])) \
-                    and fd_log_bf(codes[a], codes[b]) > np.log(bf):
+            na = levels[a]
+            if na < levels[b]:
+                continue
+            pairs = len(np.unique((codes[a].astype(np.int64) + 1) * width[b] + cb))
+            if pairs <= na and fd_log_bf(codes[a], codes[b]) > np.log(bf):
                 drop.add(b)
                 break
     return [c for c in cols if c not in drop]

@@ -130,12 +130,14 @@ def _join(tables, child, fk, parent, pk, pcols, prefix):
     return left.merge(right, on="_k", how="left").drop(columns="_k")
 
 
-def hop_views(spec, tables, max_hops=2):
+def hop_views(spec, tables, max_hops=2, only=None):
     """Denormalised views along foreign-key paths: {(path name, hops):
     (view, bottom table, bottom columns, top table, top columns)} with top-table
-    columns prefixed '^.'."""
+    columns prefixed '^.'; `only` limits them to the paths of those names."""
     out = {}
     for name, p, pk, c, fk in relations(spec):
+        if only is not None and name not in only:
+            continue
         pc = attribute_columns(spec, p)
         cc = attribute_columns(spec, c)
         if pc and cc:
@@ -143,6 +145,8 @@ def hop_views(spec, tables, max_hops=2):
             out[(name, 1)] = (v, c, cc, p, pc)
     if max_hops >= 2:
         for name, gp, gpk, p, ppk, fk1, c, fk2 in two_hop_chains(spec):
+            if only is not None and name not in only:
+                continue
             gc = attribute_columns(spec, gp)
             cc = attribute_columns(spec, c)
             if not gc or not cc:
@@ -159,10 +163,11 @@ def hop_views(spec, tables, max_hops=2):
     return out
 
 
-def hop_trends(spec, real, other, max_hops=2, max_rows=20000, seed=0):
+def hop_trends(spec, real, other, max_hops=2, max_rows=20000, seed=0, only=None):
     """{path: {"hops", "mean", "min", "worst", "pairs": {pair: [score, |diff| ]}}}
-    for each 1- and 2-hop path, comparing pairs (bottom column, top column)."""
-    vr, vo = hop_views(spec, real, max_hops), hop_views(spec, other, max_hops)
+    for each 1- and 2-hop path (or those named in `only`), comparing pairs
+    (bottom column, top column)."""
+    vr, vo = hop_views(spec, real, max_hops, only), hop_views(spec, other, max_hops, only)
     out = {}
     for key, (a, c, cc, p, pc) in vr.items():
         if key not in vo:
