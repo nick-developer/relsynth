@@ -75,7 +75,7 @@ def icc_indicators(Y: np.ndarray, groups: np.ndarray, ref: np.ndarray | None = N
     _, gi = np.unique(np.stack([ref.astype(np.int64), groups.astype(np.int64)]), axis=1, return_inverse=True)
     gi = gi.ravel()
     _, ri = np.unique(ref, return_inverse=True)
-    G, C = int(gi.max()) + 1, int(ri.max()) + 1
+    G, C = int(np.max(gi)) + 1, int(np.max(ri)) + 1
     if n <= G or G <= C:
         return float("nan"), G, n
     ng = np.bincount(gi, minlength=G).astype(float)

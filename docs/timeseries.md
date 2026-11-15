@@ -27,7 +27,7 @@ customer's orders are redrawn together:
 
 - **calendar**: an intensity from month, weekday and (datetime) hour profiles, read as a rate per active entity and
   matched to the real month totals. With `calendar: auto` (the default) all segments share one calendar unless a Bayes
-  factor over the segments' month counts is decisive (log BF > log 100, Prop. 1784): the profiles of small segments
+  factor over the segments' month counts exceeds `calendar_bf` (default 100, "decisive" on Jeffreys' scale; Prop. 1784): the profiles of small segments
   are noise that the life times then follow. The calendar is used at its posterior mean (`calendar_draw: false`); a
   drawn calendar added its uncertainty on top of the per-entity draws and failed the gap checks on AdventureWorks;
 - **life time**: when the entity starts and how much of the rest of its window it stays active, given its number of
@@ -41,6 +41,7 @@ Options (all optional):
 |---|---|---|
 | `window` | `auto` | `auto` reads the entity's window from check rules such as `days(OrderDate) < days(CustomerKey.EndDT)`; `{start: col, end: col}` names columns of the entity; `none` uses the data's time range |
 | `calendar` | `auto` | `auto`, `pooled` (one calendar) or `segment` (one per segment, the 2.1 behaviour) |
+| `calendar_bf` | `100` | Bayes factor above which `calendar: auto` gives each segment its own calendar |
 | `calendar_draw` | `false` | draw the calendar from its posterior per dataset instead of using its mean |
 | `bucket` | `month` | calendar bucket of the trend and season: day, week, month, quarter, year |
 | `weekly` | `true` | weekday profile |

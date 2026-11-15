@@ -119,12 +119,12 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Shape-mode shrinkage with the empirical-Bayes weight and the privacy floor
-    is on by default, the guard is off, the estimates are in the model summary,
+    """Shape-mode shrinkage with the empirical-Bayes weight is on by default (the
+    privacy floor is off), the guard is off, the estimates are in the model summary,
     and 0 rows with no floor (the 2.1 fit) give other values."""
     m, base = _run(shop)
     assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == "auto"
-    assert m.spec["synthesis"]["marginals"]["segment_floor_rows"] == 20.0
+    assert m.spec["synthesis"]["marginals"]["segment_floor_rows"] == 0.0
     gens = [tm.generator for tm in m.synthesizer.tm.values() if getattr(tm.generator, "shrinkage", None)]
     assert gens and all("segment" in g.summary()["segment_shrinkage"] for g in gens)
     assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"

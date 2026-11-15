@@ -25,7 +25,7 @@ PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 # G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
 # segment marginal of an entity table, and the near-copy guard
 SEGMENT_PRIOR_ROWS = "auto"   # empirical Bayes per column (Prop. 1725); 0 = off (2.1 output)
-SEGMENT_FLOOR_ROWS = 20.0     # privacy floor: a segment marginal holds at least this many rows of mass (Prop. 1726)
+SEGMENT_FLOOR_ROWS = 0.0      # privacy floor in rows of mass per segment (Prop. 1726); off by default (owner, 2026-11-15)
 NEAR_COPY = "off"
 
 

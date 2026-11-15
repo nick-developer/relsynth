@@ -95,7 +95,7 @@ def element_order(vocab: list, pairs: Counter) -> dict:
         i = min(ready, key=lambda k: (-net[k], k))
         rank.append(i)
         left.discard(i)
-        for j in np.flatnonzero(W[i] > 0):
+        for j in np.flatnonzero(W[i] > 0).tolist():
             indeg[j] -= 1
     pos = np.empty(V, int)
     pos[rank] = np.arange(V)
