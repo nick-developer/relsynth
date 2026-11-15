@@ -94,12 +94,12 @@ validates against the inferred schema (Prop. 1400).
    with `_parent` and `_pos` (or `_key`). Absent, null and the type of a union field are a tag column `<path>__t`,
    an array's length is a column `<path>__n` modelled with its parent's other columns, and numbers of several types
    share one column. A set array of string or integer values (no repeats, no nulls; tags of an item) is not a child table: it is one
-   column per value on its holder (`<path>__h<i>`, 1 held, 0 not), so which values a document holds is modelled jointly
+   column per value on its holder (`<path>__h<i>`, 0 when absent), so which values a document holds is modelled jointly
    with its other fields, and a value never repeats (Prop. 1785); a child table draws its elements one by one with
    replacement and cannot hold a set without repairs. The model report records how much the joint model carries: the
    Bayesian information criterion gain of the best tree of pairwise dependences among the values (Chow and Liu 1968).
-   A synthetic array lists its values in the source's order when the source never disagrees on the order of two values,
-   else in a Plackett-Luce draw fitted to how often each value precedes each other. Options (`DocumentSynthesizer(options=...)`,
+   When the source never disagrees on the order of two values, a cell is 1 or 0 and a synthetic array lists its values
+   in the source's order; otherwise a cell is 1 + the value's position, and the order is modelled with the rest. Options (`DocumentSynthesizer(options=...)`,
    `spec_overrides: {documents: ...}` or `relsynth docs synth --multihot`): `multihot: auto | on | off` and
    `multihot_max_columns` (default 64), a cost bound: the copula's work grows with the square of its columns, so larger
    vocabularies stay child tables under `auto`. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.

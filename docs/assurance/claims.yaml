@@ -1716,7 +1716,7 @@ claims:
     - "a child table draws its elements one by one with replacement and cannot hold a set without repairs"
     - "The model report records how much the joint model carries"
     - "a cost bound: the copula's work grows with the square of its columns, so larger"
-    - "A synthetic array lists its values in the source's order when the source never disagrees on the order of two values,"
+    - "When the source never disagrees on the order of two values, a cell is 1 or 0 and a synthetic array lists its values"
     status: supported
     evidence:
     - prop: prop:multihot

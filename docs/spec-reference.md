@@ -395,6 +395,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `min_entities` | int | `30` | Segments with fewer entities use the pooled parameters. |
 | `redraws` | int | `10` | Redraws of an entity whose new times break a check rule; then the engine's times are kept. |
 | `calendar` | auto \| pooled \| segment | `auto` | One trend and season profile per segment, or one shared by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers it (Prop. 1784); small segments share one. |
+| `calendar_bf` | number | `100.0` | Bayes factor for one calendar per segment over a shared one that calendar auto requires (100: decisive on Jeffreys' scale, as facts.count_model_bf). |
 | `calendar_draw` | bool | `False` | Draw the calendar from its posterior for each dataset. Off: the calendar stays at its posterior mean and the life times carry the uncertainty (Prop. 1784). |
 
 ### `sequence.window`
@@ -692,8 +693,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.discrete_int_max` | `30` | Integer columns with at most this many distinct values are modelled as discrete. |
 | `marginals.max_obs` | `20000` | Observations kept per continuous marginal (a seeded subsample above it). |
 | `marginals.fd_sample_rows` | `50000` | Rows of the seeded subsample on which functional dependencies are tested. |
-| `marginals.segment_prior_rows` | `20.0` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1 output); see segment_prior_mode for which columns and prior. |
-| `marginals.segment_prior_mode` | `shape` | What segment_prior_rows shrinks: table (every column toward the table's marginal), numeric (continuous columns only: numbers and dates), shape (continuous columns only, the table's shape moved to the segment's median and spread, so the segment keeps its location). |
+| `marginals.segment_prior_rows` | `auto` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps n / (n + a) of its own distribution). auto: a is estimated per column and level of the hierarchy from how much the segments differ (empirical Bayes, a = (1 - rho) / rho with rho the intra-segment correlation; Prop. 1725), so segments that really differ keep their laws; a number fixes a for every column. 0 with segment_floor_rows 0 = off (2.1 output). |
+| `marginals.segment_floor_rows` | `20.0` | Privacy floor: every segment marginal of an entity table holds at least this many rows of mass, so one source row carries at most 1 / this of it (a segment of n rows gets a prior weight of at least this - n; Prop. 1726). A policy choice like k in k-anonymity, never read from the data; 0 = no floor. |
+| `marginals.segment_prior_mode` | `shape` | What the segment prior shrinks: table (every column toward the parent's marginal), numeric (continuous columns only: numbers and dates), shape (continuous columns only, the parent's shape moved to the segment's median and spread, so the segment keeps its location; with auto, a measures how far the segments' shapes differ). |
 | `facts.min_group_rows` | `30` | Rows below which a block borrows the coarser dimension's marginals. |
 | `facts.frailty` | `auto` | auto \| on \| off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | `1.5` | Dispersion index above which frailty is used. |
@@ -716,7 +718,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
 | `structure.conditional_inclusion` | `auto` | auto \| none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | `10.0` | Expected references needed to call a level excluded (Bayes factor e^n). |
-| `structure.inclusion_fk_levels` | `True` | Also test the levels of the parent's own foreign keys with up to 50 values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
+| `structure.inclusion_fk_levels` | `True` | Also test the levels of the parent's own foreign keys with up to inclusion_max_levels values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
+| `structure.inclusion_max_levels` | `50` | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
+| `structure.inclusion_multiplicity` | `bonferroni` | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
 | `structure.participation` | `auto` | auto \| none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto \| none: unique keys of two foreign keys become grains. |
@@ -731,7 +735,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
 | `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
-| `rules.balance_floor` | `auto` | Running balances (cumulative rules) that are negative on at most 1% of source rows are stocks with a floor of 0, like the never-negative ones: auto or off (G4). |
+| `rules.balance_floor` | `auto` | auto: a running balance (cumulative rule with an outflow column) that is negative on a share p of its source rows gets the floor 0 when the synthetic running sum would be negative on more than 2 p of rows, i.e. when the floor matches the source's share of negative rows better (Prop. 1787; never negative in the source: always a floor); off: only never-negative balances get the floor (2.2). |
 | `repair.pair_tries` | `200` | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | `200` | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | `200` | Rounds of anchor thinning (participation of facts). |

@@ -178,6 +178,8 @@ S = {
         "calendar": ("auto | pooled | segment", "auto", "One trend and season profile per segment, or one shared "
                      "by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers "
                      "it (Prop. 1784); small segments share one."),
+        "calendar_bf": ("number", 100.0, "Bayes factor for one calendar per segment over a shared one that "
+                        "calendar auto requires (100: decisive on Jeffreys' scale, as facts.count_model_bf)."),
         "calendar_draw": ("bool", False, "Draw the calendar from its posterior for each dataset. Off: the calendar "
                           "stays at its posterior mean and the life times carry the uncertainty (Prop. 1784)."),
     },
@@ -486,7 +488,7 @@ SYNTH_DOC = {
     "structure.beta_prior": "Beta prior of link and occupancy rates.",
     "structure.conditional_inclusion": "auto | none: links never point at excluded parent levels.",
     "structure.inclusion_min_expected": "Expected references needed to call a level excluded (Bayes factor e^n).",
-    "structure.inclusion_fk_levels": "Also test the levels of the parent's own foreign keys with up to 50 values (a "
+    "structure.inclusion_fk_levels": "Also test the levels of the parent's own foreign keys with up to inclusion_max_levels values (a "
                                      "product subcategory never sold online), so links never reach a parent of a "
                                      "level the source never reaches through them, also one hop further (a product category through the "
                                      "subcategory key) (G4).",

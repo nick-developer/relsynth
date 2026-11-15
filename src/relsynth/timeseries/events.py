@@ -247,12 +247,15 @@ class SequenceModel:
     """
 
     def __init__(self, bucket="month", weekly=True, hourly=None, shrinkage=1.0, min_entities=30, calibration=3,
-                 calendar="segment", calendar_draw=True):
+                 calendar="segment", calendar_draw=True, calendar_bf=100.0):
         self.intensity = Intensity(bucket, weekly, hourly)
         if calendar not in ("auto", "pooled", "segment"):
             raise ValueError("sequence.calendar must be auto, pooled or segment")
         self.calendar = calendar
         self.calendar_draw = bool(calendar_draw)
+        if not calendar_bf >= 1:
+            raise ValueError("sequence.calendar_bf must be at least 1")
+        self.calendar_bf = float(calendar_bf)
         self.shrinkage = float(shrinkage)
         self.min_entities = int(min_entities)
         self.calibration = int(calibration)
@@ -294,7 +297,8 @@ class SequenceModel:
         bucket profile per segment against one shared profile, each with a
         uniform Dirichlet prior (Dirichlet-multinomial marginals of the bucket
         counts; the multinomial coefficients cancel); segments get their own
-        profile only when the evidence for it is decisive (log BF > log 100).
+        profile only when the Bayes factor exceeds sequence.calendar_bf (default
+        100, "decisive" on Jeffreys' scale; Kass and Raftery 1995).
         Profiles of small segments are noise that the life times then learn to
         follow, so the model reproduces the source's segments and not its
         population (AdventureWorks customers: 627 segments of about 30; Prop. 1784)."""
@@ -313,7 +317,7 @@ class SequenceModel:
         def ldm(c):                      # log Dirichlet-multinomial(c | 1), without the coefficient
             return float(gammaln(c.shape[-1]) - gammaln(c.sum() + c.shape[-1]) + gammaln(c + 1).sum())
         lbf = sum(ldm(C[k]) for k in range(self.K)) - ldm(C.sum(0))
-        pooled = bool(lbf <= np.log(100.0))
+        pooled = bool(lbf <= np.log(getattr(self, "calendar_bf", 100.0)))
         self.fit_log["calendar_choice"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
         return pooled
 

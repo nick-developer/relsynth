@@ -28,7 +28,8 @@ from .calendar import from_days, to_days
 from .events import SequenceModel
 
 DEFAULTS = {"window": "auto", "bucket": "month", "weekly": True, "hourly": "auto", "shrinkage": 1.0,
-            "min_entities": 30, "redraws": 10, "calendar": "auto", "calendar_draw": False}
+            "min_entities": 30, "redraws": 10, "calendar": "auto", "calendar_draw": False,
+            "calendar_bf": 100.0}
 _CMP = re.compile(r"^\s*(?:days\()?\s*([\w.]+)\s*\)?\s*(<=|<)\s*(?:days\()?\s*([\w.]+)\s*\)?\s*$")
 
 
@@ -136,7 +137,8 @@ def fit_sequences(S, tables):
         A, B = entity_window(bounds, tables[P], is_dt)
         hourly = is_dt if o["hourly"] == "auto" else bool(o["hourly"])
         m = SequenceModel(o["bucket"], bool(o["weekly"]), hourly, float(o["shrinkage"]), int(o["min_entities"]),
-                          calendar=o["calendar"], calendar_draw=bool(o["calendar_draw"]))
+                          calendar=o["calendar"], calendar_draw=bool(o["calendar_draw"]),
+                          calendar_bf=float(o["calendar_bf"]))
         rng = np.random.default_rng(np.random.SeedSequence([int(S.cfg["seed"]), 1201, len(S.seq)]))
         m.fit(tdays, owner, z, K, (A, B), datetime=is_dt, rng=rng)
         S.seq[t] = {"model": m, "entity": ent_col, "parent": P, "time": tc, "kind": kind, "fk": fk,

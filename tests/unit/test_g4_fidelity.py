@@ -132,11 +132,9 @@ def test_multihot_round_trip_and_length_matching():
     hot = [c for c in tl.columns if c.role == "multihot"]
     assert len(hot) == 6 and "tags__n" in tl.length_bounds and len(lay.tables) == 1
     frames = sh.shred(lay, {"items": docs})
-    assert set(frames["items"][[c.name for c in hot]].stack().unique()) <= {0, 1}
-    back = sh.nest(lay, frames, keep_ids=True)["items"]
-    # orders that disagree: the same sets, listed by a Plackett-Luce draw
-    assert lay.shapes["items"]["tags"]["multihot_order"]["kind"] == "plackett_luce"
-    assert [sorted(d["tags"]) for d in back] == [sorted(d["tags"]) for d in docs]
+    # orders that disagree: the cells hold positions, and the round trip is exact
+    assert lay.shapes["items"]["tags"]["multihot_order"]["kind"] == "positions" and all(c.hot_pos for c in hot)
+    assert sh.nest(lay, frames, keep_ids=True)["items"] == docs
     # a modelled length the cells disagree with: elements dropped or drawn, never repeated
     f = {k: v.copy() for k, v in frames.items()}
     f["items"]["tags__n"] = np.where(np.arange(len(docs)) % 2 == 0, 1, 3)
@@ -152,7 +150,9 @@ def test_multihot_fixed_order_round_trip_is_exact():
     info = lay.shapes["items"]["tags"]
     assert info["multihot_choice"]["multihot"] and info["multihot_choice"]["bic_gain"] > 0
     assert info["multihot_order"]["kind"] == "fixed"
-    assert sh.nest(lay, sh.shred(lay, {"items": docs}), keep_ids=True)["items"] == docs
+    frames = sh.shred(lay, {"items": docs})
+    assert set(np.unique(frames["items"][[c for c in frames["items"] if "__h" in c]].to_numpy())) <= {0, 1}
+    assert sh.nest(lay, frames, keep_ids=True)["items"] == docs
 
 
 def test_multihot_choice_options_and_recorded_dependence():
@@ -186,7 +186,7 @@ def test_spec_drafts_no_rule_on_multihot_cells(tmp_path):
     db = write_sqlite(lay, sh.shred(lay, {"items": docs}), tmp_path / "t.sqlite")
     raw = spec_for(lay, db)
     assert not [r for r in raw.get("rules", []) if "__h" in repr(r)]
-    assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0, "max": 1}
+    assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0}   # positions: orders disagree
 
 
 def test_multihot_falls_back_on_a_name_clash_or_null_elements():

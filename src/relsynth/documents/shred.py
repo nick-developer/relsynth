@@ -63,6 +63,7 @@ class Column:
     fmt: str | None = None     # strings that are all dates in one format (written back in it)
     item: Any = None           # multihot: the element value this column stands for
     item_type: str | None = None   # multihot: its document type
+    hot_pos: bool = False      # multihot: the cell holds 1 + position (the source's orders disagree), else 1
 
 
 @dataclass
@@ -274,14 +275,16 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         # other attributes, no element repeats, and the round trip keeps the order
         # (Prop. 1785)
         from .sets import element_order
+        st = f.items.scalar_types[0]
+        order = element_order([(st, v) for v in vocab], f.item_pairs)
         names = []
         for i, v in enumerate(vocab):
-            c = Column(f"{cname}{SEP}h{i}", path, "multihot", "int", item=v, item_type=f.items.scalar_types[0])
+            c = Column(f"{cname}{SEP}h{i}", path, "multihot", "int", item=v, item_type=st,
+                       hot_pos=order["kind"] == "positions")
             tl.columns.append(c)
             names.append(c.name)
         info["multihot"] = names
-        keyed = [(c.item_type, c.item) for c in tl.columns if c.name in set(names)]
-        info["multihot_order"] = element_order(keyed, f.item_pairs)
+        info["multihot_order"] = order
         # the number of elements is modelled with the holder's attributes as for
         # any array, and the held elements are matched to it when nesting
         info["length_col"] = _length_column(tl, f, path, cname)
@@ -509,7 +512,9 @@ def _fill(lay, tl: TableLayout, row: dict, ctx_value, prefix, out: _Rows, row_id
         elif c.role == "length":
             row[c.name] = len(v) if isinstance(v, (list, dict)) else None
         elif c.role == "multihot":
-            row[c.name] = int(isinstance(v, list) and any(x == c.item and type_name(x) == c.item_type for x in v))
+            pos = next((i for i, x in enumerate(v) if x == c.item and type_name(x) == c.item_type), None) \
+                if isinstance(v, list) else None
+            row[c.name] = 0 if pos is None else (pos + 1 if c.hot_pos else 1)
         elif c.role == "typed":
             if c.type == "num":
                 row[c.name] = to_cell(v, "double") if st in NUMERIC else None
@@ -815,10 +820,10 @@ def _multihot_value(lay, tl: TableLayout, info: dict, r: dict, rid, frames, seed
     Plackett-Luce draw).  Draws are seeded by holder (Prop. 1785)."""
     import numpy as np
 
-    from .sets import order_items
     cols = {c.name: c for c in tl.columns}
     names = info["multihot"]
-    keep = [i for i, n in enumerate(names) if _rank(r.get(n)) > 0]
+    held = sorted((_rank(r.get(n)), i) for i, n in enumerate(names))
+    keep = [i for p, i in held if p > 0]          # by position when the cells hold positions
     n = r.get(info.get("length_col")) if info.get("length_col") else None
     rng = None
     cache = lay.__dict__.setdefault("_multihot_share", {})
@@ -838,21 +843,22 @@ def _multihot_value(lay, tl: TableLayout, info: dict, r: dict, rid, frames, seed
         want = int(min(max(round(float(n)), lo, 0), hi, len(names)))
         if len(keep) > want:
             rng = gen()
-            keep = sorted(int(i) for i in rng.choice(keep, size=want, replace=False))
+            drop = set(int(i) for i in rng.choice(keep, size=len(keep) - want, replace=False))
+            keep = [i for i in keep if i not in drop]
         elif len(keep) < want:
             rng = gen()
             w = shares().copy()
             w[keep] = 0
             keep += [int(i) for i in rng.choice(len(names), size=want - len(keep), replace=False, p=w / w.sum())]
-    model = info.get("multihot_order")
-    if model and model.get("kind") == "plackett_luce" and rng is None:
-        rng = gen()
-    return [cols[names[i]].item for i in order_items(sorted(keep), model, rng)]
+    model = info.get("multihot_order") or {}
+    if model.get("kind") == "fixed":
+        rank = model["rank"]
+        keep = sorted(keep, key=lambda i: (rank[i], i))
+    return [cols[names[i]].item for i in keep]
 
 
 def _rank(v) -> float:
-    """A multi-hot cell: 1 when the element is held, 0 (or null) when not; layouts
-    written before 2.3 hold 1 + the element's position, also positive."""
+    """A multi-hot cell: 0 (absent; also null), else 1 or 1 + the element's position."""
     if _isnull(v):
         return 0.0
     try:

@@ -210,7 +210,7 @@ def test_c1785_multihot_sets_round_trip_and_never_repeat():
     Plackett-Luce order reproduces the source's pairwise precedence shares."""
     from relsynth.documents import shred as sh
     from relsynth.documents.infer import profile_collection
-    from relsynth.documents.sets import dependence_gain, element_order, order_items
+    from relsynth.documents.sets import dependence_gain
     rng = np.random.default_rng(5)
     vocab = ["a", "b", "c", "d", "e"]
     docs = []
@@ -226,8 +226,8 @@ def test_c1785_multihot_sets_round_trip_and_never_repeat():
     info = lay.shapes["c"]["tags"]
     assert info["multihot_choice"]["multihot"] and info["multihot_choice"]["bic_gain"] > 0   # (d) a-b bundle
     frames = sh.shred(lay, {"c": docs})
-    back = sh.nest(lay, frames, keep_ids=True)["c"]
-    assert [sorted(d["tags"]) for d in back] == [sorted(d["tags"]) for d in docs]      # (a) sets
+    assert info["multihot_order"]["kind"] == "positions"
+    assert sh.nest(lay, frames, keep_ids=True)["c"] == docs                 # (a)
     f = {k: v.copy() for k, v in frames.items()}
     f["c"]["tags__n"] = rng.integers(1, 4, len(docs))
     out = sh.nest(lay, f, keep_ids=True)["c"]
@@ -247,29 +247,6 @@ def test_c1785_multihot_sets_round_trip_and_never_repeat():
         gains.append(dependence_gain([("string", v) for v in vocab], p.item_counts, p.item_pairs,
                                      sum(p.lengths.values()))[0])
     assert np.mean(np.array(gains) <= 0) >= 0.9, gains
-    # (e) Plackett-Luce: worths 4:2:1 give P(i before j) = w_i / (w_i + w_j)
-    from collections import Counter
-    w = {"p": 4.0, "q": 2.0, "r": 1.0}
-    pairs = Counter()
-    for _ in range(3000):
-        left, seq = dict(w), []
-        while left:
-            ks = list(left)
-            pr = np.array([left[k] for k in ks])
-            k = ks[int(rng.choice(len(ks), p=pr / pr.sum()))]
-            seq.append(("string", k))
-            left.pop(k)
-        for i, x in enumerate(seq):
-            for y in seq[i + 1:]:
-                pairs[(x, y)] += 1
-    keyed = [("string", k) for k in w]
-    model = element_order(keyed, pairs)
-    assert model["kind"] == "plackett_luce"
-    lw = np.array(model["log_worth"])
-    assert np.allclose(lw - lw[2], np.log([4, 2, 1]), atol=0.12)
-    draws = [order_items([0, 1, 2], model, rng) for _ in range(4000)]
-    share = np.mean([d.index(0) < d.index(1) for d in draws])
-    assert abs(share - 4 / 6) < 0.03
 
 
 # --------------------------------------------------------------------- C1786
