@@ -317,3 +317,108 @@ def test_c1722_scorecard_marks_a_guarded_table(catalogue):
     assert items and guarded
     for i in items:
         assert ("near-copy guard" in i.get("note", "")) == (i["area"] in guarded)
+
+
+# --------------------------------------------------------------------- C1725
+def _dp_rows(a, sizes, rng, levels=None):
+    """Segments F_g ~ DP(a, F0): truncated stick breaking over N(0, 1) atoms, or
+    Dir(a / L, ..., a / L) level probabilities for L levels."""
+    x, g = [], []
+    for k, s in enumerate(sizes):
+        if levels:
+            x += list(rng.choice(levels, size=s, p=rng.dirichlet(np.full(levels, a / levels))))
+        else:
+            V = rng.beta(1, a, size=400)
+            w = V * np.cumprod(np.r_[1, 1 - V[:-1]])
+            x += list(rng.normal(size=400)[rng.choice(400, size=s, p=w / w.sum())])
+        g += [k] * s
+    return np.array(x), np.array(g)
+
+
+def test_c1725_empirical_bayes_concentration():
+    """Prop. 1725: (a, c) the moment estimate recovers a for DP hierarchies of
+    continuous and discrete columns (median of 30 replicates within 25 % of a,
+    unbalanced segments of 5 to 60 rows); (b) the nested reference removes the
+    coarse groups' effect; (d) the posterior mean at a = (1 - rho) / rho equals
+    the credibility estimate; (e) no random number is drawn."""
+    from relsynth.shrinkage import concentration, icc_indicators
+    rng = np.random.default_rng(1725)
+    for a in (0.5, 4.0, 20.0):
+        for levels in (None, 8):
+            est = [concentration("discrete" if levels else "continuous",
+                                 *_dp_rows(a, rng.integers(5, 61, size=80), rng, levels), levels=levels or 0).a
+                   for _ in range(30)]
+            assert abs(np.median(est) / a - 1) < 0.25, (a, levels, np.median(est))
+    # (b) the coarse groups differ, the segments inside them do not
+    x = np.concatenate([rng.normal(0, 1, 3000), rng.normal(6, 1, 3000)])
+    seg, coarse = np.repeat(np.arange(60), 100), np.repeat([0, 1], 3000)
+    assert concentration("continuous", x, seg, coarse, a_max=1e5).a > 100
+    # (d) credibility: Z = n / (n + k) with k = s2_w / s2_b = (1 - rho) / rho
+    Y = rng.integers(0, 2, size=(400, 1)).astype(float)
+    Y[:200] = (rng.random((200, 1)) < 0.8)
+    g = np.repeat(np.arange(20), 20)
+    rho, _, _ = icc_indicators(Y, g)
+    k = (1 - rho) / rho
+    for gg in range(20):
+        yb, p = Y[g == gg, 0].mean(), Y[:, 0].mean()
+        z = 20 / (20 + k)
+        assert z * yb + (1 - z) * p == pytest.approx((20 * yb + k * p) / (20 + k))
+    # (e)
+    st = rng.bit_generator.state
+    concentration("continuous", x, seg, coarse)
+    assert rng.bit_generator.state == st
+
+
+# --------------------------------------------------------------------- C1726
+def _seg_fit(x_codes, groups, levels, floor, rows=0.0, bootstrap=False):
+    """SegmentMarginals on one discrete column (table mode) with the given floor."""
+    from types import SimpleNamespace
+
+    from relsynth.generators.copula import SegmentMarginals
+    s = pd.Series(np.asarray(levels, dtype=object)[x_codes])
+    cd = Codec("x", {"type": "categorical"}, s)
+    X = cd.encode(s)
+    gen = SegmentMarginals()
+    gen.data = SimpleNamespace(cfg={"marginals": {"dirichlet_prior": 0.25, "tail_trim": 0.0, "max_obs": 20000,
+                                                  "segment_prior_rows": rows, "segment_floor_rows": floor,
+                                                  "segment_prior_mode": "table"},
+                                    "copula": {"grid": 48, "min_rows": 30}},
+                               codecs=[cd], X=[X], cols=["x"], n_rows=len(X), role="entity")
+    gen._groups, gen.parent, gen._pi_s = np.asarray(groups), {}, 0.0
+    gen._fit_marginals(np.random.default_rng(0), bootstrap)
+    return gen, cd, X
+
+
+def test_c1726_privacy_floor_bounds_each_rows_weight():
+    """Prop. 1726: (a) in the posterior mean marginal of a segment of n rows each
+    row carries at most 1 / k (a level held by one row of the segment has mass at
+    most 1 / k plus the prior's share); (b) segments of at least k rows are fitted
+    as without the floor; (c) replacing one row moves the predictive by at most
+    1 / k in total variation at a fixed weight."""
+    rng = np.random.default_rng(1726)
+    L, k = 12, 20.0
+    sizes = [3, 5, 8, 12, 19, 20, 35, 60]
+    groups = np.repeat(np.arange(len(sizes)), sizes)
+    x = rng.integers(0, L, size=len(groups))
+    levels = [f"l{i}" for i in range(L)]
+    gen, cd, X = _seg_fit(x, groups, levels, floor=k)
+    p0 = gen.global_m[0].p
+    for g, n in enumerate(sizes):
+        p = gen.group_m[g][0].p
+        cnt = np.bincount(X[groups == g], minlength=len(cd.levels)).astype(float)
+        a = max(0.25, k - n)
+        assert np.allclose(p, (cnt + a * p0 + 1e-9) / (n + a + len(p0) * 1e-9), atol=1e-9)
+        assert 1.0 / (n + a) <= 1.0 / k + 1e-12
+        own = (p - a * p0 / (n + a))[cnt > 0] / cnt[cnt > 0]       # mass per source row
+        assert (own <= 1.0 / k + 1e-9).all()
+    # (b) segments of n >= k rows: as with no floor
+    nofl, _, _ = _seg_fit(x, groups, levels, floor=0.0, rows=0.25)
+    for g, n in enumerate(sizes):
+        same = np.allclose(gen.group_m[g][0].p, nofl.group_m[g][0].p)
+        assert same == (n >= k), (n, same)
+    # (c) one row replaced in the 3-row segment, prior law fixed (the global marginal moves by 1 / N)
+    x2 = x.copy()
+    x2[0] = (x[0] + 1) % L
+    gen2, _, _ = _seg_fit(x2, groups, levels, floor=k)
+    tv = 0.5 * np.abs(gen.group_m[0][0].p - gen2.group_m[0][0].p).sum()
+    assert tv <= 1.0 / k + 1.0 / len(x) + 1e-9

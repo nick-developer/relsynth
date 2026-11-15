@@ -19,6 +19,8 @@ from relsynth.spec import DEFAULT_SYNTHESIS
 
 from conftest import write_scenario
 
+# segment prior off: no prior rows and no privacy floor (the 2.1 fit)
+OFF = {"marginals__segment_prior_rows": 0.0, "marginals__segment_floor_rows": 0.0}
 TS = {"columns": {"a": {"type": "float"}, "b": {"type": "categorical"}, "c": {"type": "float"},
                   "d": {"type": "categorical"}}}
 
@@ -117,14 +119,18 @@ def _run(spec, **priv):
 
 
 def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Shape-mode shrinkage (20 rows) is on by default, the guard is off, and
-    0 rows (the 2.1 fit) give other values."""
+    """Shape-mode shrinkage with the empirical-Bayes weight and the privacy floor
+    is on by default, the guard is off, the estimates are in the model summary,
+    and 0 rows with no floor (the 2.1 fit) give other values."""
     m, base = _run(shop)
-    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == "auto"
+    assert m.spec["synthesis"]["marginals"]["segment_floor_rows"] == 20.0
+    gens = [tm.generator for tm in m.synthesizer.tm.values() if getattr(tm.generator, "shrinkage", None)]
+    assert gens and all("segment" in g.summary()["segment_shrinkage"] for g in gens)
     assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
-    _, zero = _run(shop, marginals__segment_prior_rows=0.0)
+    _, zero = _run(shop, **OFF)
     b, f = dict(base), dict(zero)
     assert set(b) == set(f)
     assert any(not b[t].equals(f[t]) for t in b)
@@ -133,16 +139,17 @@ def test_segment_prior_is_wired_and_guard_off_by_default(shop):
 def test_zero_rows_gives_the_21_output_in_every_mode(shop):
     """segment_prior_rows: 0 turns shrinkage off in every mode: shape and numeric
     give the same tables as table mode at 0, which is the 2.1 output."""
-    _, table = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode="table")
+    _, table = _run(shop, **OFF, marginals__segment_prior_mode="table")
     for mode in ("shape", "numeric"):
-        _, other = _run(shop, marginals__segment_prior_rows=0.0, marginals__segment_prior_mode=mode)
+        _, other = _run(shop, **OFF, marginals__segment_prior_mode=mode)
         assert set(other) == set(table)
         for t in table:
             pd.testing.assert_frame_equal(other[t], table[t], check_exact=True)
     # a positive value below dirichlet_prior (0.25) gives the weight a = max(0.25, rows) = 0.25,
     # so every mode at 0.01 rows is the 2.1 fit too (shape and numeric fall back to table)
     for mode in ("table", "shape", "numeric"):
-        _, small = _run(shop, marginals__segment_prior_rows=0.01, marginals__segment_prior_mode=mode)
+        _, small = _run(shop, marginals__segment_prior_rows=0.01, marginals__segment_floor_rows=0.0,
+                        marginals__segment_prior_mode=mode)
         for t in table:
             pd.testing.assert_frame_equal(small[t], table[t], check_exact=True)
 
@@ -172,13 +179,13 @@ def _catalogue(d):
 
 def test_guard_redraws_and_logs(tmp_path):
     spec = _catalogue(tmp_path)
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     log = m.synthesizer.sample_log.get("near_copies", {})
     assert set(log) == {"product"}
     r = log["product"]
     assert r["near_copies"] > 0 and r["near_copies"] == r["redrawn"] + r["kept"] and r["rows"] == 300
     # dtypes survive the redraw
-    _, off = _run(spec, privacy__near_copy="off", marginals__segment_prior_rows=0.0)
+    _, off = _run(spec, privacy__near_copy="off", **OFF)
     assert dict(d)["product"].dtypes.to_dict() == dict(off)["product"].dtypes.to_dict()
 
 
@@ -199,7 +206,7 @@ def test_rule_redraws_are_guarded_and_kept_counts_emitted_rows(tmp_path):
     the log's `kept` is the number of near copies among the rows emitted."""
     spec = _catalogue(tmp_path)
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     syn = m.synthesizer
     r = syn.sample_log["near_copies"]["product"]
     assert r.get("redrawn_by_rules", 0) > 0
@@ -216,7 +223,7 @@ def test_near_copy_redraw_never_trades_a_valid_row_for_a_violation(tmp_path, mon
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
     # every redrawn row counts as a near copy, so rule-valid rows of round 1 are redrawn
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
-    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, **OFF,
                 rules__max_rejection_rounds=2)
     log = m.synthesizer.sample_log
     assert log["near_copies"]["product"].get("restored_after_rules", 0) > 0
@@ -239,7 +246,7 @@ def test_restored_rows_keep_their_hidden_draws(tmp_path, monkeypatch):
                                                      "distribution": {"kind": "uniform", "min": 0, "max": 1}}
     spec["rules"] = [{"table": "product", "type": "check", "expr": "promo < 0.5"}]
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
-    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, **OFF,
                 rules__max_rejection_rounds=2)
     log = m.synthesizer.sample_log["near_copies"]["product"]
     assert log.get("restored_after_rules", 0) > 0
@@ -251,7 +258,7 @@ def test_kept_counts_emitted_rows_after_a_group_effect(tmp_path):
     columns after the guard: `kept` is the near-copy count of the emitted rows."""
     spec = _catalogue(tmp_path)
     spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     out = dict(d)["product"]
     assert out.groupby("line")["price"].nunique().max() == 1          # the group effect applied
     g = m.synthesizer._near_copy_guard("product")
@@ -268,7 +275,7 @@ def test_near_copy_rejection_respects_both_round_limits(tmp_path, monkeypatch, n
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
     m, _ = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=nc_rounds,
-                marginals__segment_prior_rows=0.0, rules__max_rejection_rounds=max_rounds)
+                **OFF, rules__max_rejection_rounds=max_rounds)
     assert m.synthesizer.sample_log["near_copies"]["product"]["near_copy_rule_rounds"] == expect
 
 
@@ -278,7 +285,7 @@ def test_group_effect_rows_join_the_near_copy_recheck(tmp_path):
     spec = _catalogue(tmp_path)
     spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
-    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, _ = _run(spec, privacy__near_copy="auto", **OFF)
     log = m.synthesizer.sample_log["near_copies"]["product"]
     assert log["changed_by_rules"] > log["redrawn_by_rules"] > 0
 
@@ -304,14 +311,14 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     """The guard is not built for a table of fewer than 50 rows, nor for one with
     fewer than three sampled distance columns (claim PRV-32)."""
     spec = _catalogue(tmp_path)
-    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, _ = _run(spec, privacy__near_copy="auto", **OFF)
     assert m.synthesizer._near_copy_guard("product") is not None
     # two sampled distance columns only
     narrow = copy.deepcopy(spec)
     cols = narrow["tables"]["product"]["columns"]
     for c in ("cost", "weight", "size", "line"):
         cols.pop(c)
-    m2, _ = _run(narrow, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m2, _ = _run(narrow, privacy__near_copy="auto", **OFF)
     assert m2.synthesizer._near_copy_guard("product") is None
     # fewer than 50 rows
     src = tmp_path / "small"
@@ -319,7 +326,7 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     pd.read_csv(tmp_path / "src" / "product.csv").head(40).to_csv(src / "src" / "product.csv", index=False)
     small = copy.deepcopy(spec)
     small["source"]["path"] = str(src / "src")
-    m3, _ = _run(small, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m3, _ = _run(small, privacy__near_copy="auto", **OFF)
     assert m3.synthesizer._near_copy_guard("product") is None
 
 

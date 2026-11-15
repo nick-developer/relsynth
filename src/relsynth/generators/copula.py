@@ -37,38 +37,104 @@ class SegmentMarginals(TableGenerator):
         self.coarse_m = {}
         min_rows = ccfg["min_rows"]
         # prior weight, in rows, of the table's (or coarse group's) marginal in each
-        # segment's marginal (G3, Props. 1720 and 1724): a = max(dirichlet_prior, segment_prior_rows);
-        # marginals.segment_prior_mode picks the columns and the prior (default shape: continuous
-        # columns, i.e. numbers and dates modelled as continuous, the parent's shape at the
-        # segment's median and spread). With segment_prior_rows 0, and in fact tables, every
-        # mode is the 2.1 fit.
-        seg_rows = self._segment_prior()
-        kw_seg = {**kw, "dirichlet_a": max(mcfg["dirichlet_prior"], seg_rows)}
-        mode = str(mcfg.get("segment_prior_mode", "table")) if seg_rows > mcfg["dirichlet_prior"] else "table"
-        kw_seg_of = (lambda cd: kw_seg if mode == "table" else
-                     (kw if cd.kind == "discrete" else {**kw_seg, "shift_prior": mode == "shape"}))
+        # segment's marginal (G3; Props. 1720, 1724-1726).  marginals.segment_prior_rows is
+        # a number of rows, or auto: estimated per column and level from the segments
+        # themselves (empirical Bayes, relsynth.shrinkage, Prop. 1725).  The privacy floor
+        # marginals.segment_floor_rows raises the weight of a segment of n rows to at least
+        # floor - n (Prop. 1726).  marginals.segment_prior_mode picks the columns and the
+        # prior (shape: continuous columns, the parent's shape at the segment's median and
+        # spread).  Off (0 and no floor), and in fact tables, every mode is the 2.1 fit.
+        seg = self._segment_prior()
+        self.shrinkage = {}
+        mode = str(mcfg.get("segment_prior_mode", "table")) if seg is not None else "table"
+        covered = (lambda cd: seg is not None and (mode == "table" or cd.kind != "discrete"))
         if parent:
             cg = np.array([parent.get(g, -1) for g in groups]) if n else np.array([])
+            a_c = self._concentrations(cg, None, seg, mode, "coarse")
             for c in np.unique(cg):
                 if c < 0:
                     continue
                 idx = cg == c
-                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows, **kw_seg_of(cd))
-                                    for cd, x, gm in zip(d.codecs, d.X, self.global_m)]
+                self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows,
+                                                 **self._seg_kw(kw, cd, a_c[j], int(idx.sum()), seg, mode, covered))
+                                    for j, (cd, x, gm) in enumerate(zip(d.codecs, d.X, self.global_m))]
+            ref = cg
+        else:
+            ref = None
+        a_g = self._concentrations(groups, ref, seg, mode, "segment")
         for g in np.unique(groups):
             idx = groups == g
             prior = self.coarse_m.get(parent.get(g, -1), self.global_m)
             self.group_n[g] = int(idx.sum())
-            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows, **kw_seg_of(cd))
-                               for cd, x, pm in zip(d.codecs, d.X, prior)]
+            self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows,
+                                            **self._seg_kw(kw, cd, a_g[j], self.group_n[g], seg, mode, covered))
+                               for j, (cd, x, pm) in enumerate(zip(d.codecs, d.X, prior))]
 
     def _segment_prior(self):
-        """Prior weight, in rows, of the table's marginal in each segment's
-        marginal (marginals.segment_prior_rows); entity tables only, since the
-        segments of a fact table are blocks of the relational model, not records."""
+        """The segment prior of an entity table: None when off (prior weight 0
+        and no privacy floor), else (rows, floor) with rows a number or "auto"
+        (marginals.segment_prior_rows, marginals.segment_floor_rows).  Entity
+        tables only, since the segments of a fact table are blocks of the
+        relational model, not records (Prop. 1726 states the floor per entity)."""
         if getattr(self.data, "role", None) != "entity":
-            return 0.0
-        return float(self.data.cfg["marginals"].get("segment_prior_rows", 0) or 0)
+            return None
+        mcfg = self.data.cfg["marginals"]
+        rows = mcfg.get("segment_prior_rows", 0)
+        rows = "auto" if rows == "auto" else float(rows or 0)
+        floor = float(mcfg.get("segment_floor_rows", 0) or 0)
+        dp = float(mcfg["dirichlet_prior"])
+        # every group has a row, so a floor of at most dirichlet_prior + 1 rows never
+        # raises a weight: with such a floor and rows <= dirichlet_prior the fit is 2.1's
+        if rows != "auto" and rows <= dp and floor <= dp + 1:
+            return None
+        return rows, floor
+
+    def _concentrations(self, groups, ref, seg, mode, level):
+        """Prior weight per column at one level of the hierarchy (coarse groups
+        around the table, or segments around their coarse group): the fixed
+        number of rows, or the empirical-Bayes estimate (Prop. 1725), recorded
+        in self.shrinkage for the model summary."""
+        d = self.data
+        p = len(d.codecs)
+        if seg is None:
+            return [0.0] * p
+        rows, _ = seg
+        if rows != "auto":
+            return [float(rows)] * p
+        from ..shrinkage import concentration
+        g = np.asarray(groups)
+        ok = g >= 0
+        r = None if ref is None else np.asarray(ref)[ok]
+        out, info = [], {}
+        for j, (cd, x) in enumerate(zip(d.codecs, d.X)):
+            if cd.kind == "discrete" and mode != "table":
+                out.append(0.0)
+                continue
+            est = concentration(cd.kind, np.asarray(x)[ok], g[ok], r, levels=len(getattr(cd, "levels", ()) or ()),
+                                shape=(mode == "shape" and cd.kind != "discrete"), a_max=float(max(int(ok.sum()), 1)))
+            out.append(est.a)
+            info[d.cols[j]] = est.to_dict()
+        self.shrinkage[level] = info
+        return out
+
+    def _seg_kw(self, kw, cd, a_col, n_rows, seg, mode, covered):
+        """Marginal.fit options of one column of one group: the prior weight
+        max(dirichlet_prior, a, floor - n) (Prop. 1726) on the columns the mode
+        covers, the 2.1 options on the others."""
+        if not covered(cd):
+            return kw
+        from ..shrinkage import floor_weight
+        a = max(float(kw["dirichlet_a"]), floor_weight(n_rows, a_col, seg[1]))
+        out = {**kw, "dirichlet_a": a}
+        if mode != "table":
+            out["shift_prior"] = mode == "shape"
+        return out
+
+    def summary(self) -> dict:
+        out = super().summary()
+        if getattr(self, "shrinkage", None):
+            out["segment_shrinkage"] = self.shrinkage
+        return out
 
     def _redraw_marginals(self, rng, mode):
         if self.data.cfg["marginals"]["bayesian_bootstrap"]:

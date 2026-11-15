@@ -449,12 +449,21 @@ SYNTH_DOC = {
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",
     "marginals.segment_prior_rows": "Prior weight, in rows, of an entity table's marginal in each segment's marginal "
-                                    "(hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own "
-                                    "distribution). 0 = off (2.1 output); see segment_prior_mode for which columns and prior.",
-    "marginals.segment_prior_mode": "What segment_prior_rows shrinks: table (every column toward the table's "
+                                    "(hierarchical shrinkage; a segment of n rows keeps n / (n + a) of its own "
+                                    "distribution). auto: a is estimated per column and level of the hierarchy from "
+                                    "how much the segments differ (empirical Bayes, a = (1 - rho) / rho with rho the "
+                                    "intra-segment correlation; Prop. 1725), so segments that really differ keep "
+                                    "their laws; a number fixes a for every column. 0 with segment_floor_rows 0 = off "
+                                    "(2.1 output).",
+    "marginals.segment_floor_rows": "Privacy floor: every segment marginal of an entity table holds at least this "
+                                    "many rows of mass, so one source row carries at most 1 / this of it (a segment "
+                                    "of n rows gets a prior weight of at least this - n; Prop. 1726). A policy "
+                                    "choice like k in k-anonymity, never read from the data; 0 = no floor.",
+    "marginals.segment_prior_mode": "What the segment prior shrinks: table (every column toward the parent's "
                                     "marginal), numeric (continuous columns only: numbers and dates), shape (continuous "
-                                    "columns only, the table's shape moved to the segment's median and spread, so the "
-                                    "segment keeps its location).",
+                                    "columns only, the parent's shape moved to the segment's median and spread, so the "
+                                    "segment keeps its location; with auto, a measures how far the segments' shapes "
+                                    "differ).",
     "marginals.joint_min_cramers_v": "Association that joins two categoricals.",
     "facts.min_group_rows": "Rows below which a block borrows the coarser dimension's marginals.",
     "facts.frailty": "auto | on | off: heavy-tailed rows per parent (gamma frailty).",
@@ -481,6 +490,13 @@ SYNTH_DOC = {
                                      "product subcategory never sold online), so links never reach a parent of a "
                                      "level the source never reaches through them, also one hop further (a product category through the "
                                      "subcategory key) (G4).",
+    "structure.inclusion_max_levels": "A candidate column with at most this many values is tested level by level "
+                                      "(more: only null against set); performance and readability, not evidence.",
+    "structure.inclusion_multiplicity": "bonferroni: each tested level needs inclusion_min_expected + log(levels "
+                                        "tested for the link) expected references, so the chance of excluding any "
+                                        "level by accident stays at exp(-inclusion_min_expected) however many "
+                                        "levels are tested (Prop. 1786); none: inclusion_min_expected per level "
+                                        "(2.2).",
     "structure.participation": "auto | none: hurdle on the share of parents without children.",
     "uniqueness.mh_sweeps": "Sweeps of the unique-key sampler.",
     "uniqueness.grain": "auto | none: unique keys of two foreign keys become grains.",
@@ -554,8 +570,11 @@ SYNTH_DOC = {
                             "mean, 2.2 draws, which can never reach a count above the largest pair sum).",
     "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
     "rules.rake_max_cells": "Rule cells: largest joint table raked.",
-    "rules.balance_floor": "Running balances (cumulative rules) that are negative on at most 1% of source rows are "
-                           "stocks with a floor of 0, like the never-negative ones: auto or off (G4).",
+    "rules.balance_floor": "auto: a running balance (cumulative rule with an outflow column) that is negative on "
+                           "a share p of its source rows gets the floor 0 when the synthetic running sum would be "
+                           "negative on more than 2 p of rows, i.e. when the floor matches the source's share of "
+                           "negative rows better (Prop. 1787; never negative in the source: always a floor); off: "
+                           "only never-negative balances get the floor (2.2).",
     "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",
     "repair.constraint_rounds": "Redraw rounds of entity rows that break a check rule or a unique key.",
     "repair.thin_rounds": "Rounds of anchor thinning (participation of facts).",

@@ -24,7 +24,8 @@ PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 
 # G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
 # segment marginal of an entity table, and the near-copy guard
-SEGMENT_PRIOR_ROWS = 20.0     # 0 = off (2.1 output)
+SEGMENT_PRIOR_ROWS = "auto"   # empirical Bayes per column (Prop. 1725); 0 = off (2.1 output)
+SEGMENT_FLOOR_ROWS = 20.0     # privacy floor: a segment marginal holds at least this many rows of mass (Prop. 1726)
 NEAR_COPY = "off"
 
 
@@ -46,7 +47,7 @@ DEFAULT_SYNTHESIS = {
                   "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
                   "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS,
-                  "segment_prior_mode": "shape"},
+                  "segment_floor_rows": SEGMENT_FLOOR_ROWS, "segment_prior_mode": "shape"},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
@@ -56,6 +57,7 @@ DEFAULT_SYNTHESIS = {
               "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
+                  "inclusion_max_levels": 50, "inclusion_multiplicity": "bonferroni",
                   "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
