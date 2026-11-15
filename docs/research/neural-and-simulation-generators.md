@@ -151,9 +151,8 @@ state untouched (Prop. 1804). Model files store weights as numpy arrays. Devices
 Adult (UCI, 32,561 rows, 15 columns; tier `pr`), seed 1, default options, 4 CPU cores. Lower is better except
 `area:*` and where noted; the bench limits are in the second column.
 
-RESULTS_TABLE
+_Being filled in: the runs are in progress on the draft pull request._
 
-Reading: RESULTS_READING
 
 The CI job `neural` reruns Adult with both generators on every pull request and uploads the records.
 
