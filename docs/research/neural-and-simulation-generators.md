@@ -151,7 +151,43 @@ state untouched (Prop. 1804). Model files store weights as numpy arrays. Devices
 Adult (UCI, 32,561 rows, 15 columns; tier `pr`), seed 1, default options, 4 CPU cores. Lower is better except
 `area:*` and where noted; the bench limits are in the second column.
 
-_Being filled in: the runs are in progress on the draft pull request._
+| Metric (bench limit) | `copula` | `tvae` | `ddpm` |
+|---|---|---|---|
+| Fit + sample time, s | 48 | 142 | 735 |
+| `association_max_diff` (0.15) | 0.393 | **0.221** | 0.445 |
+| `kway2_tvd_mean` (0.05) | 0.046 | **0.038** | 0.047 |
+| `kway2_tvd_max` (0.15) | 0.273 | **0.129** | 0.325 |
+| `kway3_tvd_mean` (0.08) | 0.111 | **0.081** | 0.103 |
+| `alpha_precision_gap` (0.10) | **0.016** | 0.018 | 0.041 |
+| `beta_recall_gap` (0.108) | 0.141 | **0.089** | 0.099 |
+| `discriminator_auc` (0.65) | **0.498** | 0.527 | 0.549 |
+| TSTR utility gap, label (0.05) | 0.043 | **0.005** | 0.008 |
+| Fidelity pass rate (higher is better) | 0.919 | 0.919 | 0.887 |
+| DOMIAS membership AUC (0.65) | 0.505 | 0.503 | 0.507 |
+| DOMIAS TPR at FPR 1% (0.10) | 0.012 | 0.013 | 0.014 |
+| Multivariate singling out (0.10) | 0.029 | 0.072 | 0.037 |
+| Nearest-neighbour linkage (0.10) | 0.000 | 0.003 | 0.000 |
+| `dcr_ratio` (≥ 0.5) | 2.23 | 1.88 | 2.12 |
+| Exact matches | 0 | 0 | 0 |
+
+Reading:
+
+- `tvae` passes three dependence checks that the copula fails (`kway2_tvd_max`, `beta_recall_gap`; `kway2_tvd_mean`
+  improves too), and it cuts the TSTR gap from 0.043 to 0.005. It still fails `association_max_diff` (0.221): the
+  pair is education and education-num, a deterministic one-to-one map that no model here reproduces exactly. Its
+  remaining marginal misses (`age`, `fnlwgt`, `capital-gain`) are 0.01 to 0.04 over their limits. The calibration
+  (Prop. 1805) brought them down from the uncalibrated run: 11 quality checks failed before, 5 now.
+- `ddpm` at the CPU-sized default (20,000 steps, early stopping) is between the two. A toy table shows it recovers
+  an exact dependence between categories, but on Adult it is undertrained compared with the 30,000 steps at batch
+  4,096 that TabDDPM tunes per dataset on a GPU. On a CPU, use `tvae`. Use `ddpm` with a GPU preset and longer
+  training (`max_steps`, `batch_size`), and judge it on your own data.
+- Privacy is at the copula's level for all three. Membership inference is at chance (DOMIAS AUC 0.50-0.51), there
+  are no exact copies, and every distance ratio is well above its limit. `tvae`'s multivariate singling-out risk
+  is higher (0.072 against a limit of 0.10), a reason to keep the quick privacy check on.
+- Without the hybrid loss, the first `ddpm` run made every categorical pair independent (`association_max_diff`
+  1.0). Without the calibration, `tvae` failed 11 quality checks instead of 5. Both fixes are generic (Props. 1801,
+  1805) and use no Adult-specific setting.
+
 
 
 The CI job `neural` reruns Adult with both generators on every pull request and uploads the records.

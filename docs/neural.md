@@ -38,8 +38,8 @@ tables:
 
 | Generator | Model | When to use it | Cost (Adult, 32k rows, 4 CPU cores) |
 |---|---|---|---|
-| `tvae` | Conditional tabular VAE (Xu et al. 2019; Sohn et al. 2015). | Many columns with non-linear dependence that the copula's single correlation matrix misses; quick runs. | see the design record |
-| `ddpm` | Gaussian-multinomial diffusion (TabDDPM, Kotelnikov et al. 2023), conditioned on the row's segment like ClavaDDPM (Pang et al. 2024). | Mixed columns with complex, multi-modal dependence; when fidelity matters more than run time. | see the design record |
+| `tvae` | Conditional tabular VAE (Xu et al. 2019; Sohn et al. 2015). | Many columns with non-linear dependence that the copula's single correlation matrix misses; quick runs. | 142 s |
+| `ddpm` | Gaussian-multinomial diffusion (TabDDPM, Kotelnikov et al. 2023), conditioned on the row's segment like ClavaDDPM (Pang et al. 2024). | Mixed columns with complex, multi-modal dependence, with a GPU and a training budget; on a CPU `tvae` did better on Adult (design record, section 6). | 735 s; best with a GPU preset and longer training |
 
 Use the quality report (`relsynth evaluate`) and the privacy attacks on your own data to choose: the bench numbers
 in the design record are a guide, not a guarantee.
