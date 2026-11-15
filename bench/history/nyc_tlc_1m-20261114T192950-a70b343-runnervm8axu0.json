@@ -1,0 +1,1074 @@
+{
+ "schema": 1,
+ "relsynth": "2.1.0",
+ "git": {
+  "sha": "a70b34336e5c51440747f07708ce21365c26f8a0",
+  "branch": "claude/project-thread-jvtjjl",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm8axu0",
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "cpus": 4,
+  "python": "3.12.16",
+  "numpy": "2.5.4",
+  "pandas": "3.1.1",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-11-14T19:29:50+00:00",
+ "label": "weekly",
+ "seeds": [
+  1
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "nyc_tlc_1m",
+   "seed": 1,
+   "pushdown": "auto",
+   "spec_sha256": "d17d23dc59349f6b7502f3382f2b9934275a0357f214b706e180685d92e517d7",
+   "seconds": 501.5,
+   "cost": {
+    "cpu_seconds": 518.8,
+    "peak_mib": 5069.6
+   },
+   "exit_code": 0,
+   "rows": {
+    "trip": 4178384,
+    "zone": 265
+   },
+   "pushed": [
+    "trip"
+   ],
+   "scorecard": {
+    "passed": 48,
+    "total": 61
+   },
+   "privacy_check": {
+    "status": "skipped",
+    "seconds": 0.01
+   },
+   "quality": {
+    "seconds": 149.0,
+    "cpu_seconds": 199.1,
+    "peak_mib": 3047.8
+   },
+   "checks": [
+    {
+     "id": "scorecard:trip.VendorID|marginal_tvd",
+     "pass": true,
+     "value": 0.0054,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.VendorID|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.tpep_pickup_datetime|marginal_ks",
+     "pass": false,
+     "value": 0.2771,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.tpep_pickup_datetime|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.tpep_dropoff_datetime|marginal_ks",
+     "pass": false,
+     "value": 0.2426,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.tpep_dropoff_datetime|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.passenger_count|marginal_tvd",
+     "pass": true,
+     "value": 0.0028,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.passenger_count|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.trip_distance|marginal_ks",
+     "pass": true,
+     "value": 0.0163,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.trip_distance|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.RatecodeID|marginal_tvd",
+     "pass": true,
+     "value": 0.0071,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.RatecodeID|null_rate_diff",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.store_and_fwd_flag|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.store_and_fwd_flag|null_rate_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.payment_type|marginal_tvd",
+     "pass": true,
+     "value": 0.0087,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.payment_type|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.fare_amount|marginal_ks",
+     "pass": true,
+     "value": 0.0204,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.fare_amount|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.extra|marginal_ks",
+     "pass": false,
+     "value": 0.0812,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.extra|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.mta_tax|marginal_ks",
+     "pass": false,
+     "value": 0.1115,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.mta_tax|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.tip_amount|marginal_ks",
+     "pass": true,
+     "value": 0.0258,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.tip_amount|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.tolls_amount|marginal_ks",
+     "pass": true,
+     "value": 0.0074,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.tolls_amount|null_rate_diff",
+     "pass": false,
+     "value": 0.109,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.improvement_surcharge|marginal_ks",
+     "pass": false,
+     "value": 0.1122,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.improvement_surcharge|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.total_amount|marginal_ks",
+     "pass": true,
+     "value": 0.0161,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.total_amount|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.congestion_surcharge|marginal_ks",
+     "pass": false,
+     "value": 0.1018,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.congestion_surcharge|null_rate_diff",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.Airport_fee|marginal_ks",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:trip.Airport_fee|null_rate_diff",
+     "pass": true,
+     "value": 0.0069,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip|association_max_diff",
+     "pass": false,
+     "value": 0.5513,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:trip|discriminator_auc",
+     "pass": false,
+     "value": 0.9937,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:zone.Borough|marginal_tvd",
+     "pass": true,
+     "value": 0.0604,
+     "limit": 0.1831
+    },
+    {
+     "id": "scorecard:zone.Borough|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:zone.service_zone|marginal_tvd",
+     "pass": true,
+     "value": 0.0415,
+     "limit": 0.0916
+    },
+    {
+     "id": "scorecard:zone.service_zone|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:zone|association_max_diff",
+     "pass": true,
+     "value": 0.0531,
+     "limit": 0.4575
+    },
+    {
+     "id": "scorecard:zone|discriminator_auc",
+     "pass": true,
+     "value": 0.4658,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:trip.joined:PULocationID.Borough|join_tvd",
+     "pass": true,
+     "value": 0.0268,
+     "limit": 0.1761
+    },
+    {
+     "id": "scorecard:trip.joined:PULocationID.service_zone|join_tvd",
+     "pass": true,
+     "value": 0.0174,
+     "limit": 0.1845
+    },
+    {
+     "id": "scorecard:trip.joined:DOLocationID.Borough|join_tvd",
+     "pass": true,
+     "value": 0.0172,
+     "limit": 0.1887
+    },
+    {
+     "id": "scorecard:trip.joined:DOLocationID.service_zone|join_tvd",
+     "pass": true,
+     "value": 0.0237,
+     "limit": 0.1841
+    },
+    {
+     "id": "scorecard:trip.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.3734,
+     "limit": 3.419
+    },
+    {
+     "id": "scorecard:trip.PULocationID->zone|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:trip.PULocationID->zone|cardinality_ks",
+     "pass": false,
+     "value": 0.1698,
+     "limit": 0.1413
+    },
+    {
+     "id": "scorecard:trip.PULocationID->zone|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.4094,
+     "limit": 0.4855
+    },
+    {
+     "id": "scorecard:trip.PULocationID->zone|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip.DOLocationID->zone|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:trip.DOLocationID->zone|cardinality_ks",
+     "pass": false,
+     "value": 0.1887,
+     "limit": 0.1413
+    },
+    {
+     "id": "scorecard:trip.DOLocationID->zone|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.4094,
+     "limit": 0.4295
+    },
+    {
+     "id": "scorecard:trip.DOLocationID->zone|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:trip|time_bucket_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:trip|time_bucket_tvd_conditional",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:zone.Zone|text_rare_token_leaks",
+     "pass": false,
+     "value": 2.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:zone.Zone|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:zone.Zone|text_rare_exact_copies",
+     "pass": false,
+     "value": 2.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:trip: days(tpep_pickup_datetime) <= days(tpep_dropoff_datetime)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 2.8e-05
+    },
+    {
+     "id": "domain:X1 pk_duplicates|trip",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|trip",
+     "pass": null,
+     "value": 0.006096,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|zone",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|zone",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.409378,
+     "real": null
+    },
+    {
+     "id": "domain:X2 fk_orphans|trip.PULocationID",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|trip.PULocationID",
+     "pass": null,
+     "value": 0.06446,
+     "real": 0.145522
+    },
+    {
+     "id": "domain:X2 fk_orphans|trip.DOLocationID",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|trip.DOLocationID",
+     "pass": null,
+     "value": 0.062861,
+     "real": 0.129607
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 124.2,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 5069.6,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:js_distance:trip:VendorID",
+     "pass": true,
+     "value": 0.007533,
+     "limit": 0.05,
+     "alpha": 0.00296
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:tpep_pickup_datetime",
+     "pass": false,
+     "value": 0.643747,
+     "limit": 0.086305,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:tpep_pickup_datetime",
+     "pass": false,
+     "value": 0.634454,
+     "limit": 0.078596,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:tpep_pickup_datetime",
+     "pass": false,
+     "value": 0.303456,
+     "limit": 0.05,
+     "alpha": 0.008345
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:tpep_dropoff_datetime",
+     "pass": false,
+     "value": 0.560631,
+     "limit": 0.085902,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:tpep_dropoff_datetime",
+     "pass": false,
+     "value": 0.55195,
+     "limit": 0.078078,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:tpep_dropoff_datetime",
+     "pass": false,
+     "value": 0.273064,
+     "limit": 0.05,
+     "alpha": 0.008674
+    },
+    {
+     "id": "quality:js_distance:trip:passenger_count",
+     "pass": true,
+     "value": 0.009883,
+     "limit": 0.05,
+     "alpha": 0.008313
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:trip_distance",
+     "pass": false,
+     "value": 1.722542,
+     "limit": 1.329508,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:trip_distance",
+     "pass": true,
+     "value": 0.035449,
+     "limit": 0.834029,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:trip_distance",
+     "pass": true,
+     "value": 0.046512,
+     "limit": 0.199271,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:RatecodeID",
+     "pass": true,
+     "value": 0.031648,
+     "limit": 0.119877,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:store_and_fwd_flag",
+     "pass": true,
+     "value": 0.001088,
+     "limit": 0.095774,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:payment_type",
+     "pass": true,
+     "value": 0.013611,
+     "limit": 0.05,
+     "alpha": 0.006971
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:fare_amount",
+     "pass": true,
+     "value": 0.0707,
+     "limit": 1.076278,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:fare_amount",
+     "pass": true,
+     "value": 0.049727,
+     "limit": 0.782948,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:fare_amount",
+     "pass": true,
+     "value": 0.057364,
+     "limit": 0.189449,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:extra",
+     "pass": true,
+     "value": 0.207047,
+     "limit": 0.258311,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:extra",
+     "pass": true,
+     "value": 0.118759,
+     "limit": 0.195951,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:extra",
+     "pass": false,
+     "value": 0.144257,
+     "limit": 0.113568,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:mta_tax",
+     "pass": false,
+     "value": 0.790462,
+     "limit": 0.095344,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:mta_tax",
+     "pass": false,
+     "value": 0.686169,
+     "limit": 0.057013,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:mta_tax",
+     "pass": false,
+     "value": 0.18839,
+     "limit": 0.118864,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:tip_amount",
+     "pass": true,
+     "value": 0.088666,
+     "limit": 0.719437,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:tip_amount",
+     "pass": true,
+     "value": 0.07581,
+     "limit": 0.434111,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:tip_amount",
+     "pass": true,
+     "value": 0.086635,
+     "limit": 0.244032,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:tolls_amount",
+     "pass": true,
+     "value": 0.029799,
+     "limit": 1.127997,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:tolls_amount",
+     "pass": true,
+     "value": 0.007277,
+     "limit": 0.568239,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:tolls_amount",
+     "pass": true,
+     "value": 0.237607,
+     "limit": 0.321021,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:improvement_surcharge",
+     "pass": false,
+     "value": 0.797365,
+     "limit": 0.081756,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:improvement_surcharge",
+     "pass": false,
+     "value": 0.710884,
+     "limit": 0.05,
+     "alpha": 0.006034
+    },
+    {
+     "id": "quality:js_distance:trip:improvement_surcharge",
+     "pass": true,
+     "value": 0.202056,
+     "limit": 0.21379,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:total_amount",
+     "pass": true,
+     "value": 0.060924,
+     "limit": 1.285996,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:total_amount",
+     "pass": true,
+     "value": 0.034411,
+     "limit": 0.773767,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:total_amount",
+     "pass": true,
+     "value": 0.046493,
+     "limit": 0.215455,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:congestion_surcharge",
+     "pass": true,
+     "value": 0.488454,
+     "limit": 0.998858,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:congestion_surcharge",
+     "pass": false,
+     "value": 0.552302,
+     "limit": 0.536686,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:congestion_surcharge",
+     "pass": true,
+     "value": 0.123255,
+     "limit": 0.28962,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:trip:Airport_fee",
+     "pass": true,
+     "value": 0.043656,
+     "limit": 47.747773,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:trip:Airport_fee",
+     "pass": true,
+     "value": 0.025337,
+     "limit": 3.191269,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:trip:Airport_fee",
+     "pass": true,
+     "value": 0.01813,
+     "limit": 0.288486,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_mean:trip",
+     "pass": false,
+     "value": 0.132444,
+     "limit": 0.107728,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_max:trip",
+     "pass": false,
+     "value": 0.80995,
+     "limit": 0.188669,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway3_tvd_mean:trip",
+     "pass": false,
+     "value": 0.179891,
+     "limit": 0.142289,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:trip",
+     "pass": true,
+     "value": 0.25426,
+     "limit": 0.869571,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:beta_recall_gap:trip",
+     "pass": false,
+     "value": 0.71872,
+     "limit": 0.378207,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:trip:VendorID",
+     "pass": false,
+     "value": 0.169317,
+     "limit": 0.05,
+     "alpha": 0.000303
+    },
+    {
+     "id": "quality:trts_gap:trip:VendorID",
+     "pass": true,
+     "value": 0.142355,
+     "limit": 0.839894,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:zone:Borough",
+     "pass": true,
+     "value": 0.083444,
+     "limit": 0.164307,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:zone:service_zone",
+     "pass": true,
+     "value": 0.099057,
+     "limit": 0.172151,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_mean:zone",
+     "pass": true,
+     "value": 0.09434,
+     "limit": 0.214153,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_max:zone",
+     "pass": true,
+     "value": 0.09434,
+     "limit": 0.214153,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:zone",
+     "pass": true,
+     "value": 0.087125,
+     "limit": 0.118906,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:beta_recall_gap:zone",
+     "pass": true,
+     "value": 0.061725,
+     "limit": 0.201891,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:zone:Borough",
+     "pass": true,
+     "value": -0.019067,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:zone:Borough",
+     "pass": true,
+     "value": 0.071566,
+     "limit": 0.175288,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:trip.PULocationID->zone",
+     "pass": false,
+     "value": 7.364597,
+     "limit": 0.513353,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:trip.PULocationID->zone",
+     "pass": true,
+     "value": 0.060377,
+     "limit": 0.190426,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:trip.PULocationID->zone",
+     "pass": false,
+     "value": 1.688385,
+     "limit": 1.480566,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:trip.DOLocationID->zone",
+     "pass": false,
+     "value": 7.364597,
+     "limit": 0.749713,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:trip.DOLocationID->zone",
+     "pass": true,
+     "value": 0.037736,
+     "limit": 1.943346,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:trip.DOLocationID->zone",
+     "pass": false,
+     "value": 1.795942,
+     "limit": 0.41221,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_gap:trip.PULocationID->zone:1",
+     "pass": true,
+     "value": 0.088963,
+     "limit": 0.27392,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:trip.PULocationID->zone:1",
+     "pass": false,
+     "value": 0.2921,
+     "limit": 0.176975,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_gap:trip.DOLocationID->zone:1",
+     "pass": true,
+     "value": 0.087175,
+     "limit": 0.313546,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:trip.DOLocationID->zone:1",
+     "pass": true,
+     "value": 0.29235,
+     "limit": 0.326606,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:dda_accuracy:zone:logistic",
+     "pass": false,
+     "value": 0.996226,
+     "limit": 0.857317,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:mt_tstr_gap:zone:Borough",
+     "pass": false,
+     "value": 0.254501,
+     "limit": 0.079009,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:mt_trts_gap:zone:Borough",
+     "pass": true,
+     "value": 0.082815,
+     "limit": 0.351577,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.7034,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.7034,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": false,
+     "value": 0.6667,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 0.6667,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:referential_integrity",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.7034,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": false,
+     "value": 0.254501,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.254501,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:c2st_agg_accuracy_max",
+     "pass": null,
+     "value": 0.996226,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:cardinality_similarity_mean",
+     "pass": null,
+     "value": 0.477358,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:cardinality_similarity_min",
+     "pass": null,
+     "value": 0.467925,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_1-hop",
+     "pass": null,
+     "value": 0.911931,
+     "direction": "higher"
+    }
+   ]
+  }
+ ],
+ "finished": "2026-11-14T19:40:59+00:00"
+}

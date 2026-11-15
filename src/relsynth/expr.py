@@ -31,7 +31,9 @@ take exponential time).
 from __future__ import annotations
 
 import ast
+import keyword
 import re
+import unicodedata
 import warnings
 
 import numpy as np
@@ -703,6 +705,14 @@ def cast(v, ctype):
     if v.dtype != object:
         return v
     return np.array([None if _isnull(x) else x for x in v], dtype=object)
+
+
+def nameable(name) -> bool:
+    """Whether a column name can be written in a rule as it is: the language has no quoting,
+    so a name with a space or other punctuation ('num persons worked for employer'), a
+    keyword or a name the parser would normalise cannot appear in an expression."""
+    name = str(name)
+    return name.isidentifier() and not keyword.iskeyword(name) and unicodedata.normalize("NFKC", name) == name
 
 
 def is_path(name: str) -> bool:
