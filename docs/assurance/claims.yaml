@@ -1711,13 +1711,33 @@ claims:
   - id: DOC-18
     doc: docs/documents.md
     area: structure
-    quote: "A set array of one scalar type with at most 16 distinct values (tags of an item) is not a child"
+    quote: "A set array of string or integer values (2 to 16 distinct, no nulls; tags of an item) is not a child"
     status: supported
     evidence:
     - prop: prop:multihot
     - check: C1785
     - test: tests/unit/test_g4_fidelity.py::test_multihot_round_trip_and_length_matching
     - code: src/relsynth/documents/shred.py::_multihot_value
+
+  - id: BIN-01
+    doc: docs/settings-reference.md
+    area: privacy-measured
+    quote: "Never copies source bytes; changes only the binary columns (docs/binary.md)."
+    status: supported
+    evidence:
+    - prop: prop:binstream
+    - prop: prop:binrelease
+    - check: C1780
+    - check: C1781
+
+  - id: BIN-02
+    doc: docs/settings-reference.md
+    area: privacy-measured
+    quote: "a binary column's length shared by fewer values is only released as its power-of-two bin."
+    status: supported
+    evidence:
+    - prop: prop:binrelease
+    - check: C1781
 
   - id: RM-40
     doc: README.md

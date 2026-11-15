@@ -152,10 +152,10 @@ def _start_counts(f, M, R, rng):
     """Start of the pairwise Gibbs chain of _conditional_counts: M i.i.d. draws
     from f (unnormalised on 0..len(f)-1), brought to the total R by redrawing one
     member at a time from f restricted to the values between its count and the
-    total (no overshoot).  The balanced start (every count R/M) cannot reach a
-    count above the largest pair sum it holds, so a segment's rare large counts
-    (a customer with 27 orders) were never drawn; from this start every observed
-    count is reachable and the chain begins near the conditional law (Prop. 1782)."""
+    total (no overshoot).  From the balanced start (every count R/M) a large count
+    needs many pairwise moves, so within the chain's sweeps a segment's rare large
+    counts (a customer with 27 orders) were in practice never drawn; this start
+    begins near the conditional law (Prop. 1782)."""
     p = f / f.sum()
     N = rng.choice(len(f), size=M, p=p).astype(np.int64)
     diff = int(R - N.sum())
@@ -176,14 +176,15 @@ def _start_counts(f, M, R, rng):
         v = int(min(max(np.searchsorted(cdf, u, side="right"), lo), hi))
         diff -= v - c
         N[j] = v
-    if diff != 0:                       # unreachable under f: spread the rest evenly
-        k = np.sign(diff)
-        for j in rng.permutation(M):
-            if diff == 0:
-                break
-            if N[j] + k >= 0:
-                N[j] += k
-                diff -= k
+    if diff > 0:                        # unreachable under f: spread the rest evenly
+        N += diff // M
+        N[rng.choice(M, size=diff % M, replace=False)] += 1
+    while diff < 0:                     # take one from each positive count in turn
+        pos = np.flatnonzero(N > 0)
+        take = rng.permutation(pos)[:-diff]
+        N[take] -= 1
+        diff += len(take)
+    assert N.sum() == R, "start counts must hit the total"
     return N
 
 

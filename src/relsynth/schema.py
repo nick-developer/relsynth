@@ -309,7 +309,8 @@ S = {
     "binary": {
         "generator": ("none | placeholder | random", "synthesis.binary.generator", "Content of the column: NULL, a "
                       "valid tiny file of the value's MIME type padded to a length drawn from the source's length "
-                      "law, or random bytes of such a length. Source bytes are never copied (docs/binary.md)."),
+                      "law (random bytes for a type without a placeholder: PNG, GIF, JPEG and PDF have one), or random bytes "
+                      "of such a length. Source bytes are never copied (docs/binary.md)."),
         "mime": ("str", "detected", "MIME type of every value (image/png, image/jpeg, image/gif, application/pdf, "
                  "...) instead of the one read from each value's first bytes."),
     },
@@ -676,7 +677,8 @@ def reference_tables():
         out += [f"### {titles.get(kind, kind)}", "", "| Key | Type | Default | Meaning |", "|---|---|---|---|"]
         for k, (ty, df, doc) in keys.items():
             d = "" if df is None else f"`{df}`"
-            out.append(f"| `{k}` | {ty} | {d} | {doc} |")
+            cell = (ty.replace("|", "\\|"), doc.replace("|", "\\|"))
+            out.append(f"| `{k}` | {cell[0]} | {d} | {cell[1]} |")
         out.append("")
     out += ["### `synthesis`", "", "| Key | Default | Meaning |", "|---|---|---|"]
 
@@ -685,7 +687,8 @@ def reference_tables():
             if isinstance(v, dict) and f"{pre}{k}" not in FREE:
                 walk(v, f"{pre}{k}.")
             else:
-                out.append(f"| `{pre}{k}` | `{v}` | {SYNTH_DOC.get(pre + k, '')} |")
+                doc = SYNTH_DOC.get(pre + k, "").replace("|", "\\|")
+                out.append(f"| `{pre}{k}` | `{v}` | {doc} |")
     walk(DEFAULT_SYNTHESIS, "")
     return "\n".join(out) + "\n"
 

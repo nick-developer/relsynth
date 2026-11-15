@@ -67,6 +67,7 @@ def test_sniff_and_lengths():
     assert sniff(b"\x00\x01") == OCTET
     assert byte_length(b"abc") == 3 and byte_length("0x0aff") == 2 and byte_length(None) is None
     assert byte_length(float("nan")) is None and byte_length("é") == 2
+    assert byte_length(pd.NA) is None and byte_length(pd.NaT) is None
 
 
 def test_placeholders_are_valid_files():

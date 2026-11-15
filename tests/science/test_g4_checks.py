@@ -199,7 +199,7 @@ def test_c1784_calendar_is_pooled_unless_segments_differ():
     t_diff = np.where(seg == 0, times(0.0), times(180.0))
     m = _bf_model(3)
     assert m._pool_calendar(t_diff, seg, 0.0, days) is False
-    assert m.fit_log["calendar"]["log_bf_segment"] > np.log(100)
+    assert m.fit_log["calendar_choice"]["log_bf_segment"] > np.log(100)
 
 
 # --------------------------------------------------------------------- C1785

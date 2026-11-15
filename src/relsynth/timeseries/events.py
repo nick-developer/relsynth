@@ -299,10 +299,10 @@ class SequenceModel:
         follow, so the model reproduces the source's segments and not its
         population (AdventureWorks customers: 627 segments of about 30; Prop. 1784)."""
         if self.calendar != "auto":
-            self.fit_log["calendar"] = self.calendar
+            self.fit_log["calendar_choice"] = self.calendar
             return self.calendar == "pooled"
         if self.K < 2 or not len(t):
-            self.fit_log["calendar"] = "pooled (one segment)"
+            self.fit_log["calendar_choice"] = "pooled (one segment)"
             return True
         I = Intensity(self.intensity.bucket, False, None)
         I.fit(t, np.zeros(len(t), np.int64), 1, t0, t1, self.datetime)
@@ -314,7 +314,7 @@ class SequenceModel:
             return float(gammaln(c.shape[-1]) - gammaln(c.sum() + c.shape[-1]) + gammaln(c + 1).sum())
         lbf = sum(ldm(C[k]) for k in range(self.K)) - ldm(C.sum(0))
         pooled = bool(lbf <= np.log(100.0))
-        self.fit_log["calendar"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
+        self.fit_log["calendar_choice"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
         return pooled
 
     def _calibrate(self, t, owner, seg_of_owner, A, B, rng, iters=None):
@@ -437,7 +437,7 @@ class SequenceModel:
         if cal is not None:
             self.fit_log["calibration"] = cal
         if choice is not None:
-            self.fit_log["calendar"] = choice
+            self.fit_log["calendar_choice"] = choice
         self.life = [_Lifetime().fit(np.ones(1, np.int64), np.full(1, 0.5), np.full(1, np.nan))] * self.K
         if st is None:
             return

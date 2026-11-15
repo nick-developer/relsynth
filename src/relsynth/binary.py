@@ -17,7 +17,9 @@ bytes) and its length:
 * content (``generator``): ``placeholder`` writes a fixed, valid one-pixel image
   or one-page document of the cell's type, shipped with relsynth, padded with
   zero bytes after its end marker to the drawn length (random bytes for a type
-  without a placeholder); ``random`` writes uniform random bytes of the drawn
+  without a placeholder).  A drawn length below the placeholder's own size (43
+  to about 330 bytes) gives the bare placeholder, so such values are longer than
+  drawn; the length law holds from that size up; ``random`` writes uniform random bytes of the drawn
   length; ``none`` keeps NULL (2.1).
 
 Values are generated on a stream of their own (derived from the data stream's
@@ -94,10 +96,10 @@ PLACEHOLDERS = {"image/png": _png(), "image/gif": _GIF, "image/jpeg": _JPEG, "ap
 def byte_length(v) -> int | None:
     """Length in bytes of a stored value: bytes as they are, 0x-hex text (CSV exports) as
     the bytes it spells, other text as UTF-8; None for a null."""
-    if v is None or (isinstance(v, float) and math.isnan(v)):
-        return None
     if isinstance(v, (bytes, bytearray, memoryview)):
         return len(v)
+    if v is None or v is pd.NA or v is pd.NaT or (isinstance(v, float) and math.isnan(v)):
+        return None
     s = str(v)
     if s[:2] in ("0x", "0X") and len(s) % 2 == 0:
         try:

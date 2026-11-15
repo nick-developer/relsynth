@@ -961,6 +961,10 @@ def _validate_sequences(spec):
                 errs.append(f"{where}.{k} must be a non-negative integer")
         if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
             errs.append(f"{where}.shrinkage must be a positive number")
+        if sq.get("calendar", "auto") not in ("auto", "pooled", "segment"):
+            errs.append(f"{where}.calendar must be auto, pooled or segment")
+        if not isinstance(sq.get("calendar_draw", False), bool):
+            errs.append(f"{where}.calendar_draw must be true or false")
     for tname, t in (spec.get("tables") or {}).items():
         se = t.get("series")
         if se is None:

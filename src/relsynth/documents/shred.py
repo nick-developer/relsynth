@@ -207,7 +207,7 @@ def _walk_object(lay: Layout, prof: CollectionProfile, tl: TableLayout, nd: Node
         if not prefix and tl.kind == "root" and (name == tl.id_column or name in tl.fresh):
             continue
         path = prefix + [name]
-        _walk_value(lay, prof, tl, f, path, refs, targets, in_variant=name in decided)
+        _walk_value(lay, prof, tl, f, path, refs, targets, in_variant=name in decided, siblings=set(nd.fields))
     if nd.variants:
         shapes.setdefault(".".join(prefix), {})["variants"] = nd.variants
 
@@ -219,7 +219,8 @@ def _abs_path(tl: TableLayout, path: list[str]) -> str:
     return tl.context + ("." + rel if rel else "")
 
 
-def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_variant: bool = False):
+def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_variant: bool = False,
+                siblings: set | frozenset = frozenset()):
     shapes = lay.shapes.setdefault(tl.name, {})
     key = ".".join(path)
     info = {"types": f.value_types, "optional": f.optional, "nullable": f.nullable}
@@ -252,6 +253,9 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
     vocab = _multihot_vocab(f) if f.is_array else None
+    if vocab is not None and (_ref_of(refs, tl.collection, _abs_path(tl, path) + "[]") is not None
+                              or _multihot_clash(tl, path, cname, len(vocab), siblings)):
+        vocab = None                        # referenced elements, or a name taken: a child table
     if vocab is not None and f.items is not None:
         # a small set (tags of an item): one integer per element value on the
         # holder, 0 when the array does not hold it and 1 + its position when it
@@ -306,13 +310,23 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
 def _multihot_vocab(f: Node) -> list | None:
     """The element values of a small set array, sorted, or None.  A set array
     holds scalars of one type, never repeats one (``distinct_items``) and has at
-    least two and at most MULTIHOT_MAX distinct values in the source."""
+    least two and at most MULTIHOT_MAX distinct values in the source, and no
+    element is null (a null element has no cell)."""
     it = f.items
-    if (MULTIHOT_MAX < 2 or it is None or not f.distinct_items or it.overflow or len(it.scalar_types) != 1
+    if (MULTIHOT_MAX < 2 or it is None or not f.distinct_items or it.overflow or it.nullable
+            or len(it.scalar_types) != 1
             or it.value_types != it.scalar_types or it.scalar_types[0] not in ("string", "int", "long")
             or not 2 <= len(it.distinct) <= MULTIHOT_MAX or f.value_types != ["array"]):
         return None
     return sorted(it.distinct, key=lambda v: (str(type(v)), v))
+
+
+def _multihot_clash(tl: TableLayout, path, cname: str, k: int, siblings) -> bool:
+    """Whether a multi-hot column name (or the length column) of the array at
+    `path` is already a column of the holder or a sibling field's column."""
+    names = {f"{cname}{SEP}h{i}" for i in range(k)} | {cname + SEP + "n"}
+    taken = {c.name for c in tl.columns} | {_col(list(path[:-1]) + [s]) for s in siblings}
+    return bool(names & taken)
 
 
 def _length_column(tl: TableLayout, f: Node, path, cname) -> str:

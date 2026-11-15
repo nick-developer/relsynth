@@ -198,11 +198,16 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
     # construction; drafted as a check it rejects short arrays and inflates the
     # length law (mflix genres: 49 % of length 3 against 40 %); nesting already
     # matches the cells to the length (Prop. 1785)
-    hot = {c.name for tl in lay.tables.values() for c in tl.columns if c.role == "multihot"}
+    hot = {(tn, c.name) for tn, tl in lay.tables.items() for c in tl.columns if c.role == "multihot"}
     if hot:
         import re as _re
-        raw["rules"] = [r for r in raw.get("rules", [])
-                        if not hot & set(_re.findall(r"[A-Za-z_][A-Za-z0-9_]*", repr(r)))]
+
+        def on_cells(r) -> bool:
+            words = set(_re.findall(r"[A-Za-z_][A-Za-z0-9_]*", repr(r)))
+            tabs = {r[k] for k in ("table", "from", "to") if isinstance(r.get(k), str)} or {t for t, _ in hot}
+            return any(t in tabs and c in words for t, c in hot)
+
+        raw["rules"] = [r for r in raw.get("rules", []) if not on_cells(r)]
     # elements summed into a holder's attribute by an aggregate rule stay with
     # the holder the engine drew them for (moving them would break the rule)
     for r in raw.get("rules", []):

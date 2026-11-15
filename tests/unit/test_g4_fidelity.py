@@ -141,3 +141,23 @@ def test_spec_drafts_no_rule_on_multihot_cells(tmp_path):
     raw = spec_for(lay, db)
     assert not [r for r in raw.get("rules", []) if "__h" in repr(r)]
     assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0}
+
+
+def test_multihot_falls_back_on_a_name_clash_or_null_elements():
+    docs = _tag_docs(200)
+    for d in docs:
+        d["tags__h0"] = d["_id"] % 3                     # a source field named like a multi-hot cell
+    lay = sh.build_layout({"items": profile_collection("items", docs)}, [])
+    assert not [c for c in lay.tables["items"].columns if c.role == "multihot"]
+    assert sh.nest(lay, sh.shred(lay, {"items": docs}), keep_ids=True)["items"] == docs
+    nul = _tag_docs(200)
+    nul[0]["tags"] = ["red", None]
+    lay = sh.build_layout({"items": profile_collection("items", nul)}, [])
+    assert not [c for c in lay.tables["items"].columns if c.role == "multihot"]
+
+
+def test_start_counts_fallback_hits_the_total():
+    rng = np.random.default_rng(5)
+    f = np.array([0.0, 1.0])                             # only counts 0 and 1 have mass
+    N = _start_counts(f, 4, 10, rng)                     # 10 rows over 4 parents: unreachable under f
+    assert N.sum() == 10 and (N >= 0).all()
