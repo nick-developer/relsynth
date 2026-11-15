@@ -25,8 +25,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def one(db: str, eps: float, mode: str, measure: str, rep: int) -> dict:
     sys.path.insert(0, str(ROOT / "tools"))
-    import resource
-
     from dp_curves import UNITS, _source
     from dp_workload import workload_error
 
@@ -53,7 +51,7 @@ def one(db: str, eps: float, mode: str, measure: str, rep: int) -> dict:
             "eps_stated": res.epsilon, "secs_stage1": res.report.get("seconds_stage1"),
             "secs": res.report.get("seconds_total"), "rss_stage1_mb": s1.get("peak_rss_mb"),
             "rss_before_mb": s1.get("peak_rss_before_mb"),
-            "rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1),
+            "rss_mb": dp._peak_rss_mb(),
             "max_degree": {k: v.get("max_degree") for k, v in res.report["tables"].items() if v.get("max_degree")}}
 
 
@@ -103,6 +101,7 @@ def main(argv=None) -> int:
         db, eps, mode, measure, rep = json.loads(a.one)
         print(json.dumps(one(db, eps, mode, measure, rep)))
         return 0
+    failed = 0
     with open(a.out, "a", encoding="utf-8") as f:
         for rep in range(a.reps):
             for db in a.db:
@@ -115,10 +114,11 @@ def main(argv=None) -> int:
                             line = p.stdout.strip().splitlines()[-1] if p.returncode == 0 and p.stdout.strip() \
                                 else json.dumps({"db": db, "eps": eps, "mode": mode, "measure": measure,
                                                  "rep": rep, "error": p.stderr[-2000:]})
+                            failed += p.returncode != 0 or not p.stdout.strip()
                             print(line, flush=True)
                             f.write(line + "\n")
                             f.flush()
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
