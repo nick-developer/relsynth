@@ -34,6 +34,10 @@ DEFAULT_SYNTHESIS = {
     # means (mode mean); datasets > 1 writes that many independent datasets
     "posterior": {"mode": "draw", "datasets": 1, "sample_seed": None},
     "scale": {"default": 1.0, "tables": {}},
+    # what-if scenarios applied while a dataset is sampled (relsynth.scenarios, docs/scenarios.md):
+    # the name of the scenario sampled (None: the fitted model as it is) and the definitions
+    "scenario": None,
+    "scenarios": {},
     "segments": {"default_cap": 8, "min_rows_per_segment": 20, "tables": {},
                  "stratify": "auto", "stratify_max_levels": 20, "stratify_max_cells": 5e7,
                  "attribute_strata": "auto", "tie_headers": True, "copied_budget_cells": 2e7},
@@ -903,6 +907,8 @@ def _validate_io(spec):
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
     errs += _validate_sequences(spec)
+    from .scenarios import validate as validate_scenarios
+    errs += validate_scenarios(spec)
     return errs
 
 
@@ -942,6 +948,23 @@ def _validate_sequences(spec):
                 errs.append(f"{where}.{k} must be a non-negative integer")
         if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
             errs.append(f"{where}.shrinkage must be a positive number")
+        if sq.get("process", "renewal") not in ("renewal", "hawkes"):
+            errs.append(f"{where}.process must be renewal or hawkes")
+        st = sq.get("states")
+        if st is not None:
+            sc = st if isinstance(st, str) else st.get("column") if isinstance(st, dict) else None
+            if sc is None:
+                errs.append(f"{where}.states must be a column name or {{column, prior}}")
+            elif (cols.get(sc).get("type") if isinstance(cols.get(sc), dict) else cols.get(sc)) not in (
+                    "categorical", "boolean", "integer"):
+                errs.append(f"{where}.states {sc} must be a categorical, boolean or integer column of {tname}")
+            elif sc in (ent, tc):
+                errs.append(f"{where}.states {sc} cannot be the entity or the time column")
+            pr = st.get("prior", 1.0) if isinstance(st, dict) else 1.0
+            if not isinstance(pr, (int, float)) or isinstance(pr, bool) or pr <= 0:
+                errs.append(f"{where}.states.prior must be a positive number")
+            if sq.get("process", "renewal") == "hawkes":
+                errs.append(f"{where}: states use the semi-Markov bridge; use process renewal with states")
     for tname, t in (spec.get("tables") or {}).items():
         se = t.get("series")
         if se is None:

@@ -175,6 +175,16 @@ S = {
         "min_entities": ("int", 30, "Segments with fewer entities use the pooled parameters."),
         "redraws": ("int", 10, "Redraws of an entity whose new times break a check rule; then the engine's times "
                     "are kept."),
+        "process": ("renewal | hawkes", "renewal", "How the events between an entity's first and last event "
+                    "arrive: renewal (gamma gaps, bursty to regular) or hawkes (self-exciting clusters: an event "
+                    "triggers more events; Bayesian Hawkes process with an exponential kernel)."),
+        "states": ("column | {column, prior}", None, "A status column of the events whose sequence along each "
+                   "entity's history follows a Markov chain per segment, with status-dependent gaps (semi-Markov). "
+                   "prior: strength of the pooled chain in each segment's transition posterior (1.0)."),
+    },
+    "sequence_states": {
+        "column": ("column", None, "The status column (categorical, boolean or integer)."),
+        "prior": ("number", 1.0, "Dirichlet prior strength per status level, centred on the pooled chain."),
     },
     "sequence_window": {
         "start": ("column", None, "Column of the entity: first possible event time."),
@@ -541,12 +551,16 @@ SYNTH_DOC = {
     "per_table": "Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}.",
     "settings_file": "A settings file merged under this block (a path relative to the spec, or preset:fast / "
                      "preset:thorough). The spec's own keys win. See docs/settings.md.",
+    "scenario": "The scenario of `scenarios` applied to every dataset (null: the fitted model as it is). "
+                "`relsynth run --scenario NAME` and `FittedModel.sample(scenario=...)` choose one per run.",
+    "scenarios": "What-if scenarios {name: {description, interventions: [...]}}: scale, shares, marginal, "
+                 "intensity and degree interventions applied while a dataset is sampled (docs/scenarios.md).",
     "pushdown.sample_rows": "Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the "
                             "relational model always uses every row through the statistics.",
 }
 
 # synthesis keys whose value is a free map (table names) or may be a map
-FREE = {"privacy.dp", "scale.tables", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
+FREE = {"privacy.dp", "scale.tables", "scenarios", "scenario", "segments.tables", "segments.stratify", "segments.attribute_strata", "segments.copied_rows",
         "compute.overrides", "per_table", "evaluation.thresholds"}
 # keys normalise() adds (a normalised spec written back, e.g. by `doctor --apply`, still
 # validates); the keys of the engine's internal plan (anchor_link, virtual, unit, _refs,
@@ -558,7 +572,7 @@ NESTED = {("spec", "source"): "source", ("spec", "target"): "target", ("table", 
           ("text", "lm"): "text_lm", ("text", "pe"): "text_pe", ("column", "pii"): "pii",
           ("column", "distribution"): "distribution", ("table", "scd"): "scd", ("table", "bridge"): "bridge",
           ("table", "generator"): "generator", ("table", "sequence"): "sequence", ("table", "series"): "series",
-          ("sequence", "window"): "sequence_window"}
+          ("sequence", "window"): "sequence_window", ("sequence", "states"): "sequence_states"}
 LISTS = {("table", "dimensions"): "dimension", ("table", "group_effects"): "group_effect",
          ("table", "link_affinity"): "link_affinity", ("table", "partial_unique"): "unique_where",
          ("spec", "relationships"): "relationship", ("spec", "rules"): "rule"}
@@ -637,7 +651,7 @@ def reference_tables():
               "bridge": "`tables.<name>.bridge`", "group_effect": "`tables.<name>.group_effects[]`",
               "link_affinity": "`tables.<name>.link_affinity[]`", "unique_where": "`unique[]` (filtered key)",
               "relationship": "`relationships[]`", "rule": "`rules[]`", "sequence": "`tables.<name>.sequence`", "series": "`tables.<name>.series`",
-              "sequence_window": "`sequence.window`"}
+              "sequence_window": "`sequence.window`", "sequence_states": "`sequence.states`"}
     out = []
     for kind, keys in S.items():
         out += [f"### {titles.get(kind, kind)}", "", "| Key | Type | Default | Meaning |", "|---|---|---|---|"]

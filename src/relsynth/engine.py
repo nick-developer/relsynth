@@ -32,6 +32,7 @@ from .generators.contract import GeneratorError
 from .pii import PiiGenerator
 from .prepare import (_index, _keystr, _tuple_frame, compute_aggregate, lookup_column, lookup_deps, make_resolver,
                       prepare_source)
+from .scenarios import active as scenario_active
 from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
                          dispersion_alpha, gumbel_argmax, multiplicity_marginal, poisson_dup_test,
                          sparse_dirichlet_draw, tree_depth)
@@ -2447,12 +2448,21 @@ class Synthesizer:
         return ["0"] * len(df)
 
     # ================================================================== sample
-    def sample(self, scale=None, index=None):
+    def sample(self, scale=None, index=None, scenario=None):
         """One synthetic dataset: every parameter drawn once from its posterior
         (or set to its posterior mean) from the dataset's parameter stream, then
         the rows from its data stream.  index numbers the datasets (0, 1, ...);
         without it each call gives the next dataset.  relsynth.runtime runs the
-        same steps with the facts split into partitions (sample_partitioned)."""
+        same steps with the facts split into partitions (sample_partitioned).
+        scenario: the name of a scenario of synthesis.scenarios to apply
+        (relsynth.scenarios; default synthesis.scenario)."""
+        if scenario is not None:
+            keep = self.cfg.get("scenario")
+            self.cfg["scenario"] = scenario
+            try:
+                return self.sample(scale, index)
+            finally:
+                self.cfg["scenario"] = keep
         rt = self.cfg.get("runtime") or {}
         if rt.get("executor", "none") != "none":
             from .runtime import sample_partitioned
@@ -2496,7 +2506,13 @@ class Synthesizer:
         self.posterior_log = {"mode": mode, "dataset": index}
         T = self.spec["tables"]
         sc = cfg["scale"] if scale is None else scale
-        sc = self.plan.scale(sc)
+        self._scen = None
+        act = scenario_active(cfg)
+        if act is not None:
+            from .scenarios import Scenario
+            self._scen = Scenario(self, *act)
+        sc = self._scen.apply_scale(sc, self.plan) if self._scen is not None else self.plan.scale(sc)
+        scen = self._scen
         out, zs, keys = {}, {}, {}
         out.update(self.plan.ref_frames)        # reference tables read by keyed lookups
         weights_cache = {}
@@ -2516,7 +2532,12 @@ class Synthesizer:
                 zs[e] = ent.z.copy()
                 out[e] = df
                 continue
-            if tree is not None:
+            df = None
+            if scen is not None and scen.has_tilt(e):
+                # a scenario tilts the law of this table's rows (relsynth.scenarios)
+                z, df = scen.entity_rows(self, e, int(round(s * ent.n)), rng)
+                par = None
+            elif tree is not None:
                 z, par = self._grow_tree(tree, s)
                 # posterior predictive depth profiles for the evaluation, on their own
                 # stream: the dataset's rows do not depend on whether it is computed
@@ -2542,7 +2563,10 @@ class Synthesizer:
                 n = int(round(s * ent.n))
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
-            df = self.tm[e].sample(z, rng)
+            if df is None:
+                df = self.tm[e].sample(z, rng)
+            if scen is not None:
+                df = scen.map_columns(e, df)
             df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
@@ -2617,6 +2641,8 @@ class Synthesizer:
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
         say("sample: aggregates")
         self._aggregates(out)
+        if getattr(self, "_scen", None) is not None:
+            self.sample_log["scenario"] = self._scen.log()
         self.sample_log["seconds"] = round(time.time() - t0, 2)
         say(f"sample: done in {time.time() - t0:.0f} s")
         self.internal_out = out
@@ -3104,6 +3130,8 @@ class Synthesizer:
         phi = info["phi"]
         Kp = phi.shape[1]
         w = self._weights(info["parent_frailty"], zp, cache, ("edge", name), ent=info["rel"].e2, obs=info.get("obs"))
+        if getattr(self, "_scen", None) is not None:
+            w = self._scen.temper(info["spec"]["child"], info["spec"]["child_key"], w, zp, Kp)
         if mask is None:
             mask = getattr(self, "_edge_masks", {}).get(name)
             mask = mask if mask is not None and len(mask) == len(zp) else None
@@ -3611,6 +3639,9 @@ class Synthesizer:
         rel = info["rel"]
         z1, acols = self._anchor_state(f, zs, keys, fact_rows)
         w1 = self._weights(info["frailty1"], z1, {}, None, ent=rel.e1, obs=info.get("obs1"))
+        scen = getattr(self, "_scen", None)
+        if scen is not None and not info["nested"]:
+            w1 = scen.temper(f, info["fks"][0]["child_key"], w1, z1, rel.e1.K)
         # conditional inclusion on the anchor (quotas only for sales staff): rows at an
         # excluded level take no part; the others take the segment's zero mass away
         elig = None
@@ -3625,6 +3656,8 @@ class Synthesizer:
             r2 = dimcols[0]
             z2, k2 = self._dim_state(f, r2, zs, keys)
             w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
+            if scen is not None:
+                w2 = scen.temper(f, r2["child_key"], w2, z2, rel.e2.K)
             m2 = self._inclusion_mask(f, r2, len(z2), ents)
             w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
             st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2, "m2": m2})
@@ -3643,6 +3676,8 @@ class Synthesizer:
             zx, kx = self._dim_state(f, r, zs, keys)
             Kx = xp["P"].shape[1]
             wx = self._weights(xp["frailty"], zx, {}, None, ent=info["extra"][xj].e2, obs=xp.get("obs"))
+            if getattr(self, "_scen", None) is not None:
+                wx = self._scen.temper(f, r["child_key"], wx, zx, Kx)
             wx = wx * self._inclusion_mask(f, r, len(zx), ents)
             memx = [np.flatnonzero(zx == s_) for s_ in range(Kx)]
             availx = np.array([len(m) > 0 and wx[m].sum() > 0 for m in memx], dtype=float)
@@ -3669,7 +3704,35 @@ class Synthesizer:
         u, v, blk = self._fact_structure(f, st, ents, fact_rows)
         return self._fact_attributes(f, st, u, v, blk, ents, fact_rows)
 
+    def _scenario_structure(self, f, st, ents, fact_rows, u, v, blk):
+        """A scenario that raises a fact's rate superposes K independent draws of
+        its structure; _fact_attributes thins their rows (Prop. 1827).  Pairs of an
+        occupancy fact are unique, so repeated pairs are dropped."""
+        scen = getattr(self, "_scen", None)
+        if scen is None or not scen.has_fact(f):
+            return u, v, blk
+        K, _c = scen.fact_copies(f)
+        if K <= 1:
+            return u, v, blk
+        parts = [(u, v, blk)] + [self._fact_structure_once(f, st, ents, fact_rows) for _ in range(K - 1)]
+        u = np.concatenate([np.asarray(p[0], np.int64) for p in parts])
+        blk = np.concatenate([np.asarray(p[2], np.int64) for p in parts])
+        v = None if parts[0][1] is None else np.concatenate([np.asarray(p[1], np.int64) for p in parts])
+        if v is not None and self.fact_info[f]["rel"].kind == "occ":
+            _, first = np.unique(np.stack([u, v]), axis=1, return_index=True)
+            first = np.sort(first)
+            u, v, blk = u[first], v[first], blk[first]
+        return u, v, blk
+
     def _fact_structure(self, f, st, ents, fact_rows):
+        """Which anchor (u) and partner (v) rows the fact's rows join, with their
+        blocks (_fact_structure_once), with a scenario's superposed draws."""
+        u, v, blk = self._fact_structure_once(f, st, ents, fact_rows)
+        if getattr(self, "_scen", None) is None:
+            return u, v, blk
+        return self._scenario_structure(f, st, ents, fact_rows, u, v, blk)
+
+    def _fact_structure_once(self, f, st, ents, fact_rows):
         """Which anchor (u) and partner (v) rows the fact's rows join, with their
         blocks: rows per anchor, Poisson pairs (with degree laws) or occupancy."""
         info = self.fact_info[f]
@@ -3717,6 +3780,11 @@ class Synthesizer:
         attributes, time, rule redraws, nested-key consistency, unique keys."""
         info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
+        scen = getattr(self, "_scen", None)
+        if scen is not None:
+            if scen.has_fact(f):
+                df = scen.thin_fact(f, df, self.rng)
+            df = scen.map_columns(f, df)
         df = self._refill(f, st, df, ents)
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
