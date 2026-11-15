@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Registry of generator plug-ins: discovery, version pinning, compatibility.
 
-Built-in generators (copula, independent, cart) are always registered.
+Built-in generators (copula, independent, cart, and the neural tvae and ddpm,
+which need the optional extra relsynth[neural]) are always registered.
 Third-party generators are found through the ``relsynth.generators``
 entry-point group (PyPA entry-points specification), so installing a package
 that declares, in its pyproject.toml,
@@ -88,7 +89,7 @@ class Entry:
         out = {"name": self.name, "source": self.source, "package": self.dist, "package_version": self.dist_version}
         if c is None:
             return {**out, "error": self.error}
-        return {**out, "version": c.version, "description": c.description,
+        return {**out, "version": c.version, "description": c.description, "unavailable": c.unavailable(),
                 "capabilities": c.capabilities.to_dict(), "class": f"{c.__module__}.{c.__qualname__}"}
 
 
@@ -96,7 +97,8 @@ def _builtins():
     from .cart import CartGenerator
     from .copula import CopulaGenerator
     from .independent import IndependentGenerator
-    return [CopulaGenerator, IndependentGenerator, CartGenerator]
+    from .neural import DDPMGenerator, TVAEGenerator      # torch is imported only when they fit
+    return [CopulaGenerator, IndependentGenerator, CartGenerator, TVAEGenerator, DDPMGenerator]
 
 
 def _validate_class(cls, name):
@@ -205,6 +207,9 @@ def check(cls, spec, t, aux=False, pushed=False, ir_version="1.0") -> tuple[list
     errs, warns = [], []
     cap = cls.capabilities
     T = spec["tables"][t]
+    missing = cls.unavailable()
+    if missing:
+        errs.append(f"{t}: generator {cls.name}: {missing}")
     if not version_matches(ir_version, cap.ir_versions):
         errs.append(f"{t}: generator {cls.name} supports IR {cap.ir_versions}, the spec is IR {ir_version}")
     if "record" not in cap.modalities:

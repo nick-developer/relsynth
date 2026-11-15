@@ -53,6 +53,7 @@ generator, its model version, its package and package version, its options and i
 |---|---|---|---|---|
 | `copula` (default) | Dirichlet / Bayesian-bootstrap marginals per latent segment, shrunk table → coarse group → segment; a rank-likelihood Gaussian copula (LKJ prior) per segment for entities, pooled for facts (Hoff 2007). | segment, parent attributes | yes | MCMC per table |
 | `independent` | The copula's marginals with an identity correlation: a latent class model (Goodman 1974; Dunson and Xing 2009). Columns depend on each other only through the row's segment. | segment | yes | no MCMC, fastest |
+| `tvae`, `ddpm` | Neural generators (optional extra `relsynth[neural]`): a conditional tabular VAE and a TabDDPM-style diffusion model on relsynth's marginal scores. See [neural.md](neural.md). | segment, parent attributes | marginals only (Prop. 1800) | network training |
 | `cart` | Sequential CART in the style of synthpop (Reiter 2005; Nowok, Raab and Dibben 2016). One tree per column on the segment, the coarse group, parent attributes and the earlier columns; leaf values drawn from the leaf's observed rows with Bayesian-bootstrap weights (Rubin 1981). | segment, parent attributes | approximate (Prop. 706) | one tree per column |
 
 **Options of `cart`.**

@@ -1,0 +1,61 @@
+%=====================================================================
+\section{Neural generators: \texttt{tvae} and \texttt{ddpm} (v2.3)}\label{sec:neural}
+% numbered from 1800 (neural generators); the shared counter is restored at the end
+\newcounter{savedpropneural}\setcounter{savedpropneural}{\value{proposition}}
+The neural generator plug-ins model a table's attribute columns given the row's group, coarse group and parent attributes, like every generator (Props.~700--705); the relational skeleton stays the engine's. \texttt{tvae} is a conditional tabular VAE (Xu et al.\ 2019), \texttt{ddpm} a Gaussian-multinomial diffusion model (Kotelnikov et al.\ 2023) conditioned like ClavaDDPM (Pang et al.\ 2024). Guide \texttt{docs/neural.md}; design record \texttt{docs/research/neural-and-simulation-generators.md}; code \texttt{relsynth/generators/neural/}. Each proposition is tested in \texttt{tests/unit/test\_neural.py}.
+
+\setcounter{proposition}{1799}
+\begin{proposition}[Decoding through the Bayesian marginals]\label{prop:nnmarg}
+Let $F$ be the encoding marginal of a continuous column (the table's posterior-mean marginal, with null mass $p_0$ placed lowest), and for an observation $x$ let $(l,h]$ be its latent interval, $F(x^-)=\Phi(l)$, $F(x)=\Phi(h)$. (a) The score $z=\Phi^{-1}(U)$, $U\sim\mathrm{Unif}(\Phi(l),\Phi(h)]$, is exactly $N(0,1)$ when $x\sim F$. (b) If the network's law of the score is $G$, the decoded column has law $G\circ\Phi^{-1}$ pushed through $F_d^{-1}$, where $F_d$ is the decoding marginal (a posterior draw); when $G=N(0,1)$ the decoded column has law $F_d$ exactly. (c) A decoded non-null value is $F_d^{-1}(u)$, a linear interpolation between two adjacent quantile knots of $F_d$; for a given value $v$ that is not a knot, $P(F_d^{-1}(\Phi(z))=v)=0$ whenever $z$ has a density, so an observed number is released exactly only if it is a knot of $F_d$ (a quantile or a point mass of the column).
+\end{proposition}
+\begin{proof}
+(a) Given $x$, $U$ is uniform on $(F(x^-),F(x)]$; mixing over $x\sim F$ gives $U\sim\mathrm{Unif}(0,1)$ (the distributional transform, R\"uschendorf 2009), hence $\Phi^{-1}(U)\sim N(0,1)$; nulls occupy $(0,p_0]$ by construction of the latent bounds. (b) Decoding is $z\mapsto F_d^{-1}(\Phi(z))$; if $z\sim N(0,1)$ then $\Phi(z)\sim\mathrm{Unif}(0,1)$ and $F_d^{-1}$ of a uniform has law $F_d$ (inverse transform). (c) \texttt{Marginal.from\_uniform} is \texttt{numpy.interp} on the knots $(\tau_k,v_k)$ above the null mass; between two knots with $v_k<v_{k+1}$ it is strictly increasing in $u$, so the preimage of a non-knot value is a single point, which has probability zero under a law with a density.
+\end{proof}
+\noindent So the marginal fidelity of a neural generator is that of the copula up to the network's error in the law of each score, and datasets $1..m$ are posterior predictive draws of the marginals given one fitted network (as for \texttt{cart}, Prop.~706). The test \texttt{test\_neural\_generators\_are\_seeded\_and\_have\_a\_marginal\_posterior} checks that dataset 1 differs from dataset 0 and that a seed repeats both.
+
+\setcounter{proposition}{1800}
+\begin{proposition}[Back-off through the null token]\label{prop:nnnull}
+Let a training row have group $g$, coarse group $c$ and target $Y$ (the scores and categories, or the diffusion noise given $x_t$ and $t$), and let the network see $\tilde g=0$ (the null token) with probability $p>0$ independently of $(g,c,Y)$, and $\tilde g=g$ otherwise. For a loss that is a strictly proper scoring rule or a squared error, the minimiser over all functions of the expected loss gives, at $\tilde g=0$, the law (or conditional mean) of $Y$ given $c$ alone: the mixture over groups $\sum_g P(g\mid c)\,P(Y\mid g,c)$.
+\end{proposition}
+\begin{proof}
+The expected loss splits over the values of the input; at inputs with $\tilde g=0$ it is $E[\ell(f(0,c),Y)\mid\tilde g=0,c]$. Since the dropout is independent of $(g,Y)$, the law of $Y$ given $(\tilde g=0,c)$ is the law of $Y$ given $c$. A strictly proper scoring rule is minimised by that law, a squared error by its mean.
+\end{proof}
+\noindent The negative ELBO of \texttt{tvae} and the multinomial KL terms of \texttt{ddpm} are log scores, the Gaussian part of \texttt{ddpm} a squared error. A group unseen at fit (a sparse fact block passed with its coarse label, Prop.~700) is therefore sampled from the coarse group's law, the engine's back-off. The coarse group is dropped with probability $p/2$, which gives the unconditional law at $(0,0)$ in the same way. Test \texttt{test\_unseen\_group\_backs\_off\_through\_the\_null\_token}.
+
+\setcounter{proposition}{1801}
+\begin{proposition}[DP-SGD bounds what the weights reveal about one row]\label{prop:nndpsgd}
+Fix the preprocessing maps (encoding marginals, levels kept, group indices) and let $D$ be the encoded training rows. Run $T$ steps that each include every row independently with probability $q$, clip each included row's gradient to L2 norm $C$, sum, add $N(0,\sigma^2C^2I)$ and take any optimiser step that depends only on the noisy sums and earlier iterates. Then the sequence of weights, and every synthetic dataset sampled from them, is $(\varepsilon,\delta)$-DP with respect to adding or removing one row of $D$, for $\varepsilon=\min_\alpha T\,\varepsilon_{\mathrm{RDP}}(\alpha)+\log\frac{\alpha-1}{\alpha}-\frac{\log\delta+\log\alpha}{\alpha-1}$, $\varepsilon_{\mathrm{RDP}}$ that of the sampled Gaussian mechanism with noise multiplier $\sigma$.
+\end{proposition}
+\begin{proof}
+One step is the sampled Gaussian mechanism on a function of L2 sensitivity $C$ (the clipped sum changes by at most one clipped gradient), whose R\'enyi DP of order $\alpha$ is $\varepsilon_{\mathrm{RDP}}(\alpha)$ (Mironov, Talwar and Zhang 2019, Thm.~5 and sec.~3.3). Adaptive composition of $T$ steps adds R\'enyi divergences (Mironov 2017, Prop.~1). The conversion to $(\varepsilon,\delta)$ is Canonne, Kamath and Steinke (2020), Prop.~12. The optimiser and the sampler are post-processing.
+\end{proof}
+\noindent The guarantee is row-level for one table and is conditional on the preprocessing, which is fitted without noise; the generator therefore reports \texttt{dp: false} with the spent $\varepsilon,\delta$, and \texttt{docs/neural.md} sends releases outside the organisation to DP mode, where a neural generator in stage 2 is post-processing of the DP seed database (Prop.~905). $\sigma$ is the smallest value on a bisection grid whose $\varepsilon$ is at most the target (\texttt{accountant.calibrate\_sigma}). Test \texttt{test\_dp\_sgd\_spends\_at\_most\_the\_target}.
+
+\setcounter{proposition}{1802}
+\begin{proposition}[The accountant]\label{prop:nnacct}
+For integer $\alpha\ge2$, \texttt{rdp\_sampled\_gaussian} returns $\frac{1}{\alpha-1}\log\sum_{k=0}^{\alpha}\binom{\alpha}{k}(1-q)^{\alpha-k}q^k e^{(k^2-k)/(2\sigma^2)}$, which equals $\frac{1}{\alpha-1}\log E_{\mu_0}[(\mu/\mu_0)^\alpha]$ for $\mu_0=N(0,\sigma^2)$, $\mu=(1-q)\mu_0+qN(1,\sigma^2)$; at $q=1$ it is $\alpha/(2\sigma^2)$, i.e.\ $\rho=T/(2\sigma^2)$ zCDP.
+\end{proposition}
+\begin{proof}
+$\mu/\mu_0=(1-q)+q\,e^{(2x-1)/(2\sigma^2)}$; expand the $\alpha$-th power binomially and use $E_{\mu_0}[e^{k(2x-1)/(2\sigma^2)}]=e^{(k^2-k)/(2\sigma^2)}$ (the Gaussian moment generating function). At $q=1$ only $k=\alpha$ remains.
+\end{proof}
+\noindent The sum is evaluated in log space (\texttt{logsumexp}). Tests compare it with numerical integration at four $(q,\sigma,\alpha)$ and with the closed form at $q=1$; the design record compares $\varepsilon$ with Opacus's accountant (agreement to $10^{-11}$).
+
+\setcounter{proposition}{1803}
+\begin{proposition}[Seeds and torch's global state]\label{prop:nnseed}
+Without \texttt{dp}, a fit and a sample on the CPU draw every random number from torch generators seeded by an integer drawn from the engine's numpy generator, inside \texttt{torch.random.fork\_rng}. Hence the same seed and data give the same weights and the same synthetic rows (Prop.~701), and torch's global random state after the call equals its state before it.
+\end{proposition}
+\begin{proof}
+Layer initialisation draws from torch's global generator, which is seeded inside the fork; minibatch order, latent noise, diffusion steps and noise, category draws and dropout masks draw from explicit seeded generators. CPU kernels of the operations used are deterministic. \texttt{fork\_rng} restores the global state on exit.
+\end{proof}
+\noindent Tests \texttt{test\_neural\_generators\_are\_seeded\_and\_have\_a\_marginal\_posterior} and \texttt{test\_torch\_global\_random\_state\_is\_left\_alone}. With \texttt{dp} the sampling and noise come from the operating system's random source and the fit is not reproducible, as in DP mode.
+
+\setcounter{proposition}{1804}
+\begin{proposition}[Marginal calibration]\label{prop:nncalib}
+Let $G_j$ be the network's aggregate law of score $j$ when sampling with the contexts of the training rows, and $\hat G_j$ its empirical CDF from $m$ such draws. The calibrated score $\tilde z=\Phi^{-1}(\hat G_j(z))$ (piecewise linear between the empirical quantiles) is a strictly increasing function of $z$, so (a) the copula of the network's scores, i.e.\ every rank dependence between columns and with the context, is unchanged; and (b) under the training contexts the decoded column has law $F_d$ up to the error of $\hat G_j$, at most $\sup|\hat G_j-G_j|=O_p(m^{-1/2})$ in Kolmogorov distance (Dvoretzky--Kiefer--Wolfowitz). For a discrete column, adding the offset $b_k=\log(\pi_k/q_k)$ to the logits of slot $k$, $\pi$ the target and $q$ the model's aggregate slot frequencies, keeps every ratio of likelihoods between contexts (a prior-shift correction, Saerens et al.\ 2002) and makes the aggregate frequencies equal $\pi$ to first order; two fixed-point rounds are run. Moving from the encoding to the decoding marginals adds $\log(\pi^{d}_k/\pi_k)$.
+\end{proposition}
+\begin{proof}
+(a) Copulas are invariant under strictly increasing transformations of the margins. (b) If $z\sim G_j$ then $G_j(z)\sim\mathrm{Unif}(0,1)$ and $\Phi^{-1}(G_j(z))\sim N(0,1)$; Prop.~\ref{prop:nnmarg}(b) then gives $F_d$. Replacing $G_j$ by $\hat G_j$ moves the uniform by at most $\sup|\hat G_j-G_j|$, and the DKW inequality bounds it by $\sqrt{\log(2/\eta)/(2m)}$ with probability $1-\eta$. For the categories, $\mathrm{softmax}(\ell+b)_k=\mathrm{softmax}(\ell)_k e^{b_k}/\sum_l \mathrm{softmax}(\ell)_l e^{b_l}$; averaging over contexts, the first-order change of the aggregate frequency of slot $k$ is the factor $e^{b_k}=\pi_k/q_k$ up to normalisation.
+\end{proof}
+\noindent The calibration draws from the fitted network and the training rows' contexts only, so with \texttt{dp} it is post-processing of the weights plus the preprocessing already outside Prop.~\ref{prop:nndpsgd}. Option \texttt{calibrate: false} turns it off. Test \texttt{test\_calibration\_matches\_the\_encoding\_marginals}.
+
+\setcounter{proposition}{\value{savedpropneural}}
