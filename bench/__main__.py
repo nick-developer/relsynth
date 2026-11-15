@@ -57,10 +57,12 @@ def _selected(a) -> list[str]:
     return [n for t in _tiers(a.tier) for n in tier_datasets(t)]
 
 
-def matrix(tier: str, only: list[str] | None = None) -> list[dict]:
+def matrix(tier: str, only: list[str] | None = None, seeds: list[int] | None = None) -> list[dict]:
     """The CI jobs of a tier: one per dataset, or one per seed group (`jobs`); datasets that need a bigger
     runner (runner "maintainer") and datasets that cannot run on a hosted runner (local tier) are left out.
-    `only` keeps the named datasets (and "fake" for the statistical suite)."""
+    `only` keeps the named datasets (and "fake" for the statistical suite). `seeds` (a dispatch's
+    override) replaces each dataset's own seed groups with one job on those seeds, so that no
+    dataset/seed pair runs twice."""
     out = []
     for n in tier_datasets(tier):
         if only and n not in only:
@@ -68,7 +70,7 @@ def matrix(tier: str, only: list[str] | None = None) -> list[dict]:
         d = DATASETS[n]
         if d.runner != "github" or not d.public:
             continue
-        groups = d.jobs or (d.seeds,)
+        groups = (tuple(seeds),) if seeds else d.jobs or (d.seeds,)
         for i, g in enumerate(groups):
             out.append({"name": n if len(groups) == 1 else f"{n}-{chr(97 + i)}", "datasets": n,
                         "seeds": ",".join(map(str, g)), "fake": "--no-fake"})
@@ -189,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("baseline")
     p.add_argument("records", nargs="+")
     p.add_argument("--out", default=str(BASELINE))
+    p.add_argument("--replace", action="store_true",
+                   help="write only the datasets of these records (default: keep the other datasets of --out)")
     p = sub.add_parser("fetch")
     p.add_argument("--datasets", nargs="*", choices=sorted(DATASETS))
     p.add_argument("--tier", default=DEFAULT_TIERS)
@@ -196,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     m = sub.add_parser("matrix")
     m.add_argument("--tier", required=True, choices=TIERS)
     m.add_argument("--only", default="", help="comma-separated datasets of the tier to keep (and fake)")
+    m.add_argument("--seeds", default="", help="seeds for every job (default: each dataset's own groups)")
     sub.add_parser("coverage").add_argument("--check", action="store_true",
                                             help="exit 1 when a required feature has fewer than two datasets")
     a = ap.parse_args(argv)
@@ -206,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{n:16s} {d.tier:8s} {'available' if ok else 'unavailable: ' + why}  {d.note}")
         return 0
     if a.cmd == "matrix":
-        print(json.dumps(matrix(a.tier, [x for x in a.only.split(",") if x] or None)))
+        print(json.dumps(matrix(a.tier, [x for x in a.only.split(",") if x] or None, _seeds(a.seeds or None))))
         return 0
     if a.cmd == "coverage":
         table, short = coverage_table()
@@ -241,6 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "baseline":
         recs = regress.load(a.records)
         base = regress.build(recs, sources=[Path(r).name for r in a.records])
+        if not a.replace and Path(a.out).exists():     # a rebuild of some datasets keeps the others
+            base = regress.merge(json.loads(Path(a.out).read_text(encoding="utf-8")), base, keep=set(DATASETS) | {"fake"})
         priv = {k: v for k, v in base["datasets"].items() if is_private(k)}
         Path(a.out).write_text(json.dumps({**base, "datasets": {k: v for k, v in base["datasets"].items()
                                                                  if k not in priv}}, indent=1) + "\n", encoding="utf-8")

@@ -48,7 +48,9 @@ for t, fks in TABLES.items():
         if el.tag == "row":
             rows.append(dict(el.attrib))
             el.clear()
-    cols = list(dict.fromkeys(k for r in rows for k in r))
+    # an empty dump file has no row to name the columns: the table gets its key and its links alone
+    named = (k for r in rows for k in r) if rows else ["Id", *(c for c, _ in fks)]
+    cols = list(dict.fromkeys(named))
     types = {c: "INTEGER" if c in INTS else ("DATETIME" if c.endswith("Date") else "TEXT") for c in cols}
     fks = [(c, p) for c, p in fks if c in cols]
     create_table(con, t, [(c, types[c], c == "Id") for c in cols], primary_key=["Id"],

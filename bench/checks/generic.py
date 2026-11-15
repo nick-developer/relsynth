@@ -8,6 +8,7 @@ that a 60-million-row TPC-H fact is never loaded into pandas.
 
 | Check | Value | Judged |
 |---|---|---|
+| `X0 table_missing\\|<table>` | 1 when the synthetic output has no file for a real table | identity (real 0) |
 | `X1 pk_duplicates\\|<table>` | share of rows whose primary key repeats | identity (real 0) |
 | `X2 fk_orphans\\|<child>.<key>` | share of non-NULL keys without a parent row | identity (real 0) |
 | `X3 selfref_cycle\\|<table>.<key>` | share of rows of a self-reference that sit on a cycle | identity (real 0) |
@@ -36,6 +37,13 @@ def _lit(path) -> str:
     return "'" + str(path).replace("'", "''") + "'"
 
 
+def _under(root: Path, p: Path) -> Path | None:
+    """p when it resolves inside root, else None: a table name from a spec cannot reach another folder."""
+    r = root.resolve()
+    q = p.resolve()
+    return p if q == r or q.is_relative_to(r) else None
+
+
 def _connect(location: str, syn_dir: Path, tables: list[str]):
     """One DuckDB connection with real.<t> and syn.<t> views of every table."""
     import duckdb
@@ -46,8 +54,8 @@ def _connect(location: str, syn_dir: Path, tables: list[str]):
     kind, path = location.split(":", 1)
     src = Path(path)
     for t in tables:
-        f = syn_dir / f"{t}.csv"
-        if f.exists():
+        f = _under(syn_dir, syn_dir / f"{t}.csv")
+        if f is not None and f.exists():
             # every column as text: keys compare as written, whatever type the sniffer would guess
             con.execute(f"CREATE VIEW syn.{_q(t)} AS SELECT * FROM read_csv({_lit(f)}, header = true, "
                         "all_varchar = true)")
@@ -66,7 +74,8 @@ def _connect(location: str, syn_dir: Path, tables: list[str]):
     else:
         reader = {"parquet": "read_parquet", "csv": "read_csv"}[kind]
         for t in tables:
-            hits = [p for ext in (kind, "pq") for p in (src / f"{t}.{ext}", src / t) if p.exists()]
+            hits = [p for ext in (kind, "pq") for p in (src / f"{t}.{ext}", src / t)
+                    if _under(src, p) is not None and p.exists()]
             if not hits:
                 continue
             p = hits[0]
@@ -81,9 +90,9 @@ def _has(con, schema: str, t: str) -> bool:
 
 
 def _txt(col: str) -> str:
-    """A key column as text, so 12, 12.0 and '12' compare equal."""
+    """A key column as text, so 12, 12.0 and '12' compare equal; only a number loses its '.0' ('SKU.0' stays)."""
     c = _q(col)
-    return f"regexp_replace(CAST({c} AS VARCHAR), '\\.0+$', '')"
+    return f"regexp_replace(CAST({c} AS VARCHAR), '^([+-]?[0-9]+)\\.0+$', '\\1')"
 
 
 def checks(spec_path: Path, location: str, syn_dir: Path) -> dict:
@@ -94,8 +103,13 @@ def checks(spec_path: Path, location: str, syn_dir: Path) -> dict:
     con = _connect(location, Path(syn_dir), tables)
     out: dict = {}
     try:
-        both = [t for t in tables if _has(con, "real", t) and _has(con, "syn", t)]
+        real = [t for t in tables if _has(con, "real", t)]
+        both = [t for t in real if _has(con, "syn", t)]
         n_real = n_syn = 0
+        for t in real:                  # a real table the run did not write: reported, and its rows count
+            if t not in both:
+                out[f"X0 table_missing|{t}"] = (0.0, 1.0)
+                n_real += con.execute(f"SELECT count(*) FROM real.{_q(t)}").fetchone()[0]
         for t in both:
             nr = con.execute(f"SELECT count(*) FROM real.{_q(t)}").fetchone()[0]
             ns = con.execute(f"SELECT count(*) FROM syn.{_q(t)}").fetchone()[0]

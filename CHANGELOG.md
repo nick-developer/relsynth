@@ -8,7 +8,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 - **The benchmark matrix** (gap plan G7). The harness now covers 30 datasets in four tiers: **PR** (every pull request, under 15 minutes: Chinook, UCI Adult, a small stress schema, the MongoDB samples), **weekly** (AdventureWorks on 3 seeds, Contoso Parquet, Berka, ACS, CoverType, Census-Income KDD, Synthea 1K, MIMIC-IV demo, Online Retail II, a Stack Exchange site, RelBench rel-trial, electricity load, one month of NYC taxi trips, TPC-H and TPC-DS SF1, the 120-table stress schema), **monthly** (TPC-H SF10/SF100, TPC-DS SF10, Synthea 100k/1M, twelve months of NYC trips, an Open Food Facts extract, Contoso SQLite, the 300-table stress schema; the largest on a bigger runner) and **local** (bi/COREP, research-only IMDb x MovieLens). `python -m bench run --tier weekly`, `--jobs`, `matrix` and `coverage` are new; `bench.yml` builds its jobs from the tier and runs the monthly tier on the 2nd of each month. Every feature of the coverage list (1 to 100+ tables, KB to 100 GB, snowflake depth 4+, self-references, many-to-many, composite keys, SCD, events, regular series, long text, nested documents, wide tables, high-cardinality categoricals, skew, messy values, small privacy units) is exercised by at least two datasets (bench/README.md).
 - **A schema stress generator** (`bench/builders/stress_schema.py`): from a seed, a SQLite database with up to 300 tables, depth-8 snowflake chains, a 500-column table, a composite key, a self-reference and a two-table cycle of declared keys, a many-to-many bridge, binary columns, a regular series, Zipf fan-out skew and messy values.
-- **Schema-level checks X1–X6** for every new dataset (`bench/checks/generic.py`, in DuckDB): unique primary keys, links that resolve and self-references without cycles are identities with the real data; fan-out skew, the row ratio and NULL shares are recorded.
+- **Schema-level checks X0–X6** for every new dataset (`bench/checks/generic.py`, in DuckDB): every real table written, unique primary keys, links that resolve and self-references without cycles are identities with the real data; fan-out skew, the row ratio and NULL shares are recorded.
 
 ### Changed
 
@@ -16,6 +16,14 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Fixed
 
+- Matching file-table rows by key maps each key on its own, so requested keys and every Parquet batch
+  agree (`"2.0"` beside `"001"`); `-2**63` is an Int64 key; out-of-range floats no longer collapse in the
+  streamed distinct-key count.
+- Bench: a partial baseline rebuild keeps the other datasets' entries (so the PR tier can be rebuilt on its own);
+  a dispatch's seed override runs each dataset/seed pair once; a build failure is recorded per run
+  instead of stopping the command; generic checks report a missing synthetic table (X0) and keep text
+  keys such as `SKU.0`; builder fixes (quoted Open Food Facts columns, empty Stack Exchange tables,
+  stress code lists, Synthea end date and atomic output, fresh TPC scratch database).
 - **`introspect` drafts a valid spec when declared keys form a cycle** (`department.head_id -> employee`, `employee.department_id -> department`): the optional link of the cycle (the column with the most NULLs) is left out with an `ASK` note and kept as a plain column. Before, the draft failed validation ("relationships contain a cycle"). Found by the G7 stress schema.
 - **`introspect` no longer leaves a fact without parents** when its only link is a composite key to a table without a single-column key: that parent is left out as before, with a note that says why (it said "no link to another table"), and the child becomes an entity with the link columns as plain columns. Before, the draft failed validation ("fact table has no many_to_one relationships").
 - **Large sources fit in a 16 GB machine more often.** Three memory peaks found by the G7 bench, each with unchanged output: text columns already of a pandas string type are no longer copied into Python strings twice when the source is coerced (TPC-H SF10 `orders` and `partsupp`, read whole, passed 13 GiB there); DuckDB, which shares the process with the fit, is limited to half of the machine's memory unless `source.duckdb.memory_limit` says otherwise (its own default of 80% let the GROUP BY statistics of NYC TLC's 41-million-row trip table reach 13 GiB); and `introspect` reads at most about a million rows when it tests a rule on complete groups of a table larger than its sample, keeping the groups in the order drawn (60 of TPC-DS SF10's 102 stores were 17 million `store_sales` rows). Smaller tables draw the same groups as before.

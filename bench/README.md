@@ -12,7 +12,7 @@ to change the baseline are in [docs/development/benchmarks.md](../docs/developme
 | `assess.py` | the 2.0 quality report and the privacy attacks of one run, as checks |
 | `regress.py` | baseline and regression rule (R1–R3) |
 | `specs/` | the frozen spec of each database |
-| `builders/`, `checks/` | the build scripts and domain checks: the layer-2 ones kept as they were written, the G7 builders (`sdv_sqlite.py`, `stress_schema.py`, `tpc_parquet.py`, ...) and the schema-level checks X1–X6 (`checks/generic.py`) |
+| `builders/`, `checks/` | the build scripts and domain checks: the layer-2 ones kept as they were written, the G7 builders (`sdv_sqlite.py`, `stress_schema.py`, `tpc_parquet.py`, ...) and the schema-level checks X0–X6 (`checks/generic.py`) |
 | `history/` | history records (aggregates only), committed with each baseline change |
 | `baseline.json` | the current baseline |
 | `.cache/` | downloads and built databases (not committed) |
@@ -25,7 +25,7 @@ its own datasets (`python -m bench run --tier weekly`); each dataset runs on its
 own seeds unless `--seeds` is given. The 2.0 golden databases keep their frozen
 specs; every dataset added by G7 runs with the unedited `relsynth introspect`
 draft of the code under test (made once per commit into the cache; its SHA-256
-is in the history record), and with the schema-level checks X1–X6 of
+is in the history record), and with the schema-level checks X0–X6 of
 `checks/generic.py` (primary keys unique, links resolve, no cycles in
 self-references: identities; fan-out skew, row ratio, NULL shares: recorded).
 Data that cannot be fetched by checksum is generated (TPC-H/DS by DuckDB's

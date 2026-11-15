@@ -15,29 +15,38 @@ from pathlib import Path
 
 import duckdb
 
-src, out = Path(sys.argv[1]), Path(sys.argv[2])
-rows = int(sys.argv[3]) if len(sys.argv) > 3 else 200_000
-out.mkdir(parents=True, exist_ok=True)
-
 
 def lit(p) -> str:
     return "'" + str(p).replace("'", "''") + "'"
 
 
-con = duckdb.connect()
-cols = {r[0]: r[1] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet({lit(src)})").fetchall()}
-scalar = [c for c, t in cols.items() if not t.endswith("[]") and not t.startswith(("STRUCT", "MAP"))
-          and c != "code"]
-# the export repeats some barcodes: one row per code, or the extract has no key (introspect then leaves
-# both tables out of the draft)
-latest = "last_modified_t DESC NULLS LAST, " if "last_modified_t" in cols else ""
-con.execute(f"CREATE TABLE pick AS SELECT * FROM read_parquet({lit(src)}) AS f WHERE code IS NOT NULL "
-            f"QUALIFY row_number() OVER (PARTITION BY code ORDER BY {latest}md5(CAST(f AS VARCHAR))) = 1 "
-            f"ORDER BY hash(code), code LIMIT {rows}")
-sel = ", ".join(f'"{c}"' for c in scalar)
-con.execute(f"COPY (SELECT code, {sel} FROM pick ORDER BY code) TO {lit(out / 'product.parquet')} (FORMAT parquet)")
-if "categories_tags" in cols:
-    con.execute("COPY (SELECT code, unnest(categories_tags) AS tag FROM pick ORDER BY code, tag) "
-                f"TO {lit(out / 'product_tag.parquet')} (FORMAT parquet)")
-for f in sorted(out.glob("*.parquet")):
-    print(f.stem, con.execute(f"SELECT count(*) FROM read_parquet({lit(f)})").fetchone()[0], "rows")
+def ident(name) -> str:
+    """A column name as one SQL identifier: inner double quotes doubled, whatever the file calls it."""
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def main(argv: list[str]) -> None:
+    src, out = Path(argv[1]), Path(argv[2])
+    rows = int(argv[3]) if len(argv) > 3 else 200_000
+    out.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect()
+    cols = {r[0]: r[1] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet({lit(src)})").fetchall()}
+    scalar = [c for c, t in cols.items() if not t.endswith("[]") and not t.startswith(("STRUCT", "MAP"))
+              and c != "code"]
+    # the export repeats some barcodes: one row per code, or the extract has no key (introspect then leaves
+    # both tables out of the draft)
+    latest = "last_modified_t DESC NULLS LAST, " if "last_modified_t" in cols else ""
+    con.execute(f"CREATE TABLE pick AS SELECT * FROM read_parquet({lit(src)}) AS f WHERE code IS NOT NULL "
+                f"QUALIFY row_number() OVER (PARTITION BY code ORDER BY {latest}md5(CAST(f AS VARCHAR))) = 1 "
+                f"ORDER BY hash(code), code LIMIT {rows}")
+    sel = ", ".join(ident(c) for c in scalar)
+    con.execute(f"COPY (SELECT code, {sel} FROM pick ORDER BY code) TO {lit(out / 'product.parquet')} (FORMAT parquet)")
+    if "categories_tags" in cols:
+        con.execute("COPY (SELECT code, unnest(categories_tags) AS tag FROM pick ORDER BY code, tag) "
+                    f"TO {lit(out / 'product_tag.parquet')} (FORMAT parquet)")
+    for f in sorted(out.glob("*.parquet")):
+        print(f.stem, con.execute(f"SELECT count(*) FROM read_parquet({lit(f)})").fetchone()[0], "rows")
+
+
+if __name__ == "__main__":
+    main(sys.argv)

@@ -73,6 +73,22 @@ def rate(r: dict) -> float:
     return sum(c["pass"] for c in j) / len(j) if j else float("nan")
 
 
+def merge(old: dict, new: dict, keep: set[str]) -> dict:
+    """The baseline `new` plus the entries of `old` for datasets that `new` does not cover (and that still
+    exist: names in `keep`). The file-level lists (sources, relsynth, git, machines) describe every
+    entry, so they become the union of both; `kept` names the entries carried over from `old`."""
+    carried = {k: v for k, v in old.get("datasets", {}).items() if k not in new["datasets"] and k in keep}
+    if not carried:
+        return new
+    out = dict(new)
+    out["sources"] = list(dict.fromkeys([*(old.get("sources") or []), *(new.get("sources") or [])]))
+    for f in ("relsynth", "git", "machines"):
+        out[f] = sorted({*(old.get(f) or []), *(new.get(f) or [])}, key=str)
+    out["datasets"] = dict(sorted({**carried, **new["datasets"]}.items()))
+    out["kept"] = sorted(carried)
+    return out
+
+
 def build(records: list[dict], sources: list[str] | None = None) -> dict:
     """The regression baseline of bench records: per dataset, pass rates and judged checks over seeds."""
     by_ds: dict = defaultdict(list)

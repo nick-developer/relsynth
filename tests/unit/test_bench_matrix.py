@@ -350,7 +350,12 @@ def test_coerce_keeps_typed_text_columns_as_they_are():
 
     from relsynth.data import coerce
 
-    for dt in ("str", "string", pd.StringDtype("python", na_value=np.nan)):
+    dtypes: list = ["str", "string"]
+    try:                                    # na_value is new in pandas 2.3; the declared range starts at 2.2
+        dtypes.append(pd.StringDtype("python", na_value=np.nan))
+    except TypeError:
+        pass
+    for dt in dtypes:
         df = pd.DataFrame({"c": pd.Series(["a", None, "b c"], dtype=dt)})
         out = coerce(df, {"columns": {"c": {"type": "text"}}})
         assert out["c"].dtype == df["c"].dtype and out["c"].equals(df["c"])
@@ -456,3 +461,72 @@ def test_a_watchdog_abort_keeps_its_traceback_in_the_record():
            '  File "evaluate.py", line 297 in _assoc_fast\n\nExtension modules: ' + "m, " * 2000 + "(total: 2000)\n")
     assert _tail(err, 1500).endswith("in _assoc_fast")
     assert _tail("plain error text", 5) == " text"
+
+
+def test_open_food_facts_extract_keeps_a_quoted_column_name_as_one_identifier(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("off", ROOT / "bench" / "builders" / "openfoodfacts_extract.py")
+    off = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(off)
+    evil = "x\" FROM pick) TO '" + str(tmp_path / "escaped.parquet") + "' (FORMAT parquet) --"
+    pd.DataFrame({"code": ["1", "2"], evil: [1, 2], "last_modified_t": [5, 6]}).to_parquet(tmp_path / "f.parquet")
+    off.main(["x", str(tmp_path / "f.parquet"), str(tmp_path / "out")])
+    assert not (tmp_path / "escaped.parquet").exists()
+    assert evil in pd.read_parquet(tmp_path / "out" / "product.parquet").columns
+
+
+def test_generic_checks_keep_text_keys_and_report_missing_tables(tmp_path):
+    from bench.checks import generic
+    db = tmp_path / "r.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE sku (code TEXT PRIMARY KEY)")
+    con.execute("CREATE TABLE sale (id INTEGER PRIMARY KEY, code TEXT REFERENCES sku(code))")
+    con.execute("CREATE TABLE extra (id INTEGER PRIMARY KEY)")
+    con.executemany("INSERT INTO sku VALUES (?)", [("SKU",), ("12",)])
+    con.executemany("INSERT INTO sale VALUES (?, ?)", [(1, "SKU"), (2, "12")])
+    con.executemany("INSERT INTO extra VALUES (?)", [(1,), (2,), (3,)])
+    con.commit()
+    con.close()
+    import relsynth as rs
+    spec_path = tmp_path / "spec.yaml"
+    rs.introspect(f"sqlite:{db}", name="k").save(spec_path)
+    syn = tmp_path / "syn"
+    syn.mkdir()
+    pd.DataFrame({"code": ["SKU", "12"]}).to_csv(syn / "sku.csv", index=False)
+    pd.DataFrame({"id": [1, 2], "code": ["SKU.0", "12.0"]}).to_csv(syn / "sale.csv", index=False)
+    out = generic.checks(spec_path, f"sqlite:{db}", syn)
+    assert out["X2 fk_orphans|sale.code"] == (0.0, 0.5)             # 'SKU.0' is not 'SKU'; 12.0 is 12
+    assert out["X0 table_missing|extra"] == (0.0, 1.0)
+    assert out["X5 rows_ratio"] == (None, round(4 / 7, 6))           # the missing table's rows count
+
+
+def test_stress_schema_refers_to_every_code_list_once(stress_db):
+    _, fks, _ = _catalog(stress_db)
+    refs = [r[2] for r in fks["wide_profile"] if r[2].startswith("ref_")]
+    assert refs and len(refs) == len(set(refs))
+
+
+def test_matrix_seed_override_runs_each_dataset_seed_pair_once():
+    jobs = [p for p in matrix("weekly", seeds=[1]) if p["datasets"]]
+    assert len(jobs) == len({p["datasets"] for p in jobs}) and all(p["seeds"] == "1" for p in jobs)
+    assert any(len(DATASETS[n].jobs) > 1 for n in tier_datasets("weekly"))
+
+
+def test_key_text_maps_each_value_on_its_own():
+    from relsynth.data import canonical_keys
+    from relsynth.source import _key_text
+    col = _key_text(pd.Series(["001", "2.0", None]))
+    assert set(_key_text(["2.0"])) <= set(col) and set(_key_text([2])) <= set(col)
+    assert list(col) == ["001", "2", "<NA>"]
+    assert canonical_keys(pd.Series([-(2.0 ** 63), None])).dtype == "Int64"
+
+
+def test_int_distinct_leaves_floats_beyond_int64_to_the_object_path(tmp_path, monkeypatch):
+    import relsynth.source as src
+    d = tmp_path / "pq"
+    d.mkdir()
+    pd.DataFrame({"id": [1.0, 2.0, 3.0], "big": [1e20, 2e20, None]}).to_parquet(d / "t.parquet")
+    monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", 0)
+    lazy = src.Source({"kind": "parquet", "path": str(d)})
+    assert lazy.int_distinct("t", "big") is None
+    assert list(lazy.int_distinct("t", "id")[0]) == [1, 2, 3]

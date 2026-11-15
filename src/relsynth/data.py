@@ -329,7 +329,7 @@ def _typed_text(s: pd.Series) -> bool:
 def _exact_integers(v) -> bool:
     v = np.asarray(v, dtype=float)
     # beyond the int64 range a whole number cannot become an Int64 key (a 20-digit barcode): kept as is
-    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)) and (np.abs(v) < 2.0**63).all())
+    return bool(np.isfinite(v).all() and np.array_equal(v, np.round(v)) and (v >= -(2.0**63)).all() and (v < 2.0**63).all())
 
 
 def is_stringlike(s: pd.Series) -> bool:

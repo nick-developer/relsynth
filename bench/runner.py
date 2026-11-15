@@ -204,11 +204,15 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
     ds = DATASETS[name]
     if ds.kind == "documents":
         return run_documents(name, seed)
-    location = ds.location()
     overrides = (*ds.overrides, *overrides)
     rec = {"dataset": name, "seed": seed, "pushdown": pushdown}
     if overrides:
         rec["overrides"] = list(overrides)
+    try:
+        location = ds.location()
+    except Exception as e:  # noqa: BLE001 (a build failure is a result of the dataset, not a crash)
+        rec["error"] = f"build: {e}"[-2000:]
+        return rec
     try:
         spec_path = Path(ds.spec())
     except Exception as e:  # noqa: BLE001 (an introspect failure is a result of the dataset, not a crash)

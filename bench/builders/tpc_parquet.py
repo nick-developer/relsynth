@@ -23,7 +23,10 @@ kind, sf, out = sys.argv[1], float(sys.argv[2]), Path(sys.argv[3])
 if kind not in ("tpch", "tpcds"):
     raise SystemExit("kind must be tpch or tpcds")
 out.mkdir(parents=True, exist_ok=True)
-con = duckdb.connect(str(out.with_suffix(".duckdb")))     # on disk: SF10 does not fit in a runner's memory
+# on disk: SF10 does not fit in a runner's memory; a file left by a failed build would keep its tables
+# and the generator would append to them, so each build starts from an empty database
+out.with_suffix(".duckdb").unlink(missing_ok=True)
+con = duckdb.connect(str(out.with_suffix(".duckdb")))
 con.execute(f"INSTALL {kind}")
 con.execute(f"LOAD {kind}")
 con.execute(f"CALL {'dbgen' if kind == 'tpch' else 'dsdgen'}(sf = {sf})")

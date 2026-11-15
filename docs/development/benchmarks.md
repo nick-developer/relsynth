@@ -40,7 +40,7 @@ about 4 hours on 4 cores, most of it AdventureWorks (about 30 minutes per seed a
 | `berka` | Berka / PKDD'99 Czech bank (SyntheRela "financial": 8 tables, 1.08M rows), built into SQLite with SDV's keys | scorecard, F1–F16, quality, privacy (accounts) |
 | `acs` | ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns), built into SQLite | scorecard, A1–A14, quality, privacy with shadow models (people), determinism |
 | `bi_corep_lr` | the maintainer's private EBA COREP extract | scorecard, B1–B8, quality |
-| G7 matrix | 23 more datasets in the PR, weekly, monthly and local tiers ([bench/README.md](../../bench/README.md#the-benchmark-matrix-g7)) | scorecard, X1–X6, quality; privacy on Adult |
+| G7 matrix | 23 more datasets in the PR, weekly, monthly and local tiers ([bench/README.md](../../bench/README.md#the-benchmark-matrix-g7)) | scorecard, X0–X6, quality; privacy on Adult |
 | `fake` | the statistical check suite (pytest -m science) | C00–C78, C600–C606 and the other science checks |
 
 Berka and ACS were added on 2026-10-30 as the most complex databases of the
@@ -210,7 +210,11 @@ or let GitHub-hosted runners build it: dispatch `bench.yml` on the pull
 request's branch with `rebuild_baseline` (and, to reuse the records of a run
 that already finished, `records_from_run: <run id>`). Its `baseline` job copies
 the records to `bench/history/`, builds `bench/baseline.json` and pushes a
-signed-off commit to that branch; it never writes to main. A push made with the
+signed-off commit to that branch; it never writes to main. The entries of the
+datasets the run did not cover (another tier, or those left out by `only`) are
+kept, so a dispatch with `only` rebuilds just those sets and the `pr` tier choice
+rebuilds the PR tier's entries; `python -m bench baseline --replace` writes only
+the records' datasets. A push made with the
 workflow's token starts no other workflow, so push a further commit (or re-run
 CI) before the pull request is reviewed. The current baseline was built this way
 from the records of bench run 42454454955 (GitHub-hosted runners, one job per

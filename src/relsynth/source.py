@@ -32,7 +32,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .data import FILE_KINDS, canonical_keys, normalise_frame, read_table_file, table_files
+from .data import _LEADING_ZERO, FILE_KINDS, normalise_frame, read_table_file, table_files
 
 # up to this many rows the primary key is read to draw a seeded sample; beyond it the
 # dialect's random order is used (not reproducible, reported in the log)
@@ -58,8 +58,30 @@ def _large_parquet(path) -> bool:
 
 def _key_text(s) -> pd.Series:
     """Keys as text for matching a file table's rows: a key column with NULLs comes back from Parquet as
-    floats (2450815.0), and integer-valued keys must match the integer column of the parent (2450815)."""
-    return canonical_keys(pd.Series(s).reset_index(drop=True)).astype(str)
+    floats (2450815.0), and integer-valued keys must match the integer column of the parent (2450815).
+    Each value is mapped on its own (not by the rest of its column, as canonical_keys decides), so the
+    requested keys and every batch of the source column agree: whole numbers and whole-number text
+    without a leading zero become the integer's digits, any other value its own text."""
+    s = pd.Series(s).reset_index(drop=True)
+    na = s.isna().to_numpy()
+    if pd.api.types.is_bool_dtype(s):
+        out = s.astype(str).to_numpy(dtype=object)
+    elif pd.api.types.is_integer_dtype(s):
+        out = s.astype("Int64").astype(str).to_numpy(dtype=object)
+    elif pd.api.types.is_numeric_dtype(s):
+        f = s.to_numpy(dtype=float, na_value=np.nan)
+        with np.errstate(invalid="ignore"):
+            whole = np.isfinite(f) & (f == np.round(f)) & (f >= -(2.0**63)) & (f < 2.0**63)
+        out = s.astype(str).to_numpy(dtype=object)
+        out[whole] = [str(x) for x in f[whole].astype(np.int64)]
+    else:
+        out = s.astype(str).to_numpy(dtype=object)
+        t = pd.Series(out, dtype=object).str.strip()
+        m = ~na & t.str.fullmatch(r"[+-]?\d+(\.0*)?").fillna(False).to_numpy(dtype=bool) \
+            & ~t.str.match(_LEADING_ZERO).fillna(False).to_numpy(dtype=bool)
+        out[m] = [str(int(x.split(".")[0])) for x in t[m]]
+    out[na] = "<NA>"
+    return pd.Series(out, dtype=object)
 
 
 def _match(name, include, exclude):
@@ -377,7 +399,7 @@ class Source:
         if u.dtype.kind == "f":
             # as canonical_keys and keyfind do on a whole column: whole numbers become integer keys; other
             # values are cut to integers the way the object path's int64 conversion cuts them
-            if not np.isfinite(u).all():
+            if not (np.isfinite(u).all() and (u >= -(2.0**63)).all() and (u < 2.0**63).all()):
                 return None
             whole = bool((u == np.round(u)).all())
             u = np.unique(u.astype(np.int64)) if whole else np.sort(u.astype(np.int64))

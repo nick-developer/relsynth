@@ -19,10 +19,10 @@ on:
   workflow_dispatch:
     inputs:
       tier:
-        description: "Tier to run (weekly or monthly)"
+        description: "Tier to run (weekly or monthly; pr to rebuild the PR tier's baseline on hosted runners)"
         default: weekly
         type: choice
-        options: [weekly, monthly]
+        options: [weekly, monthly, pr]
       seeds:
         description: "Seeds (default: each dataset's own)"
         default: ""
@@ -62,7 +62,9 @@ jobs:
       - id: m
         env:
           ONLY: ${{ inputs.only }}
-        run: echo "parts=$(python -m bench matrix --tier "$TIER" --only "$ONLY")" >> "$GITHUB_OUTPUT"
+          SEEDS: ${{ inputs.seeds }}
+        # a seeds override replaces each dataset's seed groups here, so no dataset/seed pair runs twice
+        run: echo "parts=$(python -m bench matrix --tier "$TIER" --only "$ONLY" --seeds "$SEEDS")" >> "$GITHUB_OUTPUT"
 
   bench:
     # one job per dataset (in parallel), each within a hosted runner's 6 hours
@@ -89,7 +91,7 @@ jobs:
           key: bench-data-${{ matrix.part.datasets || 'fake' }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
       - name: ${{ matrix.part.name }}
         env:
-          SEEDS: ${{ inputs.seeds || matrix.part.seeds }}
+          SEEDS: ${{ matrix.part.seeds }}
           DATASETS: ${{ matrix.part.datasets }}
           FAKE: ${{ matrix.part.fake }}
         run: |
@@ -125,9 +127,10 @@ jobs:
   baseline:
     # A baseline change on the dispatched branch: the records of this run (or of
     # records_from_run) become bench/history/ files and bench/baseline.json, in a
-    # signed-off commit that the pull request then reviews with the rest.
+    # signed-off commit that the pull request then reviews with the rest. The entries of
+    # the datasets this run did not cover (other tiers, or those left out by `only`) are kept.
     needs: bench
-    if: ${{ always() && inputs.rebuild_baseline && !inputs.only && github.ref != 'refs/heads/main' && needs.bench.result != 'failure' }}
+    if: ${{ always() && inputs.rebuild_baseline && github.ref != 'refs/heads/main' && needs.bench.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -152,11 +155,14 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # one folder per job (records of parallel jobs can share a name): prefix the job's part
+          # one folder per job (records of parallel jobs can share a name): prefix the job's part;
+          # a lone artifact (a dispatch with `only` of one set) is extracted straight into bench-out/
+          shopt -s nullglob
           for f in bench-out/*/*.json; do
             part=$(basename "$(dirname "$f")"); cp "$f" "bench/history/${part#bench-history-}-$(basename "$f")"
           done
-          python -m bench baseline bench-out/*/*.json
+          for f in bench-out/*.json; do cp "$f" bench/history/; done
+          python -m bench baseline bench-out/*.json bench-out/*/*.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add bench/baseline.json bench/history/

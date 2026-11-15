@@ -193,7 +193,7 @@ def build(out: Path, tables: int, depth: int, wide: int, rows: int, branches: in
             v = (base + rng.normal(size=n_wide) > 0).astype(int).astype(object)
             ty = "INTEGER"
         else:                                       # a code from a code list
-            r = k % n_refs
+            r = (k // 5) % n_refs                   # the j-th code-list column refers to list j (mod n_refs)
             n_codes = counts[f"ref_{r}"]
             v = np.array([f"R{r}C{int(i)}" for i in np.minimum(rng.zipf(1.5, size=n_wide) - 1, n_codes - 1)], dtype=object)
             ty = "TEXT"
