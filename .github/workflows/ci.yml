@@ -503,7 +503,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      # Exact pin, from PyTorch's CPU index only (no fallback to PyPI); bump it with the extra.
+      - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,neural,bench]"
       - name: Neural unit tests
         run: pytest -q tests/unit/test_neural.py tests/unit/test_generators.py
