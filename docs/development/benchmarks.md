@@ -217,9 +217,9 @@ rebuilds the PR tier's entries; `python -m bench baseline --replace` writes only
 the records' datasets. A push made with the
 workflow's token starts no other workflow, so push a further commit (or re-run
 CI) before the pull request is reviewed. The current baseline was built this way
-from the records of bench run 42454454955 (GitHub-hosted runners, one job per
-database), reused by run 42474261019 with `records_from_run`; it adds the
-`privacy[cart]` and `privacy[independent]` rows of ACS and Berka.
+on GitHub-hosted runners, one job per dataset: the weekly tier from bench run
+43632194351, the PR tier from run 43668622863 (merged into it) and stress_m again
+from run 43669219976 after its schema change (every code list now linked).
 
 The pull request says why the numbers moved. A baseline built on a different
 machine from the previous one says so in its description.
