@@ -41,7 +41,7 @@ STATES = {}          # no golden database has a status column along its order hi
 SCENARIOS = {
     "contoso_parquet": [
         {"type": "scale", "table": "customer", "factor": 1.25},
-        {"type": "shares", "table": "customer", "column": "Continent", "shares": {"Europe": 0.5}},
+        {"type": "shares", "table": "customer", "column": "Gender", "shares": {"male": 0.3}},
         {"type": "shares", "table": "customer", "column": "Gender", "factors": {"female": 2.0}},
         {"type": "marginal", "table": "orderrows", "column": "NetPrice", "quantiles": [[0.9, 1.0], [1.0, 1.2]]},
         {"type": "intensity", "table": "orders", "column": "DT", "start": "2019-11-01", "end": "2020-01-01",

@@ -312,6 +312,15 @@ class Scenario:
             raise SpecError(f"scenario: {e} cannot be tilted (only entity tables that are neither copied, a "
                             "self-referencing tree nor a unique-key grain)")
 
+    @staticmethod
+    def _check_drawn(df, e, col):
+        """A shares tilt accepts rows by a column the table model draws with the
+        row; a column filled later (a dimension group's level table, a lookup, a
+        computed column) is not there when rows are accepted."""
+        if col not in df.columns:
+            raise SpecError(f"scenario shares: {e}.{col} is not drawn by the table model (it comes from a "
+                            "dimension group, a lookup or an expression); tilt a column the table draws")
+
     def _intensity(self, S, t, iv, rec):
         a, b, f = _days(iv["start"]), _days(iv["end"]), float(iv["factor"])
         if t in getattr(S, "series_spec", {}):
@@ -360,6 +369,7 @@ class Scenario:
         for kind, col, arg, _rec in self.tilt.get(e, []):
             if kind == "level":
                 from .timeseries.hooks import _state_keys
+                self._check_drawn(df, e, col)
                 keys = _state_keys(df[col].to_numpy(dtype=object))
                 fac = np.array([arg.get(k, 1.0) for k in keys]) if len(keys) else np.zeros(0)
                 w = w * fac
@@ -428,6 +438,7 @@ class Scenario:
         col, shares, rec = self.target[e]
         zb = rng.permutation(np.repeat(np.arange(len(p)), rng.multinomial(max(batch, 2000), p)))
         db = S.tm[e].sample(zb, rng)
+        self._check_drawn(db, e, col)
         keys = _state_keys(db[col].to_numpy(dtype=object))
         lv, cnt = np.unique(keys, return_counts=True)
         base = dict(zip(lv.tolist(), (cnt / cnt.sum()).tolist()))
