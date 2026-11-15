@@ -50,3 +50,7 @@ adventureworks:
     DimGeography: CountryRegionCode
     DimProduct: Class
     DimReseller: BankName
+
+adult:
+  targets:
+    adult: label                  # income over 50K, the dataset's task

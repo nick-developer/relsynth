@@ -1,0 +1,1969 @@
+{
+ "schema": 1,
+ "relsynth": "2.1.0",
+ "git": {
+  "sha": "a70b34336e5c51440747f07708ce21365c26f8a0",
+  "branch": "claude/project-thread-jvtjjl",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm8axu0",
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "cpus": 4,
+  "python": "3.12.16",
+  "numpy": "2.5.4",
+  "pandas": "3.1.1",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-11-14T19:29:40+00:00",
+ "label": "weekly",
+ "seeds": [
+  1
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "tpch_sf1",
+   "seed": 1,
+   "pushdown": "auto",
+   "spec_sha256": "0c6e9eccdb57ab645486a6e55cdd18da7ae8d863a326a2b2da7fb6c70e27caf5",
+   "seconds": 3614.5,
+   "cost": {
+    "cpu_seconds": 3674.1,
+    "peak_mib": 8765.6
+   },
+   "exit_code": 0,
+   "rows": {
+    "customer": 149866,
+    "lineitem": 4626712,
+    "nation": 25,
+    "orders": 1500000,
+    "part": 200000,
+    "region": 5,
+    "supplier": 9974
+   },
+   "pushed": [
+    "lineitem"
+   ],
+   "scorecard": {
+    "passed": 129,
+    "total": 140
+   },
+   "privacy_check": {
+    "status": "skipped",
+    "seconds": 0.01
+   },
+   "quality": {
+    "seconds": 801.9,
+    "cpu_seconds": 970.4,
+    "peak_mib": 4590.6
+   },
+   "checks": [
+    {
+     "id": "scorecard:customer.c_acctbal|marginal_ks",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:customer.c_acctbal|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:customer.c_mktsegment|marginal_tvd",
+     "pass": true,
+     "value": 0.0042,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:customer.c_mktsegment|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:customer|association_max_diff",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4941,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:lineitem.l_partkey|marginal_ks",
+     "pass": true,
+     "value": 0.007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_partkey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_suppkey|marginal_ks",
+     "pass": true,
+     "value": 0.0042,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_suppkey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_quantity|marginal_ks",
+     "pass": true,
+     "value": 0.0282,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_extendedprice|marginal_ks",
+     "pass": true,
+     "value": 0.0289,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_extendedprice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_discount|marginal_ks",
+     "pass": true,
+     "value": 0.0035,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_discount|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_tax|marginal_ks",
+     "pass": true,
+     "value": 0.0082,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_tax|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_returnflag|marginal_tvd",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_returnflag|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_linestatus|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_linestatus|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_shipdate|marginal_ks",
+     "pass": false,
+     "value": 0.1368,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_shipdate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_commitdate|marginal_ks",
+     "pass": false,
+     "value": 0.1368,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_commitdate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_receiptdate|marginal_ks",
+     "pass": false,
+     "value": 0.1368,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_receiptdate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_shipinstruct|marginal_tvd",
+     "pass": true,
+     "value": 0.005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_shipinstruct|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_shipmode|marginal_tvd",
+     "pass": true,
+     "value": 0.0017,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:lineitem.l_shipmode|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem|association_max_diff",
+     "pass": false,
+     "value": 0.1557,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:lineitem|discriminator_auc",
+     "pass": false,
+     "value": 0.677,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:nation.n_name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:nation.n_name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:nation.n_comment|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.3686
+    },
+    {
+     "id": "scorecard:nation.n_comment|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:nation|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7144
+    },
+    {
+     "id": "scorecard:orders.o_custkey|marginal_ks",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_custkey|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_orderstatus|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_orderstatus|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_totalprice|marginal_ks",
+     "pass": true,
+     "value": 0.0053,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_totalprice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_orderdate|marginal_ks",
+     "pass": true,
+     "value": 0.0037,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_orderdate|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_orderpriority|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_orderpriority|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_clerk|marginal_tvd",
+     "pass": true,
+     "value": 0.0148,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_clerk|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders.o_shippriority|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:orders.o_shippriority|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:orders|association_max_diff",
+     "pass": true,
+     "value": 0.0312,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:orders|discriminator_auc",
+     "pass": true,
+     "value": 0.5032,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:part.p_mfgr|marginal_tvd",
+     "pass": true,
+     "value": 0.004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_mfgr|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part.p_brand|marginal_tvd",
+     "pass": true,
+     "value": 0.0073,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_brand|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part.p_type|marginal_tvd",
+     "pass": true,
+     "value": 0.0152,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_type|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part.p_size|marginal_ks",
+     "pass": true,
+     "value": 0.0184,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_size|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part.p_container|marginal_tvd",
+     "pass": true,
+     "value": 0.0071,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_container|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part.p_retailprice|marginal_ks",
+     "pass": true,
+     "value": 0.0083,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:part.p_retailprice|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:part|association_max_diff",
+     "pass": true,
+     "value": 0.036,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:part|discriminator_auc",
+     "pass": true,
+     "value": 0.5025,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:region.r_name|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:region.r_name|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:region.r_comment|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:region.r_comment|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.3153
+    },
+    {
+     "id": "scorecard:region|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 1.6771
+    },
+    {
+     "id": "scorecard:supplier.s_acctbal|marginal_ks",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:supplier.s_acctbal|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:supplier|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:supplier|discriminator_auc",
+     "pass": true,
+     "value": 0.5072,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:customer.joined:c_nationkey.n_name|join_tvd",
+     "pass": true,
+     "value": 0.0085,
+     "limit": 1.3688
+    },
+    {
+     "id": "scorecard:customer.joined:c_nationkey.n_comment|join_tvd",
+     "pass": true,
+     "value": 0.0085,
+     "limit": 1.3688
+    },
+    {
+     "id": "scorecard:customer.joined:c_nationkey.n_regionkey.r_name|join_tvd",
+     "pass": true,
+     "value": 0.0021,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:customer.joined:c_nationkey.n_regionkey.r_comment|join_tvd",
+     "pass": true,
+     "value": 0.0021,
+     "limit": 1.2079
+    },
+    {
+     "id": "scorecard:customer.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.0311,
+     "limit": 3.022
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_custkey|join_ks",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_orderstatus|join_tvd",
+     "pass": true,
+     "value": 0.0082,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_totalprice|join_ks",
+     "pass": true,
+     "value": 0.0727,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_orderdate|join_ks",
+     "pass": true,
+     "value": 0.0575,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_orderpriority|join_tvd",
+     "pass": true,
+     "value": 0.0014,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_clerk|join_tvd",
+     "pass": true,
+     "value": 0.0253,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined:l_orderkey.o_shippriority|join_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.joined|join_assoc_max_z",
+     "pass": false,
+     "value": 18.5578,
+     "limit": 3.569
+    },
+    {
+     "id": "scorecard:supplier.joined:s_nationkey.n_name|join_tvd",
+     "pass": true,
+     "value": 0.0272,
+     "limit": 1.3707
+    },
+    {
+     "id": "scorecard:supplier.joined:s_nationkey.n_comment|join_tvd",
+     "pass": true,
+     "value": 0.0272,
+     "limit": 1.3707
+    },
+    {
+     "id": "scorecard:supplier.joined:s_nationkey.n_regionkey.r_name|join_tvd",
+     "pass": true,
+     "value": 0.0115,
+     "limit": 1.2083
+    },
+    {
+     "id": "scorecard:supplier.joined:s_nationkey.n_regionkey.r_comment|join_tvd",
+     "pass": true,
+     "value": 0.0115,
+     "limit": 1.2083
+    },
+    {
+     "id": "scorecard:supplier.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 0.1554,
+     "limit": 3.022
+    },
+    {
+     "id": "scorecard:customer.c_nationkey->nation|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:customer.c_nationkey->nation|cardinality_ks",
+     "pass": true,
+     "value": 0.32,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:customer.c_nationkey->nation|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:customer.c_nationkey->nation|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem.l_orderkey->orders|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:lineitem.l_orderkey->orders|cardinality_ks",
+     "pass": false,
+     "value": 0.1789,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:lineitem.l_orderkey->orders|cardinality_mean_rel_err",
+     "pass": false,
+     "value": 0.229,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem.l_orderkey->orders|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:nation.n_regionkey->region|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:nation.n_regionkey->region|cardinality_ks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.9856
+    },
+    {
+     "id": "scorecard:nation.n_regionkey->region|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.7071
+    },
+    {
+     "id": "scorecard:nation.n_regionkey->region|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.069
+    },
+    {
+     "id": "scorecard:supplier.s_nationkey->nation|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:supplier.s_nationkey->nation|cardinality_ks",
+     "pass": true,
+     "value": 0.28,
+     "limit": 0.4559
+    },
+    {
+     "id": "scorecard:supplier.s_nationkey->nation|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0026,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:supplier.s_nationkey->nation|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:lineitem|time_bucket_tvd",
+     "pass": false,
+     "value": 0.2659,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:lineitem|time_bucket_tvd_conditional",
+     "pass": false,
+     "value": 0.2741,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:customer.c_comment|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:customer.c_comment|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:customer.c_comment|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:lineitem.l_comment|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:lineitem.l_comment|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:lineitem.l_comment|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:orders.o_comment|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:orders.o_comment|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:orders.o_comment|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_name|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_name|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_name|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_comment|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_comment|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:part.p_comment|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:supplier.s_comment|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:supplier.s_comment|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:supplier.s_comment|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:orders|dcr_ratio",
+     "pass": true,
+     "value": 1.001,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:orders|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:part|dcr_ratio",
+     "pass": true,
+     "value": 1.1038,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:part|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:lineitem: days(l_orderkey.o_orderdate) < days(l_shipdate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:lineitem: days(l_orderkey.o_orderdate) < days(l_commitdate)|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:lineitem|rows_removed_share",
+     "pass": false,
+     "value": 0.229,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:lineitem: unique ['l_orderkey', 'l_linenumber']|unique_duplicate_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "domain:X1 pk_duplicates|customer",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|customer",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X6 null_share_mad|lineitem",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|nation",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|nation",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|orders",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|orders",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|part",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|part",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|region",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|region",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|supplier",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|supplier",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 0.825134,
+     "real": null
+    },
+    {
+     "id": "domain:X2 fk_orphans|customer.c_nationkey",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|customer.c_nationkey",
+     "pass": null,
+     "value": 0.041891,
+     "real": 0.041073
+    },
+    {
+     "id": "domain:X2 fk_orphans|lineitem.l_orderkey",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|lineitem.l_orderkey",
+     "pass": null,
+     "value": 0.021496,
+     "real": 0.017496
+    },
+    {
+     "id": "domain:X2 fk_orphans|nation.n_regionkey",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|nation.n_regionkey",
+     "pass": null,
+     "value": 0.2,
+     "real": 0.2
+    },
+    {
+     "id": "domain:X2 fk_orphans|supplier.s_nationkey",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|supplier.s_nationkey",
+     "pass": null,
+     "value": 0.044115,
+     "real": 0.0438
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 566.4,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 8765.6,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:w1_raw_sd:customer:c_acctbal",
+     "pass": true,
+     "value": 0.00989,
+     "limit": 0.05,
+     "alpha": 0.000255
+    },
+    {
+     "id": "quality:w1_rank_normal:customer:c_acctbal",
+     "pass": true,
+     "value": 0.011583,
+     "limit": 0.05,
+     "alpha": 2.6e-05
+    },
+    {
+     "id": "quality:js_distance:customer:c_acctbal",
+     "pass": true,
+     "value": 0.015888,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:js_distance:customer:c_mktsegment",
+     "pass": true,
+     "value": 0.01008,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:kway2_tvd_mean:customer",
+     "pass": true,
+     "value": 0.02085,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:customer",
+     "pass": true,
+     "value": 0.02085,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:alpha_precision_gap:customer",
+     "pass": true,
+     "value": 0.00894,
+     "limit": 0.1,
+     "alpha": 0.000103
+    },
+    {
+     "id": "quality:beta_recall_gap:customer",
+     "pass": true,
+     "value": 0.02832,
+     "limit": 0.1,
+     "alpha": 0.000802
+    },
+    {
+     "id": "quality:tstr_gap:customer:c_mktsegment",
+     "pass": true,
+     "value": -0.005068,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:trts_gap:customer:c_mktsegment",
+     "pass": true,
+     "value": 0.007482,
+     "limit": 0.05,
+     "alpha": 0.002833
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_partkey",
+     "pass": true,
+     "value": 0.01649,
+     "limit": 0.05,
+     "alpha": 0.00075
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_partkey",
+     "pass": true,
+     "value": 0.018509,
+     "limit": 0.05,
+     "alpha": 0.000211
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_partkey",
+     "pass": true,
+     "value": 0.012646,
+     "limit": 0.05,
+     "alpha": 1.3e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_suppkey",
+     "pass": true,
+     "value": 0.004638,
+     "limit": 0.05,
+     "alpha": 0.000277
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_suppkey",
+     "pass": true,
+     "value": 0.007059,
+     "limit": 0.05,
+     "alpha": 0.000193
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_suppkey",
+     "pass": true,
+     "value": 0.017708,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_quantity",
+     "pass": false,
+     "value": 0.070889,
+     "limit": 0.05,
+     "alpha": 0.000101
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_quantity",
+     "pass": false,
+     "value": 0.074853,
+     "limit": 0.05,
+     "alpha": 2.2e-05
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_quantity",
+     "pass": true,
+     "value": 0.0475,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_extendedprice",
+     "pass": false,
+     "value": 0.085377,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_extendedprice",
+     "pass": false,
+     "value": 0.089368,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_extendedprice",
+     "pass": true,
+     "value": 0.042483,
+     "limit": 0.05,
+     "alpha": 7e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_discount",
+     "pass": true,
+     "value": 0.013911,
+     "limit": 0.05,
+     "alpha": 0.001021
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_discount",
+     "pass": true,
+     "value": 0.014015,
+     "limit": 0.05,
+     "alpha": 0.000522
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_discount",
+     "pass": true,
+     "value": 0.013186,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_tax",
+     "pass": true,
+     "value": 0.049353,
+     "limit": 0.05,
+     "alpha": 0.000357
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_tax",
+     "pass": true,
+     "value": 0.048429,
+     "limit": 0.05,
+     "alpha": 9.3e-05
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_tax",
+     "pass": true,
+     "value": 0.024426,
+     "limit": 0.05,
+     "alpha": 1.3e-05
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_returnflag",
+     "pass": true,
+     "value": 0.008501,
+     "limit": 0.05,
+     "alpha": 0.000786
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_linestatus",
+     "pass": true,
+     "value": 0.000467,
+     "limit": 0.054322,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_shipdate",
+     "pass": false,
+     "value": 0.29981,
+     "limit": 0.05,
+     "alpha": 0.000715
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_shipdate",
+     "pass": false,
+     "value": 0.350994,
+     "limit": 0.05,
+     "alpha": 0.000257
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_shipdate",
+     "pass": false,
+     "value": 0.269256,
+     "limit": 0.05,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_commitdate",
+     "pass": false,
+     "value": 0.301663,
+     "limit": 0.05,
+     "alpha": 0.000738
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_commitdate",
+     "pass": false,
+     "value": 0.354337,
+     "limit": 0.05,
+     "alpha": 0.000268
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_commitdate",
+     "pass": false,
+     "value": 0.266704,
+     "limit": 0.05,
+     "alpha": 2.3e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:lineitem:l_receiptdate",
+     "pass": false,
+     "value": 0.299838,
+     "limit": 0.05,
+     "alpha": 0.00078
+    },
+    {
+     "id": "quality:w1_rank_normal:lineitem:l_receiptdate",
+     "pass": false,
+     "value": 0.350503,
+     "limit": 0.05,
+     "alpha": 0.000244
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_receiptdate",
+     "pass": false,
+     "value": 0.269887,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_shipinstruct",
+     "pass": true,
+     "value": 0.006353,
+     "limit": 0.05,
+     "alpha": 1.4e-05
+    },
+    {
+     "id": "quality:js_distance:lineitem:l_shipmode",
+     "pass": true,
+     "value": 0.010164,
+     "limit": 0.05,
+     "alpha": 0.000167
+    },
+    {
+     "id": "quality:kway2_tvd_mean:lineitem",
+     "pass": false,
+     "value": 0.109256,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:lineitem",
+     "pass": false,
+     "value": 0.4272,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:lineitem",
+     "pass": false,
+     "value": 0.181958,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:lineitem",
+     "pass": true,
+     "value": 0.06244,
+     "limit": 0.1,
+     "alpha": 1e-05
+    },
+    {
+     "id": "quality:beta_recall_gap:lineitem",
+     "pass": true,
+     "value": 0.09906,
+     "limit": 0.107599,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:lineitem:l_linestatus",
+     "pass": true,
+     "value": -0.000155,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:lineitem:l_linestatus",
+     "pass": true,
+     "value": 0.000337,
+     "limit": 0.05,
+     "alpha": 6e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:orders:o_custkey",
+     "pass": true,
+     "value": 0.014677,
+     "limit": 0.05,
+     "alpha": 0.002274
+    },
+    {
+     "id": "quality:w1_rank_normal:orders:o_custkey",
+     "pass": true,
+     "value": 0.017735,
+     "limit": 0.05,
+     "alpha": 0.001549
+    },
+    {
+     "id": "quality:js_distance:orders:o_custkey",
+     "pass": true,
+     "value": 0.022795,
+     "limit": 0.05,
+     "alpha": 3.3e-05
+    },
+    {
+     "id": "quality:js_distance:orders:o_orderstatus",
+     "pass": true,
+     "value": 0.00834,
+     "limit": 0.05,
+     "alpha": 0.000495
+    },
+    {
+     "id": "quality:w1_raw_sd:orders:o_totalprice",
+     "pass": true,
+     "value": 0.015196,
+     "limit": 0.05,
+     "alpha": 0.000436
+    },
+    {
+     "id": "quality:w1_rank_normal:orders:o_totalprice",
+     "pass": true,
+     "value": 0.017411,
+     "limit": 0.05,
+     "alpha": 0.000177
+    },
+    {
+     "id": "quality:js_distance:orders:o_totalprice",
+     "pass": true,
+     "value": 0.01931,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:orders:o_orderdate",
+     "pass": true,
+     "value": 0.022194,
+     "limit": 0.05,
+     "alpha": 0.000411
+    },
+    {
+     "id": "quality:w1_rank_normal:orders:o_orderdate",
+     "pass": true,
+     "value": 0.02428,
+     "limit": 0.05,
+     "alpha": 9.2e-05
+    },
+    {
+     "id": "quality:js_distance:orders:o_orderdate",
+     "pass": true,
+     "value": 0.020264,
+     "limit": 0.05,
+     "alpha": 3.5e-05
+    },
+    {
+     "id": "quality:js_distance:orders:o_orderpriority",
+     "pass": true,
+     "value": 0.010968,
+     "limit": 0.05,
+     "alpha": 0.000128
+    },
+    {
+     "id": "quality:js_distance:orders:o_clerk",
+     "pass": true,
+     "value": 0.132857,
+     "limit": 0.145101,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:orders:o_shippriority",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_mean:orders",
+     "pass": true,
+     "value": 0.017119,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:orders",
+     "pass": true,
+     "value": 0.02795,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:orders",
+     "pass": true,
+     "value": 0.02804,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:orders",
+     "pass": true,
+     "value": 0.00582,
+     "limit": 0.1,
+     "alpha": 0.000119
+    },
+    {
+     "id": "quality:beta_recall_gap:orders",
+     "pass": true,
+     "value": 0.01386,
+     "limit": 0.1,
+     "alpha": 9e-06
+    },
+    {
+     "id": "quality:tstr_gap:orders:o_orderpriority",
+     "pass": true,
+     "value": -0.013117,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:trts_gap:orders:o_orderpriority",
+     "pass": true,
+     "value": 0.016788,
+     "limit": 0.087496,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:part:p_mfgr",
+     "pass": true,
+     "value": 0.004507,
+     "limit": 0.05,
+     "alpha": 5e-05
+    },
+    {
+     "id": "quality:js_distance:part:p_brand",
+     "pass": true,
+     "value": 0.012065,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:part:p_type",
+     "pass": true,
+     "value": 0.051855,
+     "limit": 0.059415,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:part:p_size",
+     "pass": true,
+     "value": 0.015905,
+     "limit": 0.05,
+     "alpha": 6.1e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:part:p_size",
+     "pass": true,
+     "value": 0.019548,
+     "limit": 0.05,
+     "alpha": 7e-05
+    },
+    {
+     "id": "quality:js_distance:part:p_size",
+     "pass": false,
+     "value": 0.0592,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:part:p_container",
+     "pass": true,
+     "value": 0.023559,
+     "limit": 0.05,
+     "alpha": 2.4e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:part:p_retailprice",
+     "pass": true,
+     "value": 0.015228,
+     "limit": 0.05,
+     "alpha": 9.5e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:part:p_retailprice",
+     "pass": true,
+     "value": 0.020131,
+     "limit": 0.05,
+     "alpha": 7.6e-05
+    },
+    {
+     "id": "quality:js_distance:part:p_retailprice",
+     "pass": true,
+     "value": 0.024959,
+     "limit": 0.05,
+     "alpha": 1.3e-05
+    },
+    {
+     "id": "quality:kway2_tvd_mean:part",
+     "pass": true,
+     "value": 0.034793,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:part",
+     "pass": true,
+     "value": 0.06575,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:part",
+     "pass": true,
+     "value": 0.084463,
+     "limit": 0.086138,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:part",
+     "pass": true,
+     "value": 0.01594,
+     "limit": 0.1,
+     "alpha": 0.000299
+    },
+    {
+     "id": "quality:beta_recall_gap:part",
+     "pass": true,
+     "value": 0.04278,
+     "limit": 0.1,
+     "alpha": 0.000463
+    },
+    {
+     "id": "quality:tstr_gap:part:p_mfgr",
+     "pass": true,
+     "value": 0.000225,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:part:p_mfgr",
+     "pass": true,
+     "value": 0.000588,
+     "limit": 0.05,
+     "alpha": 2e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:supplier:s_acctbal",
+     "pass": true,
+     "value": 0.00587,
+     "limit": 0.050606,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:supplier:s_acctbal",
+     "pass": true,
+     "value": 0.009579,
+     "limit": 0.05,
+     "alpha": 0.006902
+    },
+    {
+     "id": "quality:js_distance:supplier:s_acctbal",
+     "pass": true,
+     "value": 0.021651,
+     "limit": 0.05,
+     "alpha": 0.001963
+    },
+    {
+     "id": "quality:alpha_precision_gap:supplier",
+     "pass": true,
+     "value": 0.01012,
+     "limit": 0.1,
+     "alpha": 4.9e-05
+    },
+    {
+     "id": "quality:beta_recall_gap:supplier",
+     "pass": true,
+     "value": 0.015047,
+     "limit": 0.1,
+     "alpha": 0.000934
+    },
+    {
+     "id": "quality:fanout_w1_rel:customer.c_nationkey->nation",
+     "pass": true,
+     "value": 0.010053,
+     "limit": 0.1,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:customer.c_nationkey->nation",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:customer.c_nationkey->nation",
+     "pass": true,
+     "value": 1.472202,
+     "limit": 9.968647,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:lineitem.l_orderkey->orders",
+     "pass": false,
+     "value": 8.249817,
+     "limit": 0.1,
+     "alpha": 2.6e-05
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:lineitem.l_orderkey->orders",
+     "pass": false,
+     "value": 0.663919,
+     "limit": 0.03,
+     "alpha": 0.000297
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:lineitem.l_orderkey->orders",
+     "pass": true,
+     "value": 0.143713,
+     "limit": 0.25,
+     "alpha": 0.00717
+    },
+    {
+     "id": "quality:fanout_w1_rel:nation.n_regionkey->region",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.1
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:nation.n_regionkey->region",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:nation.n_regionkey->region",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.25
+    },
+    {
+     "id": "quality:fanout_w1_rel:supplier.s_nationkey->nation",
+     "pass": true,
+     "value": 0.0304,
+     "limit": 0.1,
+     "alpha": 1.2e-05
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:supplier.s_nationkey->nation",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:supplier.s_nationkey->nation",
+     "pass": true,
+     "value": 1.082637,
+     "limit": 1.45313,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout2_w1_rel:nation.n_regionkey->region | customer.c_nationkey->nation",
+     "pass": true,
+     "value": 0.00176,
+     "limit": 0.15,
+     "alpha": 1.8e-05
+    },
+    {
+     "id": "quality:fanout2_w1_rel:nation.n_regionkey->region | supplier.s_nationkey->nation",
+     "pass": true,
+     "value": 0.0172,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:hop_trend_gap:customer.c_nationkey->nation:1",
+     "pass": true,
+     "value": 0.056825,
+     "limit": 0.707107,
+     "alpha": 0.384937
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:customer.c_nationkey->nation:1",
+     "pass": true,
+     "value": 0.06525,
+     "limit": 0.707107,
+     "alpha": 0.018223
+    },
+    {
+     "id": "quality:hop_trend_gap:lineitem.l_orderkey->orders:1",
+     "pass": false,
+     "value": 0.095683,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:lineitem.l_orderkey->orders:1",
+     "pass": false,
+     "value": 0.44525,
+     "limit": 0.281278,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_gap:nation.n_regionkey->region:1",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.706541
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:nation.n_regionkey->region:1",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.706541
+    },
+    {
+     "id": "quality:hop_trend_gap:supplier.s_nationkey->nation:1",
+     "pass": true,
+     "value": 0.089151,
+     "limit": 0.707567,
+     "alpha": 0.000822
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:supplier.s_nationkey->nation:1",
+     "pass": true,
+     "value": 0.089151,
+     "limit": 0.707567,
+     "alpha": 0.000822
+    },
+    {
+     "id": "quality:hop_trend_gap:nation.n_regionkey->region | customer.c_nationkey->nation:2",
+     "pass": true,
+     "value": 0.02895,
+     "limit": 0.707107,
+     "alpha": 0.000382
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:nation.n_regionkey->region | customer.c_nationkey->nation:2",
+     "pass": true,
+     "value": 0.03325,
+     "limit": 0.707107,
+     "alpha": 0.000382
+    },
+    {
+     "id": "quality:hop_trend_gap:nation.n_regionkey->region | supplier.s_nationkey->nation:2",
+     "pass": true,
+     "value": 0.030945,
+     "limit": 0.707567
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:nation.n_regionkey->region | supplier.s_nationkey->nation:2",
+     "pass": true,
+     "value": 0.030945,
+     "limit": 0.707567
+    },
+    {
+     "id": "quality:dda_accuracy:nation:logistic",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.796146,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:dda_accuracy:orders:logistic",
+     "pass": true,
+     "value": 0.5,
+     "limit": 0.6
+    },
+    {
+     "id": "quality:mt_tstr_gap:orders:o_orderpriority",
+     "pass": true,
+     "value": -0.001334,
+     "limit": 0.05,
+     "alpha": 6.6e-05
+    },
+    {
+     "id": "quality:mt_trts_gap:orders:o_orderpriority",
+     "pass": true,
+     "value": 0.000428,
+     "limit": 0.051242,
+     "alpha": 0.01
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.8591,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.8591,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:referential_integrity",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.8591,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": 0.000225,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.000225,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:c2st_agg_accuracy_max",
+     "pass": null,
+     "value": 0.5,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:cardinality_similarity_mean",
+     "pass": null,
+     "value": 0.67447,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:cardinality_similarity_min",
+     "pass": null,
+     "value": 0.297881,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_1-hop",
+     "pass": null,
+     "value": 0.939585,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_2-hop",
+     "pass": null,
+     "value": 0.970052,
+     "direction": "higher"
+    }
+   ]
+  }
+ ],
+ "finished": "2026-11-14T20:43:50+00:00"
+}

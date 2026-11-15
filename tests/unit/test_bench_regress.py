@@ -84,6 +84,9 @@ def test_errors_and_missing_datasets_are_r3():
     assert reg == ["R3 db: in the baseline but not run"]
     reg, notes, _ = regress.compare(_baseline(), {"runs": [{"dataset": "db", "skipped": "private"}]}, full=True)
     assert reg == [] and notes
+    # a dataset of the tier without a run (its job stopped at the time limit) although not in the baseline yet
+    reg, _, _ = regress.compare(_baseline(), {"runs": []}, full=True, expected={"db", "new_set"})
+    assert reg == ["R3 db: in the baseline but not run", "R3 new_set: in the tier but not run"]
 
 
 def test_domain_item_judges_identities_only():
@@ -223,3 +226,13 @@ def test_dataset_that_only_errored_has_no_mean_and_compares():
     ok = {"dataset": "d", "seed": 1, "checks": [{"id": "a", "pass": True}]}
     regs, _notes, _summary = regress.compare(b, {"runs": [ok]})
     assert not any(x.startswith("R2") for x in regs)
+
+
+def test_a_partial_rebuild_keeps_the_other_datasets():
+    old = regress.build([{"runs": [_run("a", 1), _run("gone", 1)], "relsynth": "2.1.0"}], sources=["old.json"])
+    new = regress.build([{"runs": [_run("b", 1)], "relsynth": "2.2.0"}], sources=["new.json"])
+    m = regress.merge(old, new, keep={"a", "b"})
+    assert sorted(m["datasets"]) == ["a", "b"] and m["kept"] == ["a"]
+    assert m["sources"] == ["old.json", "new.json"] and m["relsynth"] == ["2.1.0", "2.2.0"]
+    assert regress.merge(old, regress.build([{"runs": [_run("a", 1), _run("gone", 1)]}]), keep={"a"})["datasets"].keys() \
+        == {"a", "gone"}

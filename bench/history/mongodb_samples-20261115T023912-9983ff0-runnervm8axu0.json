@@ -1,0 +1,341 @@
+{
+ "schema": 1,
+ "relsynth": "2.2.0",
+ "git": {
+  "sha": "9983ff0154c79bfa13caeeb150b9d19b4e85dc68",
+  "branch": "claude/project-thread-jvtjjl",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm8axu0",
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "cpus": 4,
+  "python": "3.12.16",
+  "numpy": "2.5.4",
+  "pandas": "3.1.1",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-11-15T02:39:12+00:00",
+ "label": "pr",
+ "seeds": [
+  1
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "mongodb_samples",
+   "seed": 1,
+   "seconds": 246.5,
+   "cost": {
+    "cpu_seconds": 633.3,
+    "peak_mib": 2129.5
+   },
+   "rows": {
+    "supplies.sales": 5000,
+    "analytics.customers": 500,
+    "analytics.accounts": 1746,
+    "analytics.transactions": 1746,
+    "geospatial.shipwrecks": 11095,
+    "weather.data": 5000
+   },
+   "checks": [
+    {
+     "id": "documents:supplies.sales|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:supplies.sales|presence",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:supplies.sales|presence_max",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:supplies.sales|type_mix",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:supplies.sales|array_length",
+     "pass": true,
+     "value": 0.009372,
+     "limit": 0.149245
+    },
+    {
+     "id": "documents:supplies.sales|signature",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:supplies.sales|depth",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:supplies.sales|size",
+     "pass": true,
+     "value": 0.0148,
+     "limit": 0.130593
+    },
+    {
+     "id": "documents:analytics.customers|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:analytics.customers|presence",
+     "pass": true,
+     "value": 0.000125,
+     "limit": 0.000217
+    },
+    {
+     "id": "documents:analytics.customers|presence_max",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.003464
+    },
+    {
+     "id": "documents:analytics.customers|type_mix",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.003464
+    },
+    {
+     "id": "documents:analytics.customers|array_length",
+     "pass": true,
+     "value": 0.042011,
+     "limit": 0.390252
+    },
+    {
+     "id": "documents:analytics.customers|signature",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.003464
+    },
+    {
+     "id": "documents:analytics.customers|depth",
+     "pass": true,
+     "value": 0.016,
+     "limit": 1862.88602
+    },
+    {
+     "id": "documents:analytics.customers|size",
+     "pass": true,
+     "value": 0.014,
+     "limit": 59.828509
+    },
+    {
+     "id": "documents:analytics.accounts|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:analytics.accounts|presence",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.accounts|presence_max",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.accounts|type_mix",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.accounts|array_length",
+     "pass": true,
+     "value": 0.022337,
+     "limit": 0.162596
+    },
+    {
+     "id": "documents:analytics.accounts|signature",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.accounts|depth",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.accounts|size",
+     "pass": true,
+     "value": 0.006873,
+     "limit": 12839.930811
+    },
+    {
+     "id": "documents:analytics.transactions|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:analytics.transactions|presence",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.transactions|presence_max",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.transactions|type_mix",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.transactions|array_length",
+     "pass": true,
+     "value": 0.13803,
+     "limit": 0.210293
+    },
+    {
+     "id": "documents:analytics.transactions|signature",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.transactions|depth",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:analytics.transactions|size",
+     "pass": true,
+     "value": 0.028064,
+     "limit": 0.295977
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|presence",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|presence_max",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|type_mix",
+     "pass": true,
+     "value": 0.001157,
+     "limit": 0.762472
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|array_length",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|signature",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|depth",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:geospatial.shipwrecks|size",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "documents:weather.data|valid",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "documents:weather.data|presence",
+     "pass": true,
+     "value": 0.000366,
+     "limit": 6778632.657123
+    },
+    {
+     "id": "documents:weather.data|presence_max",
+     "pass": true,
+     "value": 0.0142,
+     "limit": 79439128.377596
+    },
+    {
+     "id": "documents:weather.data|type_mix",
+     "pass": true,
+     "value": 0.009528,
+     "limit": 86278.027728
+    },
+    {
+     "id": "documents:weather.data|array_length",
+     "pass": true,
+     "value": 0.008785,
+     "limit": 1365.017804
+    },
+    {
+     "id": "documents:weather.data|signature",
+     "pass": true,
+     "value": 0.0436,
+     "limit": 0.084494
+    },
+    {
+     "id": "documents:weather.data|depth",
+     "pass": true,
+     "value": 0.008,
+     "limit": 87.422864
+    },
+    {
+     "id": "documents:weather.data|size",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.068639
+    }
+   ]
+  }
+ ],
+ "finished": "2026-11-15T02:43:19+00:00"
+}

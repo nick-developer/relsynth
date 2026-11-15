@@ -73,6 +73,22 @@ def rate(r: dict) -> float:
     return sum(c["pass"] for c in j) / len(j) if j else float("nan")
 
 
+def merge(old: dict, new: dict, keep: set[str]) -> dict:
+    """The baseline `new` plus the entries of `old` for datasets that `new` does not cover (and that still
+    exist: names in `keep`). The file-level lists (sources, relsynth, git, machines) describe every
+    entry, so they become the union of both; `kept` names the entries carried over from `old`."""
+    carried = {k: v for k, v in old.get("datasets", {}).items() if k not in new["datasets"] and k in keep}
+    if not carried:
+        return new
+    out = dict(new)
+    out["sources"] = list(dict.fromkeys([*(old.get("sources") or []), *(new.get("sources") or [])]))
+    for f in ("relsynth", "git", "machines"):
+        out[f] = sorted({*(old.get(f) or []), *(new.get(f) or [])}, key=str)
+    out["datasets"] = dict(sorted({**carried, **new["datasets"]}.items()))
+    out["kept"] = sorted(carried)
+    return out
+
+
 def build(records: list[dict], sources: list[str] | None = None) -> dict:
     """The regression baseline of bench records: per dataset, pass rates and judged checks over seeds."""
     by_ds: dict = defaultdict(list)
@@ -145,8 +161,10 @@ def drift(b: dict, rs: list[dict]) -> tuple[list[str], list[str]]:
     return regs, notes
 
 
-def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str], list[str], dict]:
-    """(regressions, notes, per-dataset summary) of a record against a baseline."""
+def compare(baseline: dict, record: dict, full: bool = False,
+            expected: set | None = None) -> tuple[list[str], list[str], dict]:
+    """(regressions, notes, per-dataset summary) of a record against a baseline; with `full`, every dataset of
+    the baseline (or of `expected`, the datasets of the tiers that ran) must have run."""
     regressions, notes, summary = [], [], {}
     runs: dict = defaultdict(list)
     for r in record.get("runs", []):
@@ -198,9 +216,14 @@ def compare(baseline: dict, record: dict, full: bool = False) -> tuple[list[str]
             if gone and r.get("checks"):
                 notes.append(f"{ds} seed {r.get('seed')}: {len(gone)} calibrated check(s) not reported, e.g. {gone[0]}")
     if full:
-        for ds in baseline["datasets"]:
+        # a dataset of the tiers that ran must have run even when the baseline does not have it yet:
+        # a job stopped at the runner's time limit leaves a record without its runs
+        for ds in sorted(set(baseline["datasets"]) | (expected or set())):
+            if expected is not None and ds not in expected:
+                continue
             if ds not in runs and not any(n.startswith(f"{ds}: skipped") or n.startswith(f"{ds} seed") for n in notes):
-                regressions.append(f"R3 {ds}: in the baseline but not run")
+                where = "in the baseline" if ds in baseline["datasets"] else "in the tier"
+                regressions.append(f"R3 {ds}: {where} but not run")
     return regressions, notes, summary
 
 
