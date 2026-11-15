@@ -365,7 +365,9 @@ class Synthesizer:
         spec, self.series_spec = split_series(spec)          # regular series: outside the relational model
         self.plan = Plan(spec)
         self.spec = self.plan.spec
-        errs = validate(self.spec, keys=False)
+        # scenarios were validated on the user's spec; they may name series tables and
+        # tables the plan rewrites (order headers), which the internal model does not hold
+        errs = [e for e in validate(self.spec, keys=False) if not e.startswith("synthesis.scenario")]
         if errs:
             raise SpecError("internal model (order headers / offset keys) is invalid:\n  - " + "\n  - ".join(errs))
         self.cfg = self.spec["synthesis"]
