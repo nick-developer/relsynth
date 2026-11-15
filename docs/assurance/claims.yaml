@@ -1711,12 +1711,20 @@ claims:
   - id: DOC-18
     doc: docs/documents.md
     area: structure
-    quote: "A set array of string or integer values (2 to 16 distinct, no nulls; tags of an item) is not a child"
+    quote:
+    - "A set array of string or integer values (no repeats, no nulls; tags of an item) is not a child table"
+    - "a child table draws its elements one by one with replacement and cannot hold a set without repairs"
+    - "The model report records how much the joint model carries"
+    - "a cost bound: the copula's work grows with the square of its columns, so larger"
+    - "A synthetic array lists its values in the source's order when the source never disagrees on the order of two values,"
     status: supported
     evidence:
     - prop: prop:multihot
     - check: C1785
     - test: tests/unit/test_g4_fidelity.py::test_multihot_round_trip_and_length_matching
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_fixed_order_round_trip_is_exact
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_choice_options_and_recorded_dependence
+    - code: src/relsynth/documents/sets.py::dependence_gain
     - code: src/relsynth/documents/shred.py::_multihot_value
 
   - id: BIN-01

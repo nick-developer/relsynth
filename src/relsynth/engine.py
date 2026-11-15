@@ -579,6 +579,7 @@ class Synthesizer:
                     if len(v):
                         self.derive_decimals[(r["table"], lhs)] = next(
                             (d for d in range(7) if np.allclose(v, np.round(v, d), atol=1e-9, rtol=0)), None)
+        self.balance_auto = {}     # (table, column) -> source share of negative rows (rules.balance_floor: auto)
         # opening balance of running balances: when every group of the source opens
         # at one value (stock starts at 0), the synthetic groups open there too
         for r in spec["rules"]:
@@ -599,12 +600,14 @@ class Synthesizer:
                     if ymin >= 0:
                         r["floor"] = 0.0
                     elif _setting(self, "rules", "balance_floor", "auto") == "auto":
-                        # a stock that dips below 0 only on a few rows (G4: AW inventory, 0.4 %)
-                        # is a stock too: without the floor independent steps make a random
-                        # walk that goes negative on many rows (11 % on AW)
+                        # a balance with an outflow that is negative on some source rows:
+                        # whether it is a stock (floor 0) is decided when sampling, by which
+                        # choice reproduces the source's share of negative rows better
+                        # (Prop. 1787); the share is from the rows read (the sample under
+                        # pushdown)
                         yv = pd.to_numeric(tables[r["table"]][r["column"]], errors="coerce").dropna()
-                        if len(yv) and float((yv < 0).mean()) <= 0.01:
-                            r["floor"] = 0.0
+                        if len(yv):
+                            self.balance_auto[(r["table"], r["column"])] = float((yv < 0).mean())
         # ---- attribute models (unfitted; give features for segmentation)
         say("fit: encoding columns")
         self.tm = {}
@@ -777,6 +780,25 @@ class Synthesizer:
         cols = [c for c in tables[t].columns if c in used and c in U and U[c]["type"] != "lookup"]
         H, _ = self.fstats[t].first_rows(by, cols, order=[r["order"]], differences=False)
         return coerce(H, {"columns": {c: U[c] for c in H.columns}}, table=t)
+
+    def _cumulative(self, t, df, r, out):
+        """A cumulative rule written into df.  With rules.balance_floor auto and a
+        source balance that is negative on a share p of its rows, the floor 0 is
+        applied when the plain running sum of the synthetic steps is negative on a
+        share q > 2 p, i.e. exactly when the floor (share 0) is closer to p than the
+        plain sum is: the choice that matches the source's share of negative rows
+        best (Prop. 1787).  Deterministic given the drawn steps: no random number."""
+        p = getattr(self, "balance_auto", {}).get((t, r["column"]))
+        res = self._resolver(t, df, out)
+        if p is None or r.get("floor") is not None:
+            return cumulative_apply(df, r, res)
+        q = float((cumulative_values(df, r, res) < 0).mean())
+        use = q > 2.0 * p
+        log = getattr(self, "sample_log", None)
+        if isinstance(log, dict):
+            log.setdefault("balance_floor", {})[f"{t}.{r['column']}"] = {
+                "source_negative_share": round(p, 6), "plain_negative_share": round(q, 6), "floor": bool(use)}
+        return cumulative_apply(df, {**r, "floor": 0.0} if use else r, res)
 
     def _balance_range(self, r, tables):
         """(non-null rows, smallest value) of a running balance column over every row."""
@@ -4866,7 +4888,7 @@ class Synthesizer:
                         raise
         for r in self.spec["rules"]:
             if r["table"] == t and r["type"] == "cumulative" and len(df):
-                df = cumulative_apply(df, r, self._resolver(t, df, out))
+                df = self._cumulative(t, df, r, out)
         if strict:
             df = self._apply_soft(t, df, out)
             df[HIDDEN_SET] = True               # every row's stated draws are now made
@@ -5552,17 +5574,29 @@ class Synthesizer:
                         mapped = gmap[gc].reindex(_keystr(par[gk]).to_numpy())
                         cand.append((f"{gk}\x1f{g}\x1f{gc}", {"type": "categorical"},
                                      pd.Series(mapped.to_numpy(), index=par.index)))
+                # every level of every candidate is one test of "never referenced
+                # although D n_l / n references are expected"; under proportional
+                # references P(0 | level) ~ exp(-D n_l / n), so with L tests the
+                # family-wise error stays at exp(-minexp) when each needs
+                # minexp + log L expected references (Bonferroni; Prop. 1786)
+                maxlev = int(_setting(self, "structure", "inclusion_max_levels", 50))
+                levs = []
                 for c, cs, col in cand:
-                    if (cs["type"] in ("categorical", "boolean") or c in pfks) and col.nunique() <= 50:
+                    if (cs["type"] in ("categorical", "boolean") or c in pfks) and col.nunique() <= maxlev:
                         lev = _keystr(col).fillna("\x00null").to_numpy(dtype=object)
                     else:
                         lev = np.where(col.isna().to_numpy(), "\x00null", "value").astype(object)
-                    for l_ in pd.unique(lev):
+                    levs.append((c, lev, pd.unique(lev)))
+                need_e = minexp
+                if _setting(self, "structure", "inclusion_multiplicity", "bonferroni") == "bonferroni":
+                    need_e += float(np.log(max(sum(len(u) for _, _, u in levs), 1)))
+                for c, lev, uniq in levs:
+                    for l_ in uniq:
                         at = lev == l_
                         nl = int(at.sum())
                         if nl == n or isref[at].any():
                             continue
-                        if D * nl / n >= minexp:
+                        if D * nl / n >= need_e:
                             excl.append((c, None if l_ == "\x00null" else l_, l_ == "value"))
                 if excl:
                     self.cind[(t, r["child_key"])] = excl
@@ -5636,7 +5670,7 @@ class Synthesizer:
                 df = self._apply_derive(t, df, r, out)
             for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "cumulative"]:
                 if len(df):
-                    df = cumulative_apply(df, r, self._resolver(t, df, out))
+                    df = self._cumulative(t, df, r, out)
             viol = self.sample_log["rule_violations"].setdefault(t, {})
             for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "check"]:
                 viol[r["expr"]] = int((~check_mask(df, r["expr"], self._resolver(t, df, out))).sum())

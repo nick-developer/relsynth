@@ -4,6 +4,7 @@ two-hop inclusion levels, stock floors and multi-hot set arrays.
 The statistical checks are C1782-C1785 in tests/science/test_g4_checks.py."""
 from __future__ import annotations
 
+import pytest
 import numpy as np
 import pandas as pd
 
@@ -115,15 +116,27 @@ def _tag_docs(n=300, seed=4):
             for i in range(n)]
 
 
+def _bundle_docs(n=600, seed=4):
+    """Sets in a fixed order (like airbnb's host verifications): bundles of
+    elements that go together, always listed in the vocabulary's order."""
+    rng = np.random.default_rng(seed)
+    order = ["email", "phone", "reviews", "jumio", "gov_id", "selfie"]
+    bundles = [order[:2], order[:3], order[:5], order, ["email"], ["phone", "gov_id"]]
+    return [{"_id": i, "tags": list(bundles[int(rng.integers(len(bundles)))])} for i in range(n)]
+
+
 def test_multihot_round_trip_and_length_matching():
     docs = _tag_docs()
-    lay = sh.build_layout({"items": profile_collection("items", docs)}, [])
+    lay = sh.build_layout({"items": profile_collection("items", docs)}, [], {"multihot": "on"})
     tl = lay.tables["items"]
     hot = [c for c in tl.columns if c.role == "multihot"]
     assert len(hot) == 6 and "tags__n" in tl.length_bounds and len(lay.tables) == 1
     frames = sh.shred(lay, {"items": docs})
+    assert set(frames["items"][[c.name for c in hot]].stack().unique()) <= {0, 1}
     back = sh.nest(lay, frames, keep_ids=True)["items"]
-    assert back == docs                                    # order kept exactly
+    # orders that disagree: the same sets, listed by a Plackett-Luce draw
+    assert lay.shapes["items"]["tags"]["multihot_order"]["kind"] == "plackett_luce"
+    assert [sorted(d["tags"]) for d in back] == [sorted(d["tags"]) for d in docs]
     # a modelled length the cells disagree with: elements dropped or drawn, never repeated
     f = {k: v.copy() for k, v in frames.items()}
     f["items"]["tags__n"] = np.where(np.arange(len(docs)) % 2 == 0, 1, 3)
@@ -133,14 +146,47 @@ def test_multihot_round_trip_and_length_matching():
     assert out == sh.nest(lay, f, keep_ids=True)["items"]     # seeded by holder
 
 
+def test_multihot_fixed_order_round_trip_is_exact():
+    docs = _bundle_docs()
+    lay = sh.build_layout({"items": profile_collection("items", docs)}, [])
+    info = lay.shapes["items"]["tags"]
+    assert info["multihot_choice"]["multihot"] and info["multihot_choice"]["bic_gain"] > 0
+    assert info["multihot_order"]["kind"] == "fixed"
+    assert sh.nest(lay, sh.shred(lay, {"items": docs}), keep_ids=True)["items"] == docs
+
+
+def test_multihot_choice_options_and_recorded_dependence():
+    """Independent elements are multi-hot too (a child table could not hold a set
+    without repairs), with a BIC gain <= 0 recorded; bundles record a positive
+    gain; `off` never uses multi-hot; the cost bound applies in auto, not in on;
+    unknown options are refused."""
+    rng = np.random.default_rng(8)
+    vocab = [f"v{i}" for i in range(8)]
+    docs = [{"_id": i, "tags": [v for v in vocab if rng.random() < 0.3]} for i in range(3000)]
+    prof = {"items": profile_collection("items", docs)}
+    lay = sh.build_layout(prof, [])
+    assert len([c for c in lay.tables["items"].columns if c.role == "multihot"]) == 8
+    assert lay.shapes["items"]["tags"]["multihot_choice"]["bic_gain"] <= 0
+    bundled = {"items": profile_collection("items", _bundle_docs())}
+    assert sh.build_layout(bundled, []).shapes["items"]["tags"]["multihot_choice"]["bic_gain"] > 0
+    assert not [c for c in sh.build_layout(bundled, [], {"multihot": "off"}).tables["items"].columns
+                if c.role == "multihot"]
+    capped = sh.build_layout(bundled, [], {"multihot_max_columns": 3})
+    assert capped.shapes["items"]["tags"]["multihot_choice"]["reason"] == "multihot_max_columns"
+    assert [c for c in sh.build_layout(bundled, [], {"multihot": "on", "multihot_max_columns": 3}).tables[
+        "items"].columns if c.role == "multihot"]
+    with pytest.raises(ValueError):
+        sh.build_layout(bundled, [], {"multihot_max": 3})
+
+
 def test_spec_drafts_no_rule_on_multihot_cells(tmp_path):
     from relsynth.documents.relational import spec_for, write_sqlite
     docs = _tag_docs(400)
-    lay = sh.build_layout({"items": profile_collection("items", docs)}, [])
+    lay = sh.build_layout({"items": profile_collection("items", docs)}, [], {"multihot": "on"})
     db = write_sqlite(lay, sh.shred(lay, {"items": docs}), tmp_path / "t.sqlite")
     raw = spec_for(lay, db)
     assert not [r for r in raw.get("rules", []) if "__h" in repr(r)]
-    assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0}
+    assert raw["tables"]["items"]["columns"]["tags__h0"] == {"type": "integer", "min": 0, "max": 1}
 
 
 def test_multihot_falls_back_on_a_name_clash_or_null_elements():

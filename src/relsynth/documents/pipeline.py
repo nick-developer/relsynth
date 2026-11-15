@@ -38,14 +38,18 @@ log = logging.getLogger("relsynth.documents")
 class DocumentSynthesizer:
     def __init__(self, collections: dict[str, list[dict]], *, references: list[dict] | None = None,
                  seed: int = 7, workdir: str | Path | None = None, spec_overrides: dict | None = None,
-                 name: str = "documents"):
+                 name: str = "documents", options: dict | None = None):
+        """options: document layout options (relsynth.documents.shred.SET_OPTIONS:
+        multihot auto | on | off, multihot_max_columns), also read from
+        spec_overrides["documents"]."""
         self.collections = collections
         self.declared = references or []
         self.seed = int(seed)
         self.name = name
         self.workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="relsynth-docs-"))
         self.workdir.mkdir(parents=True, exist_ok=True)
-        self.spec_overrides = spec_overrides or {}
+        self.spec_overrides = dict(spec_overrides or {})
+        self.options = {**(self.spec_overrides.pop("documents", None) or {}), **(options or {})}
         self.profiles: dict[str, CollectionProfile] = {}
         self.references: list[dict] = []
         self.layout: Layout | None = None
@@ -64,7 +68,7 @@ class DocumentSynthesizer:
     def discover(self) -> DocumentSynthesizer:
         self.profiles = {c: profile_collection(c, docs) for c, docs in self.collections.items()}
         self.references = find_references(self.profiles, self.declared)
-        self.layout = build_layout(self.profiles, self.references)
+        self.layout = build_layout(self.profiles, self.references, self.options)
         self.sequences = find_sequences(self.collections, self.references)
         return self
 

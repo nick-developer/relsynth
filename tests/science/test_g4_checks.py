@@ -204,10 +204,13 @@ def test_c1784_calendar_is_pooled_unless_segments_differ():
 
 # --------------------------------------------------------------------- C1785
 def test_c1785_multihot_sets_round_trip_and_never_repeat():
-    """Prop. 1785: exact round trip, no repeated element, length as modelled;
-    pairwise co-occurrence of values follows the source."""
+    """Prop. 1785: (a) the round trip keeps every set, and its order when the
+    source orders agree; (b) no repeated element; (c) length as modelled;
+    (d) multi-hot exactly when the Chow-Liu BIC gain is positive; (e) the
+    Plackett-Luce order reproduces the source's pairwise precedence shares."""
     from relsynth.documents import shred as sh
     from relsynth.documents.infer import profile_collection
+    from relsynth.documents.sets import dependence_gain, element_order, order_items
     rng = np.random.default_rng(5)
     vocab = ["a", "b", "c", "d", "e"]
     docs = []
@@ -220,12 +223,53 @@ def test_c1785_multihot_sets_round_trip_and_never_repeat():
             extra[0] = "b"                                   # a and b go together
         docs.append({"_id": i, "tags": [str(first)] + [str(x) for x in extra]})
     lay = sh.build_layout({"c": profile_collection("c", docs)}, [])
+    info = lay.shapes["c"]["tags"]
+    assert info["multihot_choice"]["multihot"] and info["multihot_choice"]["bic_gain"] > 0   # (d) a-b bundle
     frames = sh.shred(lay, {"c": docs})
-    assert sh.nest(lay, frames, keep_ids=True)["c"] == docs
+    back = sh.nest(lay, frames, keep_ids=True)["c"]
+    assert [sorted(d["tags"]) for d in back] == [sorted(d["tags"]) for d in docs]      # (a) sets
     f = {k: v.copy() for k, v in frames.items()}
     f["c"]["tags__n"] = rng.integers(1, 4, len(docs))
     out = sh.nest(lay, f, keep_ids=True)["c"]
-    assert all(len(set(d["tags"])) == len(d["tags"]) == n for d, n in zip(out, f["c"]["tags__n"]))
+    assert all(len(set(d["tags"])) == len(d["tags"]) == n for d, n in zip(out, f["c"]["tags__n"]))   # (b, c)
+    # (a) fixed order: exact
+    order = ["x1", "x2", "x3", "x4"]
+    fixed = [{"_id": i, "tags": [v for v in order if rng.random() < 0.6] or ["x1"]} for i in range(500)]
+    lf = sh.build_layout({"c": profile_collection("c", fixed)}, [], {"multihot": "on"})
+    assert lf.shapes["c"]["tags"]["multihot_order"]["kind"] == "fixed"
+    assert sh.nest(lf, sh.shred(lf, {"c": fixed}), keep_ids=True)["c"] == fixed
+    # (d) the gain: independent flags give gain <= 0 in most samples, bundles always > 0
+    gains = []
+    for rep in range(20):
+        r2 = np.random.default_rng(100 + rep)
+        ind = [{"_id": i, "tags": [v for v in vocab if r2.random() < 0.4]} for i in range(2000)]
+        p = profile_collection("c", ind).root.fields["tags"]
+        gains.append(dependence_gain([("string", v) for v in vocab], p.item_counts, p.item_pairs,
+                                     sum(p.lengths.values()))[0])
+    assert np.mean(np.array(gains) <= 0) >= 0.9, gains
+    # (e) Plackett-Luce: worths 4:2:1 give P(i before j) = w_i / (w_i + w_j)
+    from collections import Counter
+    w = {"p": 4.0, "q": 2.0, "r": 1.0}
+    pairs = Counter()
+    for _ in range(3000):
+        left, seq = dict(w), []
+        while left:
+            ks = list(left)
+            pr = np.array([left[k] for k in ks])
+            k = ks[int(rng.choice(len(ks), p=pr / pr.sum()))]
+            seq.append(("string", k))
+            left.pop(k)
+        for i, x in enumerate(seq):
+            for y in seq[i + 1:]:
+                pairs[(x, y)] += 1
+    keyed = [("string", k) for k in w]
+    model = element_order(keyed, pairs)
+    assert model["kind"] == "plackett_luce"
+    lw = np.array(model["log_worth"])
+    assert np.allclose(lw - lw[2], np.log([4, 2, 1]), atol=0.12)
+    draws = [order_items([0, 1, 2], model, rng) for _ in range(4000)]
+    share = np.mean([d.index(0) < d.index(1) for d in draws])
+    assert abs(share - 4 / 6) < 0.03
 
 
 # --------------------------------------------------------------------- C1786
@@ -258,3 +302,32 @@ def test_c1787_floor_keeps_a_stock_non_negative_and_exact_otherwise():
     assert (free.y < 0).mean() > 0.1 and (capped.y >= 0).all()
     ok = free.groupby("p").y.transform(lambda s: (s >= 0).cummin()).astype(bool)
     assert np.allclose(free.y[ok], capped.y[ok])
+
+
+def test_c1787_auto_floor_matches_the_source_negative_share():
+    """Prop. 1787 (auto): the floor is applied exactly when the plain running sum
+    is negative on more than twice the source's share of negative rows; the
+    choice and both shares are logged; no random number is drawn."""
+    from types import SimpleNamespace
+
+    from relsynth.engine import Synthesizer
+    rng = np.random.default_rng(17)
+    n = 4000
+    df = pd.DataFrame({"p": np.repeat(np.arange(40), n // 40), "d": np.tile(np.arange(n // 40), 40),
+                       "i": rng.poisson(5, n), "o": rng.poisson(5, n), "y": 20.0})
+    rule = {"table": "s", "column": "y", "by": "p", "order": "d", "step": "i - o", "opening": 20.0}
+    from relsynth.engine import cumulative_values
+    q = float((cumulative_values(df.copy(), rule) < 0).mean())
+    for p_src, floor in ((q / 2 - 0.01, True), (q / 2 + 0.01, False)):
+        obj = SimpleNamespace(balance_auto={("s", "y"): p_src}, sample_log={},
+                              _resolver=lambda t, d, o: None)
+        st = rng.bit_generator.state
+        out = Synthesizer._cumulative(obj, "s", df.copy(), rule, {})
+        assert rng.bit_generator.state == st
+        log = obj.sample_log["balance_floor"]["s.y"]
+        assert log["floor"] is floor and abs(log["plain_negative_share"] - q) < 1e-6
+        assert ((out.y >= 0).all()) if floor else ((out.y < 0).mean() == pytest.approx(q))
+    # a rule with its own floor is left as it is
+    obj = SimpleNamespace(balance_auto={("s", "y"): 0.5}, sample_log={}, _resolver=lambda t, d, o: None)
+    out = Synthesizer._cumulative(obj, "s", df.copy(), {**rule, "floor": 0.0}, {})
+    assert (out.y >= 0).all() and "balance_floor" not in obj.sample_log
