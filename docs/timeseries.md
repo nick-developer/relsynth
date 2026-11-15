@@ -25,8 +25,11 @@ Without `sequence`, every order date is drawn on its own from the seasonal profi
 it, the engine still decides how many orders each customer has and what is in them, and then the dates of all of a
 customer's orders are redrawn together:
 
-- **calendar**: one intensity per segment from month, weekday and (datetime) hour profiles, read as a rate per active
-  entity and matched to the real month totals;
+- **calendar**: an intensity from month, weekday and (datetime) hour profiles, read as a rate per active entity and
+  matched to the real month totals. With `calendar: auto` (the default) all segments share one calendar unless a Bayes
+  factor over the segments' month counts is decisive (log BF > log 100, Prop. 1784): the profiles of small segments
+  are noise that the life times then follow. The calendar is used at its posterior mean (`calendar_draw: false`); a
+  drawn calendar added its uncertainty on top of the per-entity draws and failed the gap checks on AdventureWorks;
 - **life time**: when the entity starts and how much of the rest of its window it stays active, given its number of
   events (a Gaussian copula per count group: 1, 2, 3-4, 5-8, ...);
 - **inter-arrival**: the gaps between the first and last event are those of a gamma renewal process, with a shape per
@@ -37,6 +40,8 @@ Options (all optional):
 | Option | Default | Meaning |
 |---|---|---|
 | `window` | `auto` | `auto` reads the entity's window from check rules such as `days(OrderDate) < days(CustomerKey.EndDT)`; `{start: col, end: col}` names columns of the entity; `none` uses the data's time range |
+| `calendar` | `auto` | `auto`, `pooled` (one calendar) or `segment` (one per segment, the 2.1 behaviour) |
+| `calendar_draw` | `false` | draw the calendar from its posterior per dataset instead of using its mean |
 | `bucket` | `month` | calendar bucket of the trend and season: day, week, month, quarter, year |
 | `weekly` | `true` | weekday profile |
 | `hourly` | `auto` | hour profile (datetime columns only) |

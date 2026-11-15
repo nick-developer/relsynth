@@ -44,6 +44,9 @@ ROW_ID = "_rid"
 PARENT = "_parent"
 POS = "_pos"
 KEY = "_key"
+#: a scalar array with set semantics and at most this many distinct elements is a
+#: set of flags on its holder (multi-hot) instead of a child table (G4; 0 turns it off)
+MULTIHOT_MAX = 16
 
 
 @dataclass
@@ -55,6 +58,8 @@ class Column:
     decimals: int | None = None
     ref: dict | None = None    # {table, column} for role ref
     fmt: str | None = None     # strings that are all dates in one format (written back in it)
+    item: Any = None           # multihot: the element value this column stands for
+    item_type: str | None = None   # multihot: its document type
 
 
 @dataclass
@@ -202,7 +207,7 @@ def _walk_object(lay: Layout, prof: CollectionProfile, tl: TableLayout, nd: Node
         if not prefix and tl.kind == "root" and (name == tl.id_column or name in tl.fresh):
             continue
         path = prefix + [name]
-        _walk_value(lay, prof, tl, f, path, refs, targets, in_variant=name in decided)
+        _walk_value(lay, prof, tl, f, path, refs, targets, in_variant=name in decided, siblings=set(nd.fields))
     if nd.variants:
         shapes.setdefault(".".join(prefix), {})["variants"] = nd.variants
 
@@ -214,7 +219,8 @@ def _abs_path(tl: TableLayout, path: list[str]) -> str:
     return tl.context + ("." + rel if rel else "")
 
 
-def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_variant: bool = False):
+def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_variant: bool = False,
+                siblings: set | frozenset = frozenset()):
     shapes = lay.shapes.setdefault(tl.name, {})
     key = ".".join(path)
     info = {"types": f.value_types, "optional": f.optional, "nullable": f.nullable}
@@ -246,7 +252,27 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         info["map"] = _child_table(lay, prof, tl, f, path, "map", refs, targets)
         info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
-    if f.is_array:
+    vocab = _multihot_vocab(f) if f.is_array else None
+    if vocab is not None and (_ref_of(refs, tl.collection, _abs_path(tl, path) + "[]") is not None
+                              or _multihot_clash(tl, path, cname, len(vocab), siblings)):
+        vocab = None                        # referenced elements, or a name taken: a child table
+    if vocab is not None and f.items is not None:
+        # a small set (tags of an item): one integer per element value on the
+        # holder, 0 when the array does not hold it and 1 + its position when it
+        # does, so which elements a document holds is modelled jointly with its
+        # other attributes, no element repeats, and the round trip keeps the order
+        # (Prop. 1785)
+        names = []
+        for i, v in enumerate(vocab):
+            c = Column(f"{cname}{SEP}h{i}", path, "multihot", "int", item=v, item_type=f.items.scalar_types[0])
+            tl.columns.append(c)
+            names.append(c.name)
+        info["multihot"] = names
+        # the number of elements is modelled with the holder's attributes as for
+        # any array, and the held elements are matched to it when nesting
+        info["length_col"] = _length_column(tl, f, path, cname)
+        shapes[key] = info
+    elif f.is_array:
         info["array"] = _child_table(lay, prof, tl, f, path, "array", refs, targets)
         info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
@@ -279,6 +305,28 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
                 tl.columns.append(c)
                 typed[t] = c.name
     shapes[key] = info
+
+
+def _multihot_vocab(f: Node) -> list | None:
+    """The element values of a small set array, sorted, or None.  A set array
+    holds scalars of one type, never repeats one (``distinct_items``) and has at
+    least two and at most MULTIHOT_MAX distinct values in the source, and no
+    element is null (a null element has no cell)."""
+    it = f.items
+    if (MULTIHOT_MAX < 2 or it is None or not f.distinct_items or it.overflow or it.nullable
+            or len(it.scalar_types) != 1
+            or it.value_types != it.scalar_types or it.scalar_types[0] not in ("string", "int", "long")
+            or not 2 <= len(it.distinct) <= MULTIHOT_MAX or f.value_types != ["array"]):
+        return None
+    return sorted(it.distinct, key=lambda v: (str(type(v)), v))
+
+
+def _multihot_clash(tl: TableLayout, path, cname: str, k: int, siblings) -> bool:
+    """Whether a multi-hot column name (or the length column) of the array at
+    `path` is already a column of the holder or a sibling field's column."""
+    names = {f"{cname}{SEP}h{i}" for i in range(k)} | {cname + SEP + "n"}
+    taken = {c.name for c in tl.columns} | {_col(list(path[:-1]) + [s]) for s in siblings}
+    return bool(names & taken)
 
 
 def _length_column(tl: TableLayout, f: Node, path, cname) -> str:
@@ -426,6 +474,10 @@ def _fill(lay, tl: TableLayout, row: dict, ctx_value, prefix, out: _Rows, row_id
             row[c.name] = to_cell(v, c.type) if st == c.type else None
         elif c.role == "length":
             row[c.name] = len(v) if isinstance(v, (list, dict)) else None
+        elif c.role == "multihot":
+            pos = next((i for i, x in enumerate(v) if x == c.item and type_name(x) == c.item_type), None) \
+                if isinstance(v, list) else None
+            row[c.name] = 0 if pos is None else pos + 1
         elif c.role == "typed":
             if c.type == "num":
                 row[c.name] = to_cell(v, "double") if st in NUMERIC else None
@@ -468,6 +520,7 @@ def nest(lay: Layout, frames: dict[str, pd.DataFrame], *, seed: Any = 0, keep_id
     collection, row id), and every reference to them is mapped the same way
     (`keep_ids` keeps the cells as they are: the round trip of source tables)."""
     idmap: dict[str, dict] = {}
+    lay.__dict__["_multihot_share"] = {}         # per call: the frames' multihot shares
     for cname in lay.order:
         tl = lay.tables[cname]
         df = frames[cname]
@@ -658,6 +711,8 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
             return _map_value(lay, info["map"], built, rid, seed)
         if state == "object":
             return obj_at(path)
+        if "multihot" in info and state in (None, "array"):
+            return _multihot_value(lay, tl, info, r, rid, frames, seed)
         if state == "array":
             items = built.get(info["array"], {}).get(rid, [])
             return [v for _, _, v in items]
@@ -717,6 +772,46 @@ def _build(lay, tl: TableLayout, r: dict, built, idmap, frames, seed):
         v = value_at([])
         return None if v is _ABSENT else v
     return obj_at([])
+
+
+def _multihot_value(lay, tl: TableLayout, info: dict, r: dict, rid, frames, seed) -> list:
+    """The elements of a small set array from its multihot cells, in the order of
+    their positions, matched to the modelled length: elements beyond it are dropped
+    from the end, and a holder that needs more takes absent elements drawn (seeded
+    by holder) with the frequencies the synthetic column holds them."""
+    import numpy as np
+    cols = {c.name: c for c in tl.columns}
+    names = info["multihot"]
+    held = sorted((_rank(r.get(n)), i) for i, n in enumerate(names))
+    keep = [i for p, i in held if p > 0]
+    n = r.get(info.get("length_col")) if info.get("length_col") else None
+    if n is not None and not _isnull(n):
+        lo, hi = tl.length_bounds.get(info["length_col"], [0, len(names)])
+        want = int(min(max(round(float(n)), lo, 0), hi, len(names)))
+        if len(keep) > want:
+            keep = keep[:want]
+        elif len(keep) < want:
+            cache = lay.__dict__.setdefault("_multihot_share", {})
+            ck = (tl.name, info["length_col"])
+            if ck not in cache:
+                f = frames[tl.name]
+                cache[ck] = np.array([(pd.to_numeric(f[c], errors="coerce").fillna(0) > 0).mean() + 1e-3
+                                      if c in f.columns else 1e-3 for c in names])
+            w = cache[ck].copy()
+            w[keep] = 0
+            rng = np.random.default_rng(int(str(object_id(seed, tl.name, info["length_col"], rid))[:8], 16))
+            keep += [int(i) for i in rng.choice(len(names), size=want - len(keep), replace=False, p=w / w.sum())]
+    return [cols[names[i]].item for i in keep]
+
+
+def _rank(v) -> float:
+    """A multihot cell: 0 (absent; also null) or 1 + the element's position."""
+    if _isnull(v):
+        return 0.0
+    try:
+        return max(float(v), 0.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _parent_of(k: str) -> str:
