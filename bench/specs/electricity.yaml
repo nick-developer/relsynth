@@ -1,0 +1,39 @@
+# The T12 spec of the hourly electricity load (benchmarks/timeseries/run_timeseries.py electricity_spec):
+# introspect drafts Load as a plain fact, so the regular-series model is declared here (G7 matrix).
+version: 1
+name: electricity
+source:
+  kind: sqlite
+  path: bench/.cache/electricity_bench/electricity.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  Meter:
+    role: entity
+    primary_key: MeterKey
+    columns:
+      MeterKey:
+        type: id
+  Load:
+    role: fact
+    columns:
+      MeterKey:
+        type: id
+      Hour:
+        type: datetime
+      kW:
+        type: float
+    fact:
+      anchor: Meter
+    series:
+      entity: MeterKey
+      time: Hour
+      values: [kW]
+relationships:
+  - child: Load
+    child_key: MeterKey
+    parent: Meter
+    parent_key: MeterKey
+synthesis:
+  seed: 1

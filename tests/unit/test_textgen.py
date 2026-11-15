@@ -204,3 +204,28 @@ def test_lm_stub_fits_generates_and_scores(s6):
     assert d.release["noise_multiplier"] == pytest.approx(math.sqrt(2 / (2 * 0.5 * 0.98)))
 
 
+
+
+def test_packed_text_model_matches_the_counter_reference():
+    """The packed fit (integer tokens, sorted context tables, hashed rare runs) draws
+    the same texts as the nested-Counter reference it replaced."""
+    import numpy as np
+
+    from relsynth.text import TextModel
+
+    rng = np.random.default_rng(3)
+    words = "the a of patients with dose mg and in , . ( ) phase drug".split()
+    T = [" ".join(words[i] if rng.random() < 0.8 else f"w{i}{rng.integers(40)}"
+                  for i in rng.integers(len(words), size=rng.integers(1, 30))) for _ in range(300)]
+    T += T[:30] + [None, ""]
+    C = [str(i % 3) for i in range(len(T))]
+    for order, k, L in ((1, 1, 2), (3, 3, 8), (4, 2, 3)):
+        packed = TextModel(order=order, min_token_rows=k, max_copy_ngram=L).fit(T, C)
+        ref = TextModel(order=order, min_token_rows=k, max_copy_ngram=L)
+        ref._tabs = None
+        ref._fit_dicts(list(T[:-2]) + ["", ""], C)
+        assert packed._tabs is not None and ref.vocab == packed.vocab
+        assert np.array_equal(ref.pG, packed.pG)
+        cls = ["0", "1", "2", "9"] * 40
+        assert ref.generate(cls, np.random.default_rng(5)) == packed.generate(cls, np.random.default_rng(5))
+        assert ref.last_rejected == packed.last_rejected
