@@ -52,7 +52,7 @@ SCENARIOS = {
     "adventureworks": [
         {"type": "scale", "table": "DimCustomer", "factor": 1.5},
         {"type": "shares", "table": "DimCustomer", "column": "MaritalStatus", "shares": {"S": 0.7}},
-        {"type": "marginal", "table": "FactInternetSales", "column": "SalesAmount", "multiply": 1.1},
+        {"type": "marginal", "table": "FactInternetSales", "column": "TaxAmt", "multiply": 1.1},
         {"type": "degree", "table": "FactInternetSales", "key": "ProductKey", "concentration": 0.5},
     ],
 }

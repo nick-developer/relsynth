@@ -2643,6 +2643,8 @@ class Synthesizer:
         external form of the tables."""
         self.__dict__.pop("_parent_cols", None)
         out, t0 = ctx["out"], ctx["t0"]
+        if getattr(self, "_scen", None) is not None:
+            self._scen.map_derived(out)
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))

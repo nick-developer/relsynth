@@ -249,6 +249,7 @@ class Scenario:
         self.scale_ent, self.fact_rate = {}, {}
         self.tilt, self.target = {}, {}
         self.maps = {}
+        self._mapped: set[tuple[str, str]] = set()
         self.fact_windows = {}
         self.seq_windows = {}
         self.series_windows = {}
@@ -488,7 +489,25 @@ class Scenario:
             if col not in df.columns or not len(df):
                 continue
             df[col] = _map_column(df[col], iv, rec)
+            self._mapped.add((t, col))
         return df
+
+    def map_derived(self, out):
+        """Maps of columns that are not drawn but derived when the rows are complete
+        (ratio_of and offset_from columns, derive rules): applied once to the
+        finished table, with the same monotone rearrangement."""
+        for t, maps in self.maps.items():
+            df = out.get(t)
+            for col, iv, rec in maps:
+                if (t, col) in self._mapped or df is None or col not in df.columns or not len(df):
+                    continue
+                df[col] = _map_column(df[col], iv, rec)
+                rec["effect"]["applied"] = "to the derived column, after the rows were complete"
+                self._mapped.add((t, col))
+        for t, maps in self.maps.items():
+            for col, _iv, rec in maps:
+                if (t, col) not in self._mapped:
+                    rec["effect"]["note"] = f"{t}.{col} was not generated in this dataset; nothing was mapped"
 
     # ---------------------------------------------------- fact rates
     def has_fact(self, f):

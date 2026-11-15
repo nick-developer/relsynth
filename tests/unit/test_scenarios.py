@@ -255,3 +255,22 @@ def test_api_and_run_select_a_scenario(tmp_path):
         m.sample(dataset=0, scenario="nope")
     r = rs.run(sp, write=False, privacy=False, privacy_check=False, scenario="grow")
     assert len(r.data["Customer"]) == 225
+
+
+def test_marginal_map_on_a_derived_column():
+    """A column derived after the rows are complete (ratio_of, offset_from, a
+    derive rule) is mapped once on the finished table; ranks kept."""
+    from relsynth.scenarios import Scenario
+    sc = object.__new__(Scenario)
+    iv = {"type": "marginal", "table": "Lines", "column": "NetPrice", "quantiles": [[0.9, 1.0], [1.0, 1.2]]}
+    rec = {"effect": {}}
+    sc.maps, sc._mapped = {"Lines": [("NetPrice", iv, rec)]}, set()
+    x = np.random.default_rng(0).lognormal(size=5000)
+    out = {"Lines": pd.DataFrame({"NetPrice": x})}
+    sc.map_columns("Lines", pd.DataFrame({"Other": [1.0]}))     # not there while drawing
+    sc.map_derived(out)
+    y = out["Lines"]["NetPrice"].to_numpy()
+    assert (np.argsort(x, kind="stable") == np.argsort(y, kind="stable")).all()
+    assert np.isclose(np.median(y), np.median(x))
+    assert 1.1 < np.quantile(y, 0.995) / np.quantile(x, 0.995) <= 1.2
+    assert "applied" in rec["effect"]
