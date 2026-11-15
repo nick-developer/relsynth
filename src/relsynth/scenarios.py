@@ -543,6 +543,9 @@ class Scenario:
         out = np.where(new[z] > 0, v * tot[z] / np.maximum(new[z], 1e-300), 0.0)
         rec["effect"]["gini_without"] = round(_gini(w), 4)
         rec["effect"]["gini"] = round(_gini(out), 4)
+        if np.allclose(w[pos], 1.0):
+            rec["effect"]["note"] = ("the fit found no degree heterogeneity within segments for this key "
+                                     "(facts.frailty off), so there is nothing to temper")
         return out
 
     # -------------------------------------------------------- sequences

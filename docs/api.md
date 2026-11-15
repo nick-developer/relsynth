@@ -94,7 +94,7 @@ split, reported as optimistic); config: overrides of relsynth.quality.DEFAULTS
 ### `rs.run`
 
 ```python
-run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True, settings=None, privacy_check: bool = True) -> RunResult
+run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None, pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True, bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True, settings=None, privacy_check: bool = True, scenario: str | None = None) -> RunResult
 ```
 
 The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
@@ -106,7 +106,8 @@ bundle explains them; see doctor).  settings: engine settings over the
 spec's synthesis block (relsynth.Settings, a mapping or a settings file).
 privacy_check: the quick DOMIAS check on a proxy release (on unless False or
 the spec's synthesis.evaluation.privacy_check is false); its result is
-RunResult.privacy_check and the bundle's privacy_check field.
+RunResult.privacy_check and the bundle's privacy_check field.  scenario: a
+scenario of synthesis.scenarios applied to every dataset (docs/scenarios.md).
 
 ### `rs.verify`
 
@@ -353,13 +354,15 @@ checks) as JSON, Markdown, PDF and a standalone Python sampler.
 #### `FittedModel.sample`
 
 ```python
-sample(self, scale: float | dict | None = None, dataset: int | None = None) -> SyntheticData
+sample(self, scale: float | dict | None = None, dataset: int | None = None, scenario: str | None = None) -> SyntheticData
 ```
 
 One synthetic database.  dataset numbers independent posterior draws
 (0, 1, ...; default: the next one); scale multiplies the entity sizes (a
 number for every entity, {table: factor} for some, or the spec's section
-{"default": x, "tables": {name: y}}).
+{"default": x, "tables": {name: y}}); scenario names a scenario of
+synthesis.scenarios to apply (docs/scenarios.md; default: the spec's
+synthesis.scenario).
 
 #### `FittedModel.summary`
 
@@ -568,7 +571,7 @@ and tail weights) are fixed for the run as well (see posterior.py).
 #### `Synthesizer.sample`
 
 ```python
-sample(self, scale=None, index=None)
+sample(self, scale=None, index=None, scenario=None)
 ```
 
 One synthetic dataset: every parameter drawn once from its posterior
@@ -576,3 +579,5 @@ One synthetic dataset: every parameter drawn once from its posterior
 the rows from its data stream.  index numbers the datasets (0, 1, ...);
 without it each call gives the next dataset.  relsynth.runtime runs the
 same steps with the facts split into partitions (sample_partitioned).
+scenario: the name of a scenario of synthesis.scenarios to apply
+(relsynth.scenarios; default synthesis.scenario).

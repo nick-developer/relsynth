@@ -328,6 +328,11 @@ def cmd_run_dp(a, out, s, gv):
     """`run` in differential privacy mode (docs/dp.md)."""
     from . import dp
     spec = s.resolved
+    if getattr(a, "scenario", None):
+        # stage 2 is the ordinary engine on the DP seed: a scenario is post-processing
+        from .scenarios import active
+        active({**spec["synthesis"], "scenario": a.scenario})
+        spec["synthesis"]["scenario"] = a.scenario
     override = {"enabled": True, **_dp_override(a)}
     led = dom = run_id = None
     if gv is not None:
@@ -437,7 +442,7 @@ def cmd_run(a, out):
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
               privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False,
-              privacy_check=not a.no_privacy_check)
+              privacy_check=not a.no_privacy_check, scenario=a.scenario)
     out.put(bundle=a.bundle, seconds=round(time.time() - t0, 1),
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
@@ -872,6 +877,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--seed", type=int, help="override synthesis.seed")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    s.add_argument("--scenario", help="apply this scenario of synthesis.scenarios (docs/scenarios.md)")
     g = s.add_argument_group("governance (docs/governance/design.md)")
     g.add_argument("--registry", help="record a signed manifest of this run in this registry")
     g.add_argument("--context", help="intended release context from the organisation policy")

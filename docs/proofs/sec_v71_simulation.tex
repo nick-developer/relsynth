@@ -1,0 +1,183 @@
+%=====================================================================
+\section{Simulation: event processes and scenarios}\label{sec:v71sim}
+% numbered from 1820: the neural generators use 1800-1805
+\newcounter{savedpropsim}\setcounter{savedpropsim}{\value{proposition}}
+\setcounter{proposition}{1819}
+This section adds two kinds of simulation to the engine. \emph{Event processes} extend the sequence model of
+Section~\ref{sec:v32ts}: a Bayesian Hawkes process for self-exciting histories (\texttt{sequence.process: hawkes},
+\texttt{relsynth/timeseries/hawkes.py}) and a multi-state semi-Markov chain for a status column of the events
+(\texttt{sequence.states}, \texttt{relsynth/timeseries/states.py}). \emph{Scenarios} (\texttt{synthesis.scenarios},
+\texttt{relsynth/scenarios.py}) are spec-driven interventions applied to a posterior draw while a dataset is sampled.
+Both are fitted from data or act on the fitted model; nothing is tuned per dataset, and every choice is a spec key.
+Guides: \texttt{docs/timeseries.md}, \texttt{docs/scenarios.md}. Tests: \texttt{tests/unit/test\_event\_processes.py},
+\texttt{tests/unit/test\_scenarios.py}.
+
+Notation follows Section~\ref{sec:v32ts}: entity $i$ of segment $k$ has $n_i$ events at operational times
+$u_{i1}\le\dots\le u_{in_i}$; its first and last events come from the life-time law, $S_i=u_{in_i}-u_{i1}$.
+
+\begin{proposition}[Hawkes likelihood and profile baseline]\label{prop:simhawkesfit}
+Let the interior events of entity $i$ on $(u_{i1},u_{in_i})$, with $u_{i1}$ in the history, follow the intensity
+$\lambda_i(u)=\mu_i+\eta\beta\sum_{u_{ik}<u}e^{-\beta(u-u_{ik})}$ with $0\le\eta<1$, $\beta>0$. Then
+\[
+\ell_i(\mu_i,\eta,\beta)=\sum_{1<j<n_i}\log(\mu_i+\eta\beta A_{ij})-\mu_iS_i
+-\eta\sum_{j<n_i}\bigl(1-e^{-\beta(u_{in_i}-u_{ij})}\bigr),\qquad
+A_{ij}=e^{-\beta(u_{ij}-u_{i,j-1})}(1+A_{i,j-1}),\ A_{i1}=0,
+\]
+is the log likelihood of the interior events, $\ell_i$ is strictly concave in $\mu_i\ge0$, and its maximiser is the
+unique root of $\sum_j(\mu+\eta\beta A_{ij})^{-1}=S_i$ when the left side at $\mu=0$ exceeds $S_i$, and $0$
+otherwise. Newton steps in $x=\log\mu$ started at $\max(\bar n/S_i-\bar e,\epsilon)$ (with $\bar n$ the number of
+terms and $\bar e$ their mean excitation) converge to it.
+\end{proposition}
+\begin{proof}
+The log likelihood of a point process with conditional intensity $\lambda$ observed on $(a,b]$ is
+$\sum\log\lambda(u_j)-\int_a^b\lambda$ (Daley and Vere-Jones 2003, Prop.~7.2.III); the integral of the exponential
+kernel of event $k$ over $(u_k,b]$ is $\eta(1-e^{-\beta(b-u_k)})$, and the excitation sum satisfies the recursion
+(Ozaki 1979). In $\mu$, $\ell_i$ is a sum of logarithms of affine functions minus a linear term, so it is strictly
+concave; its derivative $g(\mu)=\sum_j(\mu+e_j)^{-1}-S_i$ is strictly decreasing, so the stationary point is unique
+when $g(0)>0$ and the constrained maximum is at $0$ otherwise. By Jensen's inequality
+$\sum_j(\mu+e_j)^{-1}\ge\bar n^2/(\bar n\mu+\sum e_j)$, so $g\ge0$ at $\mu=\bar n/S_i-\bar e$: the start is at or below
+the root. $h(x)=\log\sum_j(e^x+e_j)^{-1}-\log S_i$ is decreasing and smooth, and the clipped Newton iteration
+converges (\texttt{test\_profile\_mu\_solves\_the\_score\_equation}). The segment parameters
+$\theta_k=(\operatorname{logit}\eta,\log\beta)$ maximise the profile likelihood plus a Normal prior centred on the
+pooled fit, and are drawn from the Laplace approximation (Bernstein--von Mises; van der Vaart 1998, Thm.~10.1), as
+for the renewal parameters (Prop.~\ref{prop:tspost}). \texttt{test\_hawkes\_fit\_recovers\_branching\_ratio\_and\_decay}
+recovers $(\eta,\beta)=(0.6,0.4)$ from simulated histories, and the compensator increments of the fit are $\mathrm{Exp}(1)$
+by the time-rescaling theorem (Brown et al.\ 2002; Ogata 1988), reported as \texttt{residual\_ks} in the fit log.
+\end{proof}
+
+\begin{proposition}[Hawkes histories given their count]\label{prop:simhawkesbridge}
+In the cluster representation of the Hawkes process (Hawkes and Oakes 1974), let $N=n-1$ nodes (the first event and
+the $n-2$ interior events) form $r=m+1$ clusters. (a) Under Poisson($\nu$) interior immigrants, the posterior of $m$
+given $N$ is proportional to $\mathrm{Pois}(m;\nu)\,\mathrm{BT}(N;m+1,\eta)$, with the Borel--Tanner law
+$\mathrm{BT}(N;r,\eta)=\frac rN e^{-\eta N}(\eta N)^{N-r}/(N-r)!$. (b) Given $N$ and $r$, the offspring counts of the
+$N$ nodes are $\mathrm{Multinomial}(N-r;1/N,\dots,1/N)$, independent of $\eta$, and rotating them to start after the
+first minimum of their {\L}ukasiewicz walk, with the decoded trees in uniform random order, gives the law of the forest
+in depth-first order. (c) Placing the other roots uniformly on the span and each child at an $\mathrm{Exp}(\beta)$
+delay after its parent, truncated to the span, is exact for each child given its parent; jointly it is exact as
+$\beta S\to\infty$.
+\end{proposition}
+\begin{proof}
+(a) The total progeny of $r$ independent Galton--Watson trees with Poisson($\eta$) offspring is Borel--Tanner
+(Tanner 1961; Haight and Breuer 1960); Bayes' rule with the Poisson prior gives the posterior, and
+$\nu=\max(N(1-\eta)-1,0)$ matches $\mathbb E N=r/(1-\eta)$. (b) Independent Poisson counts given their sum are
+multinomial with equal cells. A sequence $\xi$ with $\sum(\xi_j-1)=-r$ codes a forest of $r$ trees in depth-first
+order exactly when its walk first reaches $-r$ at step $N$; by the cycle lemma (Dvoretzky and Motzkin 1947; Pitman
+2006, Lemma 6.1) exactly $r$ rotations of $\xi$ do, and the rotation after the first minimum is one of them, since
+after it the walk stays above its final value. The multinomial law is exchangeable, so each rotation class has the
+same probability for all its members and the class determines the multiset of trees; the trees of a Galton--Watson
+forest are exchangeable, so ordering them uniformly gives the forest's law. (c) Poisson immigrants given their number
+are uniform; a child's delay given its parent and that it falls in the span is the truncated exponential. The joint
+conditioning on all descendants falling in the span differs from sequential truncation only through clusters that
+reach the end of the span, whose probability vanishes as $\beta S\to\infty$.
+\texttt{test\_conditional\_bridge\_matches\_conditioned\_ogata\_histories} compares the sampler with histories
+simulated by Ogata's (1981) thinning and kept when their count is $n$ (gap-share KS below 0.06 at $\beta S=40$).
+\end{proof}
+
+\begin{proposition}[Status chain]\label{prop:simchain}
+With transition counts $N_k[a,b]$ and first-status counts $n^0_k$ of segment $k$, and the pooled chain
+$P^0[a,\cdot]=(N[a,\cdot]+1/L)/\sum_b(N[a,b]+1/L)$, $p^0$ likewise, the posterior of the segment's chain under the
+prior $P_k[a,\cdot]\sim\mathrm{Dirichlet}(c\,P^0[a,\cdot])$, $\pi_k\sim\mathrm{Dirichlet}(c\,p^0)$ is
+$P_k[a,\cdot]\sim\mathrm{Dirichlet}(N_k[a,\cdot]+cP^0[a,\cdot])$, $\pi_k\sim\mathrm{Dirichlet}(n^0_k+cp^0)$,
+independently over rows $a$; its mean tends to the empirical transition frequencies as the counts grow, and a segment
+with no data has the pooled chain.
+\end{proposition}
+\begin{proof}
+The likelihood of first-order Markov sequences factorises into one multinomial per origin status
+(Anderson and Goodman 1957), so the Dirichlet prior is conjugate row by row (Lee, Judge and Zellner 1970). With
+$c=\texttt{prior}\cdot L$ the prior carries $\texttt{prior}$ pseudo-transitions per destination on average. Segments
+with fewer than \texttt{min\_entities} entities use the pooled counts, so no transition probability is read from a
+handful of entities. \texttt{test\_state\_chain\_and\_holding\_shapes\_are\_recovered} recovers a three-status chain
+to within 0.03.
+\end{proof}
+
+\begin{proposition}[Status-dependent gamma bridge]\label{prop:simsemimarkov}
+Let the holding times after the events $j=1,\dots,n-1$ of an entity be independent
+$\mathrm{Gamma}(\alpha e^{\delta_{s_j}},\beta)$ with a common scale. Given the statuses and the span $S$, the gap
+shares are $\mathrm{Dirichlet}(\alpha e^{\delta_{s_1}},\dots,\alpha e^{\delta_{s_{n-1}}})$ and independent of $S$.
+With $\log\alpha_i\sim N(\mu,\sigma^2)$, the marginal likelihood of entity $i$ depends on its gaps only through the
+counts $C_{is}$ and log-share sums $G_{is}$ of the gaps starting in each status, and $\delta\equiv0$ is the renewal
+bridge (Prop.~\ref{prop:tsbridge}).
+\end{proposition}
+\begin{proof}
+Lukacs (1955) holds for independent gammas with different shapes and a common scale: the change of variables
+$(G_1,\dots,G_m)\mapsto(S,G/S)$ factorises the density into a $\mathrm{Gamma}(\sum\alpha_j,\beta)$ density of $S$ and
+the Dirichlet density of the shares. The log Dirichlet density is
+$\log\Gamma(\alpha D_i)-\sum_sC_{is}\log\Gamma(\alpha e^{\delta_s})+\sum_s(\alpha e^{\delta_s}-1)G_{is}$ with
+$D_i=\sum_sC_{is}e^{\delta_s}$, and the entity effect is integrated by Gauss--Hermite quadrature. $\delta$ is
+identified up to a constant absorbed by $\mu$, so the most frequent status has $\delta=0$. A common scale means a
+status with longer holding times is also more regular; the guide states this limit.
+\end{proof}
+
+\begin{proposition}[Scenarios leave the baseline unchanged and keep DP]\label{prop:simscenbase}
+(a) With no active scenario the engine draws the same random numbers as without the \texttt{scenarios} block, so the
+datasets are equal. (b) A scenario reads only the fitted parameters and the rows being sampled, never source rows,
+so a dataset sampled under it from a model that is $(\varepsilon,\delta)$-DP (stage 2 of DP mode) is
+$(\varepsilon,\delta)$-DP. (c) A marginal map is a deterministic function of the sampled column, so the rest of the
+dataset uses the same random numbers as the baseline (common random numbers).
+\end{proposition}
+\begin{proof}
+(a) Every hook tests for an active scenario before drawing; \texttt{test\_no\_active\_scenario\_changes\_nothing}
+checks equality of all tables, and a fixed spec was checked byte for byte against the previous release. (b) Post-processing
+(Dwork and Roth 2014, Prop.~2.1). (c) The map consumes no random numbers (\texttt{test\_marginal\_map\_keeps\_ranks}
+compares row by row).
+\end{proof}
+
+\begin{proposition}[Tilting by rejection]\label{prop:simtilt}
+Let rows $x$ of an entity table (with their segments) be drawn from the fitted model $p$ and accepted with
+probability $w(x)/W$, $W\ge\sup w$. The accepted rows are i.i.d.\ from $p_w(x)=p(x)w(x)/\mathbb E_pw$, which for
+$w(x)=f(x_c)$ is the distribution closest to $p$ in Kullback--Leibler divergence among those with the tilted shares of
+$x_c$, and has $p_w(\cdot\mid x_c)=p(\cdot\mid x_c)$. Filling quotas $q_v$ per level $v$ of $x_c$ with the first rows
+of that level in a sequence of i.i.d.\ draws gives $q_v$ i.i.d.\ rows from $p(\cdot\mid x_c=v)$.
+\end{proposition}
+\begin{proof}
+Rejection sampling (von Neumann 1951): the accepted law has density proportional to $p\,w/W$. For a weight on $x_c$,
+$p_w(x)=p(x_c)f(x_c)p(x_{-c}\mid x_c)/Z$, so the conditional is unchanged; minimising $\mathrm{KL}(q\|p)$ subject to
+the marginal of $x_c$ gives $q(x)=q(x_c)p(x_{-c}\mid x_c)$, the I-projection (Csisz\'ar 1975). The quota rule is a
+stopping rule per level that does not look at the other columns, so the selected rows of level $v$ are i.i.d.\ from the
+conditional. Segments travel with the rows, so links of children follow the tilted segments.
+\texttt{test\_target\_shares\_are\_exact\_and\_conditionals\_kept} and \texttt{test\_share\_factors\_tilt\_and\_keep\_the\_total}.
+\end{proof}
+
+\begin{proposition}[Marginal maps keep the copula]\label{prop:simmap}
+Let $T$ be any map applied to the sampled values $x_1,\dots,x_n$ of a column and let $y$ be the monotone rearrangement
+of $T(x)$: the sorted $T(x)$ assigned in the rank order of $x$. Then $y$ has the empirical distribution of $T(x)$ and
+the same ranks as $x$, so the empirical copula of the table is unchanged; when $T$ is increasing, $y=T(x)$.
+\end{proposition}
+\begin{proof}
+By construction $y_{(i)}=T(x)_{(i)}$ with the order of $x$, so the multiset of values is that of $T(x)$ and the ranks
+are those of $x$; the empirical copula is a function of the ranks only (Deheuvels 1979; Sklar's theorem). An
+increasing $T$ keeps the order, so sorting changes nothing. The rearrangement is the $L^p$-closest monotone map to $T$
+(Chernozhukov, Fern\'andez-Val and Galichon 2010).
+\end{proof}
+
+\begin{proposition}[Rates and date windows by superposition and thinning]\label{prop:simrate}
+Let the rows of a fact given its anchors form a Poisson process (rows per anchor, or pairs) of intensity $\lambda$.
+Superposing $K$ independent draws and keeping each row with probability $c\,w(t)/K\le1$, with $t$ the row's time and
+$w=f$ inside the window and $1$ outside, gives a Poisson process of intensity $c\,w\,\lambda$. For a sequence table the
+calendar intensity is multiplied by $w$ on the window's cells and the count by
+$g=\sum_k m_k\,\bigl(\int w\,\lambda_k/\int\lambda_k\bigr)/\sum_km_k$ (events-weighted over segments).
+\end{proposition}
+\begin{proof}
+Superposition of independent Poisson processes adds intensities and independent thinning multiplies them by the
+retention probability (Kingman 1993, Sec.~2.2 and 5.1; Lewis and Shedler 1979). For count laws that are not Poisson
+(negative binomial, DP counts) the mean is multiplied by $c\,\mathbb E w$ and the dispersion changes; occupancy facts
+keep unique pairs by dropping repeated pairs, so their rate is raised less than $c$ when pairs saturate (the record
+reports the rows). For sequences the engine fixes the count, so the window's share of the entity's events follows
+$w\lambda_k$ by the time change (Prop.~\ref{prop:tschange}) and the count follows $g$.
+\texttt{test\_fact\_rate\_superposition\_and\_thinning}, \texttt{test\_intensity\_window\_on\_a\_fact\_date\_column}
+and \texttt{test\_intensity\_window\_on\_a\_sequence\_table}.
+\end{proof}
+
+\begin{proposition}[Degree tempering]\label{prop:simdegree}
+For degree weights $w>0$ of the rows of a segment, $w'_i=w_i^c\,\sum w/\sum w^c$ keeps the segment's total, so the
+expected links of every segment (the block rates) are unchanged. For $c>1$ the shares $w'/\sum w'$ majorise $w/\sum w$
+(Lorenz order: more concentrated), for $0\le c<1$ they are majorised by them, and $c=0$ gives equal shares.
+\end{proposition}
+\begin{proof}
+The total is kept by construction. The shares $s'_i\propto s_i\cdot s_i^{c-1}$ multiply each share by a factor that
+is increasing in $s_i$ when $c>1$ (decreasing when $c<1$), and reweighting by an increasing function moves mass to the
+larger shares, which gives majorisation (Marshall, Olkin and Arnold 2011, Prop.~5.B.1). The tempering applies to the
+heterogeneity the fit found within segments (gamma frailties or a copied table's degree posterior); when there is
+none, the record says so. \texttt{test\_degree\_concentration\_tempers\_parent\_weights}.
+\end{proof}
+\setcounter{proposition}{\value{savedpropsim}}

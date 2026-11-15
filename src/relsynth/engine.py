@@ -620,6 +620,11 @@ class Synthesizer:
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
                          and c in tables[t].columns}
+        if cfg.get("scenarios"):
+            # the model log lists every scenario and intervention; their effects go to each sample log
+            self.log["scenarios"] = {n: {"description": b.get("description"),
+                                         "interventions": [dict(iv) for iv in b.get("interventions", [])]}
+                                     for n, b in cfg["scenarios"].items()}
         self.log["timings"]["attributes_s"] = round(time.time() - t2, 2)
         self.log["timings"]["fit_total_s"] = round(time.time() - t0, 2)
         say(f"fit: done in {time.time() - t0:.0f} s")
