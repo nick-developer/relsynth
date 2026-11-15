@@ -399,10 +399,11 @@ def _nearest_corr(C):
     return C
 
 
-def _vech_counts(Z, R):
+def _vech_counts(Z, R, weights=None):
     """Sum over rows of the upper triangle (with the diagonal) of z z^T, each row
     clipped to norm R and rounded to multiples of 1/SCALE; and the integer L2 norm
-    bound of one row's contribution."""
+    bound of one row's contribution.  weights[i]: how many rows hold row i of Z
+    (a distinct tuple of the database's frequency table; Prop. 1762)."""
     q = Z.shape[1]
     iu = np.triu_indices(q)
     nrm = np.linalg.norm(Z, axis=1)
@@ -411,7 +412,10 @@ def _vech_counts(Z, R):
     P = np.rint(SCALE * Zc[:, iu[0]] * Zc[:, iu[1]]).astype(np.int64)
     d = len(iu[0])
     bound = SCALE * R * R + 0.5 * math.sqrt(d)            # Prop. 902
-    return P.sum(axis=0), bound, iu
+    if weights is None:
+        return P.sum(axis=0), bound, iu
+    w = np.rint(np.asarray(weights, dtype=float)).astype(np.int64)
+    return (P * w[:, None]).sum(axis=0), bound, iu
 
 
 # ------------------------------------------------------------------ fitting
@@ -438,11 +442,15 @@ class DPModel:
     report: dict = field(default_factory=dict)
 
 
-def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Plan) -> DPModel:
-    """Release stage 1's statistics.  `acct` refuses anything beyond the plan:
-    one Accountant, or with several units {unit: Accountant}, each charged
-    only for the tables of its unit (Prop. 1703)."""
-    hkey = _hash_key()
+def fit(spec: dict, real, cfg: DPConfig, acct: Accountant | dict, plan: Plan) -> DPModel:
+    """Release stage 1's statistics.  `real` is the real data: {table: frame} in
+    memory, or a rows.RowSource (in the database, Props. 1760-1763).  `acct`
+    refuses anything beyond the plan: one Accountant, or with several units
+    {unit: Accountant}, each charged only for the tables of its unit (Prop. 1703)."""
+    from .rows import FrameSource, RowSource, bincount
+    src = real if isinstance(real, RowSource) else FrameSource(real)
+    if isinstance(src, FrameSource):
+        src.key = _hash_key()
     owned = plan.order
     units = plan.units or [plan.unit]
     accts = acct if isinstance(acct, dict) else {u: acct for u in units}
@@ -451,16 +459,15 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
     delta_levels = cfg.delta * cfg.levels_delta_share
     n_disc_u = {u: sum(1 for t in owned if owner_of[t] == u for c in plan.tables[t].categorical
                        if f"{t}.{c}" not in cfg.public) or 1 for u in units}
-    rows: dict = {u: real[u].reset_index(drop=True) for u in units}
+    pub = src.public(list(plan.public))
+    rows: dict = {u: src.unit(u) for u in units}
     caps = {u: 1 for u in units}
     models: dict = {}
-    scores_of: dict = {}          # table -> DataFrame of attribute normal scores, aligned with rows[t]
     tree = cfg.measure != "copula"
-    cells_of: dict = {}           # mst/aim: table -> {coordinate: cell of each row of rows[t]}
-    report: dict = {"tables": {}}
+    report: dict = {"tables": {}, "source": "database" if src.pushdown else "memory"}
     for t in owned:
         P = plan.tables[t]
-        df = rows[t]
+        R = rows[t]
         c_t = caps[t]
         acct = accts[owner_of[t]]
         rho_t = cfg.rho_of(owner_of[t]) / n_owned[owner_of[t]]
@@ -476,6 +483,9 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
         tot = sum(sh.values())
         budget = {k: rho_t * v / tot for k, v in sh.items()}
         tr: dict = {"rows_per_unit_cap": c_t, "rho": rho_t}
+        par = P.parent_rel["parent"] if P.parent_rel is not None else None
+        link = (_keys(P.parent_rel["child_key"]), _keys(P.parent_rel["parent_key"])) if P.parent_rel is not None \
+            else ([], [])
         # ---------------- discovery
         ranges, levels = {}, {}
         var_of: dict = {}
@@ -484,7 +494,8 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
         if need_disc:
             share = budget["discovery"] / (len(disc_num) + len(disc_cat))
             if disc_num:
-                vec = np.concatenate([_grid_counts(_numeric_values(df[c], T["columns"][c]["type"])) for c in disc_num])
+                vec = np.concatenate([_hist(R, c, lambda v, k=T["columns"][c]["type"]: _grid_cells(v, k),
+                                            len(GRID) - 1) for c in disc_num])
                 r = share * len(disc_num)
                 noisy = gaussian(vec, c_t * math.sqrt(len(disc_num)), r, acct, "discovery", f"{t}: numeric ranges")
                 sig = sigma_for(c_t * math.sqrt(len(disc_num)), r)
@@ -492,7 +503,7 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
                 for i, c in enumerate(disc_num):
                     ranges[c] = _range_from_grid(noisy[i * m:(i + 1) * m], 3 * sig) or (0.0, 1.0)
             for c in disc_cat:
-                vc = df[c].dropna().astype(str).value_counts()
+                vc = _level_counts(R, c)
                 noisy = gaussian(vc.to_numpy(), c_t, share, acct, "discovery", f"{t}.{c}: level selection")
                 sig = sigma_for(c_t, share)
                 d_c = delta_levels / n_disc
@@ -514,89 +525,76 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
             if kind in ("date", "datetime"):
                 lo, hi = _date_bound(lo), _date_bound(hi)
             e = _edges(lo, hi, cfg.bins, integer)
-            x = _numeric_values(df[c], kind)
-            ok = ~np.isnan(x)
-            b = np.clip(np.searchsorted(e, np.clip(x[ok], e[0], e[-1]), side="right") - 1, 0, len(e) - 2)
-            cnt = np.concatenate([[int((~ok).sum())], np.bincount(b, minlength=len(e) - 1)])
-            hist_parts.append(cnt)
+            hist_parts.append(_hist(R, c, lambda v, e=e, kind=kind: _edge_cells(v, kind, e), len(e)))
             makers.append((c, lambda k, e=e, integer=integer, kind=kind: Marginal("num", None, k, edges=e,
                                                                                   integer=integer, dtype=kind)))
+        selected: dict = {}
         for c in P.categorical:
             if f"{t}.{c}" in cfg.public:
                 lv = [str(x) for x in cfg.public[f"{t}.{c}"]["levels"]]
-                s = df[c].astype(object).where(df[c].notna(), None).map(lambda x: None if x is None else str(x))
                 look = {v: i + 1 for i, v in enumerate(lv)}
-                cnt = np.bincount(s.map(lambda x: look.get(x, 0)).to_numpy(dtype=int), minlength=len(lv) + 1)
-                hist_parts.append(cnt)
+                hist_parts.append(_hist(R, c, lambda v, look=look: _level_cells(v, look), len(lv) + 1))
                 makers.append((c, lambda k, lv=lv: Marginal("cat", None, k, levels=lv)))
             else:
-                lv, noisy = levels[c]
-                nnull = int(df[c].isna().sum())
-                marg[c] = ("selected", lv, noisy, nnull)
+                selected[c] = levels[c]
         for r in P.public_fks:
             ck, pk = _keys(r["child_key"])[0], _keys(r["parent_key"])[0]
-            lv = list(pd.Series(real[r["parent"]][pk]).dropna().astype(str).unique())
+            lv = list(pd.Series(pub[r["parent"]][pk]).dropna().astype(str).unique())
             look = {v: i + 1 for i, v in enumerate(lv)}
-            s = df[ck].map(lambda x: 0 if _isnull(x) else look.get(str(_canon(x)), 0)).to_numpy(dtype=int)
-            hist_parts.append(np.bincount(s, minlength=len(lv) + 1))
+            hist_parts.append(_hist(R, ck, lambda v, look=look: _key_cells(v, look), len(lv) + 1))
             makers.append((ck, lambda k, lv=lv: Marginal("cat", None, k, levels=lv)))
         for g in P.key_groups:
             # rows per group (an order's lines) within each parent row: one more histogram of the
             # marginals; a unit has at most c_t groups, each counted once (Prop. 1702)
-            par_ = P.parent_rel["parent"]
-            dmax = max(caps[t] // max(caps[par_], 1), 1)
+            dmax = max(caps[t] // max(caps[par], 1), 1)
             e = _degree_edges(dmax)
-            sizes = _group_sizes(df, _keys(P.parent_rel["child_key"]), g)
+            sizes, w = R.group_sizes(link[0], g)
             b = np.clip(np.searchsorted(e, np.minimum(sizes, dmax), side="right") - 1, 0, len(e) - 2)
-            hist_parts.append(np.bincount(b, minlength=len(e) - 1))
+            hist_parts.append(bincount(b, w, len(e) - 1))
             makers.append((f"%{g}", lambda k, e=e: Marginal("num", None, np.concatenate([[0.0], k]), edges=e,
                                                              integer=True, dtype="integer")))
         pc_tree: list = []
-        if tree and P.parent_rel is not None:
+        if tree and par is not None:
             # the parent row's cells, counted over this table's rows (nodes of the two-way model)
-            par = P.parent_rel["parent"]
             pc_tree = [c for k, c in models[par].coords if k == "attr"][:cfg.max_parent_attrs]
-            pidx = _parent_index(df, rows[par], _keys(P.parent_rel["child_key"]), _keys(P.parent_rel["parent_key"]))
-            for c in pc_tree:
-                kk = len(models[par].marg[c].p)
-                hist_parts.append(np.bincount(cells_of[par][c][pidx], minlength=kk))
-                makers.append((f"^{c}", lambda k: Marginal("cat", None, k, levels=[str(i) for i in range(len(k) - 1)])))
-        null_counts = {c: v for c, v in marg.items()}
-        marg = {}
+            if pc_tree:
+                acc = {c: np.zeros(len(models[par].marg[c].p), dtype=np.int64) for c in pc_tree}
+                for chunk, w in R.joint([], [], (rows[par], link[0], link[1], pc_tree)):
+                    for c in pc_tree:
+                        pm = models[par].marg[c]
+                        acc[c] += bincount(pm._cell(_for_score(chunk[f"^{c}"], pm))[0], w, len(pm.p))
+                for c in pc_tree:
+                    hist_parts.append(acc[c])
+                    makers.append((f"^{c}", lambda k: Marginal("cat", None, k,
+                                                               levels=[str(i) for i in range(len(k) - 1)])))
         # the row count, released with the marginals (one more cell; a unit changes it by c_t)
-        hist_parts.append(np.array([len(df)]))
+        hist_parts.append(np.array([R.n]))
         makers.append(("#rows", lambda k: Marginal("num", None, np.concatenate([[0.0], k]), edges=np.array([0.0, 1.0]))))
-        if hist_parts:
-            q = len(hist_parts)
-            vec = np.concatenate(hist_parts)
-            noisy = gaussian(vec, c_t * math.sqrt(q), budget["marginals"], acct, "fit", f"{t}: marginals")
-            sig_m = sigma_for(c_t * math.sqrt(q), budget["marginals"])
-            at = 0
-            totals = []
-            n_rows = None
-            for (c, mk), part in zip(makers, hist_parts):
-                k = noisy[at:at + len(part)]
-                at += len(part)
-                if c == "#rows":
-                    n_rows = float(k[0])
-                    continue
-                var_of[c] = sig_m ** 2
-                if c.startswith("^"):
-                    var_of[c + "#y"] = k
-                    continue
-                if c.startswith("%"):
-                    group_sizes[c[1:]] = mk(k)
-                    continue
-                marg[c] = mk(k)
-                totals.append(marg[c].total)
-        else:
-            totals, n_rows = [], None
-        for c, (_, lv, noisy_lv, _nnull) in null_counts.items():
+        q = len(hist_parts)
+        vec = np.concatenate(hist_parts)
+        noisy = gaussian(vec, c_t * math.sqrt(q), budget["marginals"], acct, "fit", f"{t}: marginals")
+        sig_m = sigma_for(c_t * math.sqrt(q), budget["marginals"])
+        at = 0
+        n_rows = None
+        for (c, mk), part in zip(makers, hist_parts):
+            k = noisy[at:at + len(part)]
+            at += len(part)
+            if c == "#rows":
+                n_rows = float(k[0])
+                continue
+            var_of[c] = sig_m ** 2
+            if c.startswith("^"):
+                var_of[c + "#y"] = k
+                continue
+            if c.startswith("%"):
+                group_sizes[c[1:]] = mk(k)
+                continue
+            marg[c] = mk(k)
+        for c, (lv, noisy_lv) in selected.items():
             # levels and their counts come from the selection; the null cell is their complement
             n_guess = n_rows if n_rows is not None else float(np.sum(np.clip(noisy_lv, 0, None)))
             null_c = max(n_guess - float(np.sum(np.clip(noisy_lv, 0, None))), 0.0)
             marg[c] = Marginal("cat", None, np.concatenate([[null_c], noisy_lv]), levels=lv)
-            totals.append(marg[c].total)
         attr_names = P.numeric + P.categorical + [_keys(r["child_key"])[0] for r in P.public_fks]
         coords = [("attr", c) for c in attr_names]
         # ---------------- degrees of the children (this table is their parent)
@@ -606,11 +604,11 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
             for r in P.children:
                 ch = r["child"]
                 ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
-                deg = _degrees(df, real[ch], pk, ck)
+                deg, w = R.degrees(ch, pk, ck)
                 dmax = cfg.max_degree_range
                 e = _degree_edges(dmax)
                 b = np.clip(np.searchsorted(e, np.minimum(deg, dmax), side="right") - 1, 0, len(e) - 2)
-                cnt = np.bincount(b, minlength=len(e) - 1)
+                cnt = bincount(b, w, len(e) - 1)
                 noisy = gaussian(cnt, c_t, share, acct, "fit", f"{ch}: rows per {t} row")
                 var_of[f"#{ch}"] = sigma_for(c_t, share) ** 2
                 want = cfg.max_degree.get(ch, "auto")
@@ -641,20 +639,20 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
                 marg[f"#{ch}"] = Marginal("num", None, np.concatenate([[0.0], k2]), edges=e2, integer=True,
                                           dtype="integer")
                 coords.append(("deg", f"#{ch}"))
-                # bound the child: keep at most D rows per parent row, chosen at random
-                kept = _truncate(real[ch], df, pk, ck, D, hkey)
-                rows[ch] = kept
+                # bound the child: keep at most D rows per parent row, chosen by a keyed priority
+                rows[ch] = R.bound(ch, pk, ck, D)
                 caps[ch] = c_t * D
-                df[f"#{ch}"] = np.minimum(deg, D)
+                R.set_degree(f"#{ch}", ch, pk, ck, D)
                 tr.setdefault("max_degree", {})[ch] = D
+        own = [c for k, c in coords if k == "attr"]
+        degs = [c for k, c in coords if k == "deg"]
         if tree:
             # ---------------- two-way marginals (mst / aim; module select)
-            from .select import Node, grouping, select_and_measure
+            from .select import Node, candidates, grouping, select_and_measure
             nodes: dict = {}
-            cells: dict = {}
             groups: dict = {}
 
-            def coarse_node(name, m_, y, var, fine, evidence=False, deg=False):
+            def coarse_node(name, m_, y, var, evidence=False, deg=False):
                 g = grouping(m_.p, m_.kind != "cat", cfg.pair_bins)
                 K = int(g.max()) + 1
                 yc = np.bincount(g, weights=np.asarray(y, dtype=float), minlength=K)
@@ -664,20 +662,30 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
                     zero[0] = True
                 nodes[name] = Node(name, K, evidence=evidence, y=yc, var=var * max(np.bincount(g).max(), 1),
                                    zero=zero)
-                cells[name] = g[fine]
                 groups[name] = g
             for kind, c in coords:
-                m_ = marg[c]
-                fine = m_._cell(df[c].to_numpy() if kind == "deg" else _for_score(df[c], m_))[0]
-                coarse_node(c, m_, m_.raw, float(var_of.get(c, 1.0)), fine, deg=kind == "deg")
-                cells_of.setdefault(t, {})[c] = fine
+                coarse_node(c, marg[c], marg[c].raw, float(var_of.get(c, 1.0)), deg=kind == "deg")
             for c in pc_tree:
-                coarse_node(f"^{c}", models[par].marg[c], var_of[f"^{c}#y"], float(var_of[f"^{c}"]),
-                            cells_of[par][c][pidx], evidence=True)
-            n_hat_f = float(max(n_rows or 0.0, 1.0))      # the noisy row count (never len(df))
-            forest = select_and_measure(cfg.measure, t, nodes, cells, n_hat_f, c_t, budget["correlations"], acct,
+                coarse_node(f"^{c}", models[par].marg[c], var_of[f"^{c}#y"], float(var_of[f"^{c}"]), evidence=True)
+            cand = candidates(nodes, cfg.max_pair_cells)
+            exact = {e: np.zeros((nodes[e[0]].k, nodes[e[1]].k), dtype=np.int64) for e in cand}
+            if cand:
+                for chunk, w in R.joint(own, degs, (rows[par], link[0], link[1], pc_tree) if pc_tree else None):
+                    cells = {}
+                    for kind, c in coords:
+                        m_ = marg[c]
+                        fine = m_._cell(chunk[c].to_numpy() if kind == "deg" else _for_score(chunk[c], m_))[0]
+                        cells[c] = groups[c][fine]
+                    for c in pc_tree:
+                        pm = models[par].marg[c]
+                        cells[f"^{c}"] = groups[f"^{c}"][pm._cell(_for_score(chunk[f"^{c}"], pm))[0]]
+                    for (a, b_), x in exact.items():
+                        kb = nodes[b_].k
+                        x += bincount(cells[a] * kb + cells[b_], w, nodes[a].k * kb).reshape(x.shape)
+            n_hat_f = float(max(n_rows or 0.0, 1.0))      # the noisy row count (never the exact one)
+            forest = select_and_measure(cfg.measure, t, nodes, None, n_hat_f, c_t, budget["correlations"], acct,
                                         gaussian, max_cells=cfg.max_pair_cells, select_share=cfg.select_share,
-                                        rounds=cfg.aim_rounds, report=tr)
+                                        rounds=cfg.aim_rounds, report=tr, exact=exact)
             forest.groups = groups
             n_hat = int(round(n_rows)) if n_rows is not None else 0
             models[t] = TableModel(t, coords, marg, None, max(n_hat, 0), c_t, degree_cap, pc_tree, forest,
@@ -686,27 +694,21 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
             report["tables"][t] = tr
             continue
         # ---------------- correlations
-        parent_coords = []
-        Zcols = {}
-        for kind, c in coords:
-            vals = df[c] if kind != "deg" else df[c]
-            Zcols[c] = marg[c].score(vals.to_numpy() if kind == "deg" else _for_score(vals, marg[c]))
-        if P.parent_rel is not None:
-            par = P.parent_rel["parent"]
-            pc = [c for k, c in models[par].coords if k == "attr"][:cfg.max_parent_attrs]
-            if pc:
-                ps = scores_of[par]
-                ck, pk = _keys(P.parent_rel["child_key"]), _keys(P.parent_rel["parent_key"])
-                idx = _parent_index(df, rows[par], ck, pk)
-                for c in pc:
-                    Zcols[f"^{c}"] = ps[c].to_numpy()[idx]
-                parent_coords = pc
+        parent_coords = [c for k, c in models[par].coords if k == "attr"][:cfg.max_parent_attrs] \
+            if par is not None else []
         names = [c for _, c in coords] + [f"^{c}" for c in parent_coords]
         corr = None
-        if len(names) >= 2 and len(df):
-            Z = np.column_stack([Zcols[c] for c in names])
-            R = cfg.clip * math.sqrt(len(names))
-            S, bound, iu = _vech_counts(Z, R)
+        if len(names) >= 2 and R.n:
+            Rn = cfg.clip * math.sqrt(len(names))
+            S = None
+            for chunk, w in R.joint(own, degs, (rows[par], link[0], link[1], parent_coords) if parent_coords
+                                    else None):
+                Z = np.column_stack([marg[c].score(chunk[c].to_numpy() if kind == "deg"
+                                                   else _for_score(chunk[c], marg[c])) for kind, c in coords] +
+                                    [models[par].marg[c].score(_for_score(chunk[f"^{c}"], models[par].marg[c]))
+                                     for c in parent_coords])
+                part, bound, iu = _vech_counts(Z, Rn, w)
+                S = part if S is None else S + part
             noisy = gaussian(S, c_t * bound, budget["correlations"], acct, "fit", f"{t}: correlations")
             M = np.zeros((len(names), len(names)))
             M[iu] = noisy / SCALE
@@ -719,14 +721,69 @@ def fit(spec: dict, real: dict, cfg: DPConfig, acct: Accountant | dict, plan: Pl
             corr = _nearest_corr(np.clip(C, -1, 1))
         elif len(names) >= 2:
             corr = np.eye(len(names))
-        scores_of[t] = pd.DataFrame({c: Zcols[c] for _, c in coords if c in Zcols})
         n_hat = int(round(n_rows)) if n_rows is not None else 0
         models[t] = TableModel(t, coords, marg, corr, max(n_hat, 0), c_t, degree_cap, parent_coords,
                                group_sizes=group_sizes)
         tr["coordinates"] = len(names)
         report["tables"][t] = tr
-    pub = {t: real[t] for t in plan.public if t in real}
     return DPModel(plan, models, pub, accts[plan.unit], report)
+
+
+def _hist(R, col: str, cells, k: int) -> np.ndarray:
+    """Histogram over k cells of one column of the bounded rows: cells(values)
+    gives each value's cell, -1 for none (Prop. 1761: a sum over distinct values)."""
+    from .rows import bincount
+    out = np.zeros(k, dtype=np.int64)
+    for chunk, w in R.groups([col]):
+        idx = np.asarray(cells(chunk[col]), dtype=np.int64)
+        ok = idx >= 0
+        out += bincount(idx[ok], None if w is None else w[ok], k)
+    return out
+
+
+def _grid_cells(v, kind) -> np.ndarray:
+    """Cell of each value on the public log grid (-1 for nulls)."""
+    x = _numeric_values(v, kind)
+    out = np.full(len(x), -1, dtype=np.int64)
+    ok = ~np.isnan(x)
+    out[ok] = np.clip(np.searchsorted(GRID, np.clip(x[ok], GRID[0], GRID[-1]), side="right") - 1, 0, len(GRID) - 2)
+    return out
+
+
+def _edge_cells(v, kind, e) -> np.ndarray:
+    """Cell of each value of a numeric marginal: 0 for null, then the bins of edges e."""
+    x = _numeric_values(v, kind)
+    out = np.zeros(len(x), dtype=np.int64)
+    ok = ~np.isnan(x)
+    out[ok] = np.clip(np.searchsorted(e, np.clip(x[ok], e[0], e[-1]), side="right") - 1, 0, len(e) - 2) + 1
+    return out
+
+
+def _level_cells(v, look) -> np.ndarray:
+    """Cell of each value among public levels (0 for null and for values outside them)."""
+    s = pd.Series(v).astype(object)
+    s = s.where(s.notna(), None).map(lambda x: None if x is None else str(x))
+    return s.map(lambda x: look.get(x, 0)).to_numpy(dtype=np.int64)
+
+
+def _key_cells(v, look) -> np.ndarray:
+    """Cell of each key value among a public table's keys (0 for null and unknown keys)."""
+    return pd.Series(v).map(lambda x: 0 if _isnull(x) else look.get(str(_canon(x)), 0)).to_numpy(dtype=np.int64)
+
+
+def _level_counts(R, c) -> pd.Series:
+    """Rows per non-null value of c (as text), most frequent first (ties by value)."""
+    parts = []
+    for chunk, w in R.groups([c]):
+        s = chunk[c]
+        ok = s.notna().to_numpy()
+        ww = np.ones(int(ok.sum())) if w is None else np.asarray(w, dtype=float)[ok]
+        parts.append(pd.Series(ww, index=s[ok].astype(str).to_numpy(), dtype=float))
+    if not parts:
+        return pd.Series([], dtype=np.int64)
+    vc = pd.concat(parts).groupby(level=0, sort=True).sum()
+    vc = np.rint(vc).astype(np.int64)
+    return vc.sort_values(ascending=False, kind="stable")
 
 
 def _canon(x):
@@ -990,23 +1047,41 @@ def _enforce_checks(spec: dict, plan: Plan, res: dict) -> None:
         if P.parent_rel is not None:
             r = P.parent_rel
             ck, pk = _keys(r["child_key"]), _keys(r["parent_key"])
-            keep = set(_key_list(res[r["parent"]], pk))
+            par = res[r["parent"]]
+            keep = set(_key_list(par, pk))
             df = res[t]
             # a boolean array, not a list: an empty list would select no columns
-            res[t] = df[np.array([k in keep for k in _key_list(df, ck)], dtype=bool)].reset_index(drop=True)
+            mask = np.array([k in keep for k in _key_list(df, ck)], dtype=bool)
+            if len(df) and len(par) and not mask.any():
+                # every parent row of this table was dropped: keep one row under a kept parent row, so
+                # stage 2 has a table to fit (as decode keeps one child row; post-processing)
+                df = df.iloc[:1].copy()
+                for c, pc in zip(ck, pk):
+                    df[c] = par[pc].iloc[:1].to_numpy()
+                mask = np.ones(1, dtype=bool)
+            res[t] = df[mask].reset_index(drop=True)
+        bad = None
+        df = res[t]
         for rule in spec.get("rules") or []:
-            if rule.get("table") != t or rule.get("type") != "check" or not len(res[t]):
+            if rule.get("table") != t or rule.get("type") != "check" or not len(df):
                 continue
-            df = res[t]
             try:
-                ok = check_mask(df, rule["expr"], make_resolver(spec, t, df, res))
+                ok = np.asarray(check_mask(df, rule["expr"], make_resolver(spec, t, df, res)), dtype=bool)
             except (KeyError, ValueError) as e:
                 log.debug("DP seed: rule %r not checked: %s", rule["expr"], e)
                 continue
             if (~ok).any():
-                log.info("DP seed: %s: %d of %d rows break %r and are dropped", t, int((~ok).sum()), len(df),
-                         rule["expr"])
-                res[t] = df[ok].reset_index(drop=True)
+                log.info("DP seed: %s: %d of %d rows break %r", t, int((~ok).sum()), len(df), rule["expr"])
+                bad = (~ok).astype(int) if bad is None else bad + (~ok)
+        if bad is not None:
+            ok = bad == 0
+            if not ok.any():
+                # every row breaks a rule (a small seed, many cross-table rules): keep the row that breaks
+                # the fewest, rather than an empty table stage 2 cannot fit (post-processing)
+                ok = np.zeros(len(df), dtype=bool)
+                ok[int(np.argmin(bad))] = True
+                log.info("DP seed: %s: every row breaks a check rule; the row breaking the fewest is kept", t)
+            res[t] = df[ok].reset_index(drop=True)
 
 
 def _nearest_corr_cov(S):
