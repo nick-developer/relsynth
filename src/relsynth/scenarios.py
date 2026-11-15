@@ -125,7 +125,7 @@ def validate(spec: dict) -> list[str]:
         extra = set(blk) - {"description", "interventions"}
         if extra:
             errs.append(f"{w}: unknown key(s) {', '.join(sorted(extra))} (allowed: description, interventions)")
-        targets = {}
+        targets: dict[str, str] = {}
         for i, iv in enumerate(blk["interventions"]):
             errs += _validate_one(iv, f"{w}.interventions[{i}]", T, rels, targets)
     return errs

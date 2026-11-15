@@ -540,7 +540,8 @@ class SequenceModel:
             h[mk], q[mk] = self.life[k].sample(n[mk], rng)
         first_all = uA + h * U
         if self.states is not None or self.hawkes is not None:
-            return self._sample_process(n, seg, A, B, rng, uA, uB, first_all, q, start, owner, return_states)
+            t, owner, state = self._sample_process(n, seg, A, B, rng, uA, uB, first_all, q, start, owner)
+            return (t, owner, state) if return_states else (t, owner)
         one = n == 1
         if one.any():
             u[start[one]] = first_all[one]
@@ -573,7 +574,7 @@ class SequenceModel:
         t = np.clip(t, np.repeat(A, n), np.nextafter(np.repeat(B, n), -np.inf))
         return t, owner
 
-    def _sample_process(self, n, seg, A, B, rng, uA, uB, first_all, q, start, owner, return_states):
+    def _sample_process(self, n, seg, A, B, rng, uA, uB, first_all, q, start, owner):
         """sample() with a Hawkes interior (Prop. 1821) or a status chain with
         status-dependent gamma gaps (Props. 1822-1823)."""
         u = np.empty(int(n.sum()))
@@ -611,7 +612,7 @@ class SequenceModel:
                     u[pos] = np.repeat(first[three], m) + sh * np.repeat(span[three], m)
         t = self.intensity.inverse(u, seg[owner])
         t = np.clip(t, np.repeat(A, n), np.nextafter(np.repeat(B, n), -np.inf))
-        return (t, owner, state) if return_states else (t, owner)
+        return t, owner, state
 
     def summary(self):
         return {"calendar": self.intensity.summary(), "parameters": NAMES, **self.fit_log,
