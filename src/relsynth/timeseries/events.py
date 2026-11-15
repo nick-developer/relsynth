@@ -518,11 +518,19 @@ class SequenceModel:
         return self
 
     # ----------------------------------------------------------- sampling
-    def sample(self, n, seg, A, B, rng, return_states=False):
+    def sample(self, n, seg, A, B, rng):
         """Event times (days) of entities with n[i] events, segment seg[i] and
         window [A[i], B[i]) in days.  Returns (times, owner) with the times of
-        each entity in increasing order; owner indexes the entities.  With a
-        status chain and return_states, also the status code of every event."""
+        each entity in increasing order; owner indexes the entities."""
+        t, owner, _state = self._sample(n, seg, A, B, rng)
+        return t, owner
+
+    def sample_states(self, n, seg, A, B, rng):
+        """sample() plus the status code of every event (None without a status
+        chain)."""
+        return self._sample(n, seg, A, B, rng)
+
+    def _sample(self, n, seg, A, B, rng):
         n = np.asarray(n, dtype=np.int64)
         seg = np.asarray(seg, dtype=np.int64)
         A, B = self._windows((A, B), len(n))
@@ -540,8 +548,7 @@ class SequenceModel:
             h[mk], q[mk] = self.life[k].sample(n[mk], rng)
         first_all = uA + h * U
         if self.states is not None or self.hawkes is not None:
-            t, owner, state = self._sample_process(n, seg, A, B, rng, uA, uB, first_all, q, start, owner)
-            return (t, owner, state) if return_states else (t, owner)
+            return self._sample_process(n, seg, A, B, rng, uA, uB, first_all, q, start, owner)
         one = n == 1
         if one.any():
             u[start[one]] = first_all[one]
@@ -572,7 +579,7 @@ class SequenceModel:
                 u[pos[inner]] = f_rep[inner] + cum[inner] * s_rep[inner]
         t = self.intensity.inverse(u, seg[owner])
         t = np.clip(t, np.repeat(A, n), np.nextafter(np.repeat(B, n), -np.inf))
-        return t, owner
+        return t, owner, None
 
     def _sample_process(self, n, seg, A, B, rng, uA, uB, first_all, q, start, owner):
         """sample() with a Hawkes interior (Prop. 1821) or a status chain with

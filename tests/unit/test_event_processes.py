@@ -172,8 +172,8 @@ def test_state_chain_and_holding_shapes_are_recovered():
     alpha = np.exp(th[0] + d)
     assert np.allclose(np.log(alpha), np.log(shape), atol=0.15)
     n = np.bincount(o, minlength=1200)
-    ts, ow, ss = m.sample(n, np.zeros(1200, int), np.full(1200, D0), np.full(1200, D0 + 1000),
-                          np.random.default_rng(3), return_states=True)
+    ts, ow, ss = m.sample_states(n, np.zeros(1200, int), np.full(1200, D0), np.full(1200, D0 + 1000),
+                                 np.random.default_rng(3))
     assert np.abs(transitions(ss, ow) - transitions(s, o)).max() < 0.03
     same = ow[1:] == ow[:-1]
     g = np.diff(ts)[same]

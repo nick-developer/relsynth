@@ -297,7 +297,7 @@ def _apply_sequence(S, t, df, out, index, info):
             status chain decides the order of the entity's statuses, its rows are
             put at the positions of their own status (in the engine's order), and a
             row left over takes the status of the position it fills."""
-            tt, _ow, ss = m.sample(n[sel], zP[ents[sel]], A[ents[sel]], B[ents[sel]], rng, return_states=True)
+            tt, _ow, ss = m.sample_states(n[sel], zP[ents[sel]], A[ents[sel]], B[ents[sel]], rng)
             idx = np.flatnonzero(sel)
             loc = np.full(len(ents), -1)
             loc[idx] = np.arange(len(idx))
