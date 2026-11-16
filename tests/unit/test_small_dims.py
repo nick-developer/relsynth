@@ -118,22 +118,29 @@ def _run(spec, **priv):
     return m, m.sample()
 
 
-def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Shape-mode shrinkage with the empirical-Bayes weight is on by default (the
-    privacy floor is off), the guard is off, the estimates are in the model summary,
-    and 0 rows with no floor (the 2.1 fit) give other values."""
+def test_segment_prior_off_by_default_and_wired_per_table(shop):
+    """Shrinkage and the guard are off by default (the 2.1 fit); a table opts in
+    with per_table marginals (segment_prior_rows: auto), its estimates are in the
+    model summary, and the other tables keep the 2.1 fit."""
     m, base = _run(shop)
-    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == "auto"
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0
     assert m.spec["synthesis"]["marginals"]["segment_floor_rows"] == 0.0
-    gens = [tm.generator for tm in m.synthesizer.tm.values() if getattr(tm.generator, "shrinkage", None)]
-    assert gens and all("segment" in g.summary()["segment_shrinkage"] for g in gens)
     assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
+    assert not [tm for tm in m.synthesizer.tm.values() if getattr(tm.generator, "shrinkage", None)]
     _, zero = _run(shop, **OFF)
-    b, f = dict(base), dict(zero)
-    assert set(b) == set(f)
-    assert any(not b[t].equals(f[t]) for t in b)
+    for t in base:
+        pd.testing.assert_frame_equal(base[t], zero[t], check_exact=True)
+    ents = [t for t, d in shop["tables"].items() if d.get("role", "entity") == "entity"]
+    for one in ents:
+        s = copy.deepcopy(shop)
+        s.setdefault("synthesis", {})["per_table"] = {one: {"marginals": {"segment_prior_rows": "auto"}}}
+        on = {t for t, tm in rs.fit(s, seed=3).synthesizer.tm.items() if getattr(tm.generator, "shrinkage", None)}
+        assert on <= {one}
+        if on:
+            break
+    assert on, "no entity table of the scenario has segments to shrink"
 
 
 def test_zero_rows_gives_the_21_output_in_every_mode(shop):

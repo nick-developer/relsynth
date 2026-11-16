@@ -103,6 +103,20 @@ The fact tables copy the product's price (`UnitPrice = ProductKey.Price` times a
 
 **Default after 2.2.0, the owner's choice:** shape mode at 20 rows, with the bench baseline rebuilt to accept the Contoso cost. With the current code (fact tables not shrunk, C75 fix), 20 rows give AdventureWorks `DimProduct` ratios of 1.124, 0.883, 1.158, 0.820 and 0.586 on seeds 1, 2, 3, 11 and 12 (mean 0.91; 2.1: 0.50-0.65, mean 0.57), with scorecards of 1209, 1203, 1204, 1208 and 1206 (mean 1206.0, 2.0 items below 2.1's 1208.0). Seed 12 stays at its 2.1 level (0.586 against 0.581), so 20 rows lift the margin on most seeds but do not guarantee it; 40 rows gave 0.89 or more on every seed for 6 items. `segment_prior_rows: 0` reproduces 2.1 byte for byte.
 
+## 2.3: prior strength estimated from the data, turned on per table
+
+The fixed row count of 2.2 is replaced by an estimate (`marginals.segment_prior_rows: auto`, Prop. 1725): under the model `F_g ~ DP(a, F_c)` two rows of a segment fall on the same side of any threshold with correlation `1 / (a + 1)`, so the nested one-way analysis of variance of threshold indicators (15 quantile thresholds, or the levels of a discrete column) estimates `a` per column and per level of the hierarchy. In shape mode the rows are first standardised by their segment's median and interquartile range. An optional floor (`marginals.segment_floor_rows`, Prop. 1726) bounds each source row's weight in a segment's predictive law by `1 / floor`.
+
+Seed 1, current code (bench scorecard and quality suite):
+
+| | AdventureWorks `DimProduct` DCR | AW failed checks (of 1,267) | Contoso product DCR | Contoso fact price W1 (normal scores) | Contoso failed checks |
+|---|---|---|---|---|---|
+| off (2.1 fit) | 0.50-0.65 (2.1, five seeds) | | 1.79 | 0.024-0.035 (limit 0.05) | 21 |
+| `auto` | 0.62 | 138 | 2.52 | 0.069-0.079 | 31 |
+| `auto`, floor 20 | 0.71 | 145 | 2.52 | 0.069-0.079 | 31 |
+
+On Contoso the estimates for `product` are 23 to 31 rows (Price 27.6, Cost 23.2, Weight 30.9; intra-class correlations 0.03 to 0.04 over 36 segments of 1 to 119 rows), so `auto` shrinks about as much as the fixed 20 rows, with the same cost in the fact tables; the floor never binds there (segments are mostly above 20 rows). The weekly tier at a fixed 20 rows (run 43733759256) showed costs on MIMIC-IV date joins and rules, Stack Exchange joins and Synthea as well. The owner's decision (2026-11-16): shrinkage stays off by default and a spec turns it on for the small dimensions that need it; the AdventureWorks benchmark spec does so for `DimProduct`.
+
 ## Open items
 
 - Why shrinking a dimension's numbers shifts which products the Contoso facts buy is not explained yet (a candidate: the facts' link or attribute models read the product's segment-level values). A fix would remove the Contoso cost.

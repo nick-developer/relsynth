@@ -1312,7 +1312,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "Release 2.2.0 kept that output (its small-dimension settings were off by default); the next release changes one default on purpose (segment shrinkage for small dimension tables with its strength estimated from the data, `marginals.segment_prior_rows: auto`), and setting it to 0 restores the 2.1 output."
+      - "Release 2.2.0 kept that output (its small-dimension settings were off by default); the next release keeps them off and adds `marginals.segment_prior_rows: auto`, segment shrinkage with its strength estimated from the data, which a spec turns on per table."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -1320,7 +1320,7 @@ claims:
       - test: tests/unit/test_runtime.py::test_default_runtime_keeps_the_1_0_sampler
       - test: tests/unit/test_generators.py::test_copula_is_the_default_and_naming_it_changes_nothing
       - test: tests/unit/test_autotune.py::test_systematic_versus_sporadic
-      - test: tests/unit/test_small_dims.py::test_segment_prior_is_wired_and_guard_off_by_default
+      - test: tests/unit/test_small_dims.py::test_segment_prior_off_by_default_and_wired_per_table
       - check: C1720
       - code: tools/identity_check.py
 
@@ -2280,7 +2280,7 @@ claims:
     area: statistics
     quote:
       - "On AdventureWorks (seed 1) a floor of 20 raised the `DimProduct` distance-to-closest-record ratio from 0.62 to 0.71 for 7 more borderline quality checks"
-      - "the `DimProduct` ratio is 0.62 with the defaults, against 0.50-0.65 at 2.1 and a limit of 0.5, so the margin stays thin on this table."
+      - "the `DimProduct` ratio is 0.62 with `auto` on that table, against 0.50-0.65 at 2.1 and a limit of 0.5, so the margin stays thin on this table."
     status: supported
     evidence:
       - report: docs/research/small-dimensions.md
