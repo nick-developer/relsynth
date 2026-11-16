@@ -194,6 +194,7 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
     lens = {(n, c) for n, tl in lay.tables.items() for c in tl.length_bounds}
     raw["rules"] = [r for r in raw.get("rules", []) if not (r.get("type") == "aggregate" and r.get("agg") == "count"
                                                           and (r.get("table"), r.get("column")) in lens)]
+    raw["rules"] = _counts_as_lengths(lay, raw.get("rules", []), lens)
     # a multi-hot cell is 1 (or 1 + position) for a held element, so "cell <= length"
     # holds in the source by construction; drafted as a check it rejects short arrays and inflates
     # the length law (mflix genres: 49 % of length 3 against 40 %); nesting already
@@ -216,6 +217,45 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
     raw.setdefault("synthesis", {})["seed"] = seed
     raw["source"] = {"kind": "sqlite", "path": str(db_path)}
     return raw
+
+
+def _counts_as_lengths(lay: Layout, rules: list, lens: set) -> list:
+    """Rules that restate an array's length in terms of another attribute.
+
+    An array's length is structural: nesting gives each holder as many elements
+    as its length column says (``_match_lengths``), and the copula models that
+    column with the holder's other attributes.  A document that also stores the
+    count (StackExchange ``AnswerCount`` beside ``answers``) drafts two rules
+    about it: ``AnswerCount = count(answers)``, an aggregate that turns the length
+    matching off and leaves the lengths to the engine's per-parent count law, and
+    ``answers__n = AnswerCount``, a derive that overwrites the modelled length.
+    Both say the same thing as ``AnswerCount = answers__n`` with the length kept
+    as modelled: the aggregate over an element table, through its holder link, is
+    rewritten as that derive, and derives that write a length column are left
+    out.  Rules about anything else are returned unchanged."""
+    length_of = {}
+    for tname, tl in lay.tables.items():
+        if tl.kind == "array" and tl.parent:
+            col = lay.shapes.get(tl.parent, {}).get(".".join(tl.holder), {}).get("length_col")
+            if col:
+                length_of[(tl.parent, tname)] = col
+    out, have = [], set()
+    for r in rules:
+        if r.get("type") == "derive" and isinstance(r.get("expr"), str) and "=" in r["expr"]:
+            lhs = r["expr"].split("=", 1)[0].strip()
+            if (r.get("table"), lhs) in lens:
+                continue                       # the length stays as modelled
+        col = length_of.get((r.get("table"), r.get("from")))
+        if (r.get("type") == "aggregate" and r.get("agg") == "count" and col and not r.get("of")
+                and (r.get("via") is None or str(r["via"]).startswith(f"{r['from']}.{PARENT}->"))):
+            r = {"table": r["table"], "type": "derive", "expr": f"{r['column']} = {col}"}
+        key = (r.get("table"), r.get("expr")) if r.get("type") == "derive" else None
+        if key is not None and key in have:
+            continue
+        if key is not None:
+            have.add(key)
+        out.append(r)
+    return out
 
 
 __all__ = ["write_sqlite", "spec_for", "target_column", "ROW_ID", "PARENT", "POS", "KEY"]

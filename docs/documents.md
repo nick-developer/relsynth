@@ -76,6 +76,8 @@ set of fields of each object (its signature) and the depth. From these counts it
   pairs; a key equal to a field of its value (`wallets[<id>].id == <id>`) is rebuilt from that field;
 - **variants**: an object with a discriminator (`payment.method`) whose values decide the field set;
 - **length fields**: an integer field equal to an array's length on every document (`n_items == len(items)`);
+  a field equal to it on all but at most 1 in 1,000 documents (StackExchange `AnswerCount`) is derived from the
+  modelled length (`AnswerCount = answers__n`), and the length is never derived from it;
 - **set arrays**: arrays of scalars whose elements never repeat;
 - **references**: a field whose values are all values of a unique field of another collection (`orders.customer_id`
   to `customers._id`, or to a natural key). Partial or near-unique matches are listed as *candidates* with their
