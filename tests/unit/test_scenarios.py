@@ -210,11 +210,13 @@ def test_degree_concentration_tempers_parent_weights():
 
 
 def test_validation_errors():
-    def errs(iv, extra=None):
+    def errs(iv, extra=None, rules=None):
         sp = spec(scenarios=False, seq=False)
         sp["synthesis"]["scenarios"] = {"s": {"interventions": [iv]}}
         if extra:
             sp["synthesis"].update(extra)
+        if rules:
+            sp["rules"] = list(sp.get("rules") or []) + rules
         with pytest.raises(SpecError) as e:
             load_spec(sp)
         return str(e.value)
@@ -236,6 +238,8 @@ def test_validation_errors():
     assert "on a fact table" in errs({"type": "degree", "table": "Orders", "key": "CustomerKey", "rate": 2})
     assert "unknown key" in errs({"type": "scale", "table": "Customer", "factor": 2, "factr": 1})
     assert "not in the spec" in errs({"type": "scale", "table": "Nope", "factor": 2})
+    assert "change its inputs" in errs({"type": "marginal", "table": "Orders", "column": "Amount", "multiply": 2},
+                                       rules=[{"table": "Orders", "type": "derive", "expr": "Amount = 2 * 1"}])
     assert "is not one of synthesis.scenarios" in errs({"type": "scale", "table": "Customer", "factor": 2},
                                                        {"scenario": "other"})
 

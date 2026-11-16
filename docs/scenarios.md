@@ -72,8 +72,9 @@ the model almost never draws, which the scenario should then not ask for).
 **marginal** maps the sampled values and then puts them back in the original rank order (monotone rearrangement).
 Ranks, and so the dependence with every other column (the copula), are kept exactly, and the other columns use the same
 random numbers as the baseline, so the baseline and the scenario differ only in this column. Integer columns are
-rounded. A column the engine derives once the rows are complete (`ratio_of`, `offset_from`, a `derive` rule) is
-mapped on the finished table instead, so columns derived from it do not follow the change; the record says so. Check rules that bound the column are applied after the map, as for any drawn value.
+rounded. A column the engine derives once the rows are complete (`ratio_of`, `offset_from`) is mapped on the finished
+table instead, so columns derived from it do not follow the change; the record says so. A column that a `derive` rule
+computes is rejected: the scenario changes the rule's inputs. Check rules that bound the column are applied after the map, as for any drawn value.
 
 **intensity** depends on the table:
 

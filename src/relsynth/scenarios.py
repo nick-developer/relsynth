@@ -128,7 +128,22 @@ def validate(spec: dict) -> list[str]:
         targets: dict[str, str] = {}
         for i, iv in enumerate(blk["interventions"]):
             errs += _validate_one(iv, f"{w}.interventions[{i}]", T, rels, targets)
+            errs += _derived_target(iv, f"{w}.interventions[{i}]", spec.get("rules") or [])
     return errs
+
+
+def _derived_target(iv, w, rules):
+    """A marginal change of a column that a derive rule computes from others would
+    break the rule (TaxAmt = 0.08 * ExtendedAmount); the scenario changes the inputs."""
+    if not isinstance(iv, dict) or iv.get("type") != "marginal":
+        return []
+    from .expr import split_assignment
+    for r in rules:
+        if r.get("type") == "derive" and r.get("table") == iv.get("table") and "=" in str(r.get("expr", "")):
+            lhs = split_assignment(str(r["expr"]))[0]
+            if lhs == iv.get("column"):
+                return [f"{w}: {iv['table']}.{lhs} is computed by the rule {r['expr']!r}; change its inputs instead"]
+    return []
 
 
 def _validate_one(iv, w, T, rels, targets):

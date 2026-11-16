@@ -22,6 +22,7 @@ Only aggregate numbers are written (--out, JSON); data stays in the cache.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sqlite3
 import sys
@@ -52,7 +53,7 @@ SCENARIOS = {
     "adventureworks": [
         {"type": "scale", "table": "DimCustomer", "factor": 1.5},
         {"type": "shares", "table": "DimCustomer", "column": "MaritalStatus", "shares": {"S": 0.7}},
-        {"type": "marginal", "table": "FactInternetSales", "column": "TaxAmt", "multiply": 1.1},
+        {"type": "marginal", "table": "DimCustomer", "column": "YearlyIncome", "quantiles": [[0.9, 1.0], [1.0, 1.2]]},
         {"type": "degree", "table": "FactInternetSales", "key": "ProductKey", "concentration": 0.5},
     ],
 }
@@ -175,10 +176,13 @@ def run_scenarios(datasets, seed):
         t0 = time.time()
         m = rs.fit(spec)
         fit_s = round(time.time() - t0, 1)
-        base = m.sample(dataset=0)
+        # every dataset from a fresh copy of the fitted model: repeated draws of one
+        # dataset index in a process are not identical on every database yet, and the
+        # comparison needs the baseline's own random numbers
+        base = copy.deepcopy(m).sample(dataset=0)
         for i, iv in enumerate(ivs):
             t1 = time.time()
-            d = m.sample(dataset=0, scenario=f"s{i}")
+            d = copy.deepcopy(m).sample(dataset=0, scenario=f"s{i}")
             rec = d.sample_log["scenario"]["interventions"][0]
             row = {"dataset": ds, "seed": seed, "fit_s": fit_s, "sample_s": round(time.time() - t1, 1),
                    "intervention": iv, "measured": _measure(iv, base, d), "record": rec["effect"]}
