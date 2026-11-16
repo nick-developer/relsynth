@@ -187,6 +187,26 @@ def through_mongo(cols: dict, url: str, db: str) -> tuple[dict, dict]:
     return back, checks
 
 
+def worst_paths(src: list, syn: list, k: int = 8) -> list:
+    """The paths whose presence or type mix differs most between the source and
+    the synthetic documents (what the presence and type_mix metrics average)."""
+    from collections import Counter
+
+    from relsynth.documents.infer import profile_collection
+    from relsynth.documents.metrics import _paths, _state, _tvd
+    A, B = _paths(profile_collection("a", src)), _paths(profile_collection("b", syn))
+    rows = []
+    for p in set(A) | set(B):
+        x, y = A.get(p), B.get(p)
+        ra = x.present / x.n if x is not None and x.n else 0.0
+        rb = y.present / y.n if y is not None and y.n else 0.0
+        sa = _state(x) if x is not None else Counter({"absent": 1})
+        sb = _state(y) if y is not None else Counter({"absent": 1})
+        rows.append({"path": p, "presence": [round(ra, 4), round(rb, 4)], "types": [dict(sa), dict(sb)],
+                     "type_tvd": round(_tvd(sa, sb), 4)})
+    return sorted(rows, key=lambda r: -max(abs(r["presence"][0] - r["presence"][1]), r["type_tvd"]))[:k]
+
+
 def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str | None) -> dict:
     t0 = time.time()
     push = None
@@ -225,6 +245,8 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
     (out / f"{name}.json").write_text(json.dumps(res, indent=1, default=str))
     print(f"{name}: {'pass' if res['pass'] else 'FAIL'} ({nfail} of {res['metrics']} shape metrics over the limit)")
     if not res["pass"]:
+        res["draft"]["worst_paths"] = {c: worst_paths(cols[c], syn.get(c, [])) for c in res["collections"]
+                                       if res["collections"][c]["fails"]}
         print(json.dumps(res["draft"], indent=1, default=str))
     return res
 
