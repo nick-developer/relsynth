@@ -65,6 +65,57 @@ def test_config_takes_one_unit_or_a_list(star):
             dp.parse(_spec(s, unit=bad))
 
 
+def test_pushdown_setting_is_parsed_and_picks_where_stage1_reads(star, star_sqlite, star_csv):
+    """G2: auto (default) reads in the database when the source has SQL, on refuses
+    files without DuckDB, off and tables given read in memory."""
+    from relsynth.dp import rows as RW
+    _, s = star
+    assert dp.parse(_spec(s)).pushdown == "auto"
+    assert dp.parse(_spec(s, pushdown=False)).pushdown == "off"
+    with pytest.raises(PrivacyError, match="pushdown"):
+        dp.parse(_spec(s, pushdown="always"))
+    lite = _spec(star_sqlite[0])
+    src, why = RW.source_for(lite, "auto")
+    try:
+        assert src.pushdown and why is None and src.unit("customer").n == len(S.SCENARIOS["S2_star"]()[0]["customer"])
+    finally:
+        src.close()
+    src, why = RW.source_for(lite, "off")
+    assert not src.pushdown and "off" in why
+    src, why = RW.source_for(lite, "auto", tables=star[0])
+    assert not src.pushdown and "memory" in why
+    files = copy.deepcopy(star_csv[0])
+    files["source"] = {**files["source"], "engine": "pandas"}
+    files = _spec(files)
+    src, why = RW.source_for(files, "auto")
+    assert not src.pushdown and "SQL" in why
+    with pytest.raises(PrivacyError, match="pushdown: on"):
+        RW.source_for(files, "on")
+
+
+def test_seed_keeps_a_row_when_every_row_breaks_a_rule(star):
+    """A small seed where every order breaks a check rule (the dp-eval audit's crash):
+    the seed keeps the row that breaks the fewest and re-attaches one child, so
+    stage 2 has tables to fit instead of failing on an empty fact."""
+    from relsynth.dp import relational as R
+    from relsynth.pipeline import execute
+    t, s = star
+    s = copy.deepcopy(s)
+    s["rules"] = list(s.get("rules") or []) + [{"table": "customer", "type": "check", "expr": "age < 0"},
+                                               {"table": "sales", "type": "check", "expr": "quantity < 0"}]
+    spec = _spec(s)
+    cfg = dp.parse(spec)
+    pl = R.make_plan(spec, cfg)
+    res = {k: v.copy() for k, v in t.items()}
+    R._enforce_checks(spec, pl, res)
+    assert len(res["customer"]) == 1 and len(res["sales"]) == 1
+    assert res["sales"]["customer_id"].isin(res["customer"]["customer_id"]).all()
+    s2 = dp.stage2_spec(spec)
+    s2["rules"] = [r for r in s2["rules"] if r["expr"] not in ("age < 0", "quantity < 0")]
+    run = execute(s2, tables=res, out=False, write=False, seed=1, evaluate_data=False, privacy=False)
+    assert not run.exceptions, run.exceptions
+
+
 def test_cli_reads_several_units_separated_by_commas():
     from types import SimpleNamespace
 
