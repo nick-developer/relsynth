@@ -738,8 +738,8 @@ class Synthesizer:
         prng = param_rng(base, mode)
         keep, keep_rm = self.rng, self.rm.rng
         self.rng = self.rm.rng = prng
-        self._restore_fit_state()
         try:
+            self._restore_fit_state()
             self.rm.draw_params(pi_s=self.pi_s)
             self._post_edges()
             for f in self.fact_order:
