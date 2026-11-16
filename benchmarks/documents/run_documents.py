@@ -208,6 +208,15 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
         res["collections"][c] = {"valid": v["validity"]["share"], "repairs": v["repairs"],
                                  "metrics": {m["metric"]: [m["value"], m["limit"]] for m in v["shape"]},
                                  "fails": fails}
+    # what the draft decided and what sampling had to do, so a failing set can be
+    # diagnosed from the uploaded report alone (the source data is never uploaded)
+    log_ = getattr(ds.model, "synthesizer", None)
+    log_ = dict(getattr(log_, "sample_log", {}) or {})
+    res["draft"] = {"rules": (ds.spec or {}).get("rules", []),
+                    "review": [x for x in (ds.spec or {}).get("review", [])
+                               if any(k in x for k in ("aggregate", "check", "ASK", "role"))],
+                    "sample_log": {k: log_.get(k) for k in ("rule_violations", "rows_removed_by_rules",
+                                                            "uniqueness", "warnings") if log_.get(k)}}
     res["shape_failures"] = nfail
     res["metrics"] = sum(len(v["shape"]) for v in rep["collections"].values())
     res["pass"] = (all(v["valid"] == 1.0 for v in res["collections"].values())
@@ -215,6 +224,8 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
                    and (push is None or all(all(x.values()) for x in push.values())))
     (out / f"{name}.json").write_text(json.dumps(res, indent=1, default=str))
     print(f"{name}: {'pass' if res['pass'] else 'FAIL'} ({nfail} of {res['metrics']} shape metrics over the limit)")
+    if not res["pass"]:
+        print(json.dumps(res["draft"], indent=1, default=str))
     return res
 
 
