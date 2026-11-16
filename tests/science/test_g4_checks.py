@@ -210,7 +210,7 @@ def test_c1785_multihot_sets_round_trip_and_never_repeat():
     Plackett-Luce order reproduces the source's pairwise precedence shares."""
     from relsynth.documents import shred as sh
     from relsynth.documents.infer import profile_collection
-    from relsynth.documents.sets import dependence_gain
+    from relsynth.documents.setarrays import dependence_gain
     rng = np.random.default_rng(5)
     vocab = ["a", "b", "c", "d", "e"]
     docs = []

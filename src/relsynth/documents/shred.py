@@ -274,7 +274,7 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         # does, so which elements a document holds is modelled jointly with its
         # other attributes, no element repeats, and the round trip keeps the order
         # (Prop. 1785)
-        from .sets import element_order
+        from .setarrays import element_order
         st = f.items.scalar_types[0]
         order = element_order([(st, v) for v in vocab], f.item_pairs)
         names = []
@@ -349,7 +349,7 @@ def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = No
         return None
     if info is not None:
         # recorded for the model report: how strongly the elements depend on each other
-        from .sets import dependence_gain
+        from .setarrays import dependence_gain
         st = it.scalar_types[0]
         N = int(sum(f.lengths.values()))
         gain, edges = dependence_gain([(st, v) for v in vocab], f.item_counts, f.item_pairs, N)
@@ -816,8 +816,8 @@ def _multihot_value(lay, tl: TableLayout, info: dict, r: dict, rid, frames, seed
     the modelled length (a holder with too many drops a uniform random subset of
     its elements; a holder that needs more takes absent elements drawn with
     the frequencies the synthetic columns hold them), then listed in the source's
-    order (relsynth.documents.sets.order_items: the fixed order, or a
-    Plackett-Luce draw).  Draws are seeded by holder (Prop. 1785)."""
+    order (relsynth.documents.setarrays.element_order: the fixed order, or the
+    order of the positions the cells hold).  Draws are seeded by holder (Prop. 1785)."""
     import numpy as np
 
     cols = {c.name: c for c in tl.columns}

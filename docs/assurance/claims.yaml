@@ -1773,7 +1773,7 @@ claims:
     - test: tests/unit/test_g4_fidelity.py::test_multihot_round_trip_and_length_matching
     - test: tests/unit/test_g4_fidelity.py::test_multihot_fixed_order_round_trip_is_exact
     - test: tests/unit/test_g4_fidelity.py::test_multihot_choice_options_and_recorded_dependence
-    - code: src/relsynth/documents/sets.py::dependence_gain
+    - code: src/relsynth/documents/setarrays.py::dependence_gain
     - code: src/relsynth/documents/shred.py::_multihot_value
 
   - id: BIN-01
