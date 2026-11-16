@@ -371,6 +371,7 @@ class Synthesizer:
         self.rng = np.random.default_rng(self.cfg["seed"])          # fitting stream
         self._post_fns = []          # parameter blocks drawn again for every dataset
         self._runs = 0
+        self._fit_state = None       # carried relation variables at the end of the fit (see redraw)
         self.log = {"warnings": [], "errors": [], "timings": {}, "source": {}, "decisions": {}}
 
 
@@ -381,6 +382,7 @@ class Synthesizer:
         the relational model reads those facts only through the statistics."""
         t0 = time.time()
         self.__dict__.pop("_nc_guards", None)     # near-copy guards are built from this fit's rows
+        self._fit_state = None                    # recorded again at the first draw after this fit
         spec, cfg, rng = self.spec, self.cfg, self.rng
         T = spec["tables"]
         self.fstats = {t: s for t, s in (stats or {}).items() if t in T and T[t]["role"] == "fact"}
@@ -736,6 +738,7 @@ class Synthesizer:
         prng = param_rng(base, mode)
         keep, keep_rm = self.rng, self.rm.rng
         self.rng = self.rm.rng = prng
+        self._restore_fit_state()
         try:
             self.rm.draw_params(pi_s=self.pi_s)
             self._post_edges()
@@ -758,6 +761,49 @@ class Synthesizer:
         finally:
             self.rng, self.rm.rng = keep, keep_rm
         return self
+
+    def _carrying_relations(self):
+        """Every relation whose draw_params reads variables left by its previous
+        call (relational.PairRel.CARRIED), in a fixed order, each once."""
+        seen, out = set(), []
+
+        def add(r):
+            if r is not None and getattr(r, "CARRIED", ()) and id(r) not in seen:
+                seen.add(id(r))
+                out.append(r)
+        for r in self.rm.R:
+            add(r)
+        for e in self.rm.E.values():
+            for r, _role in e.rels:
+                add(r)
+        for f in self.fact_order:
+            info = self.fact_info[f]
+            add(info.get("rel"))
+            for r in info.get("extra") or ():
+                add(r)
+        for info in self.edge_info.values():
+            add(info.get("rel"))
+        return out
+
+    def _restore_fit_state(self):
+        """Condition the parameter draw on the state the fit ended in.
+
+        Some draw_params are one Gibbs scan: block means given the measure
+        variances s2, then s2 given the means; occupancy rates given the
+        augmented activity of anchors without pairs, then the activity again.
+        Left alone, each dataset's draw would start where the previous one
+        stopped, so dataset i would depend on which datasets were drawn before
+        it in the process (and the samplers' random-number use with it).  The
+        first call records the carried variables (the end of the fit: no
+        dataset has been drawn yet); every call sets them back, so dataset i is
+        a function of the fit and its own streams only, and the first dataset
+        is unchanged."""
+        from .relational import carried_state, restore_carried_state
+        if getattr(self, "_fit_state", None) is None:      # also a model saved before this attribute
+            self._fit_state = [(r, carried_state(r)) for r in self._carrying_relations()]
+            return
+        for r, st in self._fit_state:
+            restore_carried_state(r, st)
 
     # ------------------------------------------------------------------ layout
     def _excluded(self, t):
