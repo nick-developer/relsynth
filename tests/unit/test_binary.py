@@ -191,13 +191,18 @@ def test_binary_round_trips_through_sqlite_and_csv_targets(shop_db, tmp_path):
 
 def test_drawn_lengths_never_pass_the_longest_source_value():
     """Six lengths of 90-95 bytes, each held once, fall into the bin [64, 128):
-    the drawn lengths stay at most 95, so a varbinary(100) target takes them."""
+    the drawn lengths stay at most the 5th longest (91), so a varbinary(100)
+    target takes them, and no length gathers at the cap (the longest value of
+    one record is never released)."""
     vals = [b"\x00" * n for n in range(90, 96)] * 1
     col = BinaryColumn("random", k=5).fit(vals)
-    assert col.cells == [(OCTET, "bin", 7)]
+    assert col.cells == [(OCTET, "bin", 7)] and col.max_len == 91
     out = col.generate(4000, np.random.default_rng(3))
-    lens = {len(v) for v in out if v is not None}
-    assert max(lens) <= 95 and min(lens) >= 64
+    lens = pd.Series([len(v) for v in out if v is not None])
+    assert lens.max() <= 91 and lens.min() >= 64 and 95 not in set(lens)
+    assert (lens == 91).mean() < 0.05                      # no point mass at the cap
+    few = BinaryColumn("random", k=5).fit([b"\x00" * 1000, b"\x00" * 700])
+    assert few.max_len == 512                               # fewer than k: the bin edge
 
 
 def test_dataset_parameters_are_shared_by_every_partition():

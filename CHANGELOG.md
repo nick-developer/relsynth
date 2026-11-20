@@ -42,7 +42,8 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
     the segment's fit as without it (no shape shift). The documented bound now names the parent law's share
     (at most `1 / N` a row) and the fixed prior that the total-variation statement needs (Prop. 1726).
   - Binary columns draw their null share and type and length shares once per dataset, shared by every
-    partition, and never draw a length past the longest source value, so values fit the declared length.
+    partition, and draw lengths below the `suppress_small_counts`-th longest source value (never the longest value
+    of one record), so values fit the declared length.
   - A scenario that recomputes a running balance keeps the run's automatic floor choice.
   - Event sequences pool life times and gaps only for segments below `min_entities`; a pooled calendar no
     longer pools them.

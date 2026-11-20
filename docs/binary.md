@@ -24,7 +24,7 @@ Only three things, all in `relsynth.binary`:
 |---|---|
 | null share | `p ~ Beta(nulls + 1/2, values + 1/2)` |
 | MIME type of each value | read from its first bytes (PNG, GIF, JPEG, PDF, TIFF, WebP, ZIP, gzip, OLE compound files); a type seen fewer than `privacy.suppress_small_counts` times is pooled into `application/octet-stream`; `mime` overrides it |
-| length | a length shared by at least `privacy.suppress_small_counts` values of a type is kept exactly (a repeated "no image" file); every other length is released only as its power-of-two bin `[2^b, 2^(b+1))` and drawn log-uniformly in it, never past the longest source value, so every drawn value fits the column's declared length (a `varbinary(100)` target) |
+| length | a length shared by at least `privacy.suppress_small_counts` values of a type is kept exactly (a repeated "no image" file); every other length is released only as its power-of-two bin `[2^b, 2^(b+1))` and drawn log-uniformly in it, truncated below the `privacy.suppress_small_counts`-th longest source value (below the top bin's lower edge when fewer values are set), so every drawn value fits the column's declared length (a `varbinary(100)` target) and the longest value of one record is never released |
 
 The (type, length class) cells get a Dirichlet(counts + 1/2) posterior. Each dataset draws the null share and
 the cell shares once (`posterior.mode: draw`) or uses their means (`mean`), with the dataset's other parameters

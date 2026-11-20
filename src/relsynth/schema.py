@@ -545,7 +545,7 @@ SYNTH_DOC = {
                                      "length shared by fewer values is only released as its power-of-two bin.",
     "binary.generator": "Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid "
                         "tiny file of the value's MIME type padded with zero bytes to a length drawn from the "
-                        "source's length law (never longer than the longest source value), and random bytes for a "
+                        "source's length law (never longer than the suppress_small_counts-th longest source value), and random bytes for a "
                         "type without a placeholder (PNG, GIF, JPEG and PDF have one); random writes random bytes "
                         "of such a length. Never copies source bytes; changes only the binary columns "
                         "(docs/binary.md).",

@@ -147,8 +147,15 @@ class BinaryColumn:
         mimes = [m if (self.mime or mc[m] >= self.k) else OCTET for m in mimes]
         L = np.array([lens[i] for i in keep], dtype=np.int64)
         # every source value fits the column's declared length, so no drawn length
-        # passes the longest source value (a varbinary(100) target takes them all)
-        self.max_len = int(np.max(L))
+        # passes the k-th longest source value (a varbinary(100) target takes them
+        # all): an order statistic held at or below by k values, never the longest
+        # value of one record; with fewer than k values, the top bin's lower edge
+        Ls = np.sort(L)[::-1]
+        if len(Ls) >= self.k:
+            self.max_len = int(Ls[self.k - 1])
+        else:
+            top = int(Ls[0])
+            self.max_len = (1 << (top.bit_length() - 1)) if top > 0 else 0
         lc = pd.Series(list(zip(mimes, L))).value_counts()
         cells: dict = {}
         for m, n in zip(mimes, L):
@@ -201,9 +208,15 @@ class BinaryColumn:
                 length = v
             elif v == 0:
                 length = 0
-            else:            # log-uniform in [2^(v-1), 2^v)
+            else:
+                # log-uniform in [2^(v-1), 2^v), truncated at max_len (drawn below it,
+                # never clamped onto it, so no length gathers at the cap); a bin wholly
+                # above max_len draws in the bin that holds it
                 lo = 1 << (v - 1)
-                length = min(int(lo * 2.0 ** u[i]), (lo << 1) - 1, self.max_len)
+                if lo > self.max_len:
+                    lo = 1 << (self.max_len.bit_length() - 1) if self.max_len > 0 else 0
+                hi = min(lo << 1, self.max_len + 1)
+                length = min(int(lo * (hi / lo) ** u[i]), hi - 1) if lo > 0 else 0
             out[i] = self._content(m, length, rng)
         return out
 
