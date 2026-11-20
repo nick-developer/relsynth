@@ -22,7 +22,6 @@ Only aggregate numbers are written (--out, JSON); data stays in the cache.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import sqlite3
 import sys
@@ -182,13 +181,12 @@ def run_scenarios(datasets, seed):
         t0 = time.time()
         m = rs.fit(spec)
         fit_s = round(time.time() - t0, 1)
-        # every dataset from a fresh copy of the fitted model: repeated draws of one
-        # dataset index in a process are not identical on every database yet, and the
-        # comparison needs the baseline's own random numbers
-        base = copy.deepcopy(m).sample(dataset=0)
+        # sample(dataset=i) depends only on the fit and i, so the scenario datasets
+        # share the baseline's random numbers
+        base = m.sample(dataset=0)
         for i, iv in enumerate(ivs):
             t1 = time.time()
-            d = copy.deepcopy(m).sample(dataset=0, scenario=f"s{i}")
+            d = m.sample(dataset=0, scenario=f"s{i}")
             rec = d.sample_log["scenario"]["interventions"][0]
             row = {"dataset": ds, "seed": seed, "fit_s": fit_s, "sample_s": round(time.time() - t1, 1),
                    "intervention": iv, "measured": _measure(iv, base, d), "record": rec["effect"]}
