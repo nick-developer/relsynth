@@ -229,9 +229,14 @@ def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
     out: dict = {"nest": dict(getattr(ds.layout, "stats", {}) or {}), "tables": {}}
     con = sqlite3.connect(ds.workdir / "shredded.db")
     try:
+        have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         for t, cs in (ds.spec or {}).get("tables", {}).items():
+            if t not in have:
+                continue
             try:
-                src = pd.read_sql_query(f'SELECT * FROM "{t}"', con)  # noqa: S608 (table names from our own layout)
+                # t is a table name read from the database itself, quoted as an identifier
+                q = 'SELECT * FROM "' + t.replace('"', '""') + '"'  # noqa: S608  # nosec B608
+                src = pd.read_sql_query(q, con)
             except Exception as e:  # noqa: BLE001 (a diagnostic: record and go on)
                 out["tables"][t] = {"error": f"{type(e).__name__}: {e}"}
                 continue
