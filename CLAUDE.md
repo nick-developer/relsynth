@@ -3,7 +3,40 @@
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: branch names, Conventional Commits, sign-off and the
 byte-identity rule apply to agents as they do to people. This file adds the pull-request workflow
 that agents (Claude Code and others) must follow, so that CodeRabbit reviews each change once and
-review rounds stay short.
+review rounds stay short. The project rules below come from the maintainer (2026-11-19) and apply
+to every change or addition, by agents and people alike.
+
+## Project rules
+
+1. **Aim: practically every structured dataset.** The engine should accept practically any structured
+   dataset it is given and keep its relationships, dependencies, business and technical rules and every
+   property README.md promises (keys resolve, rules hold, statistics match). Judge a change by how far it
+   widens that coverage without breaking what already works.
+2. **Adjustable, with privacy-first defaults.** Users choose the level of privacy, of detail (exact
+   distributions or slight deviations from them) and of accuracy through the spec and settings. The
+   defaults give the most privacy possible while keeping as much of the data's detail and accuracy as
+   data and AI analysis and inference need. A new option comes with a documented default that follows
+   this rule; a change of default needs the maintainer's approval (CONTRIBUTING.md, byte identity).
+3. **New datasets: spec first, then generic engine changes.** When a new dataset or database gives
+   poor synthesis results, first check the specification that describes the source (keys, links, types,
+   rules, privacy units, settings) for integrity and completeness, and fix it there if you can. Change the
+   engine only when the spec is right and cannot be improved. Engine changes must be generic: they fix a
+   kind of data or structure (a distribution shape, a key pattern, a rule type), never one dataset's
+   names or values, and never only to raise one benchmark's score. Say in the pull request which kind of
+   data the change serves and show it on more than one dataset where the benchmark has one.
+4. **Security and code audit before every merge to `main`.** At the final stage of a pull request,
+   after the coding is complete and before it is marked ready (step 3 below), run a full audit of the
+   change and resolve every finding at **warning level or above** before the pull request is merged:
+   - the `ci`, `codeql` and `security` workflows green, which run bandit, pip-audit, CodeQL
+     (security-extended and security-and-quality), Semgrep, gitleaks, zizmor and dependency review, and
+     no new code-scanning alert of severity warning or higher on the pull request;
+   - an agent security review of the whole diff (Claude Code: `/security-review`) and a code review at
+     high effort (`/code-review high`), with every finding of warning severity or above fixed;
+   - the CodeRabbit round of step 5 below, with every critical, major and warning comment fixed.
+
+   A finding may be declined only when it is shown to be a false positive; the pull request says why.
+   List the audit in the pull request body under "Security and code audit": each tool, its result, what
+   was fixed and what was declined with the reason. Nothing at warning level or above stays open at merge.
 
 ## Pull-request workflow
 
@@ -11,7 +44,8 @@ review rounds stay short.
    `reviews.auto_review.drafts: false`), so work in progress costs no review.
 2. **Finish the coding while it is a draft.** Push as often as needed. Run the fast local checks
    for what you changed (ruff, mypy, the tests of the touched modules) before each push.
-3. **Mark it ready for review only when** the coding is complete and every other required check
+3. **Mark it ready for review only when** the coding is complete, the audit of project rule 4 is done
+   with its findings fixed, and every other required check
    (`ci` always; `codeql` and `security` when the pull request targets `main`, since they run only
    there; and any workflow the change triggers) is green. Fix red checks while still in draft; do
    not mark ready to "see what CodeRabbit says".

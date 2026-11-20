@@ -11,6 +11,19 @@
 - [ ] Statistical check suite: `pytest -m science` (C00–C78), result:
 - [ ] Real-database regressions (bi/COREP, Chinook, AdventureWorks DW, Contoso), result:
 
+## Security and code audit
+
+<!-- Project rule 4 in CLAUDE.md: every finding at warning level or above is fixed before merge, or shown to be a false positive. -->
+
+- [ ] `ci`, `codeql` and `security` workflows green; no new code-scanning alert at warning or above
+- [ ] Security review of the diff (`/security-review` or equivalent): findings fixed / declined with reason:
+- [ ] Code review at high effort (`/code-review high` or equivalent): findings fixed / declined with reason:
+- [ ] CodeRabbit critical, major and warning comments fixed
+
+## Datasets and engine changes
+
+- [ ] Not applicable, **or** the source spec was checked first and engine changes are generic (CLAUDE.md, project rule 3); kinds of data served:
+
 ## Statistics and privacy
 
 - [ ] No new statistical or privacy claim, **or** each new claim has a numbered proposition, a proof in `docs/proofs/` and a check
