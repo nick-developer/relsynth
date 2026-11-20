@@ -193,6 +193,10 @@ SENSITIVITY = {
     "inclusion_multiplicity=none": {"synthesis": {"structure": {"inclusion_multiplicity": "none"}}},
     "inclusion_fk_levels=false": {"synthesis": {"structure": {"inclusion_fk_levels": False}}},
     "segment_totals=off": {"synthesis": {"facts": {"segment_totals": "off"}}},
+    # the drafted rules that tie an element to its holder (which re-draw links)
+    "parent_checks=off": lambda spec: spec.__setitem__(
+        "rules", [r for r in spec.get("rules", []) if "_parent." not in str(r.get("expr", ""))]),
+    "rules=none": lambda spec: spec.__setitem__("rules", []),
 }
 
 
@@ -202,13 +206,64 @@ def sensitivity(cols: dict, out: Path, seed: int, splits: int) -> dict:
     for label, over in SENSITIVITY.items():
         try:
             ds = DocumentSynthesizer(cols, seed=seed, workdir=out / ("sens-" + label.split("=")[0]),
-                                     spec_overrides=json.loads(json.dumps(over)))
+                                     spec_overrides=None if callable(over) else json.loads(json.dumps(over)))
+            if callable(over):
+                over(ds.build_spec())
             rep = ds.report(ds.synthesize(), splits=splits, predictive=False)
             res[label] = {c: {m["metric"]: [round(m["value"], 6), m["pass"]] for m in v["shape"]}
                           for c, v in rep["collections"].items()}
         except Exception as e:  # noqa: BLE001 (a diagnostic: the set's verdict stands)
             res[label] = {"error": f"{type(e).__name__}: {e}"}
     return res
+
+
+def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
+    """The shredded tables of a failing set: rows in the source and from the
+    engine, the elements nesting moved, copied or dropped, and each categorical
+    column whose level shares differ by more than `tol` (aggregates only, so the
+    report never holds source records), split by element position for element
+    tables, to tell the engine's laws from the nesting step."""
+    import sqlite3
+
+    import pandas as pd
+    out: dict = {"nest": dict(getattr(ds.layout, "stats", {}) or {}), "tables": {}}
+    con = sqlite3.connect(ds.workdir / "shredded.db")
+    try:
+        for t, cs in (ds.spec or {}).get("tables", {}).items():
+            try:
+                src = pd.read_sql_query(f'SELECT * FROM "{t}"', con)  # noqa: S608 (table names from our own layout)
+            except Exception as e:  # noqa: BLE001 (a diagnostic: record and go on)
+                out["tables"][t] = {"error": f"{type(e).__name__}: {e}"}
+                continue
+            gen = syn.get(t)
+            row = {"rows": [len(src), None if gen is None else len(gen)], "columns": {}}
+            if gen is not None:
+                for c, d in (cs.get("columns") or {}).items():
+                    if not isinstance(d, dict) or d.get("type") != "categorical" or c not in src or c not in gen:
+                        continue
+                    a = src[c].astype(object).where(src[c].notna(), "<null>").astype(str)
+                    b = gen[c].astype(object).where(gen[c].notna(), "<null>").astype(str)
+                    pa, pb = a.value_counts(normalize=True), b.value_counts(normalize=True)
+                    ix = pa.index.union(pb.index)
+                    gap = (pb.reindex(ix, fill_value=0) - pa.reindex(ix, fill_value=0))
+                    if gap.abs().max() <= tol:
+                        continue
+                    ent = {"share": {k: [round(float(pa.get(k, 0)), 4), round(float(pb.get(k, 0)), 4)]
+                                     for k in ix[:8]}}
+                    if "_pos" in src and "_pos" in gen:
+                        top = gap.abs().idxmax()
+                        by = {}
+                        for lab, lo, hi in (("pos0", 0, 0), ("pos1", 1, 1), ("pos2+", 2, 1 << 30)):
+                            ma = src["_pos"].between(lo, hi)
+                            mb = pd.to_numeric(gen["_pos"], errors="coerce").between(lo, hi)
+                            by[lab] = [int(ma.sum()), round(float((a[ma] == top).mean()), 4) if ma.any() else None,
+                                       int(mb.sum()), round(float((b[mb] == top).mean()), 4) if mb.any() else None]
+                        ent["by_position"] = {"level": top, "rows_share_src_rows_share_engine": by}
+                    row["columns"][c] = ent
+            out["tables"][t] = row
+    finally:
+        con.close()
+    return out
 
 
 def worst_paths(src: list, syn: list, k: int = 8) -> list:
@@ -237,6 +292,15 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
     if mongo:
         cols, push = through_mongo(cols, mongo, f"relsynth_{name}")
     ds = DocumentSynthesizer(cols, seed=seed, workdir=out / name / "work", name=name)
+    ds.fit()
+    captured: dict = {}
+    _sample = ds.model.sample
+
+    def _keep(*a, **k):                       # the engine's tables, before nesting (diagnostics)
+        r = _sample(*a, **k)
+        captured.update(r.to_dict())
+        return r
+    ds.model.sample = _keep
     syn = ds.synthesize()
     t1 = time.time()
     rep = ds.report(syn, splits=splits)
@@ -271,6 +335,7 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
     if not res["pass"]:
         res["draft"]["worst_paths"] = {c: worst_paths(cols[c], syn.get(c, [])) for c in res["collections"]
                                        if res["collections"][c]["fails"]}
+        res["draft"]["tables"] = table_diagnostics(ds, captured)
         res["draft"]["sensitivity"] = sensitivity(cols, out / name, seed, splits)
         print(json.dumps(res["draft"], indent=1, default=str))
     return res
