@@ -1577,7 +1577,11 @@ class Synthesizer:
         idx = [index(r, gc[r["child_key"]]) for r in fks[:2]]
         ok = np.all(np.stack(idx) >= 0, axis=0)
         n = gc["n"].to_numpy(dtype=np.int64)
-        dropped = int(n[~ok].sum())
+        # rows without a partner: NULL partner key with a valid anchor, over every row
+        # (the statistics) for the counts, and on the sample for the row-level models
+        nul = self._null_partner_mask(f, info, df, sidx[0], require_rows=False) if len(fks) > 1 else None
+        nulg = None if nul is None else (idx[0] >= 0) & gc[keys[1]].isna().to_numpy()
+        dropped = int(n[~ok].sum()) - (0 if nulg is None else int(n[nulg].sum()))
         if dropped:
             self.log["warnings"].append(f"{f}: {dropped} rows with null/orphan dimension keys left out of the model")
         info.update({"dropped": dropped, "pushed": True})
@@ -1613,6 +1617,9 @@ class Synthesizer:
             rel = PairRel(f, "fact", e1, e2, uk // e2.n, uk % e2.n, cnt, S, Q2, table=f)
         info.update({"rel": rel, "model": model, "mult_setting": mult})
         rels = [rel]
+        if nul is not None and nulg is not None and nulg.any():
+            N0 = np.bincount(idx[0][nulg], weights=n[nulg], minlength=e1.n).round().astype(np.int64)
+            rels.append(self._null_partner(f, info, e1, N0, nul))
         info["extra"] = []
         # extra dimensions: rows with a valid anchor and partner (as in memory), the
         # partner checked in the store by a semi-join on its parent
@@ -1701,9 +1708,11 @@ class Synthesizer:
             idx = [self._dim_index(f, r, df) for r in info["fks"]]
             e_list = [self._dim_entity(f, r) for r in info["fks"]]
         # the anchor and the partner define a row; further dimension keys may be
-        # null (a null is a level of their distribution, see _extra_dist)
+        # null (a null is a level of their distribution, see _extra_dist), and so may
+        # the partner key (rows without a partner, see _null_partner)
         ok = np.all(np.stack(idx[:2]) >= 0, axis=0)
-        dropped = int((~ok).sum())
+        nul = self._null_partner_mask(f, info, df, idx[0]) if not info["nested"] and len(idx) > 1 else None
+        dropped = int((~ok).sum()) - (0 if nul is None else int(nul.sum()))
         if dropped:
             self.log["warnings"].append(f"{f}: {dropped} rows with null/orphan dimension keys left out of the model")
         tm = self.tm[f]
@@ -1740,6 +1749,8 @@ class Synthesizer:
             rel = PairRel(f, "fact", e1, e2, uk // e2.n, uk % e2.n, cnt, S, Q2, table=f)
         info.update({"rel": rel, "model": model, "mult_setting": mult})
         rels = [rel]
+        if nul is not None:
+            rels.append(self._null_partner(f, info, e1, np.bincount(idx[0][nul], minlength=e1.n), nul))
         info["extra"] = []
         for j in range(2, len(e_list)):
             ex = e_list[j]
@@ -1752,6 +1763,93 @@ class Synthesizer:
             info["extra"].append(rx)
             rels.append(rx)
         return rels
+
+    def _null_partner_mask(self, f, info, df, aidx, require_rows=True):
+        """Rows of fact f (in df) with a valid anchor and a NULL partner key, when
+        facts.null_partner is "model" and such rows exist; else None.  A NULL partner
+        (an optional second link: a header row of a header-and-detail table, a sale
+        without a promotion) is a value of the row, not a broken link, so these rows are
+        modelled (_null_partner) rather than left out.  Orphan keys (set, but with no
+        parent row) are still left out.  Not for a virtual partner, a fact that is the
+        parent of a nested fact (its rows must be entity rows of a pair block), or
+        facts without a partner."""
+        info.pop("null2", None)
+        if _setting(self, "facts", "null_partner", "model") != "model":
+            return None
+        fks = info["fks"]
+        if len(fks) < 2 or fks[1].get("virtual") or info.get("vdim") or f in self.fact_key_index:
+            return None
+        c = fks[1]["child_key"]
+        if c not in df.columns:
+            return None
+        m = (np.asarray(aidx) >= 0) & df[c].isna().to_numpy()
+        return m if m.any() or not require_rows else None
+
+    def _null_partner(self, f, info, e1, N0, rows):
+        """The rows of fact f without a partner: their number per anchor row is a
+        relation of its own (relational.SingleRel, N0_u rows with a NULL partner per
+        anchor row u, Poisson with a gamma-posterior rate per anchor segment), which
+        takes part in segment discovery like any count relation.  Their attributes
+        get groups of their own per anchor segment (_post_fact).  This is a null level
+        of the partner given the anchor segment (Prop. 1843)."""
+        rel0 = SingleRel(f"{f}.{info['fks'][1]['child_key']}=NULL", e1, np.asarray(N0, dtype=np.int64),
+                         np.zeros((e1.n, 0)), np.zeros((e1.n, 0)), table=f)
+        info["null2"] = {"rel": rel0, "rows": np.asarray(rows, bool), "n": int(np.asarray(N0).sum())}
+        self.log["decisions"].setdefault(f, {})["null_partner"] = (
+            f"{info['null2']['n']} rows with a NULL {info['fks'][1]['child_key']} modelled as rows without a "
+            f"{info['fks'][1]['parent']} row (a null level given the {info['anchor']} segment)")
+        return rel0
+
+    NULL_GROUP = 3 * 10**6          # attribute groups of rows without a partner: NULL_GROUP + anchor segment
+    NULL_POOL = 4 * 10**6           # ... and their pooled (coarse) group
+
+    def _post_null_partner(self, f, info, df, a_idx, groups, parent):
+        """Fit-time parts of the rows without a partner (_null_partner): their count
+        law per anchor row (the count models of a single-dimension fact), attribute
+        groups per anchor segment pooled toward all such rows, and the law of each
+        extra dimension's segment given the anchor segment.  groups and parent (the
+        attribute groups and their coarse groups) are updated in place."""
+        nz = info["null2"]
+        rel0, e1 = nz["rel"], info["rel"].e1
+        if not hasattr(rel0, "lam"):
+            rel0.draw_params(self.rng)
+        cp1 = e1.fixed or getattr(e1, "copied", False)
+        mand = _mandatory(rel0.N, e1.z, e1.K)
+        nz["count_dp"] = None if cp1 else _dp_floor(
+            self._count_model(f, rel0.N.astype(np.int64), e1, key="null_partner_count_model"), mand)
+        nz["min_one"] = not nz["count_dp"] and not cp1 and mand
+        rows = nz["rows"]
+        z0 = e1.z[a_idx[rows]]
+        cnt = np.bincount(z0, minlength=e1.K)
+        small = cnt[z0] < self.cfg["facts"]["min_group_rows"]
+        groups[rows] = np.where(small, self.NULL_POOL, self.NULL_GROUP + z0)
+        for k in np.unique(z0):
+            parent[int(self.NULL_GROUP + k)] = self.NULL_POOL
+        parent[self.NULL_POOL] = -1
+        nz["extra_p"] = []
+        for r, rx in zip(info["fks"][2:], info["extra"]):
+            ex = rx.e2
+            xi = self._dim_index(f, r, df)[rows]
+            sx = np.where(xi >= 0, ex.z[np.maximum(xi, 0)], ex.K)
+            d = self._extra_dist(z0, np.zeros(len(z0), np.int64), sx, e1.K, 1, ex)
+            self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
+            nz["extra_p"].append(d)
+
+    def _null_partner_rows(self, f, info, z1, elig):
+        """Rows without a partner per anchor row at sampling, from the count law fitted
+        by _post_null_partner (as the rows of a single-dimension fact)."""
+        nz = info["null2"]
+        lam = nz["rel"].lam
+        if nz["count_dp"]:
+            n0 = self._dp_counts(nz["count_dp"], z1, lam)
+        elif nz["min_one"]:
+            n0 = 1 + self.rng.poisson(np.maximum(lam[z1] - 1, 0))
+        else:
+            n0 = self.rng.poisson(lam[z1])
+        n0 = np.asarray(n0, dtype=np.int64)
+        if elig is not None:
+            n0[~elig] = 0
+        return n0
 
     def _dim_entity(self, f, r):
         return self.E[r["parent"]]
@@ -1997,10 +2095,13 @@ class Synthesizer:
                 d["frailty"] = ax if self._frailty_on(mode, Dx) else np.full(ex.K, np.inf)
                 d["obs"] = fan
                 info["extra_p"].append(d)
+            if info.get("null2"):
+                self._post_null_partner(f, info, df, a_idx, groups, parent)
         if parent is None:
             parent = {}
         sub = groups.copy()
-        sub[~ok] = -1
+        keep = ok | info["null2"]["rows"] if info.get("null2") else ok
+        sub[~keep] = -1
         tm.fit(groups=sub, parent=parent, rng=rng, per_group_copula=False)
         info["fitted_groups"] = tm.fitted_groups()
         # this fact is a parent of a nested fact: its rows become a fixed entity
@@ -4151,6 +4252,14 @@ class Synthesizer:
                                                (m2 > 0) if m2.min() < 1 else None)
             if not st.get("extras_drawn"):
                 st["extras"] = self._fact_extras(f, self._zs, self._keys, ents)
+            if info.get("null2"):
+                # rows without a partner (v = -1), in blocks NB + anchor segment after the pair blocks
+                n0 = self._null_partner_rows(f, info, z1, elig)
+                u0 = np.repeat(np.arange(len(z1)), n0)
+                nb = rel.e1.K * rel.e2.K
+                u = np.concatenate([np.asarray(u, np.int64), u0])
+                v = np.concatenate([np.asarray(v, np.int64), np.full(len(u0), -1, np.int64)])
+                blk = np.concatenate([np.asarray(blk, np.int64), nb + np.asarray(z1, np.int64)[u0]])
         return u, v, blk
 
     def _fact_attributes(self, f, st, u, v, blk, ents, fact_rows):
@@ -4267,17 +4376,34 @@ class Synthesizer:
         if v is None:
             groups = blk
         else:
-            cols[st["r2"]["child_key"]] = np.asarray(st["k2"], dtype=object)[v] if len(v) else np.array([], dtype=object)
+            v = np.asarray(v, np.int64)
+            k2 = np.asarray(st["k2"], dtype=object)
+            cols[st["r2"]["child_key"]] = np.where(v >= 0, k2[np.maximum(v, 0)] if len(k2) else None, None) \
+                if len(v) else np.array([], dtype=object)
             fitted = info["fitted_groups"]
             OFF1, OFF2, K2 = info["coarse_of_block"]
             coarse = (OFF1 + blk // K2) if info.get("fallback", "anchor") == "anchor" else (OFF2 + blk % K2)
             groups = np.where(np.isin(blk, list(fitted)), blk, coarse)
-            for r, xp, kx, wx, memx, availx in st["extras"]:
+            nz = info.get("null2")
+            st_nb = None
+            if nz:
+                # rows without a partner: their own group per anchor segment, else the pooled one
+                st_nb = info["rel"].e1.K * K2
+                isn = blk >= st_nb
+                g0 = self.NULL_GROUP + (blk - st_nb)
+                groups = np.where(isn, np.where(np.isin(g0, list(fitted)), g0, self.NULL_POOL), groups)
+            for xj, (r, xp, kx, wx, memx, availx) in enumerate(st["extras"]):
                 Kx = len(memx)
                 res = np.empty(len(u), dtype=object)
                 for b in np.unique(blk):
                     rows = np.flatnonzero(blk == b)
-                    p = xp["P"][b] * availx
+                    if st_nb is not None and b >= st_nb:
+                        P0 = nz["extra_p"][xj]["P"][b - st_nb]
+                        p = np.zeros(Kx)
+                        p[:min(Kx, len(P0))] = P0[:Kx]
+                        p = p * availx
+                    else:
+                        p = xp["P"][b] * availx
                     p = p / p.sum() if p.sum() > 0 else availx / availx.sum()
                     seg = rng.choice(Kx, size=len(rows), p=p)
                     for s_ in np.unique(seg):
@@ -4429,6 +4555,13 @@ class Synthesizer:
                 blk = df["__blk__"].to_numpy()[idx]
             else:
                 v, blk = self._partner_given_anchor(rel, st, u)
+                nz = self.fact_info[f].get("null2")
+                if nz:
+                    # a row without a partner is redrawn as one (its count per anchor is kept)
+                    b0 = df["__blk__"].to_numpy()[idx]
+                    isn = b0 >= rel.e1.K * rel.e2.K
+                    v = np.where(isn, -1, np.asarray(v, np.int64))
+                    blk = np.where(isn, b0, np.asarray(blk, np.int64))
             new = self._fact_rows(f, st, u, v, blk, ents)
             new.index = df.index[idx]
             _mark_fresh(df, idx)

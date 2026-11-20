@@ -207,6 +207,7 @@ META: dict[str, dict] = dict([
     _p("facts.count_model_bf", type="float", low=1.0, high=1e300, tunable=True, scale="log", affects=_CARD,
        direction={f: -1 for f in _CARD}),
     _p("facts.group_fallback", type="choice", choices=("auto", "anchor", "partner")),
+    _p("facts.null_partner", type="choice", choices=("model", "drop"), affects=_CARD + _JOIN),
     _p("facts.link_degree", type="choice", choices=("auto", "segment", "dp"), tunable=True, affects=_CARD),
     _p("facts.link_degree_min_rows", type="float", low=0, high=1e9, tunable=True, scale="log", affects=_CARD + _JOIN),
     _p("facts.frailty_min_rows", type="int", low=2, high=1e9),

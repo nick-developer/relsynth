@@ -58,7 +58,9 @@ DEFAULT_SYNTHESIS = {
               "link_degree_min_rows": 50.0, "frailty_min_rows": 30, "occupancy_z": -4.0, "occupancy_min_expected": 10.0,
               "dp_count_sweeps": 30,
               # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
-              "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
+              "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw",
+              # rows whose partner key is NULL: modelled as a null level given the anchor (Prop. 1843)
+              "null_partner": "model"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
                   "inclusion_max_levels": 50, "inclusion_multiplicity": "bonferroni",

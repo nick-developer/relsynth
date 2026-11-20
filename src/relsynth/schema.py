@@ -488,6 +488,9 @@ SYNTH_DOC = {
     "facts.count_model": "Default of fact.count_model.",
     "facts.count_model_bf": "Bayes factor for the Dirichlet-process count law.",
     "facts.group_fallback": "Default of fact.group_fallback.",
+    "facts.null_partner": "model | drop: rows whose partner key is NULL (an optional second link) are modelled as "
+                          "rows without a partner, a null level given the anchor segment (model), or left out "
+                          "of the model as in 2.2 (drop).",
     "facts.link_degree": "Default of fact.link_degree.",
     "facts.link_degree_min_rows": "auto gives a key a degree law only when each segment's links are spread over "
                                   "at least this many rows (Kish effective number, link-weighted); below it a few "

@@ -87,3 +87,25 @@ def test_c1842_drafted_composite_keys_are_minimal(tmp_path):
                 whole = con.columns(t, key).dropna()
                 assert not (whole[key[0]].is_unique or whole[key[1]].is_unique), (t, key)
         assert ["pid", "slot"] in (tables["line"].get("unique") or [])
+
+
+def test_c1843_rows_without_a_partner(tmp_path):
+    """Prop. 1843: rows with a NULL partner key are modelled (share, rows per anchor,
+    attributes and extra link given no partner), in memory and with push-down;
+    facts.null_partner: drop keeps the 2.2 model (no such rows)."""
+    import sqlite3
+
+    from unit.test_null_partner import _header_detail_db, _shares
+    for seed in range(3):
+        src = _header_detail_db(tmp_path / f"n{seed}.db", seed=seed)
+        real = _shares(pd.read_sql("SELECT * FROM detail", sqlite3.connect(tmp_path / f"n{seed}.db")))
+        base = rs.introspect(src, name="n")
+        for pushdown in ("off", "on"):
+            spec = base.set("synthesis.pushdown.mode", pushdown).set("synthesis.pushdown.sample_rows", 500)
+            s = _shares(rs.fit(spec).sample()["detail"])
+            assert abs(s["null_partner"] - real["null_partner"]) < 0.03, (seed, pushdown, s)
+            assert abs(s["header_per_anchor"] - 1.0) < 0.02
+            assert s["status_with_partner"] == 0 and s["dose_without_partner"] == 0
+            assert s["junior_on_header"] < 0.05
+        s = _shares(rs.fit(base.set("synthesis.facts.null_partner", "drop")).sample()["detail"])
+        assert s["null_partner"] == 0
