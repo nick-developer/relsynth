@@ -423,3 +423,60 @@ def test_states_loglik_matrix_form():
     D = (C[:, None, :] * a).sum(2)
     f = gammaln(D) - (C[:, None, :] * gammaln(a)).sum(2) + (a * G[:, None, :]).sum(2) + GH_LW[None, :]
     assert np.isclose(m._loglik(th, C, G), float(np.sum(logsumexp(f, axis=1))))
+
+
+def test_combined_windows_integrate_pointwise_within_a_cell():
+    """Two windows covering the two halves of one calendar cell, factor 2 each:
+    the intensity is 2 everywhere in the cell, so its mass doubles (not 2.25)."""
+    from types import SimpleNamespace
+
+    from relsynth.scenarios import _tilted_mass
+    I = SimpleNamespace(cell_mass=np.ones((1, 4)), d0=0.0, width=10.0)
+    m = _tilted_mass(I, [(10.0, 15.0, 2.0), (15.0, 20.0, 2.0)])
+    assert np.allclose(m, [[1.0, 2.0, 1.0, 1.0]])
+    m = _tilted_mass(I, [(5.0, 25.0, 3.0)])                 # one window: half of cells 0 and 2
+    assert np.allclose(m, [[2.0, 3.0, 2.0, 1.0]])
+    m = _tilted_mass(I, [(0.0, 20.0, 2.0), (10.0, 30.0, 0.5)])   # overlap: factor 1 on cell 1
+    assert np.allclose(m, [[2.0, 1.0, 0.5, 1.0]])
+
+
+def test_marginal_map_recomputes_running_balances(fitted):
+    """A cumulative rule whose step reads a mapped column is computed again."""
+    S, _, _ = fitted
+    df = pd.DataFrame({"OrderKey": [1, 1, 1, 2, 2], "n": [1, 2, 3, 1, 2], "Qty": [1.0, 2.0, 3.0, 4.0, 5.0]})
+    rule = {"table": "Line", "type": "cumulative", "column": "Bal", "step": "Qty", "by": "OrderKey",
+            "order": "n", "opening": 0}
+    df["Bal"] = df.groupby("OrderKey")["Qty"].cumsum()
+    df["Qty"] = 2 * df["Qty"]
+    S.spec["rules"].append(rule)
+    try:
+        out, redone, _bad = S._after_map("Line", df, ["Qty"], {})
+    finally:
+        S.spec["rules"].remove(rule)
+    assert redone == ["Bal"]
+    assert out["Bal"].tolist() == [2.0, 6.0, 12.0, 8.0, 18.0]
+
+
+def test_concentration_under_a_link_degree_law_is_reported():
+    from relsynth.scenarios import Scenario
+    sc = object.__new__(Scenario)
+    rec = {"effect": {}}
+    sc.temper_w = {("Sales", "ProductKey"): (2.0, rec)}
+    sc.note_degree_law("Sales", "ProductKey")
+    assert rec["effect"]["applied"] is False and "link-degree law" in rec["effect"]["note"]
+
+
+def test_raised_rate_on_unique_pairs_is_refused():
+    """Copies of an occupancy fact without a multiplicity law cannot be merged
+    without changing the presence law, so a factor above 1 stops the run."""
+    from types import SimpleNamespace
+    S = object.__new__(Synthesizer)
+    S._scen = SimpleNamespace(has_fact=lambda f: True, fact_copies=lambda f: (2, 2.0))
+    S.fact_info = {"F": {"rel": SimpleNamespace(kind="occ", mult_by="none")}}
+    S._fact_structure_once = lambda *a: (np.arange(3), np.arange(3), np.zeros(3, np.int64))
+    u = v = np.arange(3)
+    with pytest.raises(SpecError, match="unique pairs"):
+        S._scenario_structure("F", {}, {}, {}, u, v, np.zeros(3, np.int64))
+    S.fact_info["F"]["rel"].mult_by = "block"
+    uu, vv, _b = S._scenario_structure("F", {}, {}, {}, u, v, np.zeros(3, np.int64))
+    assert len(uu) == 6                                        # multiplicities add

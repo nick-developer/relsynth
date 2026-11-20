@@ -434,14 +434,17 @@ class Scenario:
         return w
 
     def _bound(self, e, df):
-        """Product over the tilts of e of each tilt's largest weight on the rows df."""
+        """Product over the tilts of e of each tilt's largest weight: every named
+        level's factor (seen in df or not, so a rare level with a large factor is
+        covered), and the weight 1 of the levels not named when df shows one."""
         b = 1.0
         for kind, col, arg, _rec in self.tilt.get(e, []):
             if not len(df):
                 continue
             if kind == "level":
                 from .timeseries.hooks import _state_keys
-                b *= max(arg.get(k, 1.0) for k in set(_state_keys(df[col].to_numpy(dtype=object)).tolist()))
+                seen = set(_state_keys(df[col].to_numpy(dtype=object)).tolist())
+                b *= max(list(arg.values()) + [1.0] * bool(seen - set(arg)))
             else:
                 from .timeseries.calendar import to_days
                 d = to_days(df[col])
@@ -488,7 +491,7 @@ class Scenario:
                     need = int(n0)
                 self._eff_mean_w = mw
             if len(wb) and float(wb.max()) > wmax:
-                wmax = float(wb.max())      # a level too rare for the first batch
+                wmax = float(wb.max())      # a level not named and too rare for the first batch
             acc = rng.random(len(wb)) * max(wmax, 1e-300) < wb
             got_z.append(zb[acc])
             got_df.append(db[acc])
@@ -571,6 +574,7 @@ class Scenario:
             if col not in df.columns or not len(df):
                 continue
             df[col] = _map_column(df[col], iv, rec)
+            _keep_hidden(df, col)
             self._mapped.add((t, col))
             done.append((col, rec))
         if S is not None and done:
@@ -591,6 +595,7 @@ class Scenario:
             todo = [(col, iv, rec) for col, iv, rec in maps if (t, col) not in self._mapped and col in df.columns]
             for col, iv, rec in todo:
                 df[col] = _map_column(df[col], iv, rec)
+                _keep_hidden(df, col)
                 rec["effect"]["applied"] = "to the derived column, after the rows were complete"
                 self._mapped.add((t, col))
             if S is not None and todo:
@@ -654,6 +659,18 @@ class Scenario:
         return df[keep].reset_index(drop=True)
 
     # ------------------------------------------------------ link degrees
+    def note_degree_law(self, t, key):
+        """The key's degrees follow a fitted link-degree law (fact.link_degree), which
+        deals each segment's rows by its own count law, not by the degree weights: a
+        concentration change cannot act on them, and the record says so."""
+        hit = self.temper_w.get((t, key))
+        if hit is not None:
+            hit[1]["effect"]["note"] = (
+                f"the degrees of {t}.{key} follow the fitted link-degree law (fact.link_degree), which does not "
+                "use the degree weights, so concentration has no effect; set fact.link_degree: segment on this "
+                "fact to let the scenario reshape them")
+            hit[1]["effect"]["applied"] = False
+
     def temper(self, t, key, w, z, K):
         """Degree weights w' proportional to w^c within each segment, rescaled to the
         segment's total (Prop. 1828)."""
@@ -735,18 +752,36 @@ def _gini(w):
     return float((2 * np.arange(1, n + 1) - n - 1).dot(w) / (n * w.sum()))
 
 
+def _keep_hidden(df, col):
+    """A column drawn from a stated distribution keeps its draw in a hidden column
+    (engine._apply_distributions) that later recomputations copy back: the mapped
+    value goes there too, so it is the one kept."""
+    hc = f"__dist_{col}"
+    if hc in df.columns:
+        df[hc] = df[col].to_numpy(dtype=object) if df[hc].dtype == object else df[col].to_numpy()
+
+
 def _tilted_mass(I, windows):
+    """Cell masses with the intensity multiplied on the windows: each cell's mass
+    times the integral over the cell of the pointwise product of the window factors
+    (mass uniform within a cell), so overlapping or adjacent windows combine exactly."""
     mass = I.cell_mass.copy()
+    n = mass.shape[1]
+    ws = []
     for a, b, f in windows:
-        x0, x1 = (a - I.d0) / I.width, (b - I.d0) / I.width
-        n = mass.shape[1]
-        lo, hi = int(np.clip(np.floor(x0), 0, n)), int(np.clip(np.ceil(x1), 0, n))
-        if hi <= lo:
-            continue
-        cov = np.ones(hi - lo)                                   # share of each cell inside the window
-        cov[0] -= np.clip(x0 - lo, 0, 1)
-        cov[-1] -= np.clip(hi - x1, 0, 1)
-        mass[:, lo:hi] *= (1.0 + (f - 1.0) * np.clip(cov, 0, 1))[None, :]
+        x0, x1 = max((a - I.d0) / I.width, 0.0), min((b - I.d0) / I.width, float(n))
+        if x1 > x0:
+            ws.append((x0, x1, float(f)))
+    if not ws:
+        return np.maximum(mass, 1e-12)
+    lo, hi = int(np.floor(min(w[0] for w in ws))), int(np.ceil(max(w[1] for w in ws)))
+    pts = np.unique(np.r_[np.arange(lo, hi + 1, dtype=float), [w[0] for w in ws], [w[1] for w in ws]])
+    mid, ln = (pts[:-1] + pts[1:]) / 2, np.diff(pts)
+    fac = np.ones(len(mid))
+    for x0, x1, f in ws:
+        fac *= np.where((mid >= x0) & (mid < x1), f, 1.0)
+    gain = np.bincount(np.floor(mid).astype(np.int64) - lo, weights=ln * fac, minlength=hi - lo)
+    mass[:, lo:hi] *= gain[None, :]
     return np.maximum(mass, 1e-12)
 
 

@@ -61,7 +61,7 @@ ratio, below 1), after delays of mean `1 / beta`, on top of a baseline rate `mu_
 - **Fit.** `eta` and `beta` per segment by maximum a posteriori of the Hawkes likelihood with each entity's baseline
   profiled out, a prior centred on the pooled fit (strength `shrinkage`) and a Laplace posterior, so every dataset
   draws its own parameters (Prop. 1820). The fit log (`sequence` decisions and `SequenceModel.summary()`) gives `eta`,
-  `beta` and `residual_ks`, the distance of the time-rescaled gaps from Exp(1) (small: the model fits).
+  `beta` and `residual_ks`, the distance of the time-rescaled gaps from Exp(1), a diagnostic (small: the model fits; the fitted parameters and short histories shift it, so it is not a calibrated test).
 - **Sampling.** The engine still fixes each entity's count, and the life-time law its first and last event. The events
   between them are drawn from the cluster form of the process given their number: how many clusters (Borel–Tanner),
   which event triggered which (a random forest given its size), and exponential delays within the span (Prop. 1821).

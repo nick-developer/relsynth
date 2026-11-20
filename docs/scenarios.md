@@ -63,14 +63,16 @@ Every intervention has an optional `note` (free text, kept in the logs).
 **scale** resizes entities exactly as `synthesis.scale` does. On a fact the rows are drawn as `ceil(factor)`
 independent copies of the fitted count process and thinned with probability `factor / copies`: for the engine's
 Poisson count laws this is exactly the process with the rate multiplied (superposition and thinning). For negative
-binomial or DP count laws the mean is multiplied and the spread changes; an occupancy fact keeps unique pairs, so
-an occupancy fact without a multiplicity law keeps unique pairs, so repeated pairs are dropped and its rate rises a
-little less when pairs saturate; with a multiplicity law the rows of every copy are kept. The record gives the rows.
+binomial or DP count laws the mean is multiplied and the spread changes. On an occupancy fact with a multiplicity law
+the rows of every copy are kept (multiplicities add). An occupancy fact without one has unique pairs, each present or
+not, which copies cannot be superposed into without changing the presence law (also outside a window), so a factor
+above 1 on it stops the run with a spec error; factors at most 1 (thinning) are exact. The record gives the rows.
 
 **shares** draws rows from the fitted model and accepts each with probability w / max w (rejection sampling). The
 accepted rows follow the model tilted by w, which is the change closest to the model (in Kullback–Leibler divergence)
 with those shares: every other column keeps its law given the tilted column, and each row keeps its segment, so its
-children (a Gov customer's orders) follow it. The acceptance bound is the largest weight among the levels the model draws, so equal factors on every level
+children (a Gov customer's orders) follow it. The acceptance bound is the largest weight among the named levels (and 1 when a level not named is drawn), so equal
+factors on every level
 change nothing. Target `shares` that sum to less than 1 need a level not named to take the rest (otherwise the run stops
 with a spec error). They fill a quota per level with the first rows of that level
 drawn from the model. At most 50 rows are drawn per target row; a shortfall is recorded (it only happens for a level
@@ -84,8 +86,9 @@ that merges values (`multiply: 0`, or `multiply: 0.1` on an integer column, wher
 ties, and the dependence then changes on the tied rows. The map is applied to the finished rows of the table, after the
 near-copy guard and the rule redraws, so no redrawn value escapes it; with the partitioned runtime it is applied once to
 the joined table, so quantile levels are the whole table's. An entity's mapped column is in place before the facts are
-drawn, so facts that depend on it follow; the links of child entities were drawn before it. The `derive` rules that
-read the mapped column are computed again, and the rows that break a check rule reading
+drawn, so facts that depend on it follow; the links of child entities were drawn before it. An SCD table is mapped after its
+version columns are recomputed, and a column drawn from a stated `distribution` keeps the mapped value. The `derive`
+and `cumulative` rules (running balances) that read the mapped column are computed again, and the rows that break a check rule reading
 it are counted in the record (`rule_violations`): a scenario may push values past a bound the source respected, and the
 record says how often. A column the engine derives once the rows are complete (`ratio_of`, `offset_from`) is mapped on
 the finished table the same way. A column that a `derive`, `aggregate` or `cumulative` rule computes is rejected (change the rule's inputs), so is a
@@ -96,12 +99,14 @@ a sequence's time column, which the sequence model draws (use `intensity`).
 
 - a fact: rows are superposed `ceil(max factor)` times and each kept with probability `w(t) / copies`, with `w =
   factor` inside the window and 1 outside. The rows' times come from the model, so this is exactly the event rate
-  multiplied on the window, and the total rises or falls with it;
+  multiplied on the window, and the total rises or falls with it. Rows are thinned after the rule redraws, so a redrawn
+  date is tilted like any other;
 - an entity table with a date column: its rows are tilted by `w(time)` as for `shares`, and the row count is multiplied
   by the mean of `w` (the integrated change of the rate);
 - a sequence table (`sequence:`): the sequence model's calendar intensity is multiplied on the window and the event
   count by the integrated change (recorded as `count_factor`; several windows on one table give one integrated
-  change over all of them together, since the gains of separate windows do not multiply); each entity's history keeps its rhythm in operational
+  change over all of them together, the window factors multiplied point by point within each calendar cell, since the
+  gains of separate windows do not multiply); each entity's history keeps its rhythm in operational
   time, so more of its events fall in the window;
 - a series table (`series:`): the value columns are multiplied in the window.
 
@@ -110,7 +115,10 @@ segment to its old total (Prop. 1828). The expected links of each segment do not
 to the rows that already had most (more concentrated in the Lorenz order) and c < 1 spreads them. It acts on the
 heterogeneity the fit found among rows of a segment (gamma frailties, or a copied table's own degree posterior); when
 the fit found none (`synthesis.facts.frailty` off, or one row per segment), the record says that there was nothing to
-temper. The record gives the Gini coefficient of the weights before and after.
+temper. When the key's degrees follow a fitted link-degree law (`fact.link_degree`: dp or a negative binomial), rows
+are dealt by that count law and not by the weights, so concentration cannot act; the record says so (set
+`fact.link_degree: segment` on the fact to temper it). The record gives the Gini coefficient of the weights before and
+after.
 
 ## What is recorded
 

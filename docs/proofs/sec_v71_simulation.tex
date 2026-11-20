@@ -44,8 +44,11 @@ converges (\texttt{test\_profile\_mu\_solves\_the\_score\_equation}). The segmen
 $\theta_k=(\operatorname{logit}\eta,\log\beta)$ maximise the profile likelihood plus a Normal prior centred on the
 pooled fit, and are drawn from the Laplace approximation (Bernstein--von Mises; van der Vaart 1998, Thm.~10.1), as
 for the renewal parameters (Prop.~\ref{prop:tspost}). \texttt{test\_hawkes\_fit\_recovers\_branching\_ratio\_and\_decay}
-recovers $(\eta,\beta)=(0.6,0.4)$ from simulated histories, and the compensator increments of the fit are $\mathrm{Exp}(1)$
-by the time-rescaling theorem (Brown et al.\ 2002; Ogata 1988), reported as \texttt{residual\_ks} in the fit log.
+recovers $(\eta,\beta)=(0.6,0.4)$ from simulated histories. Under the true parameters the compensator increments are
+$\mathrm{Exp}(1)$ by the time-rescaling theorem (Brown et al.\ 2002; Ogata 1988); \texttt{residual\_ks} in the fit log
+compares the increments of the fitted model with that reference as a diagnostic only, since the estimated parameters and
+the observation window (the profile baseline bounds each increment of a short history) change their law, and a
+calibrated goodness-of-fit test would have to account for both.
 \end{proof}
 
 \begin{proposition}[Hawkes histories given their count]\label{prop:simhawkesbridge}

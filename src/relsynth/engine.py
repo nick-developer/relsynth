@@ -2630,13 +2630,14 @@ class Synthesizer:
         for t in self.all_order:
             if t in self.E:
                 out[t] = self._finish(t, out[t], zs.get(t), out)
-                if scen is not None:
-                    # marginal maps of the finished rows: after the rule redraws, so no
-                    # redrawn value escapes the map; derives follow, violations counted
-                    out[t] = scen.map_columns(t, out[t], self, out)
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                if scen is not None:
+                    # marginal maps of the finished rows: after the rule redraws and the
+                    # SCD recomputation, so no redrawn value escapes the map; derives
+                    # follow, violations counted
+                    out[t] = scen.map_columns(t, out[t], self, out)
                 if t in getattr(self, "seq", {}):
                     from .timeseries.hooks import apply_sequence
                     out[t] = apply_sequence(self, t, out[t], out, index)
@@ -3661,6 +3662,8 @@ class Synthesizer:
         scen = getattr(self, "_scen", None)
         if scen is not None and not info["nested"]:
             w1 = scen.temper(f, info["fks"][0]["child_key"], w1, z1, rel.e1.K)
+            if rel.kind != "single" and (info.get("link_degree") or {}).get("anchor"):
+                scen.note_degree_law(f, info["fks"][0]["child_key"])
         # conditional inclusion on the anchor (quotas only for sales staff): rows at an
         # excluded level take no part; the others take the segment's zero mass away
         elig = None
@@ -3677,6 +3680,8 @@ class Synthesizer:
             w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
             if scen is not None:
                 w2 = scen.temper(f, r2["child_key"], w2, z2, rel.e2.K)
+                if (info.get("link_degree") or {}).get("partner"):
+                    scen.note_degree_law(f, r2["child_key"])
             m2 = self._inclusion_mask(f, r2, len(z2), ents)
             w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
             st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2, "m2": m2})
@@ -3725,9 +3730,9 @@ class Synthesizer:
 
     def _scenario_structure(self, f, st, ents, fact_rows, u, v, blk):
         """A scenario that raises a fact's rate superposes K independent draws of
-        its structure; _fact_attributes thins their rows (Prop. 1827).  An occupancy
-        fact without a multiplicity law has unique pairs, so repeated pairs are dropped;
-        with one, the rows of every copy are kept (multiplicities add)."""
+        its structure; _fact_attributes thins their rows (Prop. 1827).  With a
+        multiplicity law the rows of every copy are kept (multiplicities add); an
+        occupancy fact without one has unique pairs, and a raised rate is refused."""
         scen = getattr(self, "_scen", None)
         if scen is None or not scen.has_fact(f):
             return u, v, blk
@@ -3740,11 +3745,12 @@ class Synthesizer:
         v = None if parts[0][1] is None else np.concatenate([np.asarray(p[1], np.int64) for p in parts])
         rel = self.fact_info[f]["rel"]
         if v is not None and rel.kind == "occ" and getattr(rel, "mult_by", "none") == "none":
-            # unique pairs (no multiplicity law): a pair drawn by several copies is one
-            # row; with a multiplicity law the copies' rows add up, as superposition does
-            _, first = np.unique(np.stack([u, v]), axis=1, return_index=True)
-            first = np.sort(first)
-            u, v, blk = u[first], v[first], blk[first]
+            # unique pairs (no multiplicity law): each pair is present or not, so copies
+            # cannot be superposed (merging them changes the presence law, also outside
+            # a window); the scenario is refused rather than applied with a bias
+            raise SpecError(f"scenario: {f} has unique pairs (an occupancy fact without a multiplicity law), so "
+                            "its rate cannot be raised by superposition; use a factor <= 1, or change its "
+                            "anchors (scale or shares) instead")
         return u, v, blk
 
     def _fact_structure(self, f, st, ents, fact_rows):
@@ -3804,10 +3810,11 @@ class Synthesizer:
         info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
         scen = getattr(self, "_scen", None)
+        df = self._refill(f, st, df, ents)
         if scen is not None and scen.has_fact(f):
+            # thinned after the rule redraws, so a redrawn date cannot escape the window tilt
             df = scen.thin_fact(f, df, self.rng)
             self._sequences(f, df)                  # line numbers stay 1..n after thinning
-        df = self._refill(f, st, df, ents)
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
         df = self._fact_unique(f, df, ents)
@@ -4691,13 +4698,25 @@ class Synthesizer:
         return df
 
     def _after_map(self, t, df, cols, out):
-        """After a scenario's marginal map of cols of table t: the derive rules that
-        read them are computed again (in rule order, so chains follow), and the rows
+        """After a scenario's marginal map of cols of table t: the derive and
+        cumulative rules that read them are computed again (in rule order, so chains
+        follow), and the rows
         breaking a check rule that reads them are counted.  Returns (df, recomputed
         columns, rule violations)."""
         changed, redone, bad = set(cols), [], 0
         for r in self.spec["rules"]:
-            if r["table"] != t or r["type"] != "derive":
+            if r["table"] != t:
+                continue
+            if r["type"] == "cumulative":
+                # a running balance whose step reads a mapped column follows it
+                if r["column"] in cols or r["column"] not in df.columns or \
+                        not ({n.split(".")[0] for n in names_in(str(r.get("step", "")))} & changed):
+                    continue
+                df = cumulative_apply(df, r, self._resolver(t, df, out))
+                changed.add(r["column"])
+                redone.append(r["column"])
+                continue
+            if r["type"] != "derive":
                 continue
             lhs, rhs = split_assignment(r["expr"])
             if lhs in cols or lhs in self.late.get(t, ()) or \
