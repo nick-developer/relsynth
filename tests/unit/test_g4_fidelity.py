@@ -50,6 +50,10 @@ def test_balance_totals_moves_segment_totals_towards_their_count_law():
     need = np.array([250, 0, 0])
     out = _balance_totals(np.zeros(n, np.int64), zc, seg_p, M, dp, need, rng)
     assert np.bincount(out, minlength=K)[0] >= 250
+    # a segment with members but no observed counts keeps the pooled law's share
+    dp_new = {"counts": [np.full(50, 2), np.full(50, 2), np.zeros(0)]}
+    out = _balance_totals(rng.choice(K, size=n), zc, seg_p, M, dp_new, None, rng, sweeps=6)
+    assert abs(np.bincount(out, minlength=K)[2] - 200) < 40
 
 
 def test_pooled_calendar_has_one_row_for_every_segment():
@@ -207,3 +211,16 @@ def test_start_counts_fallback_hits_the_total():
     f = np.array([0.0, 1.0])                             # only counts 0 and 1 have mass
     N = _start_counts(f, 4, 10, rng)                     # 10 rows over 4 parents: unreachable under f
     assert N.sum() == 10 and (N >= 0).all()
+
+
+def test_inclusion_key_levels_only_for_tables_that_keep_their_keys():
+    """A key value is a level only when the referenced table keeps its source rows
+    (mode copy): a synthesized table gets fresh keys, so its key 17 is another row."""
+    s, tables = _inclusion_syn()
+    s.cfg["structure"]["inclusion_min_expected"] = 1.0
+    s.copied = set()
+    s._fit_inclusion(tables)
+    assert not any(r[0] == "sk" for r in s.cind.get(("sales", "pk"), []))
+    s.copied = {"sub"}
+    s._fit_inclusion(tables)
+    assert any(r[0] == "sk" and r[1] is not None for r in s.cind[("sales", "pk")])

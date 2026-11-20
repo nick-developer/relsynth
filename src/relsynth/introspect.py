@@ -882,6 +882,7 @@ class _Profiler(Discovery):
             m_need = int(np.ceil(np.log(0.05) / np.log(MIN_SHARE)))
             if len(keys) > m_need:
                 keys = self._keyed_rng("aggregates", t, p, r["child_key"]).choice(keys, size=m_need, replace=False)
+            if not self.whole[t]:
                 # a parent's children are read whole: at most about GROUP_ROWS rows of a large
                 # child (400 days of TPC-DS SF10 are 6M store_sales rows), the other parents left out
                 keys = np.asarray(self.group_keys(t, r["child_key"], keys), dtype=keys.dtype)

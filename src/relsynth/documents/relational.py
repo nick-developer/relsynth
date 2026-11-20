@@ -231,8 +231,9 @@ def _counts_as_lengths(lay: Layout, rules: list, lens: set) -> list:
     ``answers__n = AnswerCount``, a derive that overwrites the modelled length.
     Both say the same thing as ``AnswerCount = answers__n`` with the length kept
     as modelled: the aggregate over an element table, through its holder link, is
-    rewritten as that derive, and derives that write a length column are left
-    out.  Rules about anything else are returned unchanged."""
+    rewritten as that derive, and a derive that writes a length column from another
+    column is reversed (dropped when it is not a plain column).  Rules about anything
+    else are returned unchanged."""
     length_of = {}
     for tname, tl in lay.tables.items():
         if tl.kind == "array" and tl.parent:
@@ -242,9 +243,12 @@ def _counts_as_lengths(lay: Layout, rules: list, lens: set) -> list:
     out, have = [], set()
     for r in rules:
         if r.get("type") == "derive" and isinstance(r.get("expr"), str) and "=" in r["expr"]:
-            lhs = r["expr"].split("=", 1)[0].strip()
+            lhs, rhs = (x.strip() for x in r["expr"].split("=", 1))
             if (r.get("table"), lhs) in lens:
-                continue                       # the length stays as modelled
+                # the length stays as modelled; a stored count equal to it is derived from it
+                if not rhs.isidentifier() or (r.get("table"), rhs) in lens:
+                    continue
+                r = {"table": r["table"], "type": "derive", "expr": f"{rhs} = {lhs}"}
         col = length_of.get((r.get("table"), r.get("from")))
         if (r.get("type") == "aggregate" and r.get("agg") == "count" and col and not r.get("of")
                 and (r.get("via") is None or str(r["via"]).startswith(f"{r['from']}.{PARENT}->"))):

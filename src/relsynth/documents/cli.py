@@ -167,8 +167,9 @@ def add_parser(sub, common):
     s.add_argument("--if-exists", default="replace", choices=["replace", "append", "fail"])
     s.add_argument("--workdir", help="keep the shredded database and the spec here")
     s.add_argument("--multihot", choices=["auto", "on", "off"], default="auto",
-                   help="set arrays of scalars as 0/1 columns on their holder: auto when the elements' "
-                        "dependence is supported (BIC of the Chow-Liu tree), on whenever possible, off never")
+                   help="set arrays of scalars as 0/1 columns on their holder: auto up to --multihot-max-columns "
+                        "values, on whenever possible, off never (the BIC gain of the values' Chow-Liu tree "
+                        "is recorded in the model report)")
     s.add_argument("--multihot-max-columns", type=int, default=64,
                    help="most 0/1 columns one array may add (a cost bound)")
     s.add_argument("--report", help="write the quality report (JSON) here")

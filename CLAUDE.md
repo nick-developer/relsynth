@@ -5,6 +5,28 @@ byte-identity rule apply to agents as they do to people. This file adds the pull
 that agents (Claude Code and others) must follow, so that CodeRabbit reviews each change once and
 review rounds stay short.
 
+## Project rules (owner, 2026-11-19)
+
+These apply to every change or addition, by agents and people alike.
+
+1. **Audit before merging.** At the final stage of every change, before its pull request is merged
+   to `main`, run a detailed security and code audit of the change (for example the `/security-review`
+   and `/code-review` commands, CodeQL, Semgrep, Bandit through `ruff check --select S`, and the
+   `security` workflow). Resolve every finding above the "warning" level before the merge, and record
+   in the pull request what was run and what was fixed.
+2. **Spec first, then a generic engine change.** When a new dataset or database gives poor results
+   after synthesis, first check that its specification file describes the source completely and
+   correctly (types, keys, relationships, rules, per-table settings) and fix it there if you can.
+   Only if the spec is right, or cannot express the fix, change the engine, and then only with a
+   generic change that holds for that type of data and every dataset of it, never a change tuned to
+   the dataset under test.
+3. **Aim.** The engine should support practically every structured dataset it is given, keeping its
+   relationships, dependencies, business and technical rules and everything else README.md specifies.
+4. **Adjustable, private by default.** Users choose the level of privacy, of detail (exact
+   distributions or slight deviations from them) and of accuracy through the spec and the settings
+   registry. Defaults give the most privacy possible while keeping the data's details and accuracy as
+   far as possible for data analysis, AI and inference.
+
 ## Pull-request workflow
 
 1. **Open every pull request as a draft.** CodeRabbit skips drafts (`.coderabbit.yaml`,

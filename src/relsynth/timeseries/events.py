@@ -436,7 +436,7 @@ class SequenceModel:
         self.theta_hat = np.tile(PRIOR_MEAN, (self.K, 1))
         self.theta_cov = np.tile(np.diag(PRIOR_SD ** 2), (self.K, 1, 1))
         cal = self.fit_log.get("calibration") if keep_log else None
-        choice = self.fit_log.get("calendar")
+        choice = self.fit_log.get("calendar_choice")
         self.fit_log = {"segments": {}}
         if cal is not None:
             self.fit_log["calibration"] = cal

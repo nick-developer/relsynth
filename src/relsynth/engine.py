@@ -209,7 +209,15 @@ def _balance_totals(seg_of, zc, seg_p, M, dp, need, rng, sweeps=4):
     rows = np.flatnonzero(seg_of >= 0)
     if Kp < 2 or len(rows) < 2:
         return seg_of
-    mu, var = np.zeros(Kp), np.ones(Kp)
+    seen = [np.asarray(c, float) for c in dp["counts"] if len(c)]
+    if not seen:
+        return seg_of
+    pooled = np.concatenate(seen)
+    # a segment without observed counts (new members only) takes the pooled law of
+    # all observed parents, as the DP predictive's base measure would, instead of
+    # a target total of 0 that would empty it
+    mu = np.full(Kp, float(np.mean(pooled)))
+    var = np.full(Kp, max(float(np.var(pooled)), 1e-3) if len(pooled) > 1 else 1.0)
     for t in range(Kp):
         obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0)
         if len(obs) > 1:
@@ -787,17 +795,25 @@ class Synthesizer:
         applied when the plain running sum of the synthetic steps is negative on a
         share q > 2 p, i.e. exactly when the floor (share 0) is closer to p than the
         plain sum is: the choice that matches the source's share of negative rows
-        best (Prop. 1787).  Deterministic given the drawn steps: no random number."""
+        best (Prop. 1787).  Deterministic given the drawn steps: no random number.
+        The choice is made on the first frame of the table (the first partition) and
+        reused for the rest of the run."""
         p = getattr(self, "balance_auto", {}).get((t, r["column"]))
         res = self._resolver(t, df, out)
         if p is None or r.get("floor") is not None:
             return cumulative_apply(df, r, res)
-        q = float((cumulative_values(df, r, res) < 0).mean())
-        use = q > 2.0 * p
         log = getattr(self, "sample_log", None)
-        if isinstance(log, dict):
-            log.setdefault("balance_floor", {})[f"{t}.{r['column']}"] = {
-                "source_negative_share": round(p, 6), "plain_negative_share": round(q, 6), "floor": bool(use)}
+        made = (log or {}).get("balance_floor", {}).get(f"{t}.{r['column']}") if isinstance(log, dict) else None
+        if made is not None:
+            # decided once per table and run: later partitions and the re-application
+            # after aggregates use the same choice, so a balance is never part floored
+            use = bool(made["floor"])
+        else:
+            q = float((cumulative_values(df, r, res) < 0).mean())
+            use = q > 2.0 * p
+            if isinstance(log, dict):
+                log.setdefault("balance_floor", {})[f"{t}.{r['column']}"] = {
+                    "source_negative_share": round(p, 6), "plain_negative_share": round(q, 6), "floor": bool(use)}
         return cumulative_apply(df, {**r, "floor": 0.0} if use else r, res)
 
     def _balance_range(self, r, tables):
@@ -5550,8 +5566,12 @@ class Synthesizer:
                 # the parent's own foreign keys with few levels too (G4): products of a
                 # subcategory that is never sold online are links two hops away whose
                 # pairs (sale, subcategory) the source never has
-                pfks = {x["child_key"] for x in self.fk[p]} \
-                    if _setting(self, "structure", "inclusion_fk_levels", True) else set()
+                # a key value names the same row in the synthetic data only when the
+                # referenced table keeps its source rows (mode copy); synthesized tables get
+                # fresh keys, so their key values carry no level
+                fk_levels = _setting(self, "structure", "inclusion_fk_levels", True)
+                kept = getattr(self, "copied", set())
+                pfks = {x["child_key"] for x in self.fk[p] if x["parent"] in kept} if fk_levels else set()
                 skip = self._excluded(p) - set(self.lookups[p]) - set(self.derived[p]) \
                     - {getattr(self, "attr_strata", {}).get(p)} - pfks
                 cand = [(c, cs, par[c]) for c, cs in T[p]["columns"].items()
@@ -5560,7 +5580,7 @@ class Synthesizer:
                 # one hop further (product -> subcategory -> category): a category that is
                 # never sold spreads over many small subcategories, none of which alone
                 # carries the evidence
-                for x in self.fk[p] if pfks else ():
+                for x in self.fk[p] if fk_levels else ():
                     g, gk = x["parent"], x["child_key"]
                     if g == p or g not in tables or gk not in par or T[g]["role"] != "entity":
                         continue
@@ -5569,7 +5589,8 @@ class Synthesizer:
                     for gc, gcs in T[g]["columns"].items():
                         if gc not in gt or gc == T[g]["primary_key"] or gcs["type"] not in ("categorical", "boolean", "id"):
                             continue
-                        if gcs["type"] == "id" and gc not in {y["child_key"] for y in self.fk[g]}:
+                        if gcs["type"] == "id" and gc not in {y["child_key"] for y in self.fk[g]
+                                                              if y["parent"] in kept}:
                             continue
                         mapped = gmap[gc].reindex(_keystr(par[gk]).to_numpy())
                         cand.append((f"{gk}\x1f{g}\x1f{gc}", {"type": "categorical"},
