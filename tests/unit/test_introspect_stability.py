@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reproducible drafting: seeded samples of tables without a key, and the effect-size
 test of drafted ratio columns (bench finding: MIMIC-IV demo drafts differed per run)."""
 from __future__ import annotations
