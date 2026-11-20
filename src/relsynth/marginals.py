@@ -179,7 +179,8 @@ class Marginal:
 
     @classmethod
     def fit(cls, codec, x, rng, prior: Marginal | None = None, dirichlet_a=2.0,
-            grid=48, bootstrap=True, min_rows=0, tail_trim=0.0, max_obs=20000, structural=0.0):
+            grid=48, bootstrap=True, min_rows=0, tail_trim=0.0, max_obs=20000, structural=0.0,
+            shift_prior=False):
         """structural: prior probability pi_s that the null rate is structurally 0 or
         1 (pi_s/2 each) and that an unobserved category level is structurally absent;
         the rest of the prior is the usual Beta / Dirichlet slab."""
@@ -220,6 +221,20 @@ class Marginal:
             # F0 (the parent marginal) enters through its quantile knots.
             V = rng.beta(len(obs), dirichlet_a) if bootstrap else len(obs) / (len(obs) + dirichlet_a)
             pv = np.interp(np.linspace(0, 1, 4 * grid + 1)[1:-1], prior.knots_c, prior.knots_v)
+            if shift_prior and len(obs) > 0:
+                # shape mode (G3, Prop. 1724): the parent's shape moved to the group's
+                # median and scaled to its interquartile range (at least a / (4 (n + a))
+                # of the parent's, so a group of identical values is still smoothed);
+                # the group keeps its location, and only the shape of its law is shrunk
+                pm = float(np.interp(0.5, prior.knots_c, prior.knots_v))
+                piqr = float(np.subtract(*np.interp([0.75, 0.25], prior.knots_c, prior.knots_v)))
+                gm = float(np.median(obs))
+                giqr = float(np.subtract(*np.percentile(obs, [75, 25])))
+                floor = 0.25 * piqr * dirichlet_a / (len(obs) + dirichlet_a)
+                sc = max(giqr, floor) / piqr if piqr > 0 else 0.0
+                # inside the parent's support, so the shifted shape never leaves the
+                # values the table has (dates a lookup covers, a non-negative amount)
+                pv = np.clip(gm + (pv - pm) * sc, prior.knots_v[0], prior.knots_v[-1])
             obs = np.concatenate([obs, pv])
             w = np.concatenate([V * w, np.full(len(pv), (1 - V) / len(pv))])
         o = np.argsort(obs)

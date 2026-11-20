@@ -10,6 +10,7 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "fakedata"))
@@ -268,6 +269,21 @@ def test_dp_guard_reads_the_seed_rows_not_the_real_ones(star, monkeypatch):
         real_init(self, real, tspec, cols, rho)
     monkeypatch.setattr(dp, "decode", spy_decode)
     monkeypatch.setattr(nc.NearCopyGuard, "__init__", spy_init)
+    # DP noise is OS-seeded, and a seed customer table under the guard's 50-row
+    # minimum builds no guard: the noise and the decoding draw from fixed streams
+    # here (the same scale, the budget still charged by the real mechanism), so one
+    # run reaches guard construction every time
+    import relsynth.dp.relational as dprel
+    from relsynth.dp.mechanisms import sigma_for
+    noise = np.random.default_rng(278)
+    real_gauss = dprel.gaussian
+
+    def fixed_gauss(values, sensitivity, rho, acct, stage, mechanism):
+        v = np.asarray(values, dtype=np.int64).ravel()
+        real_gauss(v[:0], sensitivity, rho, acct, stage, mechanism)      # charges the budget
+        return v + np.rint(noise.normal(0.0, sigma_for(sensitivity, rho), v.size)).astype(np.int64)
+    monkeypatch.setattr(dprel, "gaussian", fixed_gauss)
+    monkeypatch.setattr(dprel, "_rng", lambda: np.random.default_rng(noise.integers(1 << 62)))
     spec = _spec(s, epsilon=1.0, spec_is_public=True)
     spec["synthesis"]["privacy"]["near_copy"] = "auto"
     dp.synthesize(spec, tables=t, write=False, evaluate=False)

@@ -271,7 +271,7 @@ def _dp_mode(a, s) -> bool:
 
 
 def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public_facts_only=None, generator=None,
-                     report=None):
+                     report=None, applied=None):
     G = gv["G"]
     rep = None
     if a.privacy_report:
@@ -291,7 +291,8 @@ def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public
     sc = None
     if report is not None:
         sc = {"schema": "relsynth.scorecard/1", "passed": report.passed, "total": report.total, "score": report.score}
-    spec = s.resolved if privacy is not None else res.data.spec
+    # a DP run records the spec it applied (with --scenario), not a fresh copy of the source spec
+    spec = (applied if applied is not None else s.resolved) if privacy is not None else res.data.spec
     seeds = {} if privacy is not None else {"generator": int(spec["synthesis"].get("seed", 0))}
     rr = G.record_run(gv["reg"], spec, dict(res.data), context=a.context, target=a.release_target,
                       operator=gv["key"], source_id=a.source_id, locator=_source_locator(spec),
@@ -328,6 +329,11 @@ def cmd_run_dp(a, out, s, gv):
     """`run` in differential privacy mode (docs/dp.md)."""
     from . import dp
     spec = s.resolved
+    if getattr(a, "scenario", None):
+        # stage 2 is the ordinary engine on the DP seed: a scenario is post-processing
+        from .scenarios import active
+        active({**spec["synthesis"], "scenario": a.scenario})
+        spec["synthesis"]["scenario"] = a.scenario
     override = {"enabled": True, **_dp_override(a)}
     led = dom = run_id = None
     if gv is not None:
@@ -416,7 +422,7 @@ def cmd_run_dp(a, out, s, gv):
                                        "delta": dec(summ["delta"], 30)}
         _record_governed(a, out, gv, res, s, privacy=dp.manifest_privacy(res, run_id, note),
                          dp_statement=res.statement, public_facts_only=cfg.spec_is_public,
-                         generator=dp.generator(spec, override), report=rep)
+                         generator=dp.generator(spec, override), report=rep, applied=spec)
     if a.dp_statement:
         Path(a.dp_statement).write_text(json.dumps(res.statement, indent=2), encoding="utf-8")
         out.line(f"DP statement -> {a.dp_statement}")
@@ -437,7 +443,7 @@ def cmd_run(a, out):
     t0 = time.time()
     res = run(s, scale=a.scale, out=target, datasets=a.datasets, mode=a.mode, pushdown=a.pushdown, seed=a.seed,
               privacy=not a.no_privacy, write=not a.no_write, bundle=a.bundle, raise_errors=False,
-              privacy_check=not a.no_privacy_check)
+              privacy_check=not a.no_privacy_check, scenario=a.scenario)
     out.put(bundle=a.bundle, seconds=round(time.time() - t0, 1),
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
@@ -872,6 +878,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--seed", type=int, help="override synthesis.seed")
     s.add_argument("--fail-under", type=float, metavar="SHARE",
                    help="quality gate: exit 1 when the share of passed checks is below SHARE (0-1)")
+    s.add_argument("--scenario", help="apply this scenario of synthesis.scenarios (docs/scenarios.md)")
     g = s.add_argument_group("governance (docs/governance/design.md)")
     g.add_argument("--registry", help="record a signed manifest of this run in this registry")
     g.add_argument("--context", help="intended release context from the organisation policy")

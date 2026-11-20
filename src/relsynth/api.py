@@ -417,17 +417,20 @@ class FittedModel:
         """Segments, relations and attribute models in brief (JSON-ready)."""
         return self.synthesizer.model_summary()
 
-    def sample(self, scale: float | dict | None = None, dataset: int | None = None) -> SyntheticData:
+    def sample(self, scale: float | dict | None = None, dataset: int | None = None,
+               scenario: str | bool | None = None) -> SyntheticData:
         """One synthetic database.  dataset numbers independent posterior draws
         (0, 1, ...; default: the next one); scale multiplies the entity sizes (a
         number for every entity, {table: factor} for some, or the spec's section
-        {"default": x, "tables": {name: y}})."""
+        {"default": x, "tables": {name: y}}); scenario names a scenario of
+        synthesis.scenarios to apply (docs/scenarios.md; default: the spec's
+        synthesis.scenario; False: none, the baseline)."""
         from .data import coerce
         if dataset is None:
             dataset, self._next = self._next, self._next + 1
         sc = _scale_section(scale, self.spec)
         try:
-            out = self.synthesizer.sample(scale=sc, index=dataset)
+            out = self.synthesizer.sample(scale=sc, index=dataset, scenario=scenario)
         except (RelsynthError, SpecError):
             raise
         except Exception as e:  # noqa: BLE001
@@ -648,7 +651,7 @@ class RunResult:
 def run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | None = None,
         pushdown: str | None = None, seed: int | None = None, privacy: bool = True, write: bool = True,
         bundle: str | Path | None = None, fail_under: float | None = None, raise_errors: bool = True,
-        settings=None, privacy_check: bool = True) -> RunResult:
+        settings=None, privacy_check: bool = True, scenario: str | None = None) -> RunResult:
     """The whole pipeline: load (with pushdown) -> fit -> sample -> write ->
     evaluate -> diagnostics bundle.  out: folder or target section (default: the
     spec's target); datasets: independent posterior draws to write; mode: 'draw'
@@ -658,12 +661,14 @@ def run(spec, *, scale=None, out=None, datasets: int | None = None, mode: str | 
     spec's synthesis block (relsynth.Settings, a mapping or a settings file).
     privacy_check: the quick DOMIAS check on a proxy release (on unless False or
     the spec's synthesis.evaluation.privacy_check is false); its result is
-    RunResult.privacy_check and the bundle's privacy_check field."""
+    RunResult.privacy_check and the bundle's privacy_check field.  scenario: a
+    scenario of synthesis.scenarios applied to every dataset (docs/scenarios.md)."""
     from .pipeline import execute
     if settings is not None:
         spec = Spec.coerce(spec).with_settings(settings)
     r = execute(_resolved(spec), scale=scale, out=out if write else False, bundle_path=bundle, privacy=privacy,
-                datasets=datasets, mode=mode, pushdown=pushdown, seed=seed, write=write, privacy_check=privacy_check)
+                datasets=datasets, mode=mode, pushdown=pushdown, seed=seed, write=write, privacy_check=privacy_check,
+                scenario=scenario)
     model = FittedModel(r.spec, r.synthesizer, r.fit_data) if r.synthesizer is not None else None
     data = SyntheticData(r.data, r.spec, 0, dict(r.synthesizer.sample_log)) if r.data is not None else None
     rep = EvaluationReport(r.report) if r.report is not None else None

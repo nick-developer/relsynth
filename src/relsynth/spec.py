@@ -24,7 +24,8 @@ PII_GENERATORS = {"email", "person_name", "phone", "uuid", "pattern"}
 
 # G3 defaults (docs/proofs/sec_g3_smalldims.tex): prior rows of the table marginal in each
 # segment marginal of an entity table, and the near-copy guard
-SEGMENT_PRIOR_ROWS = 0.0
+SEGMENT_PRIOR_ROWS = 0.0      # off (2.1 output) by default (owner, 2026-11-16); auto = empirical Bayes (Prop. 1725)
+SEGMENT_FLOOR_ROWS = 0.0      # privacy floor in rows of mass per segment (Prop. 1726); off by default (owner, 2026-11-15)
 NEAR_COPY = "off"
 
 
@@ -34,6 +35,10 @@ DEFAULT_SYNTHESIS = {
     # means (mode mean); datasets > 1 writes that many independent datasets
     "posterior": {"mode": "draw", "datasets": 1, "sample_seed": None},
     "scale": {"default": 1.0, "tables": {}},
+    # what-if scenarios applied while a dataset is sampled (relsynth.scenarios, docs/scenarios.md):
+    # the name of the scenario sampled (None: the fitted model as it is) and the definitions
+    "scenario": None,
+    "scenarios": {},
     "segments": {"default_cap": 8, "min_rows_per_segment": 20, "tables": {},
                  "stratify": "auto", "stratify_max_levels": 20, "stratify_max_cells": 5e7,
                  "attribute_strata": "auto", "tie_headers": True, "copied_budget_cells": 2e7},
@@ -45,19 +50,24 @@ DEFAULT_SYNTHESIS = {
     "marginals": {"bayesian_bootstrap": True, "dirichlet_prior": 0.25,
                   "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
-                  "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS},
+                  "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS,
+                  "segment_floor_rows": SEGMENT_FLOOR_ROWS, "segment_prior_mode": "shape"},
     "facts": {"min_group_rows": 30, "frailty": "auto", "frailty_threshold": 1.5,
               "pairs": "auto", "multiplicity": "auto", "count_model": "auto", "count_model_bf": 100.0,
               "group_fallback": "auto", "link_degree": "auto",
               "link_degree_min_rows": 50.0, "frailty_min_rows": 30, "occupancy_z": -4.0, "occupancy_min_expected": 10.0,
-              "dp_count_sweeps": 30},
+              "dp_count_sweeps": 30,
+              # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
+              "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw"},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
-                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "participation": "auto"},
+                  "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
+                  "inclusion_max_levels": 50, "inclusion_multiplicity": "bonferroni",
+                  "participation": "auto"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
              "backoff_strength": 2.0, "max_retries": 30},
-    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000},
+    "rules": {"max_rejection_rounds": 25, "rake_max_levels": 50, "rake_max_cells": 2000, "balance_floor": "auto"},
     # effort spent repairing a draw before it is kept as it is (relsynth 1.0 constants)
     "repair": {"pair_tries": 200, "constraint_rounds": 200, "thin_rounds": 200, "tree_redraws": 40,
                "unique_code_rounds": 50, "participation_rounds": 4, "occupancy_rounds": 20},
@@ -75,6 +85,11 @@ DEFAULT_SYNTHESIS = {
     # dp: differential privacy mode (relsynth.dp, docs/dp.md); None = off
     # near_copy (G3, relsynth.nearcopy): redraw entity rows closer to a real row than
     # its nearest distinct real neighbour (a distance rule, not a privacy guarantee)
+    # binary columns (relsynth.binary, G4; default placeholder, approved by Cod3r 2026-11-13): none
+    # keeps them NULL (2.1); placeholder writes a
+    # valid tiny file of the source's MIME type padded to a length from the source's length
+    # law; random writes random bytes of such a length.  Source bytes are never copied.
+    "binary": {"generator": "placeholder"},
     "privacy": {"suppress_small_counts": 5, "dp": None, "near_copy": NEAR_COPY, "near_copy_ratio": 1.0,
                 "near_copy_rounds": 20, "near_copy_max_rows": 20_000},
     # fit large fact tables from statistics computed in the database and a bounded
@@ -497,6 +512,17 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                 g = (c.get("pii") or {}).get("generator")
                 if g not in PII_GENERATORS:
                     errs.append(f"{tname}.{cname}: pii.generator must be one of {sorted(PII_GENERATORS)}")
+            if c.get("binary") is not None:
+                bo = c["binary"]
+                if c.get("type") != "binary":
+                    errs.append(f"{tname}.{cname}: binary options apply to binary columns only")
+                elif not isinstance(bo, dict):
+                    errs.append(f"{tname}.{cname}: binary must be a mapping {{generator, mime}}")
+                else:
+                    if bo.get("generator", "none") not in ("none", "placeholder", "random"):
+                        errs.append(f"{tname}.{cname}: binary.generator must be one of none, placeholder, random")
+                    if bo.get("mime") is not None and not isinstance(bo["mime"], str):
+                        errs.append(f"{tname}.{cname}: binary.mime must be a MIME type such as image/png")
             if c.get("type") == "text":
                 to = c.get("text") or {}
                 cond = to.get("condition_on")
@@ -903,6 +929,8 @@ def _validate_io(spec):
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
     errs += _validate_sequences(spec)
+    from .scenarios import validate as validate_scenarios
+    errs += validate_scenarios(spec)
     return errs
 
 
@@ -942,6 +970,30 @@ def _validate_sequences(spec):
                 errs.append(f"{where}.{k} must be a non-negative integer")
         if "shrinkage" in sq and (not isinstance(sq["shrinkage"], (int, float)) or sq["shrinkage"] <= 0):
             errs.append(f"{where}.shrinkage must be a positive number")
+        if sq.get("calendar", "auto") not in ("auto", "pooled", "segment"):
+            errs.append(f"{where}.calendar must be auto, pooled or segment")
+        if "calendar_bf" in sq and (isinstance(sq["calendar_bf"], bool) or not isinstance(sq["calendar_bf"], (int, float))
+                                    or not sq["calendar_bf"] >= 1):
+            errs.append(f"{where}.calendar_bf must be a number of at least 1")
+        if not isinstance(sq.get("calendar_draw", False), bool):
+            errs.append(f"{where}.calendar_draw must be true or false")
+        if sq.get("process", "renewal") not in ("renewal", "hawkes"):
+            errs.append(f"{where}.process must be renewal or hawkes")
+        st = sq.get("states")
+        if st is not None:
+            sc = st if isinstance(st, str) else st.get("column") if isinstance(st, dict) else None
+            if not isinstance(sc, str):
+                errs.append(f"{where}.states must be a column name or {{column: <name>, prior}}")
+            elif (cols.get(sc).get("type") if isinstance(cols.get(sc), dict) else cols.get(sc)) not in (
+                    "categorical", "boolean", "integer"):
+                errs.append(f"{where}.states {sc} must be a categorical, boolean or integer column of {tname}")
+            elif sc in (ent, tc):
+                errs.append(f"{where}.states {sc} cannot be the entity or the time column")
+            pr = st.get("prior", 1.0) if isinstance(st, dict) else 1.0
+            if not isinstance(pr, (int, float)) or isinstance(pr, bool) or pr <= 0:
+                errs.append(f"{where}.states.prior must be a positive number")
+            if sq.get("process", "renewal") == "hawkes":
+                errs.append(f"{where}: states use the semi-Markov bridge; use process renewal with states")
     for tname, t in (spec.get("tables") or {}).items():
         se = t.get("series")
         if se is None:

@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -770,8 +771,17 @@ def generate(model, draw="mean", seed=7, scale=1.0, reference=None):
                     out[t][c] = [f"{c[:1].upper()}{i:07d}" for i in range(1, n + 1)]
     for t, cons in S.get("constants", {}).items():
         if t in out:
+            shares = S.get("constant_shares", {}).get(t, {})
             for c, v in cons.items():
-                out[t][c] = v
+                share = float(shares.get(c, 1.0))
+                if share >= 1.0:
+                    out[t][c] = v
+                    continue
+                # the share of rows that hold the constant, the rest empty; drawn from
+                # a stream of its own, so the other columns' draws do not move
+                crng = np.random.default_rng(np.random.SeedSequence([int(seed), zlib.crc32(f"{t}.{c}".encode())]))
+                hold = crng.random(len(out[t])) < share
+                out[t][c] = pd.Series(np.where(hold, v, None), index=out[t].index, dtype=object)
 
     def offset_keys(df, o):
         """Key of the parent row whose order value is the base row's plus the offset."""

@@ -246,18 +246,47 @@ class SequenceModel:
     segment of each entity row and window (A, B) the entity windows in days.
     """
 
-    def __init__(self, bucket="month", weekly=True, hourly=None, shrinkage=1.0, min_entities=30, calibration=3):
+    def __init__(self, bucket="month", weekly=True, hourly=None, shrinkage=1.0, min_entities=30, calibration=3,
+                 calendar="segment", calendar_draw=True, calendar_bf=100.0,
+                 process="renewal", states=None):
+        """process: 'renewal' (the gamma bridge) or 'hawkes' (self-exciting
+        interior events, relsynth.timeseries.hawkes); states: None, or the options
+        {prior} of a status chain along the events (relsynth.timeseries.states),
+        whose codes fit() then takes."""
+        if process not in ("renewal", "hawkes"):
+            raise ValueError(f"sequence process must be renewal or hawkes, not {process!r}")
+        if process == "hawkes" and states is not None:
+            raise ValueError("a status chain uses the semi-Markov bridge: use process renewal with states")
         self.intensity = Intensity(bucket, weekly, hourly)
+        if calendar not in ("auto", "pooled", "segment"):
+            raise ValueError("sequence.calendar must be auto, pooled or segment")
+        self.calendar = calendar
+        self.calendar_draw = bool(calendar_draw)
+        if not calendar_bf >= 1:
+            raise ValueError("sequence.calendar_bf must be at least 1")
+        self.calendar_bf = float(calendar_bf)
         self.shrinkage = float(shrinkage)
         self.min_entities = int(min_entities)
         self.calibration = int(calibration)
+        self.process = process
+        self.state_opts = states
+        self.hawkes = None
+        self.states = None
         self.fit_log = {}
 
     # ------------------------------------------------------------ fitting
-    def fit(self, t, owner, seg_of_owner, K, window, datetime=False, rng=None, t0=None, t1=None):
+    def fit(self, t, owner, seg_of_owner, K, window, datetime=False, rng=None, t0=None, t1=None,
+            state=None, n_levels=None):
+        """state: status code (0..n_levels-1, -1 unknown) of each event when the
+        model has a status chain."""
         rng = np.random.default_rng(0) if rng is None else rng
         t = np.asarray(t, dtype=float).copy()
         owner = np.asarray(owner, dtype=np.int64)
+        if self.state_opts is not None:
+            if state is None or n_levels is None:
+                raise ValueError("a sequence model with states needs the status code of every event")
+            self._state_all = np.asarray(state, dtype=np.int64)
+            self.n_levels = int(n_levels)
         seg_of_owner = np.asarray(seg_of_owner, dtype=np.int64)
         self.datetime = bool(datetime)
         self.K = int(K)
@@ -272,7 +301,10 @@ class SequenceModel:
         A, B = self._windows(window, len(seg_of_owner))
         ok &= (t >= np.maximum(A[np.maximum(owner, 0)], t0)) & (t < np.minimum(B[np.maximum(owner, 0)], t1))
         self.null_rate = float(np.mean(~np.isfinite(np.asarray(t, dtype=float)))) if len(t) else 0.0
+        if self.state_opts is not None:
+            self._state_ok = self._state_all[ok]
         expo, inner = self._exposure(t[ok], owner[ok], seg_of_owner, t0, t1)
+        self.intensity.pooled = self._pool_calendar(t[ok], seg_of_owner[owner[ok]], t0, t1)
         self.intensity.fit(t[ok], seg_of_owner[owner[ok]], self.K, t0, t1, self.datetime,
                            exposure=expo, interior=inner)
         self.stats = self._stats(t[ok], owner[ok], seg_of_owner, A, B)
@@ -282,6 +314,35 @@ class SequenceModel:
         self.redraw(None)
         self.fitted = True
         return self
+
+    def _pool_calendar(self, t, seg, t0, t1):
+        """Whether the segments share one calendar.  auto: Bayes factor of one
+        bucket profile per segment against one shared profile, each with a
+        uniform Dirichlet prior (Dirichlet-multinomial marginals of the bucket
+        counts; the multinomial coefficients cancel); segments get their own
+        profile only when the Bayes factor exceeds sequence.calendar_bf (default
+        100, "decisive" on Jeffreys' scale; Kass and Raftery 1995).
+        Profiles of small segments are noise that the life times then learn to
+        follow, so the model reproduces the source's segments and not its
+        population (AdventureWorks customers: 627 segments of about 30; Prop. 1784)."""
+        if self.calendar != "auto":
+            self.fit_log["calendar_choice"] = self.calendar
+            return self.calendar == "pooled"
+        if self.K < 2 or not len(t):
+            self.fit_log["calendar_choice"] = "pooled (one segment)"
+            return True
+        I = Intensity(self.intensity.bucket, False, None)
+        I.fit(t, np.zeros(len(t), np.int64), 1, t0, t1, self.datetime)
+        b = I.bucket_of_day[np.clip(np.floor(t).astype(np.int64) - I.d0, 0, I.ndays - 1)]
+        C = np.zeros((self.K, I.B))
+        np.add.at(C, (seg, b), 1.0)
+
+        def ldm(c):                      # log Dirichlet-multinomial(c | 1), without the coefficient
+            return float(gammaln(c.shape[-1]) - gammaln(c.sum() + c.shape[-1]) + gammaln(c + 1).sum())
+        lbf = sum(ldm(C[k]) for k in range(self.K)) - ldm(C.sum(0))
+        pooled = bool(lbf <= np.log(getattr(self, "calendar_bf", 100.0)))
+        self.fit_log["calendar_choice"] = {"choice": "pooled" if pooled else "segment", "log_bf_segment": round(lbf, 2)}
+        return pooled
 
     def _calibrate(self, t, owner, seg_of_owner, A, B, rng, iters=None):
         """Moment-match the calendar profile: the bridge itself puts more events
@@ -299,16 +360,17 @@ class SequenceModel:
         n_ent = np.bincount(owner, minlength=len(seg_of_owner))
         seg_e = seg_of_owner
         b_real = I.bucket_of_day[np.clip(np.floor(t).astype(np.int64) - I.d0, 0, I.ndays - 1)]
-        real = np.zeros((self.K, I.B))
-        np.add.at(real, (seg_of_owner[owner], b_real), 1.0)
+        crow = I.seg(seg_of_owner)                     # calendar row of each entity
+        real = np.zeros((I.K, I.B))
+        np.add.at(real, (crow[owner], b_real), 1.0)
         self.fit_log["calibration"] = []
         for _ in range(int(iters)):
             self.redraw(None)
-            sim = np.zeros((self.K, I.B))
+            sim = np.zeros((I.K, I.B))
             for r in range(2):
                 st, so = self.sample(n_ent, seg_e, A, B, np.random.default_rng([int(rng.integers(2 ** 31)), r]))
                 bs = I.bucket_of_day[np.clip(np.floor(st).astype(np.int64) - I.d0, 0, I.ndays - 1)]
-                np.add.at(sim, (seg_e[so], bs), 0.5)
+                np.add.at(sim, (I.seg(seg_e[so]), bs), 0.5)
             ratio = (real + 1.0) / (sim + 1.0)
             tvd = float(0.5 * np.abs(real / max(real.sum(), 1) - sim / max(sim.sum(), 1)).sum())
             self.fit_log["calibration"].append(round(tvd, 5))
@@ -317,6 +379,8 @@ class SequenceModel:
             I._build()
             self.stats = self._stats(t, owner, seg_of_owner, A, B)
             self._fit_params(keep_log=True)
+        if self.stats is not None and (self.hawkes is not None or self.states is not None):
+            self._fit_processes(self.stats)           # once more, in the calibrated operational time
         self.redraw(None)
 
     def _exposure(self, t, owner, seg_of_owner, t0, t1):
@@ -374,6 +438,7 @@ class SequenceModel:
             return None
         o = np.argsort(owner * 1e7 + (t - self.t0), kind="stable")
         t, owner = t[o], owner[o]
+        state = self._state_ok[o] if self.state_opts is not None else None
         ents, start, n = np.unique(owner, return_index=True, return_counts=True)
         seg = seg_of_owner[ents]
         u = self.intensity.forward(t, seg_of_owner[owner])
@@ -390,16 +455,24 @@ class SequenceModel:
             share = np.where(same, d, 1.0) / span[np.searchsorted(ents, owner[1:])]
             lg = np.where(same, np.log(np.clip(share, 1e-12, None)), 0.0)
             gl = np.bincount(np.searchsorted(ents, owner[1:]), weights=lg, minlength=len(ents))
-        return {"seg": seg, "n": n, "A": uA, "B": uB, "uf": uf, "ul": ul, "gl": gl}
+        out = {"seg": seg, "n": n, "A": uA, "B": uB, "uf": uf, "ul": ul, "gl": gl}
+        if self.process == "hawkes" or self.state_opts is not None:
+            out.update({"u": u, "start": start})
+        if state is not None:
+            out["state"] = state
+        return out
 
     def _fit_params(self, keep_log=False):
         st = self.stats
         self.theta_hat = np.tile(PRIOR_MEAN, (self.K, 1))
         self.theta_cov = np.tile(np.diag(PRIOR_SD ** 2), (self.K, 1, 1))
         cal = self.fit_log.get("calibration") if keep_log else None
+        choice = self.fit_log.get("calendar_choice")
         self.fit_log = {"segments": {}}
         if cal is not None:
             self.fit_log["calibration"] = cal
+        if choice is not None:
+            self.fit_log["calendar_choice"] = choice
         self.life = [_Lifetime().fit(np.ones(1, np.int64), np.full(1, 0.5), np.full(1, np.nan))] * self.K
         if st is None:
             return
@@ -411,6 +484,10 @@ class SequenceModel:
         self.fit_log["pooled"] = {"theta": dict(zip(NAMES, np.round(th0, 4).tolist())), "converged": ok0,
                                   "entities": pooled.n_entities}
         sd = np.full(NPAR, self.shrinkage)
+        # the calendar test (Prop. 1784) compares only when events happen in the
+        # year, not how long entities live or how far apart their events are, so
+        # life times and gaps keep their own pooling rule: a segment below
+        # min_entities takes the pooled fit
         for k in range(self.K):
             m = st["seg"] == k
             if m.sum() < self.min_entities:
@@ -424,6 +501,32 @@ class SequenceModel:
             self.life[k] = _Lifetime().fit(dk.n, dk.h, dk.q)
             self.fit_log["segments"][k] = {"entities": int(m.sum()), "pooled": False, "converged": ok,
                                            "theta": dict(zip(NAMES, np.round(th, 4).tolist()))}
+        if not keep_log or getattr(self, "_proc_log", None) is None:
+            self._fit_processes(st)
+        else:
+            self.fit_log.update(self._proc_log)        # calibration rounds keep the process fit
+
+    def _fit_processes(self, st):
+        """The Hawkes part (process hawkes) or the status chain (states) from the
+        sorted histories in operational time."""
+        self._proc_log = {}
+        if self.process == "hawkes":
+            from .hawkes import HawkesPart
+            self.hawkes = HawkesPart(self.shrinkage, self.min_entities).fit(st["u"], st["start"], st["n"],
+                                                                            st["seg"], self.K)
+            self.fit_log["hawkes"] = self._proc_log["hawkes"] = self.hawkes.log
+        if self.state_opts is not None:
+            from .states import StateModel
+            u, start, n = st["u"], st["start"], st["n"]
+            ln = np.full(len(u), np.nan)
+            pos = np.arange(len(u)) - np.repeat(start, n)
+            g = np.flatnonzero(pos < np.repeat(n, n) - 1)          # events that start a gap
+            span = np.repeat(np.maximum(st["ul"] - st["uf"], 1e-12), n)
+            ln[g] = np.log(np.clip((u[g + 1] - u[g]) / span[g], 1e-12, None))
+            self.states = StateModel(float(self.state_opts.get("prior", 1.0)), self.shrinkage,
+                                     self.min_entities).fit(st["state"], start, n, st["seg"], self.K,
+                                                            self.n_levels, ln)
+            self.fit_log["states"] = self._proc_log["states"] = self.states.summary()
 
     def _fit_rates(self, n, seg, A, B):
         """Event rate of an entity (events per unit of operational time) for the
@@ -446,14 +549,23 @@ class SequenceModel:
             self.rate_ab[k] = np.exp(x)
 
     def redraw(self, rng=None):
-        """One posterior draw of every parameter (rng given) or posterior means."""
-        self.intensity.draw(rng)
+        """One posterior draw of every parameter (rng given) or posterior means.
+        calendar_draw False keeps the calendar at its posterior mean: the life
+        times are fitted in its operational time, so their posterior already
+        carries when entities are active, and drawing the two independently
+        double counts it (AdventureWorks internet orders: 10 of 11 checks with
+        the mean calendar, 5 with a drawn one; Prop. 1784)."""
+        self.intensity.draw(rng if getattr(self, "calendar_draw", True) else None)
         if rng is None:
             self.theta = self.theta_hat.copy()
         else:
             self.theta = np.stack([rng.multivariate_normal(self.theta_hat[k], self.theta_cov[k])
                                    for k in range(self.K)])
         self.life = [lf if any(lf is x for x in self.life[:k]) else lf.draw(rng) for k, lf in enumerate(self.life)]
+        if self.hawkes is not None:
+            self.hawkes.draw(rng)
+        if self.states is not None:
+            self.states.draw(rng)
         return self
 
     # ----------------------------------------------------------- sampling
@@ -461,6 +573,15 @@ class SequenceModel:
         """Event times (days) of entities with n[i] events, segment seg[i] and
         window [A[i], B[i]) in days.  Returns (times, owner) with the times of
         each entity in increasing order; owner indexes the entities."""
+        t, owner, _state = self._sample(n, seg, A, B, rng)
+        return t, owner
+
+    def sample_states(self, n, seg, A, B, rng):
+        """sample() plus the status code of every event (None without a status
+        chain)."""
+        return self._sample(n, seg, A, B, rng)
+
+    def _sample(self, n, seg, A, B, rng):
         n = np.asarray(n, dtype=np.int64)
         seg = np.asarray(seg, dtype=np.int64)
         A, B = self._windows((A, B), len(n))
@@ -477,6 +598,8 @@ class SequenceModel:
             mk = (seg == k) & (n >= 1)
             h[mk], q[mk] = self.life[k].sample(n[mk], rng)
         first_all = uA + h * U
+        if self.states is not None or self.hawkes is not None:
+            return self._sample_process(n, seg, A, B, rng, uA, uB, first_all, q, start, owner)
         one = n == 1
         if one.any():
             u[start[one]] = first_all[one]
@@ -507,7 +630,47 @@ class SequenceModel:
                 u[pos[inner]] = f_rep[inner] + cum[inner] * s_rep[inner]
         t = self.intensity.inverse(u, seg[owner])
         t = np.clip(t, np.repeat(A, n), np.nextafter(np.repeat(B, n), -np.inf))
-        return t, owner
+        return t, owner, None
+
+    def _sample_process(self, n, seg, A, B, rng, uA, uB, first_all, q, start, owner):
+        """sample() with a Hawkes interior (Prop. 1821) or a status chain with
+        status-dependent gamma gaps (Props. 1822-1823)."""
+        u = np.empty(int(n.sum()))
+        state = self.states.sample_states(n, seg, rng) if self.states is not None else None
+        one = n == 1
+        u[start[one]] = first_all[one]
+        two = np.flatnonzero(n >= 2)
+        if len(two):
+            first = first_all[two]
+            span = q[two] * (uB[two] - first)
+            u[start[two]] = first
+            u[start[two] + n[two] - 1] = first + span
+            if self.states is not None:
+                m = n[two] - 1
+                shapes = self.states.gap_shapes(state[np.concatenate([np.arange(s, s + k) for s, k in
+                                                                       zip(start[two], n[two])])],
+                                                n[two], seg[two], rng)
+                gam = np.maximum(rng.gamma(shapes), 1e-300)
+                off = np.concatenate([[0], np.cumsum(m)[:-1]])
+                tot = np.add.reduceat(gam, off)
+                cum = np.cumsum(gam / np.repeat(tot, m))
+                cum -= np.repeat(cum[off] - (gam / np.repeat(tot, m))[off], m)
+                pos = np.repeat(start[two], m) + (np.arange(m.sum()) - np.repeat(off, m)) + 1
+                inner = np.ones(m.sum(), bool)
+                inner[off + m - 1] = False
+                u[pos[inner]] = np.repeat(first, m)[inner] + cum[inner] * np.repeat(span, m)[inner]
+            else:
+                three = n[two] >= 3
+                ii = two[three]
+                if len(ii):
+                    sh = self.hawkes.bridge(n[ii], seg[ii], span[three], rng)
+                    m = n[ii] - 2
+                    pos = np.repeat(start[ii], m) + (np.arange(m.sum()) - np.repeat(
+                        np.concatenate([[0], np.cumsum(m)[:-1]]), m)) + 1
+                    u[pos] = np.repeat(first[three], m) + sh * np.repeat(span[three], m)
+        t = self.intensity.inverse(u, seg[owner])
+        t = np.clip(t, np.repeat(A, n), np.nextafter(np.repeat(B, n), -np.inf))
+        return t, owner, state
 
     def summary(self):
         return {"calendar": self.intensity.summary(), "parameters": NAMES, **self.fit_log,

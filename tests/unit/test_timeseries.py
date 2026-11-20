@@ -223,6 +223,9 @@ def test_spec_errors():
         load_spec(raw)
     for frag in ("sequence.entity x", "sequence.time n", "bucket", "redraws"):
         assert frag in str(e.value)
+    raw["tables"]["O"]["sequence"] = {"entity": "k", "time": "n", "states": {"column": ["n"]}}
+    with pytest.raises(SpecError, match="states must be a column name"):
+        load_spec(raw)
     raw["tables"]["O"]["sequence"] = {"entity": "k", "time": "n", "windw": "auto"}
     with pytest.raises(SpecError, match="windw"):
         load_spec(raw)

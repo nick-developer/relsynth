@@ -41,6 +41,10 @@ from .values import NUMERIC, type_name
 
 FULL_PRECISION = 15             # decimals at or above this: keep full precision (no rounding)
 DISTINCT_CAP = 250_000          # exact distinct values kept per scalar path
+#: element values (and array length) up to which the co-occurrence of a set
+#: array's elements is counted: a memory and time bound (pairs grow with its
+#: square), not a statistical choice; larger arrays are child tables
+COOC_CAP = 256
 DISCRIMINATOR_MAX_VALUES = 32
 DISCRIMINATOR_MIN_SUPPORT = 2   # documents per discriminator value
 MAP_MIN_KEYS = 50              # distinct field names that make an object a map ...
@@ -66,6 +70,12 @@ class Node:
     lengths: Counter = field(default_factory=Counter)
     items: Node | None = None
     distinct_items: bool = True                 # no array repeats a scalar element (set semantics)
+    # set arrays of scalars: how often each element is held and which element
+    # precedes which (sufficient statistics of the multi-hot choice and of the
+    # element order, Prop. 1785); dropped (cooc_ok False) past COOC_CAP elements
+    item_counts: Counter = field(default_factory=Counter, repr=False)
+    item_pairs: Counter = field(default_factory=Counter, repr=False)
+    cooc_ok: bool = True
     # scalars
     distinct: set = field(default_factory=set, repr=False)
     overflow: bool = False
@@ -202,6 +212,8 @@ def _observe(node: Node, v: Any) -> None:
                 node.distinct_items = len(set(keys)) == len(keys)
             except TypeError:                      # unhashable elements (objects, arrays)
                 node.distinct_items = False
+        if node.cooc_ok and node.distinct_items:
+            _count_items(node, v)
         e = node.elements()
         for x in v:
             e.n += 1
@@ -225,6 +237,25 @@ def _observe(node: Node, v: Any) -> None:
             node.max_len = max(node.max_len, len(v))
             if _HEX24.match(v):
                 node.hex24 += 1
+
+
+def _count_items(node: Node, v: list) -> None:
+    """Element and ordered-pair counts of one set array of scalars (keys are
+    (type, value)); counting stops for good when an element is not a hashable
+    scalar or the array or the vocabulary passes COOC_CAP."""
+    try:
+        keys = [(type_name(x), x) for x in v]
+        if any(k[0] in ("object", "array", "null") for k in keys) or len(keys) > COOC_CAP:
+            raise TypeError
+        node.item_counts.update(keys)
+        for i, a in enumerate(keys):
+            for b in keys[i + 1:]:
+                node.item_pairs[(a, b)] += 1
+    except TypeError:
+        node.cooc_ok = False
+    if not node.cooc_ok or len(node.item_counts) > COOC_CAP:
+        node.cooc_ok = False
+        node.item_counts, node.item_pairs = Counter(), Counter()
 
 
 def _decimals(v) -> int:
@@ -282,6 +313,9 @@ def merge(a: Node, b: Node) -> Node:
     hi = [x for x in (a.vmax, b.vmax) if x is not None]
     out.vmin, out.vmax = (min(lo) if lo else None), (max(hi) if hi else None)
     out.distinct_items = a.distinct_items and b.distinct_items
+    out.cooc_ok = a.cooc_ok and b.cooc_ok and len(a.item_counts | b.item_counts) <= COOC_CAP
+    if out.cooc_ok:
+        out.item_counts, out.item_pairs = a.item_counts + b.item_counts, a.item_pairs + b.item_pairs
     for k in list(a.fields) + [k for k in b.fields if k not in a.fields]:
         fa, fb = a.fields.get(k), b.fields.get(k)
         f = merge(fa, fb) if fa is not None and fb is not None else (fa or fb)

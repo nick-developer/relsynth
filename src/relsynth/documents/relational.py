@@ -146,6 +146,15 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                 cols[c.name] = {"type": "categorical"}
             elif c.role == "key" and c.name in cols:
                 cols[c.name] = {"type": "categorical"}
+            elif c.role == "multihot" and c.name in cols:
+                cols[c.name] = {"type": "integer", "min": 0} | ({} if c.hot_pos else {"max": 1})
+        # a value column of a path with a tag: the tag says where the value is, so the
+        # column's empty cells are the tag's other states, not a share of its own
+        tagged = {tuple(c.path) for c in tl.columns if c.role == "tag"}
+        for c in tl.columns:
+            if c.role == "typed" and tuple(c.path) in tagged and isinstance(cols.get(c.name), dict) \
+                    and cols[c.name].get("type") == "constant":
+                cols[c.name]["nullable"] = False
         if tl.kind != "root":
             t.pop("mode", None)
             if lay.children(tname):
@@ -192,6 +201,21 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
     lens = {(n, c) for n, tl in lay.tables.items() for c in tl.length_bounds}
     raw["rules"] = [r for r in raw.get("rules", []) if not (r.get("type") == "aggregate" and r.get("agg") == "count"
                                                           and (r.get("table"), r.get("column")) in lens)]
+    raw["rules"] = _counts_as_lengths(lay, raw.get("rules", []), lens)
+    # a multi-hot cell is 1 (or 1 + position) for a held element, so "cell <= length"
+    # holds in the source by construction; drafted as a check it rejects short arrays and inflates
+    # the length law (mflix genres: 49 % of length 3 against 40 %); nesting already
+    # matches the cells to the length (Prop. 1785)
+    hot = {(tn, c.name) for tn, tl in lay.tables.items() for c in tl.columns if c.role == "multihot"}
+    if hot:
+        import re as _re
+
+        def on_cells(r) -> bool:
+            words = set(_re.findall(r"[A-Za-z_][A-Za-z0-9_]*", repr(r)))
+            tabs = {r[k] for k in ("table", "from", "to") if isinstance(r.get(k), str)} or {t for t, _ in hot}
+            return any(t in tabs and c in words for t, c in hot)
+
+        raw["rules"] = [r for r in raw.get("rules", []) if not on_cells(r)]
     # elements summed into a holder's attribute by an aggregate rule stay with
     # the holder the engine drew them for (moving them would break the rule)
     for r in raw.get("rules", []):
@@ -200,6 +224,61 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
     raw.setdefault("synthesis", {})["seed"] = seed
     raw["source"] = {"kind": "sqlite", "path": str(db_path)}
     return raw
+
+
+def _counts_as_lengths(lay: Layout, rules: list, lens: set) -> list:
+    """Rules that restate an array's length in terms of another attribute.
+
+    An array's length is structural: nesting gives each holder as many elements
+    as its length column says (``_match_lengths``), and the copula models that
+    column with the holder's other attributes.  A document that also stores the
+    count (StackExchange ``AnswerCount`` beside ``answers``) drafts two rules
+    about it: ``AnswerCount = count(answers)``, an aggregate that turns the length
+    matching off and leaves the lengths to the engine's per-parent count law, and
+    ``answers__n = AnswerCount``, a derive that overwrites the modelled length.
+    Both say the same thing as ``AnswerCount = answers__n`` with the length kept
+    as modelled: the aggregate over an element table, through its holder link, is
+    rewritten as that derive, and a derive that writes a length column from another
+    column is reversed (dropped when it is not a plain column).  Rules about anything
+    else are returned unchanged."""
+    length_of = {}
+    for tname, tl in lay.tables.items():
+        if tl.kind == "array" and tl.parent:
+            col = lay.shapes.get(tl.parent, {}).get(".".join(tl.holder), {}).get("length_col")
+            if col:
+                length_of[(tl.parent, tname)] = col
+    # an element table that another aggregate (a sum of the answers' scores) reads
+    # keeps the elements the engine drew for each holder (spec_for turns its length
+    # matching off), so the number of elements follows the count law, not the
+    # length column: a stored count of it stays the aggregate, and a derive about
+    # the unused length column is left out, so the count equals the elements nested
+    def _counted(r) -> bool:
+        return (r.get("type") == "aggregate" and r.get("agg") == "count" and not r.get("of")
+                and (r.get("table"), r.get("from")) in length_of
+                and (r.get("via") is None or str(r["via"]).startswith(f"{r['from']}.{PARENT}->")))
+    unmatched = {r.get("from") for r in rules if r.get("type") == "aggregate" and not _counted(r)}
+    free_len = {(p, c) for (p, t), c in length_of.items() if t in unmatched}
+    out, have = [], set()
+    for r in rules:
+        if r.get("type") == "derive" and isinstance(r.get("expr"), str) and "=" in r["expr"]:
+            lhs, rhs = (x.strip() for x in r["expr"].split("=", 1))
+            if (r.get("table"), lhs) in free_len:
+                continue
+            if (r.get("table"), lhs) in lens:
+                # the length stays as modelled; a stored count equal to it is derived from it
+                if not rhs.isidentifier() or (r.get("table"), rhs) in lens:
+                    continue
+                r = {"table": r["table"], "type": "derive", "expr": f"{rhs} = {lhs}"}
+        if _counted(r) and r.get("from") not in unmatched:
+            col = length_of[(r["table"], r["from"])]
+            r = {"table": r["table"], "type": "derive", "expr": f"{r['column']} = {col}"}
+        key = (r.get("table"), r.get("expr")) if r.get("type") == "derive" else None
+        if key is not None and key in have:
+            continue
+        if key is not None:
+            have.add(key)
+        out.append(r)
+    return out
 
 
 __all__ = ["write_sqlite", "spec_for", "target_column", "ROW_ID", "PARENT", "POS", "KEY"]

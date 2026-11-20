@@ -371,3 +371,33 @@ def test_sqlite_export_quotes_names_from_documents(tmp_path):
     finally:
         con.close()
     assert any(hostile in c for c in cols)
+
+
+def test_stored_counts_keep_the_modelled_length():
+    """A document that stores an array's count beside the array (AnswerCount and
+    answers): the drafted count aggregate becomes a derive from the length column,
+    and a derive that writes the length is left out, so nesting keeps matching the
+    elements to the modelled length (StackExchange questions)."""
+    from relsynth.documents.relational import _counts_as_lengths
+    docs = [{"Id": i, "AnswerCount": i % 3, "answers": [{"Score": j} for j in range(i % 3)]} for i in range(60)]
+    lay = build_layout({"q": profile_collection("q", docs)})
+    child = next(n for n, tl in lay.tables.items() if tl.kind == "array")
+    root = lay.tables[child].parent
+    length = lay.shapes[root][".".join(lay.tables[child].holder)]["length_col"]
+    lens = {(n, c) for n, tl in lay.tables.items() for c in tl.length_bounds}
+    rules = [{"table": root, "type": "derive", "expr": f"{length} = AnswerCount"},
+             {"table": root, "type": "aggregate", "column": "AnswerCount", "agg": "count", "from": child},
+             {"table": root, "type": "aggregate", "column": "Total", "agg": "sum", "of": "Score", "from": child},
+             {"table": root, "type": "check", "expr": f"{length} <= 5"}]
+    out = _counts_as_lengths(lay, [r for r in rules if r.get("agg") != "sum"], lens)
+    assert {"table": root, "type": "derive", "expr": f"AnswerCount = {length}"} in out
+    assert not any(r.get("expr", "").startswith(f"{length} =") for r in out)
+    assert rules[3] in out and len(out) == 2
+    # a sum over the elements keeps the drawn elements (no length matching): the
+    # stored count stays the aggregate, so it equals the elements nested, and the
+    # derive about the unused length column is left out
+    out = _counts_as_lengths(lay, rules, lens)
+    assert rules[1] in out and rules[2] in out and rules[3] in out and len(out) == 3
+    # a derive of the length drafted alone is reversed, not lost
+    alone = _counts_as_lengths(lay, [rules[0]], lens)
+    assert alone == [{"table": root, "type": "derive", "expr": f"AnswerCount = {length}"}]

@@ -19,6 +19,8 @@ from relsynth.spec import DEFAULT_SYNTHESIS
 
 from conftest import write_scenario
 
+# segment prior off: no prior rows and no privacy floor (the 2.1 fit)
+OFF = {"marginals__segment_prior_rows": 0.0, "marginals__segment_floor_rows": 0.0}
 TS = {"columns": {"a": {"type": "float"}, "b": {"type": "categorical"}, "c": {"type": "float"},
                   "d": {"type": "categorical"}}}
 
@@ -116,19 +118,47 @@ def _run(spec, **priv):
     return m, m.sample()
 
 
-def test_segment_prior_is_wired_and_guard_off_by_default(shop):
-    """Both settings are opt-in: shrinkage 0 and the guard off reproduce 2.1."""
-    m, base = _run(shop, marginals__segment_prior_rows=20.0)
-    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 20.0
-    m0, _ = _run(shop)
-    assert m0.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0   # opt-in: 2.1 output by default
+def test_segment_prior_off_by_default_and_wired_per_table(shop):
+    """Shrinkage and the guard are off by default (the 2.1 fit); a table opts in
+    with per_table marginals (segment_prior_rows: auto), its estimates are in the
+    model summary, and the other tables keep the 2.1 fit."""
+    m, base = _run(shop)
+    assert m.spec["synthesis"]["marginals"]["segment_prior_rows"] == 0.0
+    assert m.spec["synthesis"]["marginals"]["segment_floor_rows"] == 0.0
+    assert m.spec["synthesis"]["marginals"]["segment_prior_mode"] == "shape"
     assert m.spec["synthesis"]["privacy"]["near_copy"] == "off"
     assert "near_copies" not in m.synthesizer.sample_log
-    _, zero = _run(shop, marginals__segment_prior_rows=0.0)
-    b, z = dict(base), dict(zero)
-    assert any(not b[t].equals(z[t]) for t in b)
-    # the same random stream (Prop. 1720 b): same row counts in every table
-    assert {t: len(v) for t, v in b.items()} == {t: len(v) for t, v in z.items()}
+    assert not [tm for tm in m.synthesizer.tm.values() if getattr(tm.generator, "shrinkage", None)]
+    _, zero = _run(shop, **OFF)
+    for t in base:
+        pd.testing.assert_frame_equal(base[t], zero[t], check_exact=True)
+    ents = [t for t, d in shop["tables"].items() if d.get("role", "entity") == "entity"]
+    for one in ents:
+        s = copy.deepcopy(shop)
+        s.setdefault("synthesis", {})["per_table"] = {one: {"marginals": {"segment_prior_rows": "auto"}}}
+        on = {t for t, tm in rs.fit(s, seed=3).synthesizer.tm.items() if getattr(tm.generator, "shrinkage", None)}
+        assert on <= {one}
+        if on:
+            break
+    assert on, "no entity table of the scenario has segments to shrink"
+
+
+def test_zero_rows_gives_the_21_output_in_every_mode(shop):
+    """segment_prior_rows: 0 turns shrinkage off in every mode: shape and numeric
+    give the same tables as table mode at 0, which is the 2.1 output."""
+    _, table = _run(shop, **OFF, marginals__segment_prior_mode="table")
+    for mode in ("shape", "numeric"):
+        _, other = _run(shop, **OFF, marginals__segment_prior_mode=mode)
+        assert set(other) == set(table)
+        for t in table:
+            pd.testing.assert_frame_equal(other[t], table[t], check_exact=True)
+    # a positive value below dirichlet_prior (0.25) gives the weight a = max(0.25, rows) = 0.25,
+    # so every mode at 0.01 rows is the 2.1 fit too (shape and numeric fall back to table)
+    for mode in ("table", "shape", "numeric"):
+        _, small = _run(shop, marginals__segment_prior_rows=0.01, marginals__segment_floor_rows=0.0,
+                        marginals__segment_prior_mode=mode)
+        for t in table:
+            pd.testing.assert_frame_equal(small[t], table[t], check_exact=True)
 
 
 def _catalogue(d):
@@ -156,13 +186,13 @@ def _catalogue(d):
 
 def test_guard_redraws_and_logs(tmp_path):
     spec = _catalogue(tmp_path)
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     log = m.synthesizer.sample_log.get("near_copies", {})
     assert set(log) == {"product"}
     r = log["product"]
     assert r["near_copies"] > 0 and r["near_copies"] == r["redrawn"] + r["kept"] and r["rows"] == 300
     # dtypes survive the redraw
-    _, off = _run(spec, privacy__near_copy="off", marginals__segment_prior_rows=0.0)
+    _, off = _run(spec, privacy__near_copy="off", **OFF)
     assert dict(d)["product"].dtypes.to_dict() == dict(off)["product"].dtypes.to_dict()
 
 
@@ -183,7 +213,7 @@ def test_rule_redraws_are_guarded_and_kept_counts_emitted_rows(tmp_path):
     the log's `kept` is the number of near copies among the rows emitted."""
     spec = _catalogue(tmp_path)
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     syn = m.synthesizer
     r = syn.sample_log["near_copies"]["product"]
     assert r.get("redrawn_by_rules", 0) > 0
@@ -200,7 +230,7 @@ def test_near_copy_redraw_never_trades_a_valid_row_for_a_violation(tmp_path, mon
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 30"}]
     # every redrawn row counts as a near copy, so rule-valid rows of round 1 are redrawn
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
-    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, **OFF,
                 rules__max_rejection_rounds=2)
     log = m.synthesizer.sample_log
     assert log["near_copies"]["product"].get("restored_after_rules", 0) > 0
@@ -223,7 +253,7 @@ def test_restored_rows_keep_their_hidden_draws(tmp_path, monkeypatch):
                                                      "distribution": {"kind": "uniform", "min": 0, "max": 1}}
     spec["rules"] = [{"table": "product", "type": "check", "expr": "promo < 0.5"}]
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
-    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, marginals__segment_prior_rows=0.0,
+    m, d = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=1, **OFF,
                 rules__max_rejection_rounds=2)
     log = m.synthesizer.sample_log["near_copies"]["product"]
     assert log.get("restored_after_rules", 0) > 0
@@ -235,7 +265,7 @@ def test_kept_counts_emitted_rows_after_a_group_effect(tmp_path):
     columns after the guard: `kept` is the near-copy count of the emitted rows."""
     spec = _catalogue(tmp_path)
     spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
-    m, d = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, d = _run(spec, privacy__near_copy="auto", **OFF)
     out = dict(d)["product"]
     assert out.groupby("line")["price"].nunique().max() == 1          # the group effect applied
     g = m.synthesizer._near_copy_guard("product")
@@ -252,7 +282,7 @@ def test_near_copy_rejection_respects_both_round_limits(tmp_path, monkeypatch, n
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
     monkeypatch.setattr(nc.NearCopyGuard, "near_copies", lambda self, df: np.ones(len(df), bool))
     m, _ = _run(spec, privacy__near_copy="auto", privacy__near_copy_rounds=nc_rounds,
-                marginals__segment_prior_rows=0.0, rules__max_rejection_rounds=max_rounds)
+                **OFF, rules__max_rejection_rounds=max_rounds)
     assert m.synthesizer.sample_log["near_copies"]["product"]["near_copy_rule_rounds"] == expect
 
 
@@ -262,7 +292,7 @@ def test_group_effect_rows_join_the_near_copy_recheck(tmp_path):
     spec = _catalogue(tmp_path)
     spec["tables"]["product"]["group_effects"] = [{"column": "price", "by": "line"}]
     spec["rules"] = [{"table": "product", "type": "check", "expr": "weight < 10.5"}]
-    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, _ = _run(spec, privacy__near_copy="auto", **OFF)
     log = m.synthesizer.sample_log["near_copies"]["product"]
     assert log["changed_by_rules"] > log["redrawn_by_rules"] > 0
 
@@ -288,14 +318,14 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     """The guard is not built for a table of fewer than 50 rows, nor for one with
     fewer than three sampled distance columns (claim PRV-32)."""
     spec = _catalogue(tmp_path)
-    m, _ = _run(spec, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m, _ = _run(spec, privacy__near_copy="auto", **OFF)
     assert m.synthesizer._near_copy_guard("product") is not None
     # two sampled distance columns only
     narrow = copy.deepcopy(spec)
     cols = narrow["tables"]["product"]["columns"]
     for c in ("cost", "weight", "size", "line"):
         cols.pop(c)
-    m2, _ = _run(narrow, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m2, _ = _run(narrow, privacy__near_copy="auto", **OFF)
     assert m2.synthesizer._near_copy_guard("product") is None
     # fewer than 50 rows
     src = tmp_path / "small"
@@ -303,5 +333,60 @@ def test_guard_skips_small_or_narrow_tables(tmp_path):
     pd.read_csv(tmp_path / "src" / "product.csv").head(40).to_csv(src / "src" / "product.csv", index=False)
     small = copy.deepcopy(spec)
     small["source"]["path"] = str(src / "src")
-    m3, _ = _run(small, privacy__near_copy="auto", marginals__segment_prior_rows=0.0)
+    m3, _ = _run(small, privacy__near_copy="auto", **OFF)
     assert m3.synthesizer._near_copy_guard("product") is None
+
+
+def test_shape_mode_reaches_the_segment_fits(tmp_path, monkeypatch):
+    """Through the production fit (SegmentMarginals._fit_marginals): in shape mode
+    with a positive weight, the segment fits of continuous columns get shift_prior and
+    the weight max(dirichlet_prior, rows); categorical columns and the table's own
+    marginal keep dirichlet_prior; and a segment's fitted median is its own (Prop. 1724 b)."""
+    from relsynth.generators import copula as cg
+
+    calls, orig = [], cg.Marginal.fit
+
+    def spy(cd, x, rng, **kw):
+        m = orig(cd, x, rng, **kw)
+        calls.append((cd, np.asarray(x), kw, m))
+        return m
+
+    monkeypatch.setattr(cg.Marginal, "fit", staticmethod(spy))
+    spec = _catalogue(tmp_path)
+    spec["synthesis"] = {"marginals": {"segment_prior_rows": 40.0, "segment_prior_mode": "shape"}}
+    rs.fit(spec, seed=3)
+    seg = [c for c in calls if c[2].get("prior") is not None]
+    top = [c for c in calls if c[2].get("prior") is None]
+    assert seg and top
+    cont = [c for c in seg if c[0].kind != "discrete"]
+    disc = [c for c in seg if c[0].kind == "discrete"]
+    assert cont and disc
+    assert all(c[2].get("shift_prior") is True and c[2]["dirichlet_a"] == 40.0 for c in cont)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in disc)
+    assert all(not c[2].get("shift_prior") and c[2]["dirichlet_a"] == 0.25 for c in top)
+    # refitted with the same options as a posterior mean (bootstrap off), each segment
+    # marginal keeps the segment's median, up to the grid
+    u, checked, small = np.linspace(0, 1, 4001)[1:-1], 0, 0
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        if len(x) < 1 or hi <= lo or not (lo <= np.median(x) <= hi):
+            continue
+        m = orig(cd, x, np.random.default_rng(0), **{**kw, "bootstrap": False})
+        checked += 1
+        small += len(x) < 5
+        assert abs(np.median(m.from_uniform(u)) - np.median(x)) < 0.05 * (hi - lo), (len(x), cd.name)
+    assert checked > 0
+    # this catalogue has no segment under 5 rows: replay the production options of each
+    # continuous fit on its first 1-4 values, the shape of a tiny segment
+    for cd, x, kw, _m in cont:
+        x = x[~np.isnan(x)] if x.dtype.kind == "f" else x
+        lo, hi = kw["prior"].knots_v[0], kw["prior"].knots_v[-1]
+        for k in range(1, 5):
+            xs = x[:k]
+            if len(xs) < k or hi <= lo or not (lo <= np.median(xs) <= hi):
+                continue
+            m = orig(cd, xs, np.random.default_rng(0), **{**kw, "bootstrap": False})
+            small += 1
+            assert abs(np.median(m.from_uniform(u)) - np.median(xs)) < 0.05 * (hi - lo), (k, cd.name)
+    assert small > 0

@@ -76,6 +76,10 @@ set of fields of each object (its signature) and the depth. From these counts it
   pairs; a key equal to a field of its value (`wallets[<id>].id == <id>`) is rebuilt from that field;
 - **variants**: an object with a discriminator (`payment.method`) whose values decide the field set;
 - **length fields**: an integer field equal to an array's length on every document (`n_items == len(items)`);
+  a field equal to it on all but at most 1 in 1,000 documents (StackExchange `AnswerCount`) is derived from the
+  modelled length (`AnswerCount = answers__n`), and the length is never derived from it; when a sum over the
+  elements is also drafted (the answers' total score), the elements stay as the engine drew them for each
+  holder and the stored count stays `count(answers)`, so it always equals the elements in the document;
 - **set arrays**: arrays of scalars whose elements never repeat;
 - **references**: a field whose values are all values of a unique field of another collection (`orders.customer_id`
   to `customers._id`, or to a natural key). Partial or near-unique matches are listed as *candidates* with their
@@ -93,7 +97,18 @@ validates against the inferred schema (Prop. 1400).
 1. **Shred.** Each collection becomes a root table; each array, map and optional sub-document becomes a child table
    with `_parent` and `_pos` (or `_key`). Absent, null and the type of a union field are a tag column `<path>__t`,
    an array's length is a column `<path>__n` modelled with its parent's other columns, and numbers of several types
-   share one column. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
+   share one column. A set array of string or integer values (no repeats, no nulls; tags of an item) is not a child table: it is one
+   column per value on its holder (`<path>__h<i>`, 0 when absent), so which values a document holds is modelled jointly
+   with its other fields, and a value never repeats (Prop. 1785); a child table draws its elements one by one with
+   replacement and cannot hold a set without repairs. The model report records how much the joint model carries: the
+   Bayesian information criterion gain of the best tree of pairwise dependences among the values (Chow and Liu 1968).
+   When the source never disagrees on the order of two values, a cell is 1 or 0 and a synthetic array lists its values
+   in the source's order; otherwise a cell is 1 + the value's position, and the order is modelled with the rest. Options (`DocumentSynthesizer(options=...)`,
+   `spec_overrides: {documents: ...}` or `relsynth docs synth --multihot`): `multihot: auto | on | off` and
+   `multihot_max_columns` (default 64), a cost bound: the copula's work grows with the square of its columns, so larger
+   vocabularies stay child tables under `auto`. A cell writes its value back verbatim, so an array whose values are typed
+   as personal data, free text or identifiers (e-mail addresses, names) stays a child table under any setting, and its
+   values are generated, not copied. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
    `nest(shred(D))` gives `D` back exactly (Prop. 1401).
 2. **Synthesise** with the relational engine: a Bayesian copula per table, latent segments across tables, exact keys
    and links, and a Dirichlet-process law for the number of elements per parent.
@@ -103,8 +118,8 @@ validates against the inferred schema (Prop. 1400).
    (an array outside the source's length range, a repeated element in a set, a field outside its variant, a missing
    required field) is replaced by a value of another *synthetic* document at the same path, never by a source value. An optional field that no synthetic value can repair is dropped.
    Every repair is counted by kind and path in the report (`repairs`); many repairs of one kind say the model misses
-   a dependence. Set arrays with a small vocabulary are the common case: duplicates the engine draws are resampled
-   without replacement and counted as `set` repairs.
+   a dependence. Set arrays with a larger vocabulary (mflix genres, languages) are the common case: duplicates the
+   engine draws are resampled without replacement and counted as `set` repairs.
 
 ## Quality report
 

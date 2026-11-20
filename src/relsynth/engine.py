@@ -32,12 +32,15 @@ from .generators.contract import GeneratorError
 from .pii import PiiGenerator
 from .prepare import (_index, _keystr, _tuple_frame, compute_aggregate, lookup_column, lookup_deps, make_resolver,
                       prepare_source)
-from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
+from .scenarios import active as scenario_active
+from .relational import (STRUCT_KAPPA, Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
                          dispersion_alpha, gumbel_argmax, multiplicity_marginal, poisson_dup_test,
                          sparse_dirichlet_draw, tree_depth)
+from .posterior import MeanRNG
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
 from .settings import table_config
 from .table_model import TableModel
+from . import binary as _binary
 from . import textgen as _textgen
 from .text import TextModel
 from .transform import Plan, offset_keys
@@ -145,6 +148,114 @@ def _dp_floor(dp, mandatory):
     if dp is None or not mandatory:
         return dp
     return {**dp, "min": 1}
+
+
+def _start_counts(f, M, R, rng):
+    """Start of the pairwise Gibbs chain of _conditional_counts: M i.i.d. draws
+    from f (unnormalised on 0..len(f)-1), brought to the total R by redrawing one
+    member at a time from f restricted to the values between its count and the
+    total (no overshoot).  From the balanced start (every count R/M) a large count
+    needs many pairwise moves, so within the chain's sweeps a segment's rare large
+    counts (a customer with 27 orders) were in practice never drawn; this start
+    begins near the conditional law (Prop. 1782)."""
+    p = f / f.sum()
+    N = rng.choice(len(f), size=M, p=p).astype(np.int64)
+    diff = int(R - N.sum())
+    cdf = np.cumsum(p)
+    steps = 0
+    while diff != 0 and steps < 20 * M:
+        steps += 1
+        j = int(rng.integers(M))
+        c = int(N[j])
+        lo, hi = (c + 1, c + diff) if diff > 0 else (c + diff, c - 1)
+        lo, hi = max(lo, 0), min(hi, len(f) - 1)
+        if lo > hi:
+            continue
+        mass = cdf[hi] - (cdf[lo - 1] if lo > 0 else 0.0)
+        if mass <= 0:
+            continue
+        u = (cdf[lo - 1] if lo > 0 else 0.0) + rng.random() * mass
+        v = int(min(max(np.searchsorted(cdf, u, side="right"), lo), hi))
+        diff -= v - c
+        N[j] = v
+    if diff > 0:                        # unreachable under f: spread the rest evenly
+        N += diff // M
+        N[rng.choice(M, size=diff % M, replace=False)] += 1
+    while diff < 0:                     # take one from each positive count in turn
+        pos = np.flatnonzero(N > 0)
+        take = rng.permutation(pos)[:-diff]
+        N[take] -= 1
+        diff += len(take)
+    assert N.sum() == R, "start counts must hit the total"
+    return N
+
+
+def _balance_totals(seg_of, zc, seg_p, M, dp, need, rng, sweeps=4):
+    """Parent segments of a count-model link's rows, given the parents' count law.
+
+    Rows draw their parent segment from phi, so the total of segment t is a
+    multinomial count whose variance is about its mean, while under the count law
+    the total of M_t parents is a sum of M_t draws from F_t, with variance M_t
+    var(F_t).  Counts drawn given a total far from M_t E(F_t) are tilted (more
+    ones and more large counts for an under-dispersed F), and the tilt adds up
+    over segments: AdventureWorks customers spread over 627 small segments got
+    24.9% instead of 29.5% with two orders.  This Metropolis-Hastings kernel has
+    target prod_i phi[z_i, t_i] * prod_t N(R_t; M_t mu_t, M_t s_t^2), with mu_t
+    and s_t^2 the mean and variance of segment t's DP predictive (the observed
+    counts; means rescaled so that they add up to the rows), using independence
+    proposals from each row's phi (which cancels in the ratio); moves that leave
+    a segment under its mandatory total are rejected (Prop. 1783).  One proposal
+    per row and sweep; rows are visited in random order."""
+    Kp = len(M)
+    M = np.asarray(M, float)
+    rows = np.flatnonzero(seg_of >= 0)
+    if Kp < 2 or len(rows) < 2:
+        return seg_of
+    seen = [np.asarray(c, float) for c in dp["counts"] if len(c)]
+    if not seen:
+        return seg_of
+    pooled = np.concatenate(seen)
+    # a segment without observed counts (new members only) takes the pooled law of
+    # all observed parents, as the DP predictive's base measure would, instead of
+    # a target total of 0 that would empty it
+    mu = np.full(Kp, float(np.mean(pooled)))
+    var = np.full(Kp, max(float(np.var(pooled)), 1e-3) if len(pooled) > 1 else 1.0)
+    for t in range(Kp):
+        obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0)
+        if len(obs) > 1:
+            mu[t], var[t] = float(np.mean(obs)), max(float(np.var(obs)), 1e-3)
+        elif len(obs):
+            mu[t], var[t] = float(obs[0]), 1.0
+    tot = float((M * mu).sum())
+    if tot <= 0:
+        return seg_of
+    mu = mu * len(rows) / tot
+    m_t, v_t = M * mu, np.maximum(M * var, 0.25)
+    R = np.bincount(seg_of[rows], minlength=Kp).astype(float)
+    need = np.asarray(need, float) if need is not None else np.zeros(Kp)
+    # independence proposals from each row's phi, drawn in one batch per sweep
+    seg_of = seg_of.copy()
+    for _ in range(int(sweeps)):
+        order = rng.permutation(rows)
+        prop = np.empty(len(order), np.int64)
+        zo = zc[order]
+        for k in np.unique(zo):
+            ii = np.flatnonzero(zo == k)
+            prop[ii] = rng.choice(Kp, size=len(ii), p=seg_p[k])
+        u = np.log(rng.random(len(order)))
+        cur = seg_of[order]
+        for j in range(len(order)):
+            s_, t_ = cur[j], prop[j]
+            if s_ == t_ or R[s_] - 1 < need[s_] or M[t_] == 0:
+                continue
+            # log N(R_t + 1) - log N(R_t) + log N(R_s - 1) - log N(R_s)
+            d = (-(R[t_] + 1 - m_t[t_]) ** 2 + (R[t_] - m_t[t_]) ** 2) / (2 * v_t[t_]) \
+                + (-(R[s_] - 1 - m_t[s_]) ** 2 + (R[s_] - m_t[s_]) ** 2) / (2 * v_t[s_])
+            if u[j] < d:
+                R[s_] -= 1
+                R[t_] += 1
+                seg_of[order[j]] = t_
+    return seg_of
 
 
 def _cover_segments(seg_of, zc, need, phi, rng):
@@ -350,6 +461,15 @@ def say(msg):
 
 
 
+def _cind_name(c: str) -> str:
+    """Readable name of an inclusion level column: a parent's parent column
+    (``key\x1ftable\x1fcolumn``) reads key.column."""
+    if "\x1f" in c:
+        gk, _, gc = c.split("\x1f")
+        return f"{gk}.{gc}"
+    return c
+
+
 def _setting(obj, group, key, default):
     """A setting of the synthesis block (relsynth.settings), default when absent.
     A function, not a method: the science checks call engine methods on bare
@@ -364,13 +484,16 @@ class Synthesizer:
         spec, self.series_spec = split_series(spec)          # regular series: outside the relational model
         self.plan = Plan(spec)
         self.spec = self.plan.spec
-        errs = validate(self.spec, keys=False)
+        # scenarios were validated on the user's spec; they may name series tables and
+        # tables the plan rewrites (order headers), which the internal model does not hold
+        errs = [e for e in validate(self.spec, keys=False) if not e.startswith("synthesis.scenario")]
         if errs:
             raise SpecError("internal model (order headers / offset keys) is invalid:\n  - " + "\n  - ".join(errs))
         self.cfg = self.spec["synthesis"]
         self.rng = np.random.default_rng(self.cfg["seed"])          # fitting stream
         self._post_fns = []          # parameter blocks drawn again for every dataset
         self._runs = 0
+        self._fit_state = None       # carried relation variables at the end of the fit (see redraw)
         self.log = {"warnings": [], "errors": [], "timings": {}, "source": {}, "decisions": {}}
 
 
@@ -381,6 +504,7 @@ class Synthesizer:
         the relational model reads those facts only through the statistics."""
         t0 = time.time()
         self.__dict__.pop("_nc_guards", None)     # near-copy guards are built from this fit's rows
+        self._fit_state = None                    # recorded again at the first draw after this fit
         spec, cfg, rng = self.spec, self.cfg, self.rng
         T = spec["tables"]
         self.fstats = {t: s for t, s in (stats or {}).items() if t in T and T[t]["role"] == "fact"}
@@ -469,6 +593,7 @@ class Synthesizer:
                     if len(v):
                         self.derive_decimals[(r["table"], lhs)] = next(
                             (d for d in range(7) if np.allclose(v, np.round(v, d), atol=1e-9, rtol=0)), None)
+        self.balance_auto = {}     # (table, column) -> source share of negative rows (rules.balance_floor: auto)
         # opening balance of running balances: when every group of the source opens
         # at one value (stock starts at 0), the synthetic groups open there too
         for r in spec["rules"]:
@@ -484,9 +609,19 @@ class Synthesizer:
                         r["opening"] = float(vals[cnt.argmax()])
                 # a balance that is never negative in the source (a stock) keeps a floor of 0
                 ny, ymin = self._balance_range(r, tables)
-                if r.get("floor") is None and ny >= 30 and ymin is not None and ymin >= 0 and \
+                if r.get("floor") is None and ny >= 30 and ymin is not None and \
                         _subtracted_column(r["step"], tables[r["table"]]) is not None:
-                    r["floor"] = 0.0
+                    if ymin >= 0:
+                        r["floor"] = 0.0
+                    elif _setting(self, "rules", "balance_floor", "auto") == "auto":
+                        # a balance with an outflow that is negative on some source rows:
+                        # whether it is a stock (floor 0) is decided when sampling, by which
+                        # choice reproduces the source's share of negative rows better
+                        # (Prop. 1787); the share is from the rows read (the sample under
+                        # pushdown)
+                        yv = pd.to_numeric(tables[r["table"]][r["column"]], errors="coerce").dropna()
+                        if len(yv):
+                            self.balance_auto[(r["table"], r["column"])] = float((yv < 0).mean())
         # ---- attribute models (unfitted; give features for segmentation)
         say("fit: encoding columns")
         self.tm = {}
@@ -619,6 +754,11 @@ class Synthesizer:
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
                          and c in tables[t].columns}
+        if cfg.get("scenarios"):
+            # the model log lists every scenario and intervention; their effects go to each sample log
+            self.log["scenarios"] = {n: {"description": b.get("description"),
+                                         "interventions": [dict(iv) for iv in b.get("interventions", [])]}
+                                     for n, b in cfg["scenarios"].items()}
         self.log["timings"]["attributes_s"] = round(time.time() - t2, 2)
         self.log["timings"]["fit_total_s"] = round(time.time() - t0, 2)
         say(f"fit: done in {time.time() - t0:.0f} s")
@@ -659,6 +799,33 @@ class Synthesizer:
         cols = [c for c in tables[t].columns if c in used and c in U and U[c]["type"] != "lookup"]
         H, _ = self.fstats[t].first_rows(by, cols, order=[r["order"]], differences=False)
         return coerce(H, {"columns": {c: U[c] for c in H.columns}}, table=t)
+
+    def _cumulative(self, t, df, r, out):
+        """A cumulative rule written into df.  With rules.balance_floor auto and a
+        source balance that is negative on a share p of its rows, the floor 0 is
+        applied when the plain running sum of the synthetic steps is negative on a
+        share q > 2 p, i.e. exactly when the floor (share 0) is closer to p than the
+        plain sum is: the choice that matches the source's share of negative rows
+        best (Prop. 1787).  Deterministic given the drawn steps: no random number.
+        The choice is made on the first frame of the table (the first partition) and
+        reused for the rest of the run."""
+        p = getattr(self, "balance_auto", {}).get((t, r["column"]))
+        res = self._resolver(t, df, out)
+        if p is None or r.get("floor") is not None:
+            return cumulative_apply(df, r, res)
+        log = getattr(self, "sample_log", None)
+        made = (log or {}).get("balance_floor", {}).get(f"{t}.{r['column']}") if isinstance(log, dict) else None
+        if made is not None:
+            # decided once per table and run: later partitions and the re-application
+            # after aggregates use the same choice, so a balance is never part floored
+            use = bool(made["floor"])
+        else:
+            q = float((cumulative_values(df, r, res) < 0).mean())
+            use = q > 2.0 * p
+            if isinstance(log, dict):
+                log.setdefault("balance_floor", {})[f"{t}.{r['column']}"] = {
+                    "source_negative_share": round(p, 6), "plain_negative_share": round(q, 6), "floor": bool(use)}
+        return cumulative_apply(df, {**r, "floor": 0.0} if use else r, res)
 
     def _balance_range(self, r, tables):
         """(non-null rows, smallest value) of a running balance column over every row."""
@@ -723,20 +890,22 @@ class Synthesizer:
             fn(self.rng)
         self._post_fns.append(fn)
 
-    def redraw(self, mode="draw", rng=None):
+    def redraw(self, mode="draw", rng=None, index=None):
         """One posterior draw (posterior means in mean mode) of every parameter
         given the fitted partitions: segment weights, link and block rates,
         occupancy and activity probabilities, marginals, copula matrices, time
         profiles, extra-dimension laws, refined segment weights and rake targets.
         A dataset sampled after it is a draw from the posterior predictive
         distribution (Rubin 1993); the per-call draws of the samplers (count-law
-        and tail weights) are fixed for the run as well (see posterior.py)."""
+        and tail weights) are fixed for the run as well (see posterior.py).
+        index numbers the dataset (see _restore_fit_state); None is dataset 0."""
         from .posterior import param_rng
         base = self.rng if rng is None else rng
         prng = param_rng(base, mode)
         keep, keep_rm = self.rng, self.rm.rng
         self.rng = self.rm.rng = prng
         try:
+            self._restore_fit_state(0 if mode == "mean" or index is None else int(index))
             self.rm.draw_params(pi_s=self.pi_s)
             self._post_edges()
             for f in self.fact_order:
@@ -758,6 +927,72 @@ class Synthesizer:
         finally:
             self.rng, self.rm.rng = keep, keep_rm
         return self
+
+    STATE_CHECKPOINT = 32        # carried-chain states kept every this many datasets (_restore_fit_state)
+
+    def _carrying_relations(self):
+        """The relations redraw draws (those of the relational model, then each
+        fact's own relation) whose draw_params reads variables left by its
+        previous call (relational.PairRel.CARRIED), in redraw's order."""
+        out = [r for r in self.rm.R if getattr(r, "CARRIED", ())]
+        for f in self.fact_order:
+            r = self.fact_info[f].get("rel")
+            if r is not None and r not in self.rm.R and getattr(r, "CARRIED", ()) and r not in out:
+                out.append(r)
+        return out
+
+    def _restore_fit_state(self, index=0):
+        """Set the carried variables to their state for dataset `index`.
+
+        Some draw_params are one Gibbs scan: block means given the measure
+        variances s2, then s2 given the means; occupancy rates given the
+        augmented activity of anchors without pairs, then the activity again.
+        Left alone, each dataset's draw would start where the previous one
+        stopped, so dataset i would depend on which datasets were drawn before
+        it in the process.  Freezing the state at the end of the fit instead
+        would leave out the posterior uncertainty of s2 and of the augmented
+        activity: every dataset would condition on the same values.
+
+        So the carried variables follow their own Markov chain, started at the
+        end of the fit (state 0, recorded at the first call, before any dataset
+        is drawn) and advanced one scan at a time with a stream of its own
+        (posterior.state_stream), and dataset i starts from state i.  Dataset i
+        is then a function of the fit and its index only (whatever was drawn
+        before it in the process); dataset 0 is unchanged; and the states are
+        draws from the same chain the datasets formed when drawn in order in a
+        fresh process, so the spread between datasets keeps that uncertainty.
+        Every STATE_CHECKPOINT-th state is kept with the stream's position, so
+        state i costs at most STATE_CHECKPOINT scans once its checkpoint exists."""
+        from .posterior import state_stream
+        from .relational import carried_state, restore_carried_state
+        fs = getattr(self, "_fit_state", None)        # None also for a model saved before this attribute
+        if fs is None:
+            rels = self._carrying_relations()
+            pc = self.cfg.get("posterior", {})
+            rng = state_stream(self.cfg["seed"], pc.get("sample_seed"))
+            fs = self._fit_state = {"rels": rels, "states": {0: ([carried_state(r) for r in rels],
+                                                                 rng.bit_generator.state)}}
+        rels, states = fs["rels"], fs["states"]
+        j = max(k for k in states if k <= index)      # nearest kept state at or before `index`
+        cur, bg = states[j]
+        if j < index:
+            rng = state_stream(0, None)
+            rng.bit_generator.state = bg              # the chain's stream where state j left it
+            kappa = self.cfg.get("structure", {}).get("structural_pooling", STRUCT_KAPPA)
+            for k in range(j + 1, index + 1):         # advance the chain one scan per state
+                for r, st in zip(rels, cur):
+                    restore_carried_state(r, st)
+                    r.struct_kappa = kappa            # as redraw sets it
+                    r.draw_params(rng, self.pi_s)
+                cur = [carried_state(r) for r in rels]
+                if k % self.STATE_CHECKPOINT == 0 or k == index:
+                    states[k] = (cur, rng.bit_generator.state)
+            # keep state 0, every STATE_CHECKPOINT-th state and the latest one: memory stays
+            # bounded by the largest index drawn / STATE_CHECKPOINT, and a nearby index is cheap
+            for k in [k for k in states if k and k % self.STATE_CHECKPOINT and k != index]:
+                del states[k]
+        for r, st in zip(rels, cur):
+            restore_carried_state(r, st)
 
     # ------------------------------------------------------------------ layout
     def _excluded(self, t):
@@ -2427,8 +2662,31 @@ class Synthesizer:
                 elif cs["type"] == "pii":
                     self.pii[(t, c)] = PiiGenerator(cs["pii"], tables[t][c].tolist(), label=_surrogate_label(t, c))
                 elif cs["type"] == "constant":
+                    # one value, held by a share q of the rows (the rest are empty): the
+                    # synthetic rows hold it with probability q.  A value held by fewer than
+                    # privacy.suppress_small_counts rows is one record's own value (a date a
+                    # single post was made community-owned): it is never written out
                     v = tables[t][c].dropna()
-                    self.pii[(t, c)] = ("const", v.iloc[0] if len(v) else None)
+                    k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
+                    # nullable: false (a document value whose presence a tag decides): every row
+                    q = len(v) / max(len(tables[t]), 1) if cs.get("nullable", True) else 1.0
+                    if 0 < len(v) < k:
+                        self.log["decisions"].setdefault(t, {})[f"{c} constant"] = (
+                            f"held by {len(v)} rows (< suppress_small_counts {k}): left empty")
+                        v = v.iloc[:0]
+                    self.pii[(t, c)] = ("const", v.iloc[0] if len(v) else None, q)
+                elif cs["type"] == "binary":
+                    bo = _binary.column_options(cs, self.cfg)
+                    if bo["generator"] != "none" and c in tables[t].columns:
+                        k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
+                        bcol = _binary.BinaryColumn(bo["generator"], bo["mime"], k).fit(tables[t][c])
+                        self.pii[(t, c)] = bcol
+                        self.log["decisions"].setdefault(t, {})[f"{c} binary"] = bcol.info
+                        # null share and cell shares: drawn once per dataset (every partition
+                        # uses them), from a stream keyed by the parameter stream's state, so
+                        # the other parameter blocks draw as without the column
+                        self._register(lambda r, col=bcol, t=t, c=c: col.draw_params(
+                            _binary.stream(r, t, c + "\x1fparams"), isinstance(r, MeanRNG)))
                 elif cs["type"] == "id" and c != ts.get("primary_key") and c in tables[t].columns:
                     # natural keys and codes ('0101001', 'BK-M68B-38'): new values of the
                     # source's shapes, unique; integers without leading zeros stay 1..n
@@ -2447,12 +2705,22 @@ class Synthesizer:
         return ["0"] * len(df)
 
     # ================================================================== sample
-    def sample(self, scale=None, index=None):
+    def sample(self, scale=None, index=None, scenario=None):
         """One synthetic dataset: every parameter drawn once from its posterior
         (or set to its posterior mean) from the dataset's parameter stream, then
         the rows from its data stream.  index numbers the datasets (0, 1, ...);
         without it each call gives the next dataset.  relsynth.runtime runs the
-        same steps with the facts split into partitions (sample_partitioned)."""
+        same steps with the facts split into partitions (sample_partitioned).
+        scenario: the name of a scenario of synthesis.scenarios to apply
+        (relsynth.scenarios; default synthesis.scenario), or False for none (the
+        baseline, also when the spec names a scenario)."""
+        if scenario is not None:
+            keep = self.cfg.get("scenario")
+            self.cfg["scenario"] = None if scenario is False else scenario
+            try:
+                return self.sample(scale, index)
+            finally:
+                self.cfg["scenario"] = keep
         rt = self.cfg.get("runtime") or {}
         if rt.get("executor", "none") != "none":
             from .runtime import sample_partitioned
@@ -2465,6 +2733,11 @@ class Synthesizer:
             out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
             out[f] = self._apply_affinity(f, out[f], out)
             out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            if getattr(self, "_scen", None) is not None:
+                # marginal maps after the rule redraws of _finish (a partitioned run maps
+                # the joined table at the same point, so ranks are the whole table's)
+                out[f] = self._scen.map_columns(f, out[f], self, out)
+                self._scen.note_fact_rows(f, len(out[f]))
             out[f] = self._apply_fact_sequence(f, out, ctx["index"])
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         return self._sample_end(ctx)
@@ -2489,14 +2762,20 @@ class Synthesizer:
         index = self._runs if index is None else index
         self._runs = index + 1
         prng, drng = run_streams(cfg["seed"], pc.get("sample_seed"), index)
-        self.redraw(mode, prng)
+        self.redraw(mode, prng, index)
         self.rng = rng = drng
         self.run_cache = RunCache(mode)
         self._mode = mode
         self.posterior_log = {"mode": mode, "dataset": index}
         T = self.spec["tables"]
         sc = cfg["scale"] if scale is None else scale
-        sc = self.plan.scale(sc)
+        self._scen = None
+        act = scenario_active(cfg)
+        if act is not None:
+            from .scenarios import Scenario
+            self._scen = Scenario(self, *act)
+        sc = self._scen.apply_scale(sc, self.plan) if self._scen is not None else self.plan.scale(sc)
+        scen = self._scen
         out, zs, keys = {}, {}, {}
         out.update(self.plan.ref_frames)        # reference tables read by keyed lookups
         weights_cache = {}
@@ -2516,7 +2795,12 @@ class Synthesizer:
                 zs[e] = ent.z.copy()
                 out[e] = df
                 continue
-            if tree is not None:
+            df = None
+            if scen is not None and scen.has_tilt(e):
+                # a scenario tilts the law of this table's rows (relsynth.scenarios)
+                z, df = scen.entity_rows(self, e, int(round(s * ent.n)), rng)
+                par = None
+            elif tree is not None:
                 z, par = self._grow_tree(tree, s)
                 # posterior predictive depth profiles for the evaluation, on their own
                 # stream: the dataset's rows do not depend on whether it is computed
@@ -2542,7 +2826,8 @@ class Synthesizer:
                 n = int(round(s * ent.n))
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
-            df = self.tm[e].sample(z, rng)
+            if df is None:
+                df = self.tm[e].sample(z, rng)
             df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
@@ -2600,6 +2885,11 @@ class Synthesizer:
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                if scen is not None:
+                    # marginal maps of the finished rows: after the rule redraws and the
+                    # SCD recomputation, so no redrawn value escapes the map; derives
+                    # follow, violations counted
+                    out[t] = scen.map_columns(t, out[t], self, out)
                 if t in getattr(self, "seq", {}):
                     from .timeseries.hooks import apply_sequence
                     out[t] = apply_sequence(self, t, out[t], out, index)
@@ -2612,11 +2902,15 @@ class Synthesizer:
         external form of the tables."""
         self.__dict__.pop("_parent_cols", None)
         out, t0 = ctx["out"], ctx["t0"]
+        if getattr(self, "_scen", None) is not None:
+            self._scen.map_derived(out, self)
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
         say("sample: aggregates")
         self._aggregates(out)
+        if getattr(self, "_scen", None) is not None:
+            self.sample_log["scenario"] = self._scen.log()
         self.sample_log["seconds"] = round(time.time() - t0, 2)
         say(f"sample: done in {time.time() - t0:.0f} s")
         self.internal_out = out
@@ -2839,12 +3133,18 @@ class Synthesizer:
         return self._count_model(child, fan.astype(np.int64), p, setting=self.cfg["facts"]["count_model"],
                                  key=f"{name} count_model")
 
-    def _conditional_counts(self, R, M, obs, a, sweeps=None, mn=0, key=None):
+    def _conditional_counts(self, R, M, obs, a, sweeps=None, mn=0, key=None, base=None):
         """M counts, i.i.d. from the DP posterior predictive F (Bayesian-bootstrap
         weights on the observed counts plus mass a on Poisson(mean)), conditioned on
         summing to R.  Pairwise Gibbs: a pair's sum is kept and its split is redrawn
         from f(x) f(s - x), which leaves the conditional law invariant; the chain
-        starts from the balanced allocation."""
+        starts from the balanced allocation.
+
+        base: counts the members already hold (rows accepted in an earlier round of
+        a rejection loop).  The R new rows N are then drawn from the law of the
+        totals, prod_j f(base_j + N_j) given sum N = R, so a member's final count
+        follows F instead of the sum of two independent draws (Prop. 1782); the
+        split of a pair is redrawn from f(b_i + x) f(b_j + s - x)."""
         rng = self.rng
         if sweeps is None:
             sweeps = int(_setting(self, "facts", "dp_count_sweeps", 30))
@@ -2852,7 +3152,8 @@ class Synthesizer:
             return np.zeros(0, np.int64)
         n = len(obs)
         lam = obs.mean() if n else R / M
-        cmax = int(max(R, obs.max(initial=0))) + 1
+        b = np.zeros(M, np.int64) if base is None else np.asarray(base, np.int64)
+        cmax = int(max(R + b.max(initial=0), obs.max(initial=0))) + 1
         x = np.arange(cmax + 1)
         # base measure mn + Poisson(lam - mn) (mn = 1 under mandatory participation)
         lb = max(lam - mn, 1e-12)
@@ -2862,8 +3163,11 @@ class Synthesizer:
             w = self._bb(key if key is not None else ("counts", id(obs)), n, rng)
             np.add.at(f, np.minimum(obs, cmax), (n / (n + a)) * w)
         lf = np.log(np.maximum(f, 1e-300))
-        N = np.full(M, R // M, dtype=np.int64)
-        N[rng.permutation(M)[: R - N.sum()]] += 1
+        if base is None and M >= 2 and _setting(self, "facts", "dp_count_start", "draw") == "draw":
+            N = _start_counts(f, M, R, rng)
+        else:
+            N = np.full(M, R // M, dtype=np.int64)
+            N[rng.permutation(M)[: R - N.sum()]] += 1
         if M < 2:
             return N
         for _ in range(sweeps):
@@ -2873,6 +3177,10 @@ class Synthesizer:
             xs = np.arange(ssum.max() + 1)
             L = lf[np.minimum(xs[None, :], cmax)] + lf[np.minimum(np.maximum(ssum[:, None] - xs[None, :], 0), cmax)]
             L = np.where(xs[None, :] <= ssum[:, None], L, -np.inf)
+            if base is not None:
+                L = (lf[np.minimum(b[i][:, None] + xs[None, :], cmax)]
+                     + lf[np.minimum(b[j][:, None] + np.maximum(ssum[:, None] - xs[None, :], 0), cmax)])
+                L = np.where(xs[None, :] <= ssum[:, None], L, -np.inf)
             pick = gumbel_argmax(L, rng)
             N[i], N[j] = pick, ssum - pick
         return N
@@ -2883,15 +3191,21 @@ class Synthesizer:
         when the link has a count model (exchangeable counts per member)."""
         return np.ones(len(w)) if info.get("count_dp") else w
 
-    def _assign(self, info, t, rr, mm, wl, pkeys, res):
+    def _assign(self, info, t, rr, mm, wl, pkeys, res, deg=None, obs=None, cell=None):
         """Rows rr linked to members mm of parent segment t: counts from the link's
-        count model given their total (the source's dispersion), else i.i.d. by wl."""
+        count model given their total (the source's dispersion), else i.i.d. by wl.
+        deg: rows each parent already holds (by parent position), so the counts are
+        drawn as the rest of their totals (_conditional_counts base)."""
         rng = self.rng
         dp = info.get("count_dp")
-        if dp and len(rr) > 1:
-            obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0, np.int64)
+        if dp and (len(rr) > 1 or (deg is not None and len(rr))):
+            key = ("dp", id(dp), int(t))
+            if obs is None:
+                obs = dp["counts"][t] if t < len(dp["counts"]) else np.zeros(0, np.int64)
+            else:
+                key = ("dp", id(dp), int(t), "cell", cell)
             cnt = self._conditional_counts(len(rr), len(mm), obs, dp["a"], mn=dp.get("min", 0),
-                                           key=("dp", id(dp), int(t)))
+                                           key=key, base=None if deg is None else deg[mm])
             res[rng.permutation(rr)] = pkeys[np.repeat(mm, cnt)]
         else:
             ww = wl[mm] / wl[mm].sum()
@@ -2960,6 +3274,7 @@ class Synthesizer:
             Wv /= m[:, None]
             lix[J([None] * len(cols)) if cols else "\x00null"] = len(levels)       # a null link
             links.append({"r": r, "info": info, "zp": zp, "w": w, "Kp": Kp, "keys": keys[r["parent"]],
+                          "cell_obs": self._cell_count_law(info, r, cols, lix, J) if cols else {},
                           "coords": [i for i, _ in by_link.get(ck, [])], "lix": lix, "Wv": Wv,
                           "members": {(t, v): np.flatnonzero((zp == t) & (code == v))
                                       for t, v in zip(*np.nonzero(Wv > 0))}})
@@ -2977,7 +3292,7 @@ class Synthesizer:
             phi = L["info"]["phi"]
             L["phi_mix"] = (np.bincount(z, minlength=phi.shape[0]).astype(float) @ phi) / max(len(z), 1)
 
-        def draw(rows, cells, wcell, useg, mix=False):
+        def draw(rows, cells, wcell, useg, mix=False, deg=None):
             zc = np.zeros(len(rows), int) if mix else z[rows]
             Kc = 1 if mix else (int(zc.max()) + 1 if len(zc) else 0)
             R = np.tile(np.array([wcell.get(c, 1.0) for c in cells], float), (Kc, 1))
@@ -3030,12 +3345,36 @@ class Synthesizer:
                             tt[rr] = rng.choice(L["Kp"], size=len(rr), p=pt / pt.sum())
                 ok_t = np.flatnonzero(tt >= 0)
                 for (t, v), rr in pd.Series(np.arange(len(ok_t))).groupby([tt[ok_t], cv[ok_t]]).indices.items():
-                    self._assign(info, t, ok_t[rr], L["members"][(t, v)], L["w"], L["keys"], res)
+                    self._assign(info, t, ok_t[rr], L["members"][(t, v)], L["w"], L["keys"], res,
+                                 deg=None if deg is None else deg.get(r["name"]),
+                                 obs=L["cell_obs"].get((int(t), int(v))), cell=int(v))
                 prop[r["child_key"]] = res
                 segs[r["name"]] = tt
             return prop, pick, segs
         draw.links = links
         return draw
+
+    def _cell_count_law(self, info, r, cols, lix, J):
+        """The observed counts of a count-model link within each cell of its parent
+        segments: {(segment, level of cols): counts of the real parent rows of that
+        segment with that level}, for cells of at least facts.frailty_min_rows rows.
+        The cell sampler draws a cell's rows given their total from the cell's own
+        count law: the segment's law conditioned on a total far from its mean (a
+        country whose customers order less) tilts it and adds zeros (Prop. 1782)."""
+        dp, fan = info.get("count_dp"), info.get("obs")
+        real = (getattr(self, "_tables_for_fit", None) or {}).get(r["parent"])
+        ent = info["rel"].e2 if "rel" in info else None
+        if not dp or fan is None or real is None or ent is None or any(c not in real.columns for c in cols) \
+                or len(real) != len(fan) or len(ent.z) != len(fan):
+            return {}
+        code = np.array([lix.get(J(x), -1) for x in zip(*[_keystr(real[c]) for c in cols])])
+        zr = np.asarray(ent.z)
+        mn = int(_setting(self, "facts", "frailty_min_rows", 30))
+        out = {}
+        for (t, v), ii in pd.Series(np.arange(len(fan))).groupby([zr, code]).indices.items():
+            if v >= 0 and len(ii) >= mn:
+                out[(int(t), int(v))] = np.asarray(fan, dtype=np.int64)[ii]
+        return out
 
     def _anchor_from_key(self, r, df, out):
         """The anchor column read from the dimension row each link points to."""
@@ -3104,12 +3443,18 @@ class Synthesizer:
         phi = info["phi"]
         Kp = phi.shape[1]
         w = self._weights(info["parent_frailty"], zp, cache, ("edge", name), ent=info["rel"].e2, obs=info.get("obs"))
+        if getattr(self, "_scen", None) is not None and not cache.get(("tempered", name)):
+            # a scenario's degree tempering, once: weights written back to the cache
+            # below are already tempered (later proposals reuse them)
+            w = self._scen.temper(info["spec"]["child"], info["spec"]["child_key"], w, zp, Kp)
         if mask is None:
             mask = getattr(self, "_edge_masks", {}).get(name)
             mask = mask if mask is not None and len(mask) == len(zp) else None
         if mask is not None and not mask.all():
             w = self._renormalise(w * mask, zp, Kp)
             cache[("edge", name)] = w
+            if getattr(self, "_scen", None) is not None:
+                cache[("tempered", name)] = True
         members = [np.flatnonzero(zp == t) for t in range(Kp)]
         if mask is not None and not mask.all():
             members = [m[w[m] > 0] for m in members]
@@ -3149,6 +3494,9 @@ class Synthesizer:
                     break
                 seg_of = draw_segments()
             seg_of = _cover_segments(seg_of, zc, need, phi, rng)
+        if dp and _setting(self, "facts", "segment_totals", "auto") == "auto":
+            seg_of = _balance_totals(seg_of, zc, seg_p, [len(m) for m in members], dp, need, rng,
+                                     sweeps=int(_setting(self, "facts", "segment_total_sweeps", 4)))
         for t in np.unique(seg_of[seg_of >= 0]):
             rr = np.flatnonzero(seg_of == t)
             m = members[t]
@@ -3363,6 +3711,21 @@ class Synthesizer:
                 tgt[L["r"]["name"]] = tg / max(tg.sum(), 1e-300)
 
             mixed = [0]
+            # links with a count model: rows redrawn after a rejection join the counts
+            # their parents already hold from accepted rows (Prop. 1782)
+            dplinks = [L for L in exact.links if L["info"].get("count_dp")]
+            pix = {L["r"]["name"]: pd.Index(L["keys"]) for L in dplinks}
+
+            def held(pending):
+                if not dplinks or len(pending) == len(df):
+                    return None
+                keep = np.ones(len(df), bool)
+                keep[pending] = False
+                out_ = {}
+                for L in dplinks:
+                    pos = pix[L["r"]["name"]].get_indexer(df[L["r"]["child_key"]].to_numpy(dtype=object)[keep])
+                    out_[L["r"]["name"]] = np.bincount(pos[pos >= 0], minlength=len(L["keys"]))
+                return out_
 
             def draw_all():
                 pending = np.arange(len(df))
@@ -3372,7 +3735,7 @@ class Synthesizer:
                         break
                     if it == 100:
                         mixed[0] += len(pending)
-                    prop, pick, segs = exact(pending, cells, wc, useg, mix=it >= 100)
+                    prop, pick, segs = exact(pending, cells, wc, useg, mix=it >= 100, deg=held(pending))
                     sub = df.iloc[pending].copy()
                     for c, v in prop.items():
                         sub[c] = v
@@ -3426,6 +3789,38 @@ class Synthesizer:
             rows = rng.permutation(np.flatnonzero(~valid))
             try_move(rows, propose(rows, blocks[rounds % len(blocks)]), False)
             rounds += 1
+        # rows the link model's proposals could not place (its segment draws can keep
+        # pointing at parent segments whose keys are all taken, as when nearly every
+        # parent row needs exactly one child): the repair reaches a valid state with
+        # parents drawn uniformly over the allowed parent rows.  It runs only for rows
+        # that would otherwise break a declared unique key or key rule, so it changes
+        # no output that already satisfied them; the later sweeps then mix as before.
+        fallback = 0
+        if (~valid).any():
+            before = int((~valid).sum())
+            empty = 0  # consecutive blocks without any allowed parent
+            for it in range(int(_setting(self, "repair", "constraint_rounds", 200))):
+                if not (~valid).any():
+                    break
+                rows = rng.permutation(np.flatnonzero(~valid))
+                prop = {}
+                for r in blocks[it % len(blocks)]:
+                    pk_ = np.asarray(keys[r["parent"]], dtype=object)
+                    mask = getattr(self, "_edge_masks", {}).get(r["name"])
+                    allowed = np.flatnonzero(np.asarray(mask) > 0) if mask is not None and len(mask) == len(pk_) \
+                        else np.arange(len(pk_))
+                    if not len(allowed):
+                        continue
+                    prop[r["child_key"]] = pk_[allowed[rng.integers(len(allowed), size=len(rows))]]
+                if not prop:
+                    # skip a block with no allowed parent; stop once no block has one
+                    empty += 1
+                    if empty >= len(blocks):
+                        break
+                    continue
+                empty = 0
+                try_move(rows, prop, False)
+            fallback = before - int((~valid).sum())
 
         def sweep(n):
             for _ in range(n):
@@ -3453,6 +3848,8 @@ class Synthesizer:
         left = int((~valid).sum())
         self.sample_log["uniqueness"][e] = {"repair_rounds": rounds, "unresolved_rows": left, "sweeps": sweeps,
                                             "seconds": round(time.time() - t0, 1)}
+        if fallback:
+            self.sample_log["uniqueness"][e]["rows_placed_uniformly"] = fallback
         if exact_log:
             rlog = exact_log
         if rlog:
@@ -3611,6 +4008,11 @@ class Synthesizer:
         rel = info["rel"]
         z1, acols = self._anchor_state(f, zs, keys, fact_rows)
         w1 = self._weights(info["frailty1"], z1, {}, None, ent=rel.e1, obs=info.get("obs1"))
+        scen = getattr(self, "_scen", None)
+        if scen is not None and not info["nested"]:
+            w1 = scen.temper(f, info["fks"][0]["child_key"], w1, z1, rel.e1.K)
+            if rel.kind != "single" and (info.get("link_degree") or {}).get("anchor"):
+                scen.note_degree_law(f, info["fks"][0]["child_key"])
         # conditional inclusion on the anchor (quotas only for sales staff): rows at an
         # excluded level take no part; the others take the segment's zero mass away
         elig = None
@@ -3625,6 +4027,10 @@ class Synthesizer:
             r2 = dimcols[0]
             z2, k2 = self._dim_state(f, r2, zs, keys)
             w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
+            if scen is not None:
+                w2 = scen.temper(f, r2["child_key"], w2, z2, rel.e2.K)
+                if (info.get("link_degree") or {}).get("partner"):
+                    scen.note_degree_law(f, r2["child_key"])
             m2 = self._inclusion_mask(f, r2, len(z2), ents)
             w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
             st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2, "m2": m2})
@@ -3643,6 +4049,8 @@ class Synthesizer:
             zx, kx = self._dim_state(f, r, zs, keys)
             Kx = xp["P"].shape[1]
             wx = self._weights(xp["frailty"], zx, {}, None, ent=info["extra"][xj].e2, obs=xp.get("obs"))
+            if getattr(self, "_scen", None) is not None:
+                wx = self._scen.temper(f, r["child_key"], wx, zx, Kx)
             wx = wx * self._inclusion_mask(f, r, len(zx), ents)
             memx = [np.flatnonzero(zx == s_) for s_ in range(Kx)]
             availx = np.array([len(m) > 0 and wx[m].sum() > 0 for m in memx], dtype=float)
@@ -3669,7 +4077,40 @@ class Synthesizer:
         u, v, blk = self._fact_structure(f, st, ents, fact_rows)
         return self._fact_attributes(f, st, u, v, blk, ents, fact_rows)
 
+    def _scenario_structure(self, f, st, ents, fact_rows, u, v, blk):
+        """A scenario that raises a fact's rate superposes K independent draws of
+        its structure; _fact_attributes thins their rows (Prop. 1827).  With a
+        multiplicity law the rows of every copy are kept (multiplicities add); an
+        occupancy fact without one has unique pairs, and a raised rate is refused."""
+        scen = getattr(self, "_scen", None)
+        if scen is None or not scen.has_fact(f):
+            return u, v, blk
+        K, _c = scen.fact_copies(f)
+        if K <= 1:
+            return u, v, blk
+        parts = [(u, v, blk)] + [self._fact_structure_once(f, st, ents, fact_rows) for _ in range(K - 1)]
+        u = np.concatenate([np.asarray(p[0], np.int64) for p in parts])
+        blk = np.concatenate([np.asarray(p[2], np.int64) for p in parts])
+        v = None if parts[0][1] is None else np.concatenate([np.asarray(p[1], np.int64) for p in parts])
+        rel = self.fact_info[f]["rel"]
+        if v is not None and rel.kind == "occ" and getattr(rel, "mult_by", "none") == "none":
+            # unique pairs (no multiplicity law): each pair is present or not, so copies
+            # cannot be superposed (merging them changes the presence law, also outside
+            # a window); the scenario is refused rather than applied with a bias
+            raise SpecError(f"scenario: {f} has unique pairs (an occupancy fact without a multiplicity law), so "
+                            "its rate cannot be raised by superposition; use a factor <= 1, or change its "
+                            "anchors (scale or shares) instead")
+        return u, v, blk
+
     def _fact_structure(self, f, st, ents, fact_rows):
+        """Which anchor (u) and partner (v) rows the fact's rows join, with their
+        blocks (_fact_structure_once), with a scenario's superposed draws."""
+        u, v, blk = self._fact_structure_once(f, st, ents, fact_rows)
+        if getattr(self, "_scen", None) is None:
+            return u, v, blk
+        return self._scenario_structure(f, st, ents, fact_rows, u, v, blk)
+
+    def _fact_structure_once(self, f, st, ents, fact_rows):
         """Which anchor (u) and partner (v) rows the fact's rows join, with their
         blocks: rows per anchor, Poisson pairs (with degree laws) or occupancy."""
         info = self.fact_info[f]
@@ -3717,7 +4158,13 @@ class Synthesizer:
         attributes, time, rule redraws, nested-key consistency, unique keys."""
         info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
+        scen = getattr(self, "_scen", None)
         df = self._refill(f, st, df, ents)
+        if scen is not None and scen.has_fact(f):
+            # thinned after the rule redraws, so a redrawn date cannot escape the window tilt;
+            # mandatory participation (every anchor has a row) is kept
+            df = scen.thin_fact(f, df, self.rng, min_one=bool(info.get("min_one") or info.get("occ_min_one")))
+            self._sequences(f, df)                  # line numbers stay 1..n after thinning
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
         df = self._fact_unique(f, df, ents)
@@ -4503,9 +4950,18 @@ class Synthesizer:
             elif cs["type"] == "pii":
                 df[c] = self.pii[(t, c)].generate(n, rng)
             elif cs["type"] == "constant":
-                df[c] = self.pii[(t, c)][1]
+                val, q = self.pii[(t, c)][1], (self.pii[(t, c)] + (1.0,))[2]
+                if val is None or q >= 1.0:
+                    df[c] = val
+                else:
+                    # own stream (as binary columns): the data stream draws as before
+                    held = _binary.stream(rng, t, c + "\x1fconstant").random(n) < q
+                    df[c] = pd.Series(np.where(held, val, None), index=df.index, dtype=object)
+            elif cs["type"] == "binary" and isinstance(self.pii.get((t, c)), _binary.BinaryColumn):
+                # own stream: the data stream (and so every other column) draws as without it
+                df[c] = self.pii[(t, c)].generate(n, _binary.stream(rng, t, c), getattr(self, "_mode", "draw"))
             elif cs["type"] == "binary":
-                df[c] = None          # images and files are not synthesised
+                df[c] = None          # synthesis.binary.generator: none (2.1)
             else:
                 df[c] = None          # filled by an aggregate rule
         # hidden draws stay with the frame until sample() ends (an SCD recompute reuses them)
@@ -4600,6 +5056,40 @@ class Synthesizer:
                 df[lhs] = new
         return df
 
+    def _after_map(self, t, df, cols, out):
+        """After a scenario's marginal map of cols of table t: the derive and
+        cumulative rules that read them are computed again (in rule order, so chains
+        follow), and the rows
+        breaking a check rule that reads them are counted.  Returns (df, recomputed
+        columns, rule violations)."""
+        changed, redone, bad = set(cols), [], 0
+        for r in self.spec["rules"]:
+            if r["table"] != t:
+                continue
+            if r["type"] == "cumulative":
+                # a running balance whose step reads a mapped column follows it
+                if r["column"] in cols or r["column"] not in df.columns or \
+                        not ({n.split(".")[0] for n in names_in(str(r.get("step", "")))} & changed):
+                    continue
+                df = self._cumulative(t, df, r, out)    # keeps the run's floor choice
+                changed.add(r["column"])
+                redone.append(r["column"])
+                continue
+            if r["type"] != "derive":
+                continue
+            lhs, rhs = split_assignment(r["expr"])
+            if lhs in cols or lhs in self.late.get(t, ()) or \
+                    not ({n.split(".")[0] for n in names_in(rhs)} & changed):
+                continue
+            df = self._apply_derive(t, df, r, out)
+            changed.add(lhs)
+            redone.append(lhs)
+        res = self._resolver(t, df, out)
+        for r in self.spec["rules"]:
+            if r["table"] == t and r["type"] == "check" and {n.split(".")[0] for n in names_in(r["expr"])} & changed:
+                bad += int((~check_mask(df, r["expr"], res)).sum())
+        return df, redone, bad
+
     def _apply_derive(self, t, df, rule, out):
         lhs, _ = split_assignment(rule["expr"])
         ctype = self.spec["tables"][t]["columns"].get(lhs, {}).get("type")
@@ -4642,7 +5132,7 @@ class Synthesizer:
                         raise
         for r in self.spec["rules"]:
             if r["table"] == t and r["type"] == "cumulative" and len(df):
-                df = cumulative_apply(df, r, self._resolver(t, df, out))
+                df = self._cumulative(t, df, r, out)
         if strict:
             df = self._apply_soft(t, df, out)
             df[HIDDEN_SET] = True               # every row's stated draws are now made
@@ -5301,28 +5791,68 @@ class Synthesizer:
                     continue
                 excl = []
                 # strata columns are generated (exactly per stratum), so they can carry a rule
+                # the parent's own foreign keys with few levels too (G4): products of a
+                # subcategory that is never sold online are links two hops away whose
+                # pairs (sale, subcategory) the source never has
+                # a key value names the same row in the synthetic data only when the
+                # referenced table keeps its source rows (mode copy); synthesized tables get
+                # fresh keys, so their key values carry no level
+                fk_levels = _setting(self, "structure", "inclusion_fk_levels", True)
+                kept = getattr(self, "copied", set())
+                pfks = {x["child_key"] for x in self.fk[p] if x["parent"] in kept} if fk_levels else set()
                 skip = self._excluded(p) - set(self.lookups[p]) - set(self.derived[p]) \
-                    - {getattr(self, "attr_strata", {}).get(p)}
-                for c, cs in T[p]["columns"].items():
-                    if c in skip or c not in par or cs["type"] in ("text", "pii", "id", "binary", "constant"):
+                    - {getattr(self, "attr_strata", {}).get(p)} - pfks
+                cand = [(c, cs, par[c]) for c, cs in T[p]["columns"].items()
+                        if not (c in skip or c not in par or cs["type"] in ("text", "pii", "binary", "constant")
+                                or (cs["type"] == "id" and c not in pfks))]
+                # one hop further (product -> subcategory -> category): a category that is
+                # never sold spreads over many small subcategories, none of which alone
+                # carries the evidence
+                for x in self.fk[p] if fk_levels else ():
+                    g, gk = x["parent"], x["child_key"]
+                    if g == p or g not in tables or gk not in par or T[g]["role"] != "entity":
                         continue
-                    col = par[c]
-                    if cs["type"] in ("categorical", "boolean") and col.nunique() <= 50:
+                    gt = tables[g].drop_duplicates(T[g]["primary_key"])
+                    gmap = gt.set_index(_keystr(gt[T[g]["primary_key"]]))
+                    for gc, gcs in T[g]["columns"].items():
+                        if gc not in gt or gc == T[g]["primary_key"] or gcs["type"] not in ("categorical", "boolean", "id"):
+                            continue
+                        if gcs["type"] == "id" and gc not in {y["child_key"] for y in self.fk[g]
+                                                              if y["parent"] in kept}:
+                            continue
+                        mapped = gmap[gc].reindex(_keystr(par[gk]).to_numpy())
+                        cand.append((f"{gk}\x1f{g}\x1f{gc}", {"type": "categorical"},
+                                     pd.Series(mapped.to_numpy(), index=par.index)))
+                # every level of every candidate is one test of "never referenced
+                # although D n_l / n references are expected"; under proportional
+                # references P(0 | level) ~ exp(-D n_l / n), so with L tests the
+                # family-wise error stays at exp(-minexp) when each needs
+                # minexp + log L expected references (Bonferroni; Prop. 1786)
+                maxlev = int(_setting(self, "structure", "inclusion_max_levels", 50))
+                levs = []
+                for c, cs, col in cand:
+                    if (cs["type"] in ("categorical", "boolean") or c in pfks) and col.nunique() <= maxlev:
                         lev = _keystr(col).fillna("\x00null").to_numpy(dtype=object)
                     else:
                         lev = np.where(col.isna().to_numpy(), "\x00null", "value").astype(object)
-                    for l_ in pd.unique(lev):
+                    levs.append((c, lev, pd.unique(lev)))
+                need_e = minexp
+                if _setting(self, "structure", "inclusion_multiplicity", "bonferroni") == "bonferroni":
+                    need_e += float(np.log(max(sum(len(u) for _, _, u in levs), 1)))
+                for c, lev, uniq in levs:
+                    for l_ in uniq:
                         at = lev == l_
                         nl = int(at.sum())
                         if nl == n or isref[at].any():
                             continue
-                        if D * nl / n >= minexp:
+                        if D * nl / n >= need_e:
                             excl.append((c, None if l_ == "\x00null" else l_, l_ == "value"))
                 if excl:
                     self.cind[(t, r["child_key"])] = excl
                     self.log["decisions"].setdefault(t, {})[f"{r['name']} inclusion"] = (
                         "never references parent rows with " + "; ".join(
-                            f"{c} {'null' if v is None else ('set' if isval else '= ' + str(v))}" for c, v, isval in excl))
+                            f"{_cind_name(c)} {'null' if v is None else ('set' if isval else '= ' + str(v))}"
+                            for c, v, isval in excl))
 
     def _inclusion_mask(self, t, r, n, out):
         """1 for parent rows the link can point at, 0 for excluded levels."""
@@ -5334,9 +5864,17 @@ class Synthesizer:
         if len(par) != n:
             return mask
         for c, v, isval in rules:
-            if c not in par:
+            if "\x1f" in c:            # a level of the parent's parent (product -> subcategory -> category)
+                gk, g, gc = c.split("\x1f")
+                if gk not in par or g not in out or gc not in out[g]:
+                    continue
+                gt = out[g].drop_duplicates(self.spec["tables"][g]["primary_key"])
+                gmap = gt.set_index(_keystr(gt[self.spec["tables"][g]["primary_key"]]))[gc]
+                col = pd.Series(gmap.reindex(_keystr(par[gk]).to_numpy()).to_numpy(), index=par.index)
+            elif c not in par:
                 continue
-            col = par[c]
+            else:
+                col = par[c]
             if v is None:
                 mask[col.isna().to_numpy()] = 0
             elif isval:
@@ -5381,7 +5919,7 @@ class Synthesizer:
                 df = self._apply_derive(t, df, r, out)
             for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "cumulative"]:
                 if len(df):
-                    df = cumulative_apply(df, r, self._resolver(t, df, out))
+                    df = self._cumulative(t, df, r, out)
             viol = self.sample_log["rule_violations"].setdefault(t, {})
             for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "check"]:
                 viol[r["expr"]] = int((~check_mask(df, r["expr"], self._resolver(t, df, out))).sum())

@@ -28,7 +28,30 @@ from .calendar import from_days, to_days
 from .events import SequenceModel
 
 DEFAULTS = {"window": "auto", "bucket": "month", "weekly": True, "hourly": "auto", "shrinkage": 1.0,
-            "min_entities": 30, "redraws": 10}
+            "min_entities": 30, "redraws": 10, "calendar": "auto", "calendar_draw": False,
+            "calendar_bf": 100.0, "process": "renewal", "states": None}
+NULL_LEVEL = "\x00null"
+
+
+def state_options(sq):
+    """{column, prior} of sequence.states (a column name or a mapping), or None."""
+    st = (sq or {}).get("states")
+    if st is None:
+        return None
+    if isinstance(st, str):
+        return {"column": st, "prior": 1.0}
+    return {"prior": 1.0, **st}
+
+
+def _state_keys(values):
+    """The level key of every status value: its text, or NULL_LEVEL for nulls."""
+    v = pd.Series(values, dtype=object)
+    return np.where(v.isna().to_numpy(), NULL_LEVEL, v.astype(str).to_numpy()).astype(object)
+
+
+def _state_codes(values, levels):
+    """Codes 0..L-1 of status values in the fitted levels (-1: unseen)."""
+    return pd.Index(levels).get_indexer(_state_keys(values))
 _CMP = re.compile(r"^\s*(?:days\()?\s*([\w.]+)\s*\)?\s*(<=|<)\s*(?:days\()?\s*([\w.]+)\s*\)?\s*$")
 
 
@@ -135,12 +158,35 @@ def fit_sequences(S, tables):
         bounds = window_bounds(S.spec, t, o, ent_col)
         A, B = entity_window(bounds, tables[P], is_dt)
         hourly = is_dt if o["hourly"] == "auto" else bool(o["hourly"])
-        m = SequenceModel(o["bucket"], bool(o["weekly"]), hourly, float(o["shrinkage"]), int(o["min_entities"]))
+        so = state_options(o)
+        m = SequenceModel(o["bucket"], bool(o["weekly"]), hourly, float(o["shrinkage"]), int(o["min_entities"]),
+                          calendar=o["calendar"], calendar_draw=bool(o["calendar_draw"]),
+                          calendar_bf=float(o["calendar_bf"]),
+                          process=o["process"], states=None if so is None else {"prior": so["prior"]})
         rng = np.random.default_rng(np.random.SeedSequence([int(S.cfg["seed"]), 1201, len(S.seq)]))
-        m.fit(tdays, owner, z, K, (A, B), datetime=is_dt, rng=rng)
+        st_info = None
+        if so is None:
+            m.fit(tdays, owner, z, K, (A, B), datetime=is_dt, rng=rng)
+        else:
+            from .states import MAX_LEVELS
+            if so["column"] not in df.columns:
+                from ..spec import SpecError
+                raise SpecError(f"{t}: sequence.states {so['column']} is not a column of the table that carries the "
+                                "sequence (with fact.header the sequence moves to the order header; give a header "
+                                "column, or leave the time column on the lines)")
+            keys = _state_keys(df[so["column"]])
+            levels, first = np.unique(keys, return_index=True)
+            if len(levels) > MAX_LEVELS:
+                raise ValueError(f"{t}: sequence.states {so['column']} has {len(levels)} levels (at most "
+                                 f"{MAX_LEVELS}); a status chain needs a categorical status")
+            vals = df[so["column"]].to_numpy(dtype=object)[first]
+            st_info = {"column": so["column"], "levels": levels.tolist(),
+                       "values": [None if k == NULL_LEVEL else v for k, v in zip(levels, vals)]}
+            m.fit(tdays, owner, z, K, (A, B), datetime=is_dt, rng=rng,
+                  state=_state_codes(df[so["column"]], st_info["levels"]), n_levels=len(levels))
         S.seq[t] = {"model": m, "entity": ent_col, "parent": P, "time": tc, "kind": kind, "fk": fk,
                     "calendar": cal, "calendar_col": cal_col, "datetime": is_dt, "bounds": bounds,
-                    "redraws": int(o["redraws"])}
+                    "redraws": int(o["redraws"]), "states": st_info}
 
         k_seq = len(S.seq)
 
@@ -148,8 +194,9 @@ def fit_sequences(S, tables):
         # worker processes of a partitioned run (spawn start on macOS and Windows)
         S._register(functools.partial(_redraw_sequence, m, S, k_seq), now=False)
         S.log["decisions"].setdefault(t, {})["sequence"] = (
-            f"event times of each {P} row redrawn jointly (sequence model, {K} segment(s), window "
-            f"{[b[:2] for b in bounds] or 'global'})")
+            f"event times of each {P} row redrawn jointly (sequence model, {o['process']} process, {K} segment(s), "
+            f"window {[b[:2] for b in bounds] or 'global'}"
+            + (f", status chain on {st_info['column']} with {len(st_info['levels'])} levels" if st_info else "") + ")")
 
 
 def _rule_ok(S, t, df, out):
@@ -184,10 +231,19 @@ def _put(col, rr, vals, is_dt):
 
 
 def apply_sequence(S, t, df, out, index=0):
-    """Redraw the event times of table t's synthetic rows (see module docstring)."""
+    """Redraw the event times of table t's synthetic rows (see module docstring),
+    with a scenario's intensity windows applied to the calendar (relsynth.scenarios)."""
     info = S.seq.get(t) if hasattr(S, "seq") else None
     if info is None or not len(df):
         return df
+    scen = getattr(S, "_scen", None)
+    if scen is not None and t in scen.seq_windows:
+        with scen.tilt_sequence(t, info["model"]):
+            return _apply_sequence(S, t, df, out, index, info)
+    return _apply_sequence(S, t, df, out, index, info)
+
+
+def _apply_sequence(S, t, df, out, index, info):
     from ..engine import _keystr
     m = info["model"]
     P, ent_col, tc = info["parent"], info["entity"], info["time"]
@@ -236,7 +292,58 @@ def apply_sequence(S, t, df, out, index=0):
             frame[info["fk"]] = col
         return frame
 
-    df = write(df, rows, draw(np.ones(len(ents), bool)))
+    st_info = info.get("states")
+    rewritten = np.zeros(len(df), bool)       # rows whose status the chain set
+    if st_info is not None:
+        scol = st_info["column"]
+        row_code = np.full(len(df), -1, dtype=np.int64)
+        row_code[rows] = _state_codes(df[scol].to_numpy(dtype=object)[rows], st_info["levels"])
+        ent_rows = np.searchsorted(ents, pos[rows])          # local entity of each row in `rows`
+
+        def place(frame, sel):
+            """Times and statuses of the entities ents[sel] (Props. 1822-1823): the
+            status chain decides the order of the entity's statuses, its rows are
+            put at the positions of their own status (in the engine's order), and a
+            row left over takes the status of the position it fills."""
+            tt, _ow, ss = m.sample_states(n[sel], zP[ents[sel]], A[ents[sel]], B[ents[sel]], rng)
+            idx = np.flatnonzero(sel)
+            loc = np.full(len(ents), -1)
+            loc[idx] = np.arange(len(idx))
+            rsel = rows[sel[ent_rows]]
+            er = loc[ent_rows[sel[ent_rows]]]
+            ep = np.repeat(np.arange(len(idx)), n[idx])
+            Pp = pd.DataFrame({"e": ep, "c": ss, "p": np.arange(len(ss))})
+            Rr = pd.DataFrame({"e": er, "c": row_code[rsel], "r": rsel})
+            Pp["k"] = Pp.groupby(["e", "c"]).cumcount()
+            Rr["k"] = Rr.groupby(["e", "c"]).cumcount()
+            M = Pp.merge(Rr, on=["e", "c", "k"], how="inner")
+            Pu = Pp[~Pp["p"].isin(M["p"])].sort_values("p", kind="stable").copy()
+            Ru = Rr[~Rr["r"].isin(M["r"])].copy()
+            Ru["o"] = np.arange(len(Ru))
+            Ru = Ru.sort_values(["e", "o"], kind="stable")
+            Pu["k2"] = Pu.groupby("e").cumcount()
+            Ru["k2"] = Ru.groupby("e").cumcount()
+            M2 = Pu.merge(Ru, on=["e", "k2"], how="inner")
+            r_all = np.concatenate([M["r"].to_numpy(), M2["r"].to_numpy()]).astype(np.int64)
+            p_all = np.concatenate([M["p"].to_numpy(), M2["p"].to_numpy()]).astype(np.int64)
+            o_ = np.argsort(r_all, kind="stable")
+            r_all, p_all = r_all[o_], p_all[o_]
+            frame = write(frame, r_all, tt[p_all])
+            vals = frame[scol].to_numpy(dtype=object, copy=True)
+            vals[rsel] = orig[scol].to_numpy(dtype=object)[rsel]           # the engine's statuses again
+            rr2 = M2["r"].to_numpy(dtype=np.int64)
+            if len(rr2):
+                vals[rr2] = np.array([st_info["values"][c] for c in ss[M2["p"].to_numpy()]], dtype=object)
+            try:
+                frame[scol] = pd.Series(vals, index=frame.index).astype(orig[scol].dtype)
+            except (TypeError, ValueError):
+                frame[scol] = vals
+            rewritten[rsel] = False
+            rewritten[rr2] = True
+            return frame
+        df = place(df, np.ones(len(ents), bool))
+    else:
+        df = write(df, rows, draw(np.ones(len(ents), bool)))
     df = S._computed(t, df, out)
     ok0 = _rule_ok(S, t, orig, out)
     redrawn = reverted = 0
@@ -251,7 +358,7 @@ def apply_sequence(S, t, df, out, index=0):
         sel = np.zeros(len(ents), bool)
         sel[bad_e] = True
         rr = rows[np.isin(ent_of_row[rows], bad_e)]
-        df = write(df, rr, draw(sel))
+        df = place(df, sel) if st_info is not None else write(df, rr, draw(sel))
         df = S._computed(t, df, out)
     bad = ok0 & ~_rule_ok(S, t, df, out)
     bad_e = np.unique(ent_of_row[bad & (ent_of_row >= 0)])
@@ -266,9 +373,13 @@ def apply_sequence(S, t, df, out, index=0):
                     df[c] = pd.Series(v, index=df.index).astype(orig[c].dtype)
                 except (TypeError, ValueError):
                     df[c] = v
+        if st_info is not None:
+            rewritten[rr] = False
     S.sample_log.setdefault("sequences", {})[t] = {"entities": int(len(ents)), "events": int(len(rows)),
                                                     "redrawn_entities": int(redrawn),
                                                     "kept_engine_times": int(reverted)}
+    if st_info is not None:
+        S.sample_log["sequences"][t]["status_rewritten"] = int(rewritten.sum())
     return df
 
 
@@ -345,6 +456,9 @@ def sample_series(S, ext, prng, index, mode="draw"):
         pk = T.get("primary_key")
         if pk and pk not in out:
             out.insert(0, pk, np.arange(1, len(out) + 1))
+        scen = getattr(S, "_scen", None)
+        if scen is not None:
+            out = scen.apply_series(t, out, info["time"], m.values)
         ext[t] = out[[c for c in T["columns"] if c in out.columns]]
         S.sample_log.setdefault("series", {})[t] = {"series": len(keys), "rows": len(out)}
     return ext
