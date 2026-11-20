@@ -397,6 +397,15 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `calendar` | auto \| pooled \| segment | `auto` | One trend and season profile per segment, or one shared by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers it (Prop. 1784); small segments share one. |
 | `calendar_bf` | number | `100.0` | Bayes factor for one calendar per segment over a shared one that calendar auto requires (100: decisive on Jeffreys' scale, as facts.count_model_bf). |
 | `calendar_draw` | bool | `False` | Draw the calendar from its posterior for each dataset. Off: the calendar stays at its posterior mean and the life times carry the uncertainty (Prop. 1784). |
+| `process` | renewal \| hawkes | `renewal` | How the events between an entity's first and last event arrive: renewal (gamma gaps, bursty to regular) or hawkes (self-exciting clusters: an event triggers more events; Bayesian Hawkes process with an exponential kernel). |
+| `states` | column \| {column, prior} |  | A status column of the events whose sequence along each entity's history follows a Markov chain per segment, with status-dependent gaps (semi-Markov). prior: strength of the pooled chain in each segment's transition posterior (1.0). |
+
+### `sequence.states`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `column` | column |  | The status column (categorical, boolean or integer). |
+| `prior` | number | `1.0` | Dirichlet prior strength per status level, centred on the pooled chain. |
 
 ### `sequence.window`
 
@@ -655,6 +664,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `posterior.sample_seed` | `None` | Seed of the parameter and data streams (default: seed). |
 | `scale.default` | `1.0` | Row multiplier for entities; facts follow their anchors. |
 | `scale.tables` | `{}` | Per-table multipliers {table: factor}. An entity without its own factor takes the factor of the first parent it links to that has one (orders follow their customers); facts follow their anchors. |
+| `scenario` | `None` | The scenario of `scenarios` applied to every dataset (null: the fitted model as it is). `relsynth run --scenario NAME` and `FittedModel.sample(scenario=...)` choose one per run. |
+| `scenarios` | `{}` | What-if scenarios {name: {description, interventions: [...]}}: scale, shares, marginal, intensity and degree interventions applied while a dataset is sampled (docs/scenarios.md). |
 | `segments.default_cap` | `8` | Upper bound on latent segments per table. |
 | `segments.min_rows_per_segment` | `20` | Rows per segment at least (also caps the segment count). |
 | `segments.tables` | `{}` | Per-table segment caps {table: cap}. |

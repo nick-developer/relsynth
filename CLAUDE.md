@@ -1,31 +1,65 @@
 # Notes for AI coding agents
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first: branch names, Conventional Commits, sign-off and the
-byte-identity rule apply to agents as they do to people. This file adds the pull-request workflow
-that agents (Claude Code and others) must follow, so that CodeRabbit reviews each change once and
-review rounds stay short.
+byte-identity rule apply to agents as they do to people. This file adds the project rules that
+every change must follow, and the pull-request workflow that agents (Claude Code and others) must
+follow, so that CodeRabbit reviews each change once and review rounds stay short.
 
-## Project rules (owner, 2026-11-19)
+## Project rules for every change
 
-These apply to every change or addition, by agents and people alike.
+These four rules are set by the project owner and are **mandatory** for every change or addition,
+by people and agents alike. A pull request that breaks one is not ready to merge.
 
-1. **Audit before merging.** At the final stage of every change, before its pull request is merged
-   to `main`, run a detailed security and code audit of the change (for example the `/security-review`
-   and `/code-review` commands, CodeQL, Semgrep, Bandit through `ruff check --select S`, and the
-   `security` workflow). Resolve every finding above the "warning" level before the merge, and record
-   in the pull request what was run and what was fixed.
-2. **Spec first, then a generic engine change.** When a new dataset or database gives poor results
-   after synthesis, first check that its specification file describes the source completely and
-   correctly (types, keys, relationships, rules, per-table settings) and fix it there if you can.
-   Only if the spec is right, or cannot express the fix, change the engine, and then only with a
-   generic change that holds for that type of data and every dataset of it, never a change tuned to
-   the dataset under test.
-3. **Aim.** The engine should support practically every structured dataset it is given, keeping its
-   relationships, dependencies, business and technical rules and everything else README.md specifies.
-4. **Adjustable, private by default.** Users choose the level of privacy, of detail (exact
-   distributions or slight deviations from them) and of accuracy through the spec and the settings
-   registry. Defaults give the most privacy possible while keeping the data's details and accuracy as
-   far as possible for data analysis, AI and inference.
+### 1. Pre-merge security and code audit
+
+At the final stage of every change, before its pull request is merged to `main`, run a detailed
+security and code audit against the code, and resolve **every finding above "warning"** before the
+merge. The audit has two parts:
+
+- **The CI scanners, all green on the final head commit:** the `ci` lint job (ruff with the `S`
+  security rules, bandit, pip-audit), `codeql` (security-extended and security-and-quality
+  suites), and `security` (Semgrep with the project rules in `.semgrep/`, gitleaks, zizmor,
+  dependency review). `codeql` and `security` run only on pull requests to `main`; for a stacked
+  pull request, run the audit when it is retargeted to `main`.
+- **A review of the full diff against `main`:** run `/security-review` (Claude Code) on the branch,
+  plus `/code-review` for correctness, and read the CodeQL and Semgrep alerts the pull request
+  adds under Security > Code scanning.
+
+"Above warning" means: CodeQL `error` or security severity high/critical; Semgrep `ERROR`;
+bandit `HIGH` severity; any pip-audit or dependency-review vulnerability with a fixed version;
+any gitleaks secret; zizmor high; and any `/security-review` or `/code-review` finding rated
+high, critical or important. These are fixed, not suppressed: a `# nosec` or `# nosemgrep` is
+allowed only for a proven false positive and carries its reason. Warnings and lower may be
+declined with a one-line reason. List the audit result (tools run, findings fixed, findings
+declined and why) in the pull request description before it is marked ready, and run the audit
+again if commits land after that.
+
+### 2. New datasets: check the spec first, then fix the engine generically
+
+When a new dataset or database is added and synthesis shows problems, first check the
+specification file that describes the source: is it complete and correct (tables, keys,
+relationships, types, rules, per-table settings)? Fix the spec where it is wrong or incomplete.
+Only when the spec is sound, or editing it cannot fix the problem, analyse the engine. Engine
+changes **must be generic**: they must apply to a type of data or a class of datasets, never only
+to the dataset under test, and never be tuned to improve that dataset's scores. Each engine change
+names the class of data it addresses and is tested on more than the dataset that revealed it.
+
+### 3. Aim: support practically every structured dataset
+
+The overall aim is an engine that supports practically every structured dataset a user can provide,
+while keeping its relationships, dependencies, business and technical rules, and every
+specification listed in [README.md](README.md). Prefer changes that widen what the engine handles
+correctly over changes that work around one schema; a source the engine cannot yet handle should
+fail with a clear error, not produce silently wrong data.
+
+### 4. User-adjustable, with maximum privacy by default
+
+The engine must be adjustable to each user's needs: the user decides the level of privacy, the level
+of detail (exact distributions or slight deviations from them) and the accuracy, through the spec,
+settings and command-line options, without code changes. The **defaults** aim for the maximum
+privacy possible while keeping the underlying data's details and accuracy as far as possible for
+data analysis, AI training and inference. A change that alters a default states in its pull request
+how it affects privacy and fidelity, with evidence (privacy checks and quality report).
 
 ## Pull-request workflow
 
@@ -35,8 +69,11 @@ These apply to every change or addition, by agents and people alike.
    for what you changed (ruff, mypy, the tests of the touched modules) before each push.
 3. **Mark it ready for review only when** the coding is complete and every other required check
    (`ci` always; `codeql` and `security` when the pull request targets `main`, since they run only
-   there; and any workflow the change triggers) is green. Fix red checks while still in draft; do
-   not mark ready to "see what CodeRabbit says".
+   there; and any workflow the change triggers) is green, and the pre-merge audit of rule 1 is
+   done with every finding above warning resolved and its result in the pull-request
+   description. A stacked pull request may be marked ready with the `codeql` and `security`
+   parts of the audit still pending; they must pass once it targets `main`, before it is merged. Fix red checks while still in draft; do not mark ready to "see what CodeRabbit
+   says".
 4. **Wait for CodeRabbit to finish.** Marking a pull request to `main` ready starts one full review.
    CodeRabbit reviews only pull requests to `main` on its own (`base_branches`), so for a stacked
    pull request, or if no review has started a few minutes after marking ready, post one top-level

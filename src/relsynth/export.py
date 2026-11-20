@@ -391,7 +391,7 @@ def posterior_draws(syn, M=5):
     draws = []
     for m in range(M):
         prng, _ = run_streams(cfg["seed"], ss, m)
-        syn.redraw("draw", prng)
+        syn.redraw("draw", prng, m)
         draws.append(theta(syn))
     prng, _ = run_streams(cfg["seed"], ss, 0)
     syn.redraw("mean", prng)

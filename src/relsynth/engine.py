@@ -32,7 +32,8 @@ from .generators.contract import GeneratorError
 from .pii import PiiGenerator
 from .prepare import (_index, _keystr, _tuple_frame, compute_aggregate, lookup_column, lookup_deps, make_resolver,
                       prepare_source)
-from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
+from .scenarios import active as scenario_active
+from .relational import (STRUCT_KAPPA, Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
                          dispersion_alpha, gumbel_argmax, multiplicity_marginal, poisson_dup_test,
                          sparse_dirichlet_draw, tree_depth)
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
@@ -482,13 +483,16 @@ class Synthesizer:
         spec, self.series_spec = split_series(spec)          # regular series: outside the relational model
         self.plan = Plan(spec)
         self.spec = self.plan.spec
-        errs = validate(self.spec, keys=False)
+        # scenarios were validated on the user's spec; they may name series tables and
+        # tables the plan rewrites (order headers), which the internal model does not hold
+        errs = [e for e in validate(self.spec, keys=False) if not e.startswith("synthesis.scenario")]
         if errs:
             raise SpecError("internal model (order headers / offset keys) is invalid:\n  - " + "\n  - ".join(errs))
         self.cfg = self.spec["synthesis"]
         self.rng = np.random.default_rng(self.cfg["seed"])          # fitting stream
         self._post_fns = []          # parameter blocks drawn again for every dataset
         self._runs = 0
+        self._fit_state = None       # carried relation variables at the end of the fit (see redraw)
         self.log = {"warnings": [], "errors": [], "timings": {}, "source": {}, "decisions": {}}
 
 
@@ -499,6 +503,7 @@ class Synthesizer:
         the relational model reads those facts only through the statistics."""
         t0 = time.time()
         self.__dict__.pop("_nc_guards", None)     # near-copy guards are built from this fit's rows
+        self._fit_state = None                    # recorded again at the first draw after this fit
         spec, cfg, rng = self.spec, self.cfg, self.rng
         T = spec["tables"]
         self.fstats = {t: s for t, s in (stats or {}).items() if t in T and T[t]["role"] == "fact"}
@@ -748,6 +753,11 @@ class Synthesizer:
                          for t, T_ in self.spec["tables"].items() for c, cs in T_["columns"].items()
                          if (cs.get("distribution") or {}).get("kind") == "empirical" and t in tables
                          and c in tables[t].columns}
+        if cfg.get("scenarios"):
+            # the model log lists every scenario and intervention; their effects go to each sample log
+            self.log["scenarios"] = {n: {"description": b.get("description"),
+                                         "interventions": [dict(iv) for iv in b.get("interventions", [])]}
+                                     for n, b in cfg["scenarios"].items()}
         self.log["timings"]["attributes_s"] = round(time.time() - t2, 2)
         self.log["timings"]["fit_total_s"] = round(time.time() - t0, 2)
         say(f"fit: done in {time.time() - t0:.0f} s")
@@ -879,20 +889,22 @@ class Synthesizer:
             fn(self.rng)
         self._post_fns.append(fn)
 
-    def redraw(self, mode="draw", rng=None):
+    def redraw(self, mode="draw", rng=None, index=None):
         """One posterior draw (posterior means in mean mode) of every parameter
         given the fitted partitions: segment weights, link and block rates,
         occupancy and activity probabilities, marginals, copula matrices, time
         profiles, extra-dimension laws, refined segment weights and rake targets.
         A dataset sampled after it is a draw from the posterior predictive
         distribution (Rubin 1993); the per-call draws of the samplers (count-law
-        and tail weights) are fixed for the run as well (see posterior.py)."""
+        and tail weights) are fixed for the run as well (see posterior.py).
+        index numbers the dataset (see _restore_fit_state); None is dataset 0."""
         from .posterior import param_rng
         base = self.rng if rng is None else rng
         prng = param_rng(base, mode)
         keep, keep_rm = self.rng, self.rm.rng
         self.rng = self.rm.rng = prng
         try:
+            self._restore_fit_state(0 if mode == "mean" or index is None else int(index))
             self.rm.draw_params(pi_s=self.pi_s)
             self._post_edges()
             for f in self.fact_order:
@@ -914,6 +926,72 @@ class Synthesizer:
         finally:
             self.rng, self.rm.rng = keep, keep_rm
         return self
+
+    STATE_CHECKPOINT = 32        # carried-chain states kept every this many datasets (_restore_fit_state)
+
+    def _carrying_relations(self):
+        """The relations redraw draws (those of the relational model, then each
+        fact's own relation) whose draw_params reads variables left by its
+        previous call (relational.PairRel.CARRIED), in redraw's order."""
+        out = [r for r in self.rm.R if getattr(r, "CARRIED", ())]
+        for f in self.fact_order:
+            r = self.fact_info[f].get("rel")
+            if r is not None and r not in self.rm.R and getattr(r, "CARRIED", ()) and r not in out:
+                out.append(r)
+        return out
+
+    def _restore_fit_state(self, index=0):
+        """Set the carried variables to their state for dataset `index`.
+
+        Some draw_params are one Gibbs scan: block means given the measure
+        variances s2, then s2 given the means; occupancy rates given the
+        augmented activity of anchors without pairs, then the activity again.
+        Left alone, each dataset's draw would start where the previous one
+        stopped, so dataset i would depend on which datasets were drawn before
+        it in the process.  Freezing the state at the end of the fit instead
+        would leave out the posterior uncertainty of s2 and of the augmented
+        activity: every dataset would condition on the same values.
+
+        So the carried variables follow their own Markov chain, started at the
+        end of the fit (state 0, recorded at the first call, before any dataset
+        is drawn) and advanced one scan at a time with a stream of its own
+        (posterior.state_stream), and dataset i starts from state i.  Dataset i
+        is then a function of the fit and its index only (whatever was drawn
+        before it in the process); dataset 0 is unchanged; and the states are
+        draws from the same chain the datasets formed when drawn in order in a
+        fresh process, so the spread between datasets keeps that uncertainty.
+        Every STATE_CHECKPOINT-th state is kept with the stream's position, so
+        state i costs at most STATE_CHECKPOINT scans once its checkpoint exists."""
+        from .posterior import state_stream
+        from .relational import carried_state, restore_carried_state
+        fs = getattr(self, "_fit_state", None)        # None also for a model saved before this attribute
+        if fs is None:
+            rels = self._carrying_relations()
+            pc = self.cfg.get("posterior", {})
+            rng = state_stream(self.cfg["seed"], pc.get("sample_seed"))
+            fs = self._fit_state = {"rels": rels, "states": {0: ([carried_state(r) for r in rels],
+                                                                 rng.bit_generator.state)}}
+        rels, states = fs["rels"], fs["states"]
+        j = max(k for k in states if k <= index)      # nearest kept state at or before `index`
+        cur, bg = states[j]
+        if j < index:
+            rng = state_stream(0, None)
+            rng.bit_generator.state = bg              # the chain's stream where state j left it
+            kappa = self.cfg.get("structure", {}).get("structural_pooling", STRUCT_KAPPA)
+            for k in range(j + 1, index + 1):         # advance the chain one scan per state
+                for r, st in zip(rels, cur):
+                    restore_carried_state(r, st)
+                    r.struct_kappa = kappa            # as redraw sets it
+                    r.draw_params(rng, self.pi_s)
+                cur = [carried_state(r) for r in rels]
+                if k % self.STATE_CHECKPOINT == 0 or k == index:
+                    states[k] = (cur, rng.bit_generator.state)
+            # keep state 0, every STATE_CHECKPOINT-th state and the latest one: memory stays
+            # bounded by the largest index drawn / STATE_CHECKPOINT, and a nearby index is cheap
+            for k in [k for k in states if k and k % self.STATE_CHECKPOINT and k != index]:
+                del states[k]
+        for r, st in zip(rels, cur):
+            restore_carried_state(r, st)
 
     # ------------------------------------------------------------------ layout
     def _excluded(self, t):
@@ -2620,12 +2698,22 @@ class Synthesizer:
         return ["0"] * len(df)
 
     # ================================================================== sample
-    def sample(self, scale=None, index=None):
+    def sample(self, scale=None, index=None, scenario=None):
         """One synthetic dataset: every parameter drawn once from its posterior
         (or set to its posterior mean) from the dataset's parameter stream, then
         the rows from its data stream.  index numbers the datasets (0, 1, ...);
         without it each call gives the next dataset.  relsynth.runtime runs the
-        same steps with the facts split into partitions (sample_partitioned)."""
+        same steps with the facts split into partitions (sample_partitioned).
+        scenario: the name of a scenario of synthesis.scenarios to apply
+        (relsynth.scenarios; default synthesis.scenario), or False for none (the
+        baseline, also when the spec names a scenario)."""
+        if scenario is not None:
+            keep = self.cfg.get("scenario")
+            self.cfg["scenario"] = None if scenario is False else scenario
+            try:
+                return self.sample(scale, index)
+            finally:
+                self.cfg["scenario"] = keep
         rt = self.cfg.get("runtime") or {}
         if rt.get("executor", "none") != "none":
             from .runtime import sample_partitioned
@@ -2638,6 +2726,11 @@ class Synthesizer:
             out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
             out[f] = self._apply_affinity(f, out[f], out)
             out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            if getattr(self, "_scen", None) is not None:
+                # marginal maps after the rule redraws of _finish (a partitioned run maps
+                # the joined table at the same point, so ranks are the whole table's)
+                out[f] = self._scen.map_columns(f, out[f], self, out)
+                self._scen.note_fact_rows(f, len(out[f]))
             out[f] = self._apply_fact_sequence(f, out, ctx["index"])
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         return self._sample_end(ctx)
@@ -2662,14 +2755,20 @@ class Synthesizer:
         index = self._runs if index is None else index
         self._runs = index + 1
         prng, drng = run_streams(cfg["seed"], pc.get("sample_seed"), index)
-        self.redraw(mode, prng)
+        self.redraw(mode, prng, index)
         self.rng = rng = drng
         self.run_cache = RunCache(mode)
         self._mode = mode
         self.posterior_log = {"mode": mode, "dataset": index}
         T = self.spec["tables"]
         sc = cfg["scale"] if scale is None else scale
-        sc = self.plan.scale(sc)
+        self._scen = None
+        act = scenario_active(cfg)
+        if act is not None:
+            from .scenarios import Scenario
+            self._scen = Scenario(self, *act)
+        sc = self._scen.apply_scale(sc, self.plan) if self._scen is not None else self.plan.scale(sc)
+        scen = self._scen
         out, zs, keys = {}, {}, {}
         out.update(self.plan.ref_frames)        # reference tables read by keyed lookups
         weights_cache = {}
@@ -2689,7 +2788,12 @@ class Synthesizer:
                 zs[e] = ent.z.copy()
                 out[e] = df
                 continue
-            if tree is not None:
+            df = None
+            if scen is not None and scen.has_tilt(e):
+                # a scenario tilts the law of this table's rows (relsynth.scenarios)
+                z, df = scen.entity_rows(self, e, int(round(s * ent.n)), rng)
+                par = None
+            elif tree is not None:
                 z, par = self._grow_tree(tree, s)
                 # posterior predictive depth profiles for the evaluation, on their own
                 # stream: the dataset's rows do not depend on whether it is computed
@@ -2715,7 +2819,8 @@ class Synthesizer:
                 n = int(round(s * ent.n))
                 z = allocate(ent.pi / ent.pi.sum(), n, rng)
                 par = None
-            df = self.tm[e].sample(z, rng)
+            if df is None:
+                df = self.tm[e].sample(z, rng)
             df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
@@ -2773,6 +2878,11 @@ class Synthesizer:
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                if scen is not None:
+                    # marginal maps of the finished rows: after the rule redraws and the
+                    # SCD recomputation, so no redrawn value escapes the map; derives
+                    # follow, violations counted
+                    out[t] = scen.map_columns(t, out[t], self, out)
                 if t in getattr(self, "seq", {}):
                     from .timeseries.hooks import apply_sequence
                     out[t] = apply_sequence(self, t, out[t], out, index)
@@ -2785,11 +2895,15 @@ class Synthesizer:
         external form of the tables."""
         self.__dict__.pop("_parent_cols", None)
         out, t0 = ctx["out"], ctx["t0"]
+        if getattr(self, "_scen", None) is not None:
+            self._scen.map_derived(out, self)
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
         say("sample: aggregates")
         self._aggregates(out)
+        if getattr(self, "_scen", None) is not None:
+            self.sample_log["scenario"] = self._scen.log()
         self.sample_log["seconds"] = round(time.time() - t0, 2)
         say(f"sample: done in {time.time() - t0:.0f} s")
         self.internal_out = out
@@ -3322,12 +3436,18 @@ class Synthesizer:
         phi = info["phi"]
         Kp = phi.shape[1]
         w = self._weights(info["parent_frailty"], zp, cache, ("edge", name), ent=info["rel"].e2, obs=info.get("obs"))
+        if getattr(self, "_scen", None) is not None and not cache.get(("tempered", name)):
+            # a scenario's degree tempering, once: weights written back to the cache
+            # below are already tempered (later proposals reuse them)
+            w = self._scen.temper(info["spec"]["child"], info["spec"]["child_key"], w, zp, Kp)
         if mask is None:
             mask = getattr(self, "_edge_masks", {}).get(name)
             mask = mask if mask is not None and len(mask) == len(zp) else None
         if mask is not None and not mask.all():
             w = self._renormalise(w * mask, zp, Kp)
             cache[("edge", name)] = w
+            if getattr(self, "_scen", None) is not None:
+                cache[("tempered", name)] = True
         members = [np.flatnonzero(zp == t) for t in range(Kp)]
         if mask is not None and not mask.all():
             members = [m[w[m] > 0] for m in members]
@@ -3881,6 +4001,11 @@ class Synthesizer:
         rel = info["rel"]
         z1, acols = self._anchor_state(f, zs, keys, fact_rows)
         w1 = self._weights(info["frailty1"], z1, {}, None, ent=rel.e1, obs=info.get("obs1"))
+        scen = getattr(self, "_scen", None)
+        if scen is not None and not info["nested"]:
+            w1 = scen.temper(f, info["fks"][0]["child_key"], w1, z1, rel.e1.K)
+            if rel.kind != "single" and (info.get("link_degree") or {}).get("anchor"):
+                scen.note_degree_law(f, info["fks"][0]["child_key"])
         # conditional inclusion on the anchor (quotas only for sales staff): rows at an
         # excluded level take no part; the others take the segment's zero mass away
         elig = None
@@ -3895,6 +4020,10 @@ class Synthesizer:
             r2 = dimcols[0]
             z2, k2 = self._dim_state(f, r2, zs, keys)
             w2 = self._weights(info["frailty2"], z2, {}, None, ent=rel.e2, obs=info.get("obs2"))
+            if scen is not None:
+                w2 = scen.temper(f, r2["child_key"], w2, z2, rel.e2.K)
+                if (info.get("link_degree") or {}).get("partner"):
+                    scen.note_degree_law(f, r2["child_key"])
             m2 = self._inclusion_mask(f, r2, len(z2), ents)
             w2 = self._renormalise(w2 * m2, z2, rel.e2.K)
             st.update({"z2": z2, "k2": k2, "r2": r2, "w2": w2, "m2": m2})
@@ -3913,6 +4042,8 @@ class Synthesizer:
             zx, kx = self._dim_state(f, r, zs, keys)
             Kx = xp["P"].shape[1]
             wx = self._weights(xp["frailty"], zx, {}, None, ent=info["extra"][xj].e2, obs=xp.get("obs"))
+            if getattr(self, "_scen", None) is not None:
+                wx = self._scen.temper(f, r["child_key"], wx, zx, Kx)
             wx = wx * self._inclusion_mask(f, r, len(zx), ents)
             memx = [np.flatnonzero(zx == s_) for s_ in range(Kx)]
             availx = np.array([len(m) > 0 and wx[m].sum() > 0 for m in memx], dtype=float)
@@ -3939,7 +4070,40 @@ class Synthesizer:
         u, v, blk = self._fact_structure(f, st, ents, fact_rows)
         return self._fact_attributes(f, st, u, v, blk, ents, fact_rows)
 
+    def _scenario_structure(self, f, st, ents, fact_rows, u, v, blk):
+        """A scenario that raises a fact's rate superposes K independent draws of
+        its structure; _fact_attributes thins their rows (Prop. 1827).  With a
+        multiplicity law the rows of every copy are kept (multiplicities add); an
+        occupancy fact without one has unique pairs, and a raised rate is refused."""
+        scen = getattr(self, "_scen", None)
+        if scen is None or not scen.has_fact(f):
+            return u, v, blk
+        K, _c = scen.fact_copies(f)
+        if K <= 1:
+            return u, v, blk
+        parts = [(u, v, blk)] + [self._fact_structure_once(f, st, ents, fact_rows) for _ in range(K - 1)]
+        u = np.concatenate([np.asarray(p[0], np.int64) for p in parts])
+        blk = np.concatenate([np.asarray(p[2], np.int64) for p in parts])
+        v = None if parts[0][1] is None else np.concatenate([np.asarray(p[1], np.int64) for p in parts])
+        rel = self.fact_info[f]["rel"]
+        if v is not None and rel.kind == "occ" and getattr(rel, "mult_by", "none") == "none":
+            # unique pairs (no multiplicity law): each pair is present or not, so copies
+            # cannot be superposed (merging them changes the presence law, also outside
+            # a window); the scenario is refused rather than applied with a bias
+            raise SpecError(f"scenario: {f} has unique pairs (an occupancy fact without a multiplicity law), so "
+                            "its rate cannot be raised by superposition; use a factor <= 1, or change its "
+                            "anchors (scale or shares) instead")
+        return u, v, blk
+
     def _fact_structure(self, f, st, ents, fact_rows):
+        """Which anchor (u) and partner (v) rows the fact's rows join, with their
+        blocks (_fact_structure_once), with a scenario's superposed draws."""
+        u, v, blk = self._fact_structure_once(f, st, ents, fact_rows)
+        if getattr(self, "_scen", None) is None:
+            return u, v, blk
+        return self._scenario_structure(f, st, ents, fact_rows, u, v, blk)
+
+    def _fact_structure_once(self, f, st, ents, fact_rows):
         """Which anchor (u) and partner (v) rows the fact's rows join, with their
         blocks: rows per anchor, Poisson pairs (with degree laws) or occupancy."""
         info = self.fact_info[f]
@@ -3987,7 +4151,13 @@ class Synthesizer:
         attributes, time, rule redraws, nested-key consistency, unique keys."""
         info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
+        scen = getattr(self, "_scen", None)
         df = self._refill(f, st, df, ents)
+        if scen is not None and scen.has_fact(f):
+            # thinned after the rule redraws, so a redrawn date cannot escape the window tilt;
+            # mandatory participation (every anchor has a row) is kept
+            df = scen.thin_fact(f, df, self.rng, min_one=bool(info.get("min_one") or info.get("occ_min_one")))
+            self._sequences(f, df)                  # line numbers stay 1..n after thinning
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
         df = self._fact_unique(f, df, ents)
@@ -4878,6 +5048,40 @@ class Synthesizer:
                 new[z] = fx[z]
                 df[lhs] = new
         return df
+
+    def _after_map(self, t, df, cols, out):
+        """After a scenario's marginal map of cols of table t: the derive and
+        cumulative rules that read them are computed again (in rule order, so chains
+        follow), and the rows
+        breaking a check rule that reads them are counted.  Returns (df, recomputed
+        columns, rule violations)."""
+        changed, redone, bad = set(cols), [], 0
+        for r in self.spec["rules"]:
+            if r["table"] != t:
+                continue
+            if r["type"] == "cumulative":
+                # a running balance whose step reads a mapped column follows it
+                if r["column"] in cols or r["column"] not in df.columns or \
+                        not ({n.split(".")[0] for n in names_in(str(r.get("step", "")))} & changed):
+                    continue
+                df = cumulative_apply(df, r, self._resolver(t, df, out))
+                changed.add(r["column"])
+                redone.append(r["column"])
+                continue
+            if r["type"] != "derive":
+                continue
+            lhs, rhs = split_assignment(r["expr"])
+            if lhs in cols or lhs in self.late.get(t, ()) or \
+                    not ({n.split(".")[0] for n in names_in(rhs)} & changed):
+                continue
+            df = self._apply_derive(t, df, r, out)
+            changed.add(lhs)
+            redone.append(lhs)
+        res = self._resolver(t, df, out)
+        for r in self.spec["rules"]:
+            if r["table"] == t and r["type"] == "check" and {n.split(".")[0] for n in names_in(r["expr"])} & changed:
+                bad += int((~check_mask(df, r["expr"], res)).sum())
+        return df, redone, bad
 
     def _apply_derive(self, t, df, rule, out):
         lhs, _ = split_assignment(rule["expr"])

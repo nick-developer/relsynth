@@ -136,6 +136,13 @@ class Extender:
         S = model.synthesizer
         if not getattr(S, "seq", None):
             raise ValueError("the spec has no table with a sequence block; nothing to extend")
+        for t, info in S.seq.items():
+            m = info["model"]
+            if getattr(m, "process", "renewal") != "renewal" or getattr(m, "state_opts", None) is not None:
+                # the forward draw continues the renewal process; a Hawkes history or a
+                # status chain would lose its excitation or its statuses
+                raise ValueError(f"{t}: extend continues renewal sequences only; this model uses "
+                                 f"{'a status chain' if getattr(m, 'state_opts', None) is not None else 'process: hawkes'}")
         self.S = S
         self.user = model.spec
         self.base = {t: df.reset_index(drop=True) for t, df in dict(base).items()}

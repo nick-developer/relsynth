@@ -150,10 +150,10 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
                     [--bundle BUNDLE] [--report REPORT] [--no-privacy] [--no-privacy-check]
                     [--no-write] [--datasets DATASETS] [--mode {draw,mean}]
                     [--pushdown {auto,on,off}] [--seed SEED] [--fail-under SHARE]
-                    [--registry REGISTRY] [--context CONTEXT] [--release-target RELEASE_TARGET]
-                    [--source-id SOURCE_ID] [--key KEY] [--privacy-report PRIVACY_REPORT]
-                    [--assess] [--privacy-config PRIVACY_CONFIG] [--dp] [--epsilon EPSILON]
-                    [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
+                    [--scenario SCENARIO] [--registry REGISTRY] [--context CONTEXT]
+                    [--release-target RELEASE_TARGET] [--source-id SOURCE_ID] [--key KEY]
+                    [--privacy-report PRIVACY_REPORT] [--assess] [--privacy-config PRIVACY_CONFIG]
+                    [--dp] [--epsilon EPSILON] [--dp-unit DP_UNIT] [--dp-measure {copula,mst,aim}]
                     [--dp-statement DP_STATEMENT] [--json]
                     [--log-level {debug,info,warning,error}]
                     spec
@@ -180,6 +180,7 @@ usage: relsynth run [-h] [--set KEY=VALUE] [--settings FILE] [--scale SCALE] [--
 | `--pushdown` auto\|on\|off |  |  | override synthesis.pushdown.mode |
 | `--seed` SEED |  |  | override synthesis.seed |
 | `--fail-under` SHARE |  |  | quality gate: exit 1 when the share of passed checks is below SHARE (0-1) |
+| `--scenario` SCENARIO |  |  | apply this scenario of synthesis.scenarios (docs/scenarios.md) |
 | `--registry` REGISTRY |  |  | record a signed manifest of this run in this registry |
 | `--context` CONTEXT |  |  | intended release context from the organisation policy |
 | `--release-target` RELEASE_TARGET |  |  | intended target id from the context's allowed_targets |
