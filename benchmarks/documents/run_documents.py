@@ -187,6 +187,30 @@ def through_mongo(cols: dict, url: str, db: str) -> tuple[dict, dict]:
     return back, checks
 
 
+#: engine settings whose effect on a failing set's shape metrics the report
+#: records (one synthesis each): which part of the engine moves the metrics
+SENSITIVITY = {
+    "inclusion_multiplicity=none": {"synthesis": {"structure": {"inclusion_multiplicity": "none"}}},
+    "inclusion_fk_levels=false": {"synthesis": {"structure": {"inclusion_fk_levels": False}}},
+    "segment_totals=off": {"synthesis": {"facts": {"segment_totals": "off"}}},
+}
+
+
+def sensitivity(cols: dict, out: Path, seed: int, splits: int) -> dict:
+    """Shape metrics of a failing set with each SENSITIVITY setting changed."""
+    res = {}
+    for label, over in SENSITIVITY.items():
+        try:
+            ds = DocumentSynthesizer(cols, seed=seed, workdir=out / ("sens-" + label.split("=")[0]),
+                                     spec_overrides=json.loads(json.dumps(over)))
+            rep = ds.report(ds.synthesize(), splits=splits, predictive=False)
+            res[label] = {c: {m["metric"]: [round(m["value"], 6), m["pass"]] for m in v["shape"]}
+                          for c, v in rep["collections"].items()}
+        except Exception as e:  # noqa: BLE001 (a diagnostic: the set's verdict stands)
+            res[label] = {"error": f"{type(e).__name__}: {e}"}
+    return res
+
+
 def worst_paths(src: list, syn: list, k: int = 8) -> list:
     """The paths whose presence or type mix differs most between the source and
     the synthetic documents (what the presence and type_mix metrics average)."""
@@ -247,6 +271,7 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
     if not res["pass"]:
         res["draft"]["worst_paths"] = {c: worst_paths(cols[c], syn.get(c, [])) for c in res["collections"]
                                        if res["collections"][c]["fails"]}
+        res["draft"]["sensitivity"] = sensitivity(cols, out / name, seed, splits)
         print(json.dumps(res["draft"], indent=1, default=str))
     return res
 
