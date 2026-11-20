@@ -297,11 +297,12 @@ class Plan:
                 oc = OFFSET_PREFIX + c
                 T["columns"][oc] = {"type": "integer" if cs["type"] in ("date", "integer") else "float",
                                     "nullable": True}
-                s["rules"].append({"table": t, "type": "derive", "expr": f"{c} = add_days({base}, {oc})"
-                                   if unit == "day" else f"{c} = {base} + {oc}"})
+                rule = {"table": t, "type": "derive", "expr": f"{c} = add_days({base}, {oc})"
+                        if unit == "day" else f"{c} = {base} + {oc}"}
+                s["rules"].append(rule)
                 cs.pop("offset_from")
                 self.col_offsets.append({"table": t, "column": c, "base": base, "offset": oc, "unit": unit,
-                                         "type": T["columns"][oc]["type"]})
+                                         "type": T["columns"][oc]["type"], "rule": rule})
 
     def _ratios(self, s):
         for t, T in s["tables"].items():
@@ -475,6 +476,15 @@ class Plan:
                 a = pd.to_numeric(df[o["column"]], errors="coerce").to_numpy(dtype=float)
                 b = pd.to_numeric(df[o["base"]], errors="coerce").to_numpy(dtype=float)
             off = a - b
+            if o["unit"] == "day":
+                # the date stays within its source range: a + gap is capped at the latest
+                # source date (right-censoring at the extract date: a late base leaves little
+                # room), the bound its own marginal kept before it was drawn as an offset;
+                # rows within the range are unchanged
+                hi = float(np.nanmax(a)) if np.isfinite(a).any() else None
+                o["rule"]["expr"] = (f"{o['column']} = add_days({o['base']}, {o['offset']})" if hi is None else
+                                     f"{o['column']} = add_days({o['base']}, minimum({o['offset']}, "
+                                     f"{hi!r} - days({o['base']})))")
             if o["type"] == "integer":
                 off = pd.array(np.where(np.isfinite(off), np.round(off), np.nan), dtype="Float64").astype("Int64")
             df[o["offset"]] = off

@@ -1361,7 +1361,7 @@ claims:
     area: statistics
     quote:
       - "Adding the settings changed no output: their defaults reproduce the earlier engine byte for byte."
-      - "The small-dimension settings of release 2.2 (`marginals.segment_prior_rows`, `privacy.near_copy`) are off by default and keep that output."
+      - "Release 2.2.0 kept that output (its small-dimension settings were off by default); the next release keeps them off and adds `marginals.segment_prior_rows: auto`, segment shrinkage with its strength estimated from the data, which a spec turns on per table."
       - "relsynth autotune separates systematic failures from noise over several seeds"
     status: supported
     evidence:
@@ -1369,7 +1369,7 @@ claims:
       - test: tests/unit/test_runtime.py::test_default_runtime_keeps_the_1_0_sampler
       - test: tests/unit/test_generators.py::test_copula_is_the_default_and_naming_it_changes_nothing
       - test: tests/unit/test_autotune.py::test_systematic_versus_sporadic
-      - test: tests/unit/test_small_dims.py::test_segment_prior_is_wired_and_guard_off_by_default
+      - test: tests/unit/test_small_dims.py::test_segment_prior_off_by_default_and_wired_per_table
       - check: C1720
       - code: tools/identity_check.py
 
@@ -1757,6 +1757,55 @@ claims:
     - report: docs/adr/0011-document-databases.md
     - code: src/relsynth/documents/pipeline.py::DocumentSynthesizer::build_spec
 
+  - id: DOC-18
+    doc: docs/documents.md
+    area: structure
+    quote:
+    - "A set array of string or integer values (no repeats, no nulls; tags of an item) is not a child table"
+    - "a child table draws its elements one by one with replacement and cannot hold a set without repairs"
+    - "The model report records how much the joint model carries"
+    - "a cost bound: the copula's work grows with the square of its columns, so larger"
+    - "When the source never disagrees on the order of two values, a cell is 1 or 0 and a synthetic array lists its values"
+    status: supported
+    evidence:
+    - prop: prop:multihot
+    - check: C1785
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_round_trip_and_length_matching
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_fixed_order_round_trip_is_exact
+    - test: tests/unit/test_g4_fidelity.py::test_multihot_choice_options_and_recorded_dependence
+    - code: src/relsynth/documents/setarrays.py::dependence_gain
+    - code: src/relsynth/documents/shred.py::_multihot_value
+
+  - id: RM-63
+    doc: README.md
+    area: statistics
+    quote: "A date that never precedes another date of its row (an answer's last activity after its creation) is drafted as that date plus a modelled gap, so the order holds by construction and no row is redrawn for it."
+    status: supported
+    evidence:
+    - prop: prop:ordergap
+    - check: C1788
+    - code: src/relsynth/discovery.py::Discovery::col_offsets
+
+  - id: BIN-01
+    doc: docs/settings-reference.md
+    area: privacy-measured
+    quote: "Never copies source bytes; changes only the binary columns (docs/binary.md)."
+    status: supported
+    evidence:
+    - prop: prop:binstream
+    - prop: prop:binrelease
+    - check: C1780
+    - check: C1781
+
+  - id: BIN-02
+    doc: docs/settings-reference.md
+    area: privacy-measured
+    quote: "a binary column's length shared by fewer values is only released as its power-of-two bin."
+    status: supported
+    evidence:
+    - prop: prop:binrelease
+    - check: C1781
+
   - id: RM-40
     doc: README.md
     area: structure
@@ -2103,17 +2152,20 @@ claims:
   - id: PRV-20
     doc: docs/privacy.md
     area: statistics
-    quote: "Two settings deal with this (Props. 1720-1723 in `docs/proofs/sec_g3_smalldims.tex`)."
+    quote: "Three settings and a guard deal with this (Props. 1720-1726 in `docs/proofs/sec_g3_smalldims.tex`)."
     status: supported
     evidence:
       - prop: prop:segshrink
+      - prop: prop:segshape
       - prop: prop:ncguard
+      - prop: prop:segeb
+      - prop: prop:segfloor
       - report: docs/research/small-dimensions.md
 
   - id: PRV-21
     doc: docs/privacy.md
     area: statistics
-    quote: "a segment of `n` rows keeps the share `n / (n + rows)` of its own distribution and takes the rest from the table's (Prop. 1720)"
+    quote: "a segment of `n` rows keeps the share `n / (n + a)` of its own distribution and takes the rest from the prior (Prop. 1720; for a continuous column `n` counts the segment's non-null values, at most `marginals.max_obs`)."
     status: supported
     evidence:
       - prop: prop:segshrink
@@ -2122,11 +2174,13 @@ claims:
   - id: PRV-22
     doc: docs/privacy.md
     area: statistics
-    quote: "the change is at most `rows / (n + rows)` in total variation (Prop. 1721)"
+    quote: "Segments of thousands of rows hardly move: the posterior predictive changes by at most `a / (n + a)` in total variation (Props. 1721 and 1724)."
     status: supported
     evidence:
       - prop: prop:seglarge
+      - prop: prop:segshape
       - check: C1721
+      - check: C1724
 
   - id: PRV-23
     doc: docs/privacy.md
@@ -2195,6 +2249,22 @@ claims:
       - code: src/relsynth/nearcopy.py::NearCopyGuard::encode
       - code: src/relsynth/evaluate.py
 
+  - id: PRV-35
+    doc: docs/privacy.md
+    area: statistics
+    quote:
+      - "With `shape`, only continuous columns (numbers and dates modelled as continuous) are shrunk, and the prior is the parent distribution (the table's, or a coarse group's when the segment has one) moved to the segment's median and scaled to its interquartile range, inside the parent's range"
+      - "With `table`, every column is shrunk toward the table's own distribution; this also moves each segment toward the table and weakens the joins (with 20 rows the fake-data science checks C09, C19 and C43 fail)."
+      - "Shrinkage lowers how often a segment reproduces its own values; it does not rule out exact copies."
+      - "A number fixes the weight instead (the 2.2 behaviour); `0` with no floor gives the 2.1 output."
+    status: supported
+    evidence:
+      - prop: prop:segshape
+      - check: C1724
+      - report: docs/research/small-dimensions.md
+      - code: src/relsynth/marginals.py::Marginal::fit
+      - test: tests/unit/test_small_dims.py::test_zero_rows_gives_the_21_output_in_every_mode
+
   - id: PRV-30
     doc: docs/privacy.md
     area: privacy-formal
@@ -2248,6 +2318,42 @@ claims:
     evidence:
       - test: tests/science/test_small_dims_checks.py::test_c1722_scorecard_marks_a_guarded_table
 
+  - id: PRV-48
+    doc: docs/privacy.md
+    area: statistics
+    quote:
+      - "With `auto` the weight is estimated for each column and each level of the hierarchy from the segments themselves (empirical Bayes, Prop. 1725, `relsynth/shrinkage.py`)"
+      - "Where segments really differ (a product's price decides which facts sell it) the estimate is small and segments keep their own laws; where they do not, they are pooled."
+    status: supported
+    evidence:
+      - prop: prop:segeb
+      - check: C1725
+      - test: tests/unit/test_shrinkage.py::test_concentration_recovers_dp_and_dirichlet
+      - test: tests/unit/test_shrinkage.py::test_nested_reference_removes_the_coarse_effect
+
+  - id: PRV-49
+    doc: docs/privacy.md
+    area: privacy
+    quote:
+      - "a segment of `n` observations (non-null values the fit uses) gets the weight `max(dirichlet_prior, a, floor - n)`, so in the posterior predictive no source row of a segment carries more than `1 / floor` of the segment's own part of a covered column's law, plus at most `1 / N` (the table's or coarse group's `N` rows) through the parent law it is pooled with, and, with the prior held fixed (a fixed `segment_prior_rows`, and in `shape` mode the segment's median and spread unchanged), changing one row moves that law by at most `1 / floor` in total variation (Prop. 1726)."
+      - "It is a policy choice, like `k` in k-anonymity or the minimum cell frequency of a threshold rule in statistical disclosure control (Hundepool et al. 2012), and is never inferred from the data."
+      - "It is not differential privacy: it bounds a predictive law, not the probability of an output, and the segments and the estimate depend on every row."
+    status: supported
+    evidence:
+      - prop: prop:segfloor
+      - check: C1726
+      - test: tests/unit/test_shrinkage.py::test_floor_weight
+
+  - id: PRV-50
+    doc: docs/privacy.md
+    area: statistics
+    quote:
+      - "On AdventureWorks (seed 1) a floor of 20 raised the `DimProduct` distance-to-closest-record ratio from 0.62 to 0.71 for 7 more borderline quality checks"
+      - "the `DimProduct` ratio is 0.62 with `auto` on that table, against 0.50-0.65 at 2.1 and a limit of 0.5, so the margin stays thin on this table."
+    status: supported
+    evidence:
+      - report: docs/research/small-dimensions.md
+
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}
   - {doc: docs/privacy.md, quote: "Viswanath, The composition theorem for differential privacy, ICML 2015.", reason: "bibliography entry"}
@@ -2266,3 +2372,4 @@ not_claims:
   - {doc: docs/agents.md, quote: 'This guide covers what each agent does, the safeguards, the command line, the service, and how accurate the agents are on the four real databases', reason: introduces the guide}
   - {doc: docs/agents.md, quote: 'Review answers. relsynth introspect lists every inference it made from a sample under review:', reason: describes introspect's output format (the review list)}
   - {doc: README.md, quote: '- Agents: drafting and explaining, never deciding', reason: table of contents}
+

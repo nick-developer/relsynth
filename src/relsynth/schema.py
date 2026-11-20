@@ -175,6 +175,13 @@ S = {
         "min_entities": ("int", 30, "Segments with fewer entities use the pooled parameters."),
         "redraws": ("int", 10, "Redraws of an entity whose new times break a check rule; then the engine's times "
                     "are kept."),
+        "calendar": ("auto | pooled | segment", "auto", "One trend and season profile per segment, or one shared "
+                     "by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers "
+                     "it (Prop. 1784); small segments share one."),
+        "calendar_bf": ("number", 100.0, "Bayes factor for one calendar per segment over a shared one that "
+                        "calendar auto requires (100: decisive on Jeffreys' scale, as facts.count_model_bf)."),
+        "calendar_draw": ("bool", False, "Draw the calendar from its posterior for each dataset. Off: the calendar "
+                          "stays at its posterior mean and the life times carry the uncertainty (Prop. 1784)."),
         "process": ("renewal | hawkes", "renewal", "How the events between an entity's first and last event "
                     "arrive: renewal (gamma gaps, bursty to regular) or hawkes (self-exciting clusters: an event "
                     "triggers more events; Bayesian Hawkes process with an exponential kernel)."),
@@ -242,13 +249,14 @@ S = {
         "map": ("map", None, "Lookup values mapped through a fixed table (country -> currency)."),
         "default": ("any", None, "Value for codes outside `map`."),
         "offset_from": ("column", None, "This date/number = that column + a modelled gap (delivery = order + 0..7 "
-                        "days)."),
+                        "days; an answer's last activity = its creation + a gap that is often 0)."),
         "ratio_of": ("column | fk.col", None, "This number = that number x a modelled factor (unit price = list "
                      "price x one of 16 factors)."),
         "ratio_same_as": ("column", None, "Use the factor of another ratio column (unit cost moves with unit "
                           "price)."),
         "text": ("text", None, "Options of a text column."),
         "pii": ("pii", None, "Options of a pii column."),
+        "binary": ("binary", None, "Options of a binary column (content generator, MIME type)."),
         "within": ("column", None, "For type sequence: numbered 1..n within each value of this column."),
         "start": ("int", 1, "For type sequence: first number."),
         "base_column": ("column", None, "For views: the base-table column this view column copies."),
@@ -309,6 +317,14 @@ S = {
     "pii": {
         "generator": ("email | person_name | phone | uuid | pattern", "pattern", "How identifiers are generated."),
         "pattern": ("str", None, "Shape for the pattern generator (learned when absent)."),
+    },
+    "binary": {
+        "generator": ("none | placeholder | random", "synthesis.binary.generator", "Content of the column: NULL, a "
+                      "valid tiny file of the value's MIME type padded to a length drawn from the source's length "
+                      "law (random bytes for a type without a placeholder: PNG, GIF, JPEG and PDF have one), or random bytes "
+                      "of such a length. Source bytes are never copied (docs/binary.md)."),
+        "mime": ("str", "detected", "MIME type of every value (image/png, image/jpeg, image/gif, application/pdf, "
+                 "...) instead of the one read from each value's first bytes."),
     },
     "keyed_lookup": {
         "table": ("table", None, "Reference table (mode copy, no primary key)."),
@@ -445,9 +461,24 @@ SYNTH_DOC = {
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",
     "marginals.segment_prior_rows": "Prior weight, in rows, of an entity table's marginal in each segment's marginal "
-                                    "(hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own "
-                                    "distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens "
-                                    "the link between their segments and the facts.",
+                                    "(hierarchical shrinkage; a segment of n rows keeps n / (n + a) of its own "
+                                    "distribution). auto: a is estimated per column and level of the hierarchy from "
+                                    "how much the segments differ (empirical Bayes, a = (1 - rho) / rho with rho the "
+                                    "intra-segment correlation; Prop. 1725), so segments that really differ keep "
+                                    "their laws; a number fixes a for every column. 0 with segment_floor_rows 0 = off "
+                                    "(2.1 output).",
+    "marginals.segment_floor_rows": "Privacy floor: every segment marginal of an entity table that "
+                                    "segment_prior_mode covers (continuous columns in shape and numeric mode, every "
+                                    "column in table mode) holds at least this many rows of mass, so one source row "
+                                    "carries at most 1 / this of the segment's own part, plus at most 1 / (rows of "
+                                    "the table or coarse group) through the parent law it is pooled with (a segment "
+                                    "of n observations gets a prior weight of at least this - n; Prop. 1726). A "
+                                    "policy choice like k in k-anonymity, never read from the data; 0 = no floor.",
+    "marginals.segment_prior_mode": "What the segment prior shrinks: table (every column toward the parent's "
+                                    "marginal), numeric (continuous columns only: numbers and dates), shape (continuous "
+                                    "columns only, the parent's shape moved to the segment's median and spread, so the "
+                                    "segment keeps its location; with auto, a measures how far the segments' shapes "
+                                    "differ).",
     "marginals.joint_min_cramers_v": "Association that joins two categoricals.",
     "facts.min_group_rows": "Rows below which a block borrows the coarser dimension's marginals.",
     "facts.frailty": "auto | on | off: heavy-tailed rows per parent (gamma frailty).",
@@ -470,6 +501,17 @@ SYNTH_DOC = {
     "structure.beta_prior": "Beta prior of link and occupancy rates.",
     "structure.conditional_inclusion": "auto | none: links never point at excluded parent levels.",
     "structure.inclusion_min_expected": "Expected references needed to call a level excluded (Bayes factor e^n).",
+    "structure.inclusion_fk_levels": "Also test the levels of the parent's own foreign keys with up to inclusion_max_levels values (a "
+                                     "product subcategory never sold online), so links never reach a parent of a "
+                                     "level the source never reaches through them, also one hop further (a product category through the "
+                                     "subcategory key) (G4).",
+    "structure.inclusion_max_levels": "A candidate column with at most this many values is tested level by level "
+                                      "(more: only null against set); performance and readability, not evidence.",
+    "structure.inclusion_multiplicity": "bonferroni: each tested level needs inclusion_min_expected + log(levels "
+                                        "tested for the link) expected references, so the chance of excluding any "
+                                        "level by accident stays at exp(-inclusion_min_expected) however many "
+                                        "levels are tested (Prop. 1786); none: inclusion_min_expected per level "
+                                        "(2.2).",
     "structure.participation": "auto | none: hurdle on the share of parents without children.",
     "uniqueness.mh_sweeps": "Sweeps of the unique-key sampler.",
     "uniqueness.grain": "auto | none: unique keys of two foreign keys become grains.",
@@ -499,7 +541,14 @@ SYNTH_DOC = {
                               "draws change.",
     "runtime.start": "process executor: fork (default on Linux), spawn or forkserver.",
     "runtime.master": "spark executor: the master URL when no Spark session is active (default local[workers]).",
-    "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle.",
+    "privacy.suppress_small_counts": "Counts below this are suppressed in the diagnostics bundle; a binary column's "
+                                     "length shared by fewer values is only released as its power-of-two bin.",
+    "binary.generator": "Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid "
+                        "tiny file of the value's MIME type padded with zero bytes to a length drawn from the "
+                        "source's length law (never longer than the suppress_small_counts-th longest source value), and random bytes for a "
+                        "type without a placeholder (PNG, GIF, JPEG and PDF have one); random writes random bytes "
+                        "of such a length. Never copies source bytes; changes only the binary columns "
+                        "(docs/binary.md).",
     "privacy.near_copy": "auto: redraw entity rows that sit closer to a real row than that row's nearest distinct "
                          "real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. "
                          "A distance rule, not a privacy guarantee (docs/privacy.md).",
@@ -527,8 +576,22 @@ SYNTH_DOC = {
                          "z score of its pair repeats is below this ...",
     "facts.occupancy_min_expected": "... and at least this many repeats are expected under Poisson.",
     "facts.dp_count_sweeps": "Gibbs sweeps of the Dirichlet-process count law's conditional draw.",
+    "facts.segment_totals": "auto: the rows of a link with a count model are spread over the parent segments so "
+                            "that each segment's total follows the sum of its parents' counts (a Metropolis-"
+                            "Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep "
+                            "the source's count law; off: segments drawn from the link's segment weights alone "
+                            "(2.2 draws).",
+    "facts.segment_total_sweeps": "Sweeps (one proposal per row) of the facts.segment_totals kernel.",
+    "facts.dp_count_start": "Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, "
+                            "so rare large counts are reachable; Prop. 1782) or balanced (every count near the "
+                            "mean, 2.2 draws, which can never reach a count above the largest pair sum).",
     "rules.rake_max_levels": "Rule cells: a column with more levels is not raked.",
     "rules.rake_max_cells": "Rule cells: largest joint table raked.",
+    "rules.balance_floor": "auto: a running balance (cumulative rule with an outflow column) that is negative on "
+                           "a share p of its source rows gets the floor 0 when the synthetic running sum would be "
+                           "negative on more than 2 p of rows, i.e. when the floor matches the source's share of "
+                           "negative rows better (Prop. 1787; never negative in the source: always a floor); off: "
+                           "only never-negative balances get the floor (2.2).",
     "repair.pair_tries": "Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped.",
     "repair.constraint_rounds": "Redraw rounds of entity rows that break a check rule or a unique key.",
     "repair.thin_rounds": "Rounds of anchor thinning (participation of facts).",
@@ -569,7 +632,7 @@ INTERNAL = {"relationship": {"composite"}, "fact": {"anchor_key", "partner_key"}
 
 NESTED = {("spec", "source"): "source", ("spec", "target"): "target", ("table", "fact"): "fact",
           ("fact", "header"): "header", ("column", "text"): "text", ("text", "pii"): "text_pii", ("text", "dp"): "text_dp",
-          ("text", "lm"): "text_lm", ("text", "pe"): "text_pe", ("column", "pii"): "pii",
+          ("text", "lm"): "text_lm", ("text", "pe"): "text_pe", ("column", "pii"): "pii", ("column", "binary"): "binary",
           ("column", "distribution"): "distribution", ("table", "scd"): "scd", ("table", "bridge"): "bridge",
           ("table", "generator"): "generator", ("table", "sequence"): "sequence", ("table", "series"): "series",
           ("sequence", "window"): "sequence_window", ("sequence", "states"): "sequence_states"}
@@ -646,7 +709,7 @@ def reference_tables():
               "fact": "`tables.<name>.fact`", "header": "`fact.header`", "dimension": "`tables.<name>.dimensions[]`",
               "column": "`tables.<name>.columns.<name>`", "text": "`columns.<name>.text`",
               "text_pii": "`text.pii`", "text_dp": "`text.dp`", "text_lm": "`text.lm`", "text_pe": "`text.pe`",
-              "pii": "`columns.<name>.pii`", "keyed_lookup": "`columns.<name>.lookup` (keyed)",
+              "pii": "`columns.<name>.pii`", "binary": "`columns.<name>.binary`", "keyed_lookup": "`columns.<name>.lookup` (keyed)",
               "distribution": "`columns.<name>.distribution`", "scd": "`tables.<name>.scd`",
               "bridge": "`tables.<name>.bridge`", "group_effect": "`tables.<name>.group_effects[]`",
               "link_affinity": "`tables.<name>.link_affinity[]`", "unique_where": "`unique[]` (filtered key)",
@@ -657,7 +720,8 @@ def reference_tables():
         out += [f"### {titles.get(kind, kind)}", "", "| Key | Type | Default | Meaning |", "|---|---|---|---|"]
         for k, (ty, df, doc) in keys.items():
             d = "" if df is None else f"`{df}`"
-            out.append(f"| `{k}` | {ty} | {d} | {doc} |")
+            cell = (ty.replace("|", "\\|"), doc.replace("|", "\\|"))
+            out.append(f"| `{k}` | {cell[0]} | {d} | {cell[1]} |")
         out.append("")
     out += ["### `synthesis`", "", "| Key | Default | Meaning |", "|---|---|---|"]
 
@@ -666,7 +730,8 @@ def reference_tables():
             if isinstance(v, dict) and f"{pre}{k}" not in FREE:
                 walk(v, f"{pre}{k}.")
             else:
-                out.append(f"| `{pre}{k}` | `{v}` | {SYNTH_DOC.get(pre + k, '')} |")
+                doc = SYNTH_DOC.get(pre + k, "").replace("|", "\\|")
+                out.append(f"| `{pre}{k}` | `{v}` | {doc} |")
     walk(DEFAULT_SYNTHESIS, "")
     return "\n".join(out) + "\n"
 

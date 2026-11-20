@@ -187,12 +187,143 @@ def through_mongo(cols: dict, url: str, db: str) -> tuple[dict, dict]:
     return back, checks
 
 
+#: engine settings whose effect on a failing set's shape metrics the report
+#: records (one synthesis each): which part of the engine moves the metrics
+SENSITIVITY = {
+    "inclusion_multiplicity=none": {"synthesis": {"structure": {"inclusion_multiplicity": "none"}}},
+    "inclusion_fk_levels=false": {"synthesis": {"structure": {"inclusion_fk_levels": False}}},
+    "segment_totals=off": {"synthesis": {"facts": {"segment_totals": "off"}}},
+    # the drafted rules that tie an element to its holder (which re-draw links)
+    "parent_checks=off": lambda spec: spec.__setitem__(
+        "rules", [r for r in spec.get("rules", []) if "_parent." not in str(r.get("expr", ""))]),
+    "rules=none": lambda spec: spec.__setitem__("rules", []),
+}
+
+
+def sensitivity(cols: dict, out: Path, seed: int, splits: int) -> dict:
+    """Shape metrics of a failing set with each SENSITIVITY setting changed."""
+    res = {}
+    for label, over in SENSITIVITY.items():
+        try:
+            ds = DocumentSynthesizer(cols, seed=seed, workdir=out / ("sens-" + label.split("=")[0]),
+                                     spec_overrides=None if callable(over) else json.loads(json.dumps(over)))
+            if callable(over):
+                over(ds.build_spec())
+            rep = ds.report(ds.synthesize(), splits=splits, predictive=False)
+            res[label] = {c: {m["metric"]: [round(m["value"], 6), m["pass"]] for m in v["shape"]}
+                          for c, v in rep["collections"].items()}
+        except Exception as e:  # noqa: BLE001 (a diagnostic: the set's verdict stands)
+            res[label] = {"error": f"{type(e).__name__}: {e}"}
+    return res
+
+
+def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
+    """The shredded tables of a failing set: rows in the source and from the
+    engine, the elements nesting moved, copied or dropped, and each categorical
+    column whose level shares differ by more than `tol` (aggregates only, with
+    levels of fewer than suppress_small_counts source rows pooled), split by element position for element
+    tables, to tell the engine's laws from the nesting step."""
+    import sqlite3
+
+    import pandas as pd
+    out: dict = {"nest": dict(getattr(ds.layout, "stats", {}) or {}), "tables": {}}
+    k_small = int(((ds.spec or {}).get("synthesis", {}).get("privacy") or {}).get("suppress_small_counts", 5))
+    con = sqlite3.connect(ds.workdir / "shredded.db")
+    try:
+        have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        for t, cs in (ds.spec or {}).get("tables", {}).items():
+            if t not in have:
+                continue
+            try:
+                # t is a table name read from the database itself, quoted as an identifier
+                q = 'SELECT * FROM "' + t.replace('"', '""') + '"'  # noqa: S608  # nosec B608
+                src = pd.read_sql_query(q, con)
+            except Exception as e:  # noqa: BLE001 (a diagnostic: record and go on)
+                out["tables"][t] = {"error": f"{type(e).__name__}: {e}"}
+                continue
+            gen = syn.get(t)
+            row = {"rows": [len(src), None if gen is None else len(gen)], "columns": {}}
+            if gen is not None:
+                for c, d in (cs.get("columns") or {}).items():
+                    if not isinstance(d, dict) or d.get("type") not in ("categorical", "boolean") \
+                            or c not in src or c not in gen:
+                        continue
+                    a = src[c].astype(object).where(src[c].notna(), "<null>").astype(str)
+                    b = gen[c].astype(object).where(gen[c].notna(), "<null>").astype(str)
+                    # levels held by fewer than suppress_small_counts source rows are pooled,
+                    # so a printed level never singles out a few records
+                    vc = a.value_counts()
+                    rare = set(vc.index[vc < k_small])
+                    a = a.where(~a.isin(rare), "<rare>")
+                    b = b.where(~b.isin(rare) & b.isin(set(vc.index)), "<rare>")
+                    pa, pb = a.value_counts(normalize=True), b.value_counts(normalize=True)
+                    ix = pa.index.union(pb.index)
+                    gap = (pb.reindex(ix, fill_value=0) - pa.reindex(ix, fill_value=0))
+                    if gap.abs().max() <= tol:
+                        continue
+                    ent = {"share": {k: [round(float(pa.get(k, 0)), 4), round(float(pb.get(k, 0)), 4)]
+                                     for k in gap.abs().sort_values(ascending=False).index[:8]}}
+                    if "_pos" in src and "_pos" in gen:
+                        top = gap.abs().idxmax()
+                        by = {}
+                        for lab, lo, hi in (("pos0", 0, 0), ("pos1", 1, 1), ("pos2+", 2, 1 << 30)):
+                            ma = pd.to_numeric(src["_pos"], errors="coerce").between(lo, hi)
+                            mb = pd.to_numeric(gen["_pos"], errors="coerce").between(lo, hi)
+                            by[lab] = [*_cell(ma, a == top, k_small), *_cell(mb, b == top, 0)]
+                        ent["by_position"] = {"level": top, "rows_share_src_rows_share_engine": by}
+                    row["columns"][c] = ent
+            out["tables"][t] = row
+    finally:
+        con.close()
+    return out
+
+
+def _cell(rows, hit, k_small: int) -> list:
+    """[rows, share] of one position cell.  A source cell whose rows, holders
+    of the level or rest number fewer than suppress_small_counts is suppressed
+    (rows and share None), so a position held by a few records never reveals
+    their level; the engine's cells (k_small 0) are printed as they are."""
+    n, h = int(rows.sum()), int((hit & rows).sum())
+    if n == 0 or min(n, h, n - h) < k_small:
+        return [None if k_small and n < k_small else n, None]
+    return [n, round(h / n, 4)]
+
+
+def worst_paths(src: list, syn: list, k: int = 8) -> list:
+    """The paths whose presence or type mix differs most between the source and
+    the synthetic documents (what the presence and type_mix metrics average)."""
+    from collections import Counter
+
+    from relsynth.documents.infer import profile_collection
+    from relsynth.documents.metrics import _paths, _state, _tvd
+    A, B = _paths(profile_collection("a", src)), _paths(profile_collection("b", syn))
+    rows = []
+    for p in set(A) | set(B):
+        x, y = A.get(p), B.get(p)
+        ra = x.present / x.n if x is not None and x.n else 0.0
+        rb = y.present / y.n if y is not None and y.n else 0.0
+        sa = _state(x) if x is not None else Counter({"absent": 1})
+        sb = _state(y) if y is not None else Counter({"absent": 1})
+        rows.append({"path": p, "presence": [round(ra, 4), round(rb, 4)], "types": [dict(sa), dict(sb)],
+                     "type_tvd": round(_tvd(sa, sb), 4)})
+    return sorted(rows, key=lambda r: -max(abs(r["presence"][0] - r["presence"][1]), r["type_tvd"]))[:k]
+
+
 def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str | None) -> dict:
     t0 = time.time()
     push = None
     if mongo:
         cols, push = through_mongo(cols, mongo, f"relsynth_{name}")
     ds = DocumentSynthesizer(cols, seed=seed, workdir=out / name / "work", name=name)
+    ds.fit()
+    captured: dict = {}
+    _sample = ds.model.sample
+
+    def _keep(*a, **k):                       # the engine's tables, before nesting (diagnostics)
+        r = _sample(*a, **k)
+        captured.update(r.to_dict())
+        return r
+    ds.model.sample = _keep
     syn = ds.synthesize()
     t1 = time.time()
     rep = ds.report(syn, splits=splits)
@@ -208,6 +339,15 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
         res["collections"][c] = {"valid": v["validity"]["share"], "repairs": v["repairs"],
                                  "metrics": {m["metric"]: [m["value"], m["limit"]] for m in v["shape"]},
                                  "fails": fails}
+    # what the draft decided and what sampling had to do, so a failing set can be
+    # diagnosed from the uploaded report alone (the source data is never uploaded)
+    log_ = getattr(ds.model, "synthesizer", None)
+    log_ = dict(getattr(log_, "sample_log", {}) or {})
+    res["draft"] = {"rules": (ds.spec or {}).get("rules", []),
+                    "review": [x for x in (ds.spec or {}).get("review", [])
+                               if any(k in x for k in ("aggregate", "check", "ASK", "role"))],
+                    "sample_log": {k: log_.get(k) for k in ("rule_violations", "rows_removed_by_rules",
+                                                            "uniqueness", "warnings") if log_.get(k)}}
     res["shape_failures"] = nfail
     res["metrics"] = sum(len(v["shape"]) for v in rep["collections"].values())
     res["pass"] = (all(v["valid"] == 1.0 for v in res["collections"].values())
@@ -215,6 +355,16 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
                    and (push is None or all(all(x.values()) for x in push.values())))
     (out / f"{name}.json").write_text(json.dumps(res, indent=1, default=str))
     print(f"{name}: {'pass' if res['pass'] else 'FAIL'} ({nfail} of {res['metrics']} shape metrics over the limit)")
+    if not res["pass"]:
+        res["draft"]["worst_paths"] = {c: worst_paths(cols[c], syn.get(c, [])) for c in res["collections"]
+                                       if res["collections"][c]["fails"]}
+        try:
+            res["draft"]["tables"] = table_diagnostics(ds, captured)
+        except Exception as e:  # noqa: BLE001 (a diagnostic: the set's verdict stands)
+            res["draft"]["tables"] = {"error": f"{type(e).__name__}: {e}"}
+        res["draft"]["sensitivity"] = sensitivity(cols, out / name, seed, splits)
+        (out / f"{name}.json").write_text(json.dumps(res, indent=1, default=str))
+        print(json.dumps(res["draft"], indent=1, default=str))
     return res
 
 

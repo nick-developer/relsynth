@@ -1343,6 +1343,13 @@ synthesis:
   seed: 7
   scale:
     default: 1.0
+  # DimProduct (606 rows in 24 segments of 6-49 rows) sits near the distance limit at
+  # the 2.1 fit; its segment marginals are shrunk by the empirical-Bayes prior
+  # (docs/privacy.md, Small dimensions).  The other tables keep the default (off).
+  per_table:
+    DimProduct:
+      marginals:
+        segment_prior_rows: auto
 review:
 - 'NOTE: samples of FactFinance (no declared primary or unique key, or very large) use the database''s random order,
   so a second introspect may draft slightly different rules for them'

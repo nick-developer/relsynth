@@ -292,7 +292,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `pii` | direct identifiers | `pii: {generator: email \| person_name \| phone \| uuid \| pattern}` |
 | `lookup` | a value read from a parent or a reference table | `lookup: fk.col` or `{table, match, value}`, `map`, `default` |
 | `sequence` | line numbers | `within`, `start` |
-| `constant`, `binary` | left out of modelling; binary columns are written empty | |
+| `constant` | left out of modelling | |
+| `binary` | images, documents, files: placeholder files by default (or random bytes, or NULL), synthetic content that never copies source bytes ([binary.md](binary.md)) | `binary: {generator: none \| placeholder \| random, mime}` |
 
 ### Expressions
 
