@@ -7,9 +7,12 @@ of CSV or Parquet files (every read is normalised by data.normalise_frame):
 * the catalog: column types, primary keys, foreign keys and unique constraints
   as declared, with composite keys kept together (one entry per constraint);
 * row counts;
-* a uniform random sample of rows per table (ORDER BY the dialect's random
-  function; the whole table when it is small), so that every inference is made
-  on a sample whose error rates are known, not on the first rows in key order;
+* a uniform random sample of rows per table (seeded: through the primary key, or
+  for a table without one by a keyed hash of each row's content, so the same
+  database gives the same sample and the same draft; ORDER BY the dialect's random
+  function only past KEY_SAMPLE_MAX_ROWS; the whole table when it is small), so
+  that every inference is made on a sample whose error rates are known, not on the
+  first rows in key order;
 * the complete values of one column (for inclusion tests and key sets), or of
   several columns read together (composite keys, self-references);
 * every row of chosen groups (cluster samples), for dependencies within groups:
@@ -34,8 +37,9 @@ import pandas as pd
 
 from .data import _LEADING_ZERO, FILE_KINDS, normalise_frame, read_table_file, table_files
 
-# up to this many rows the primary key is read to draw a seeded sample; beyond it the
-# dialect's random order is used (not reproducible, reported in the log)
+# up to this many rows a seeded sample is drawn (through the primary key, or for a table
+# without one through a hash of each row's content); beyond it the dialect's random
+# order is used (not reproducible, reported in the log)
 KEY_SAMPLE_MAX_ROWS = 5_000_000
 LAZY_PARQUET_ROWS = 5_000_000
 LAZY_PARQUET_BYTES = 256 << 20
@@ -44,6 +48,20 @@ BINARY_SQL = r"binary|blob|image|bytea|(^|\W)raw|varbinary|largebinary|_binary"
 
 def is_binary_sqltype(t: str) -> bool:
     return bool(re.search(BINARY_SQL, str(t).lower()))
+
+
+def _mix64(x: np.ndarray) -> np.ndarray:
+    """SplitMix64 finaliser (Steele et al. 2014) on uint64, wrapping: a bijection that
+    spreads (hash, copy) pairs uniformly, so the copies of a duplicated row get
+    independent priorities."""
+    x = np.asarray(x, dtype=np.uint64).copy()
+    with np.errstate(over="ignore"):
+        x ^= x >> np.uint64(30)
+        x *= np.uint64(0xBF58476D1CE4E5B9)
+        x ^= x >> np.uint64(27)
+        x *= np.uint64(0x94D049BB133111EB)
+        x ^= x >> np.uint64(31)
+    return x
 
 
 def _large_parquet(path) -> bool:
@@ -230,6 +248,8 @@ class Source:
             pk = self.meta[t]["pk"] or next(iter(self.meta[t]["uniques"]), None)
             if pk and total <= KEY_SAMPLE_MAX_ROWS:
                 return self._finish(t, self._key_sample(t, pk, n)), False
+            if total <= KEY_SAMPLE_MAX_ROWS:
+                return self._finish(t, self._content_sample(t, n)), False
             q = (q.order_by(self._rnd) if self._rnd is not None else q).limit(n)
             self.unseeded.append(t)
         with self.eng.connect() as con:
@@ -254,6 +274,62 @@ class Source:
         if len(pk) > 1:
             df = df.merge(pick.drop_duplicates(), on=pk, how="inner")
         return df.sort_values(pk, kind="stable").reset_index(drop=True)
+
+    def _row_hashes(self, rows) -> np.ndarray:
+        """64-bit keyed BLAKE2b hashes of whole rows (the repr of the driver's values),
+        so a row's hash depends on its content and the seed only, never on its position."""
+        import hashlib
+        key = f"relsynth-sample-{self.seed}".encode()
+        return np.fromiter((int.from_bytes(hashlib.blake2b(repr(tuple(r)).encode("utf-8", "surrogatepass"),
+                                                           digest_size=8, key=key).digest(), "little")
+                            for r in rows), dtype=np.uint64, count=len(rows))
+
+    def _content_sample(self, t, n, chunk=50_000):
+        """Seeded simple random sample of a table with no key: bottom-n by a keyed hash
+        of each row's content (order sampling with uniform priorities, Rosen 1997; the
+        bottom-k sketch of Cohen and Kaplan 2007).  ORDER BY random() gives another
+        sample on every run, and so another drafted spec; this sample depends only on
+        the table's rows and the seed, not on the order the database returns them in.
+        Identical rows share a content hash, so copy j of a row gets the priority of
+        (hash, j): every row, duplicated or not, has the same chance n / rows of being
+        chosen.  Two streamed passes: the hashes (8 bytes a row), then the chosen rows."""
+        from sqlalchemy import select
+        tbl = self._tables[t]
+        cols = self._cols(t)
+        q = select(*[tbl.c[c] for c in cols])
+
+        def stream():
+            with self.eng.connect() as con:
+                res = con.execution_options(stream_results=True).execute(q)
+                while True:
+                    rows = res.fetchmany(chunk)
+                    if not rows:
+                        return
+                    yield rows
+        h = np.concatenate([self._row_hashes(rows) for rows in stream()] or [np.zeros(0, np.uint64)])
+        order = np.argsort(h, kind="stable")
+        hs = h[order]
+        start = np.r_[0, np.flatnonzero(hs[1:] != hs[:-1]) + 1]
+        rank = np.arange(len(hs)) - np.repeat(start, np.diff(np.r_[start, len(hs)]))
+        pri = _mix64(hs ^ (rank.astype(np.uint64) * np.uint64(0x9E3779B97F4A7C15)))
+        pick = np.argsort(pri, kind="stable")[:n] if n < len(pri) else np.arange(len(pri))
+        need: dict[int, int] = {}
+        for x in hs[pick].tolist():
+            need[x] = need.get(x, 0) + 1
+        prio = {}                                 # hash -> priorities of its chosen copies, in rank order
+        for x, p, _r in sorted(zip(hs[pick].tolist(), pri[pick].tolist(), rank[pick].tolist()), key=lambda z: z[2]):
+            prio.setdefault(x, []).append(p)
+        kept, keys = [], []
+        for rows in stream():
+            for r, x in zip(rows, self._row_hashes(rows).tolist()):
+                left = need.get(x, 0)
+                if left:
+                    need[x] = left - 1
+                    kept.append(tuple(r))
+                    keys.append(prio[x][len(prio[x]) - left])
+        df = pd.DataFrame.from_records([kept[i] for i in np.argsort(np.asarray(keys, dtype=np.uint64), kind="stable")],
+                                       columns=cols) if kept else pd.DataFrame(columns=cols)
+        return df
 
     def column(self, t, c) -> pd.Series:
         """Every value of one column (cached)."""

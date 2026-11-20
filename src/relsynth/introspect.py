@@ -38,11 +38,11 @@ import numpy as np
 import pandas as pd
 
 from .data import canonical_keys, is_stringlike
-from .discovery import Discovery
+from .discovery import Discovery, _step_rng
 from .expr import nameable
 from .profiling import (MIN_ROWS, MIN_SHARE, algebraic_rules, canon, choose_rules, cumulative_rule, decimals,
                         equality, fd_profile, is_dateish, parse_dates, sequence_share, significant)
-from .source import Source
+from .source import KEY_SAMPLE_MAX_ROWS, Source
 
 PII_NAMES = {
     "email": r"e_?mail", "person_name": r"(^|_)(first|last|full|given|family|sur|middle)_?name$|contact_name",
@@ -219,8 +219,7 @@ class _Profiler(Discovery):
         """A random stream keyed by the step and its tables: drafting is stable when
         unrelated tables or columns change (a document layout with more columns, a
         new table), because no step draws from a stream another step advanced."""
-        import zlib
-        return np.random.default_rng([7, zlib.crc32("\x1f".join(map(str, key)).encode())])
+        return _step_rng(*key)
 
     def ask(self, msg):
         self.review.append(msg)
@@ -243,11 +242,10 @@ class _Profiler(Discovery):
                          f"tables.{t}.series, an event history with tables.{t}.sequence (docs/timeseries.md)")
         if src.unseeded and not src.random_order:
             self.ask("NOTE: this database has no random function known to relsynth; samples of "
-                     + ", ".join(src.unseeded) + " (no primary key) are the first rows")
+                     + ", ".join(src.unseeded) + f" (over {KEY_SAMPLE_MAX_ROWS:,} rows) are the first rows")
         elif src.unseeded:
-            self.ask("NOTE: samples of " + ", ".join(src.unseeded) + " (no declared primary or unique key, or "
-                     "very large) use the database's random order, so a second introspect may draft slightly "
-                     "different rules for them")
+            self.ask("NOTE: samples of " + ", ".join(src.unseeded) + f" (over {KEY_SAMPLE_MAX_ROWS:,} rows) use the "
+                     "database's random order, so a second introspect may draft slightly different rules for them")
 
     def full_keys(self, t, c):
         if self.whole[t]:
