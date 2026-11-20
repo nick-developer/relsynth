@@ -41,6 +41,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
   - A table without a primary or unique key (up to 5 million rows) is sampled by a keyed hash of each row's content (bottom-n order sampling) instead of `ORDER BY random()`: the sample depends only on the rows and the seed, not on the order the database returns them in.
   - A ratio column (`ratio_of`) is drafted only when its factor has less entropy than the column itself, so a code column that depends weakly on a parent number is no longer drafted as a ratio on large tables. Each drafting test draws from its own keyed generator, so its outcome does not depend on earlier tests.
   - A composite unique key is drafted only if neither column is unique on its own where both are set (checked on the whole table), so header-and-detail tables no longer get keys that made the engine remove rows.
+  - A column is not linked to a table by a word that most primary-key names share: where every key is called `Id`, `LinkTypeId` (a two-value code) no longer names `Tags` (Stack Exchange drafts linked them, and `PostLinks` then had a few dozen synthetic rows instead of about 600 on some seeds). Such a column is asked about in the review list instead.
   Drafts of tables with a key are unchanged apart from review notes; drafts that relied on the removed ratios or keys change, and so do their synthetic draws.
 
 - Review fixes for the spec-driven rework (G3, G4):

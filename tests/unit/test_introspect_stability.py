@@ -154,3 +154,30 @@ def test_composite_key_must_be_minimal(tmp_path):
     tables = spec.raw["tables"]
     assert ["pid", "status"] not in (tables["detail"].get("unique") or [])     # pid alone is unique where status is set
     assert ["pid", "slot"] in (tables["line"].get("unique") or [])             # a real grain is kept
+
+
+def test_shared_key_word_names_no_table(tmp_path):
+    """Every table's key is called Id: a code column LinkTypeId (values 1 and 3) must
+    not be linked to Tags because both end in 'Id'; an undeclared PostId still is
+    linked to Posts by the table's name (Stack Exchange layout)."""
+    import relsynth as rs
+    rng = np.random.default_rng(0)
+    con = sqlite3.connect(tmp_path / "se.db")
+    con.execute("CREATE TABLE Posts (Id INTEGER PRIMARY KEY, Score INTEGER)")
+    con.execute("CREATE TABLE Users (Id INTEGER PRIMARY KEY, Reputation INTEGER)")
+    con.execute("CREATE TABLE Tags (Id INTEGER PRIMARY KEY, TagName TEXT, ExcerptPostId INTEGER REFERENCES Posts(Id))")
+    con.execute("CREATE TABLE PostLinks (Id INTEGER PRIMARY KEY, PostId INTEGER, RelatedPostId INTEGER "
+                "REFERENCES Posts(Id), LinkTypeId INTEGER)")
+    con.executemany("INSERT INTO Posts VALUES (?, ?)", [(i, int(rng.integers(-2, 30))) for i in range(1, 3001)])
+    con.executemany("INSERT INTO Users VALUES (?, ?)", [(i, int(rng.integers(1, 900))) for i in range(1, 400)])
+    tags = sorted(set(rng.choice(np.arange(4, 260), 100, replace=False).tolist()) | {1, 3})
+    con.executemany("INSERT INTO Tags VALUES (?, ?, ?)", [(t, f"t{t}", int(rng.integers(1, 3001))) for t in tags])
+    con.executemany("INSERT INTO PostLinks VALUES (?, ?, ?, ?)",
+                    [(i, int(rng.integers(1, 3001)), int(rng.integers(1, 3001)), int(rng.choice([1, 3], p=[.8, .2])))
+                     for i in range(1, 623)])
+    con.commit()
+    con.close()
+    rels = rs.introspect(f"sqlite:{tmp_path / 'se.db'}", name="se").raw["relationships"]
+    links = {r["child_key"]: r["parent"] for r in rels if r["child"] == "PostLinks"}
+    assert "LinkTypeId" not in links
+    assert links.get("PostId") == "Posts"
