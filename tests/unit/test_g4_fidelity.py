@@ -224,3 +224,23 @@ def test_inclusion_key_levels_only_for_tables_that_keep_their_keys():
     s.copied = {"sub"}
     s._fit_inclusion(tables)
     assert any(r[0] == "sk" and r[1] is not None for r in s.cind[("sales", "pk")])
+
+
+def test_constant_column_keeps_its_empty_share_and_suppresses_a_rare_value(tmp_path):
+    """A column with one value and empty cells: synthetic rows hold the value with
+    the source's share; a value held by fewer than suppress_small_counts rows (one
+    record's own value) is never written out."""
+    import relsynth as rs
+    n = 400
+    df = pd.DataFrame({"id": range(n), "x": np.random.default_rng(0).normal(size=n),
+                       "half": np.where(np.arange(n) % 2 == 0, "yes", None),
+                       "one": [None] * (n - 1) + ["2017-01-01"]})
+    (tmp_path / "src").mkdir()
+    df.to_csv(tmp_path / "src" / "t.csv", index=False)
+    spec = {"version": 1, "source": {"kind": "csv", "path": str(tmp_path / "src")},
+            "tables": {"t": {"primary_key": "id", "columns": {
+                "id": "id", "x": "float", "half": "constant", "one": "constant"}}},
+            "relationships": [], "synthesis": {"seed": 3}}
+    out = rs.fit(spec).sample()["t"]
+    assert abs(out["half"].notna().mean() - 0.5) < 0.1 and set(out["half"].dropna()) == {"yes"}
+    assert out["one"].isna().all()

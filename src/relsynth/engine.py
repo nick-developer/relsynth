@@ -2583,8 +2583,18 @@ class Synthesizer:
                 elif cs["type"] == "pii":
                     self.pii[(t, c)] = PiiGenerator(cs["pii"], tables[t][c].tolist(), label=_surrogate_label(t, c))
                 elif cs["type"] == "constant":
+                    # one value, held by a share q of the rows (the rest are empty): the
+                    # synthetic rows hold it with probability q.  A value held by fewer than
+                    # privacy.suppress_small_counts rows is one record's own value (a date a
+                    # single post was made community-owned): it is never written out
                     v = tables[t][c].dropna()
-                    self.pii[(t, c)] = ("const", v.iloc[0] if len(v) else None)
+                    k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
+                    q = len(v) / max(len(tables[t]), 1)
+                    if 0 < len(v) < k:
+                        self.log["decisions"].setdefault(t, {})[f"{c} constant"] = (
+                            f"held by {len(v)} rows (< suppress_small_counts {k}): left empty")
+                        v = v.iloc[:0]
+                    self.pii[(t, c)] = ("const", v.iloc[0] if len(v) else None, q)
                 elif cs["type"] == "binary":
                     bo = _binary.column_options(cs, self.cfg)
                     if bo["generator"] != "none" and c in tables[t].columns:
@@ -4762,7 +4772,13 @@ class Synthesizer:
             elif cs["type"] == "pii":
                 df[c] = self.pii[(t, c)].generate(n, rng)
             elif cs["type"] == "constant":
-                df[c] = self.pii[(t, c)][1]
+                val, q = self.pii[(t, c)][1], (self.pii[(t, c)] + (1.0,))[2]
+                if val is None or q >= 1.0:
+                    df[c] = val
+                else:
+                    # own stream (as binary columns): the data stream draws as before
+                    held = _binary.stream(rng, t, c + "\x1fconstant").random(n) < q
+                    df[c] = pd.Series(np.where(held, val, None), index=df.index, dtype=object)
             elif cs["type"] == "binary" and isinstance(self.pii.get((t, c)), _binary.BinaryColumn):
                 # own stream: the data stream (and so every other column) draws as without it
                 df[c] = self.pii[(t, c)].generate(n, _binary.stream(rng, t, c), getattr(self, "_mode", "draw"))
