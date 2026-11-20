@@ -117,9 +117,10 @@ class StateModel:
         d = np.zeros(self.L)
         d[np.arange(self.L) != self.ref] = th[2:]
         la = np.clip(th[0] + np.exp(th[1]) * GH_X, -12, 8)              # nodes
-        a = np.exp(la)[None, :, None] * np.exp(d)[None, None, :]       # 1 x nodes x L shapes
-        D = (C[:, None, :] * a).sum(2)                                # entities x nodes
-        f = gammaln(D) - (C[:, None, :] * gammaln(a)).sum(2) + (a * G[:, None, :]).sum(2) + GH_LW[None, :]
+        a = np.exp(la)[:, None] * np.exp(d)[None, :]                  # nodes x L shapes
+        # sums over the L states as matrix products: memory stays entities x nodes
+        D = C @ a.T                                                   # entities x nodes
+        f = gammaln(D) - C @ gammaln(a).T + G @ a.T + GH_LW[None, :]
         return float(np.sum(logsumexp(f, axis=1)))
 
     def _fit_shapes(self, s, start, n, seg, log_share):

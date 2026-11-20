@@ -241,6 +241,10 @@ def test_validation_errors():
     assert "not in the spec" in errs({"type": "scale", "table": "Nope", "factor": 2})
     assert "change its inputs" in errs({"type": "marginal", "table": "Orders", "column": "Amount", "multiply": 2},
                                        rules=[{"table": "Orders", "type": "derive", "expr": "Amount = 2 * 1"}])
+    assert "is a key" in errs({"type": "marginal", "table": "Line", "column": "OrderKey", "multiply": 2})
+    assert "aggregate rule" in errs({"type": "marginal", "table": "Orders", "column": "Amount", "multiply": 2},
+                                    rules=[{"table": "Orders", "type": "aggregate", "column": "Amount", "agg": "sum",
+                                            "from": "Line", "of": "Qty"}])
     assert "is not one of synthesis.scenarios" in errs({"type": "scale", "table": "Customer", "factor": 2},
                                                        {"scenario": "other"})
 
@@ -306,3 +310,116 @@ def test_marginal_on_the_sequence_time_is_rejected():
         {"type": "marginal", "table": "Orders", "column": "OrderDate", "add": 30}]}}
     with pytest.raises(SpecError, match="sequence time"):
         load_spec(sp)
+
+
+def test_marginal_map_follows_the_rule_redraws():
+    """The map acts after the check-rule redraws: every finished value is mapped
+    (none is replaced by an unmapped redraw), and the rows the scenario pushes past
+    the rule's bound are counted, not redrawn."""
+    tabs = tables(4, n_cust=200)
+    tabs["Orders"]["Amount"] = tabs["Orders"]["Amount"].clip(upper=100)
+    sp = spec(seq=False)
+    sp["rules"] = [{"table": "Orders", "type": "check", "expr": "Amount <= 100"}]
+    sp["synthesis"]["scenarios"]["double"] = {"interventions": [
+        {"type": "marginal", "table": "Orders", "column": "Amount", "multiply": 2}]}
+    S = Synthesizer(load_spec(sp)).fit({k: v.copy() for k, v in tabs.items()})
+    base = S.sample(index=0)
+    d = S.sample(index=0, scenario="double")
+    a, b = base["Orders"]["Amount"].to_numpy(), d["Orders"]["Amount"].to_numpy()
+    assert (a <= 100 + 1e-9).all()
+    assert np.allclose(b, 2 * a)
+    eff = S.sample_log["scenario"]["interventions"][0]["effect"]
+    assert eff["rule_violations"] == int((b > 100).sum()) > 0
+
+
+def test_header_date_intensity_acts_on_the_header():
+    """An intensity window on an order date of a fact split into header and lines
+    tilts the headers (orders), and the lines follow: more orders in the window."""
+    rng = np.random.default_rng(5)
+    cust = pd.DataFrame({"CK": np.arange(1, 301)})
+    no = rng.poisson(4, 300)
+    so = np.arange(1, no.sum() + 1)
+    od = (pd.Timestamp("2020-01-01") + pd.to_timedelta(rng.integers(0, 1095, len(so)), "D")).date
+    nl = rng.integers(1, 4, len(so))
+    line = pd.DataFrame({"SO": np.repeat(so, nl), "CK": np.repeat(np.repeat(cust["CK"], no).to_numpy(), nl),
+                         "OrderDate": np.repeat(od, nl), "Qty": rng.integers(1, 6, nl.sum())})
+    sp = {"version": 1, "tables": {
+        "Cust": {"primary_key": "CK", "columns": {"CK": "id"}},
+        "Line": {"role": "fact", "columns": {"SO": "id", "CK": "id", "OrderDate": "date", "Qty": "integer"},
+                 "fact": {"anchor": "Cust", "header": {"key": "SO", "columns": ["CK", "OrderDate"]}}}},
+        "relationships": [{"child": "Line", "child_key": "CK", "parent": "Cust"}],
+        "synthesis": {"seed": 2, "gibbs": {"iterations": 10, "final_iterations": 5}, "scenarios": {
+            "win": {"interventions": [{"type": "intensity", "table": "Line", "column": "OrderDate",
+                                       "start": "2021-01-01", "end": "2022-01-01", "factor": 2.0}]}}}}
+    S = Synthesizer(load_spec(sp)).fit({"Cust": cust, "Line": line})
+    base, d = S.sample(index=0), S.sample(index=0, scenario="win")
+    lo, hi = to_days(pd.Series(["2021-01-01", "2022-01-01"]))
+
+    def orders(df):
+        o = df.drop_duplicates("SO")
+        x = to_days(o["OrderDate"])
+        assert np.isfinite(x).all()
+        w = (x >= lo) & (x < hi)
+        return w.sum(), (~w).sum()
+    (ib, ob), (id_, od_) = orders(base["Line"]), orders(d["Line"])
+    assert 1.6 < id_ / ib < 2.4 and 0.85 < od_ / ob < 1.15
+
+
+def test_sequence_windows_give_one_combined_gain(fitted):
+    """Two windows on one sequence table: one integrated gain over both (what
+    the sequence model applies), not the product of the separate gains."""
+    from relsynth.scenarios import Scenario
+    S, _, _ = fitted
+    wins = [{"type": "intensity", "table": "Orders", "column": "OrderDate", "start": s_, "end": e_, "factor": 2.0}
+            for s_, e_ in (("2020-01-01", "2020-07-01"), ("2021-01-01", "2021-07-01"))]
+    sc = Scenario(S, "two", {"interventions": wins})
+    m = S.seq["Orders"]["model"]
+    one = [Scenario._seq_gain(m, [w[:3]]) for w in sc.seq_windows["Orders"]]
+    both = Scenario._seq_gain(m, [w[:3] for w in sc.seq_windows["Orders"]])
+    assert [r["effect"]["count_factor"] for r in sc.records] == [round(both, 6)] * 2
+    assert both < one[0] * one[1]
+    assert np.isclose(sc.scale_ent["Orders"], both)
+
+
+def test_partitioned_rows_skip_the_sequence_count_record():
+    from relsynth.scenarios import Scenario
+    sc = object.__new__(Scenario)
+    rec = {"effect": {}}
+    sc.fact_rate, sc.fact_windows = {"F": [(1.3, None), (2.0, rec)]}, {}
+    sc.note_fact_rows("F", 42)
+    assert rec["effect"]["rows"] == 42
+
+
+def test_share_tilts_are_scale_free_and_shares_must_be_allocatable(fitted):
+    S, _, base = fitted
+    keep = S.cfg["scenarios"] if "scenarios" in S.cfg else None
+    S.cfg.setdefault("scenarios", {})
+    try:
+        S.cfg["scenarios"]["small"] = {"interventions": [{"type": "shares", "table": "Customer", "column": "Segment",
+                                                          "factors": {"SMB": 0.001, "Ent": 0.001, "Gov": 0.001}}]}
+        S.cfg["scenarios"]["noroom"] = {"interventions": [{"type": "shares", "table": "Customer", "column": "Segment",
+                                                           "shares": {"SMB": 0.2, "Ent": 0.2, "Gov": 0.2}}]}
+        d = S.sample(index=0, scenario="small")
+        assert len(d["Customer"]) == len(base["Customer"])
+        with pytest.raises(SpecError, match="remaining"):
+            S.sample(index=0, scenario="noroom")
+    finally:
+        S.cfg["scenarios"].pop("small", None)
+        S.cfg["scenarios"].pop("noroom", None)
+        if keep is None and not S.cfg["scenarios"]:
+            S.cfg.pop("scenarios")
+
+
+def test_states_loglik_matrix_form():
+    from scipy.special import gammaln, logsumexp
+
+    from relsynth.timeseries.states import GH_LW, GH_X, StateModel
+    rng = np.random.default_rng(0)
+    m = StateModel()
+    m.L, m.ref = 4, 0
+    C, G, th = rng.poisson(2, (30, 4)).astype(float) + 1, rng.normal(size=(30, 4)), rng.normal(size=5) * 0.3
+    d = np.r_[0.0, th[2:]]
+    a = np.exp(np.clip(th[0] + np.exp(th[1]) * GH_X, -12, 8))[None, :, None] * np.exp(d)[None, None, :]
+    D = (C[:, None, :] * a).sum(2)
+    f = gammaln(D) - (C[:, None, :] * gammaln(a)).sum(2) + (a * G[:, None, :]).sum(2) + GH_LW[None, :]
+    assert np.isclose(m._loglik(th, C, G), float(np.sum(logsumexp(f, axis=1))))

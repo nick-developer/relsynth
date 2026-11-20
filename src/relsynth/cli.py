@@ -271,7 +271,7 @@ def _dp_mode(a, s) -> bool:
 
 
 def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public_facts_only=None, generator=None,
-                     report=None):
+                     report=None, applied=None):
     G = gv["G"]
     rep = None
     if a.privacy_report:
@@ -291,7 +291,8 @@ def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public
     sc = None
     if report is not None:
         sc = {"schema": "relsynth.scorecard/1", "passed": report.passed, "total": report.total, "score": report.score}
-    spec = s.resolved if privacy is not None else res.data.spec
+    # a DP run records the spec it applied (with --scenario), not a fresh copy of the source spec
+    spec = (applied if applied is not None else s.resolved) if privacy is not None else res.data.spec
     seeds = {} if privacy is not None else {"generator": int(spec["synthesis"].get("seed", 0))}
     rr = G.record_run(gv["reg"], spec, dict(res.data), context=a.context, target=a.release_target,
                       operator=gv["key"], source_id=a.source_id, locator=_source_locator(spec),
@@ -421,7 +422,7 @@ def cmd_run_dp(a, out, s, gv):
                                        "delta": dec(summ["delta"], 30)}
         _record_governed(a, out, gv, res, s, privacy=dp.manifest_privacy(res, run_id, note),
                          dp_statement=res.statement, public_facts_only=cfg.spec_is_public,
-                         generator=dp.generator(spec, override), report=rep)
+                         generator=dp.generator(spec, override), report=rep, applied=spec)
     if a.dp_statement:
         Path(a.dp_statement).write_text(json.dumps(res.statement, indent=2), encoding="utf-8")
         out.line(f"DP statement -> {a.dp_statement}")

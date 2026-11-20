@@ -33,11 +33,14 @@ relsynth run spec.yaml --scenario recession --out out/recession
 ```
 
 ```python
-model = relsynth.fit("spec.yaml")
-base = model.sample(dataset=0)
+model = relsynth.fit("spec.yaml")                           # a spec without synthesis.scenario
+base = model.sample(dataset=0)                              # the baseline: no scenario is active
 peak = model.sample(dataset=0, scenario="holiday_peak")     # same posterior draw, scenario applied
 peak.sample_log["scenario"]                                 # every intervention with its effect
 ```
+
+`synthesis.scenario` in the spec applies that scenario to every dataset, so leave it unset (or `null`) when the
+default datasets should be the baseline.
 
 Interventions apply in order. On a fact split into order headers and lines (`fact.header`), an intervention on a
 header column (the order date, the customer key, the sequence) acts on the header, and the lines follow their order. A dataset sampled under a scenario is compared with the real data by the scorecard as
@@ -61,25 +64,32 @@ Every intervention has an optional `note` (free text, kept in the logs).
 independent copies of the fitted count process and thinned with probability `factor / copies`: for the engine's
 Poisson count laws this is exactly the process with the rate multiplied (superposition and thinning). For negative
 binomial or DP count laws the mean is multiplied and the spread changes; an occupancy fact keeps unique pairs, so
-repeated pairs are dropped and its rate rises a little less when pairs saturate. The record gives the rows.
+an occupancy fact without a multiplicity law keeps unique pairs, so repeated pairs are dropped and its rate rises a
+little less when pairs saturate; with a multiplicity law the rows of every copy are kept. The record gives the rows.
 
 **shares** draws rows from the fitted model and accepts each with probability w / max w (rejection sampling). The
 accepted rows follow the model tilted by w, which is the change closest to the model (in Kullback–Leibler divergence)
 with those shares: every other column keeps its law given the tilted column, and each row keeps its segment, so its
-children (a Gov customer's orders) follow it. Target `shares` fill a quota per level with the first rows of that level
+children (a Gov customer's orders) follow it. The acceptance bound is the largest weight among the levels the model draws, so equal factors on every level
+change nothing. Target `shares` that sum to less than 1 need a level not named to take the rest (otherwise the run stops
+with a spec error). They fill a quota per level with the first rows of that level
 drawn from the model. At most 50 rows are drawn per target row; a shortfall is recorded (it only happens for a level
 the model almost never draws, which the scenario should then not ask for).
 
 **marginal** maps the sampled values and then puts them back in the original rank order (monotone rearrangement).
-Ranks, and so the dependence with every other column (the copula), are kept exactly, and the other columns use the same
+Ranks, and so the dependence with every other column (the copula), are kept, and the other columns use the same
 random numbers as the baseline, so the baseline and the scenario differ only in this column. Integer columns are
-rounded. The map is applied to the finished rows of the table, after the near-copy guard and rule redraws, so no row
-escapes it; with the partitioned runtime it is applied once to the joined table, so quantile levels are the whole
-table's. An entity's mapped column is in place before its children are drawn, so children that depend on it follow. On
-a fact, the `derive` rules that read the mapped column are computed again, and the rows that break a check rule reading
+rounded. The weak order is always kept; exact ranks are kept when the map neither merges nor splits values. A factor
+that merges values (`multiply: 0`, or `multiply: 0.1` on an integer column, where rounding turns 1 and 2 into 0) creates
+ties, and the dependence then changes on the tied rows. The map is applied to the finished rows of the table, after the
+near-copy guard and the rule redraws, so no redrawn value escapes it; with the partitioned runtime it is applied once to
+the joined table, so quantile levels are the whole table's. An entity's mapped column is in place before the facts are
+drawn, so facts that depend on it follow; the links of child entities were drawn before it. The `derive` rules that
+read the mapped column are computed again, and the rows that break a check rule reading
 it are counted in the record (`rule_violations`): a scenario may push values past a bound the source respected, and the
 record says how often. A column the engine derives once the rows are complete (`ratio_of`, `offset_from`) is mapped on
-the finished table the same way. A column that a `derive` rule computes is rejected (change the rule's inputs), and so is
+the finished table the same way. A column that a `derive`, `aggregate` or `cumulative` rule computes is rejected (change the rule's inputs), so is a
+primary or foreign key (the links use its values), and so is
 a sequence's time column, which the sequence model draws (use `intensity`).
 
 **intensity** depends on the table:
@@ -90,7 +100,8 @@ a sequence's time column, which the sequence model draws (use `intensity`).
 - an entity table with a date column: its rows are tilted by `w(time)` as for `shares`, and the row count is multiplied
   by the mean of `w` (the integrated change of the rate);
 - a sequence table (`sequence:`): the sequence model's calendar intensity is multiplied on the window and the event
-  count by the integrated change (recorded as `count_factor`); each entity's history keeps its rhythm in operational
+  count by the integrated change (recorded as `count_factor`; several windows on one table give one integrated
+  change over all of them together, since the gains of separate windows do not multiply); each entity's history keeps its rhythm in operational
   time, so more of its events fall in the window;
 - a series table (`series:`): the value columns are multiplied in the window.
 

@@ -23,9 +23,11 @@ $\lambda_i(u)=\mu_i+\eta\beta\sum_{u_{ik}<u}e^{-\beta(u-u_{ik})}$ with $0\le\eta
 -\eta\sum_{j<n_i}\bigl(1-e^{-\beta(u_{in_i}-u_{ij})}\bigr),\qquad
 A_{ij}=e^{-\beta(u_{ij}-u_{i,j-1})}(1+A_{i,j-1}),\ A_{i1}=0,
 \]
-is the log likelihood of the interior events, $\ell_i$ is strictly concave in $\mu_i\ge0$, and its maximiser is the
+is the log likelihood of the interior events. When $n_i>2$ (at least one interior event), $\ell_i$ is strictly
+concave in $\mu_i\ge0$ and its maximiser is the
 unique root of $\sum_j(\mu+\eta\beta A_{ij})^{-1}=S_i$ when the left side at $\mu=0$ exceeds $S_i$, and $0$
-otherwise. Newton steps in $x=\log\mu$ started at $\max(\bar n/S_i-\bar e,\epsilon)$ (with $\bar n$ the number of
+otherwise. When $n_i=2$ the sum is empty, $\ell_i$ is affine with slope $-S_i<0$, and the maximiser is the boundary
+$\mu_i=0$. Newton steps in $x=\log\mu$ started at $\max(\bar n/S_i-\bar e,\epsilon)$ (with $\bar n$ the number of
 terms and $\bar e$ their mean excitation) converge to it.
 \end{proposition}
 \begin{proof}
@@ -33,7 +35,8 @@ The log likelihood of a point process with conditional intensity $\lambda$ obser
 $\sum\log\lambda(u_j)-\int_a^b\lambda$ (Daley and Vere-Jones 2003, Prop.~7.2.III); the integral of the exponential
 kernel of event $k$ over $(u_k,b]$ is $\eta(1-e^{-\beta(b-u_k)})$, and the excitation sum satisfies the recursion
 (Ozaki 1979). In $\mu$, $\ell_i$ is a sum of logarithms of affine functions minus a linear term, so it is strictly
-concave; its derivative $g(\mu)=\sum_j(\mu+e_j)^{-1}-S_i$ is strictly decreasing, so the stationary point is unique
+concave when the sum has at least one term (with none it is the linear term alone, decreasing in $\mu$, so its maximum
+on $\mu\ge0$ is at $0$); its derivative $g(\mu)=\sum_j(\mu+e_j)^{-1}-S_i$ is strictly decreasing, so the stationary point is unique
 when $g(0)>0$ and the constrained maximum is at $0$ otherwise. By Jensen's inequality
 $\sum_j(\mu+e_j)^{-1}\ge\bar n^2/(\bar n\mu+\sum e_j)$, so $g\ge0$ at $\mu=\bar n/S_i-\bar e$: the start is at or below
 the root. $h(x)=\log\sum_j(e^x+e_j)^{-1}-\log S_i$ is decreasing and smooth, and the clipped Newton iteration
@@ -141,13 +144,17 @@ conditional. Segments travel with the rows, so links of children follow the tilt
 \begin{proposition}[Marginal maps keep the copula]\label{prop:simmap}
 Let $T$ be any map applied to the sampled values $x_1,\dots,x_n$ of a column and let $y$ be the monotone rearrangement
 of $T(x)$: the sorted $T(x)$ assigned in the rank order of $x$. Then $y$ has the empirical distribution of $T(x)$ and
-the same ranks as $x$, so the empirical copula of the table is unchanged; when $T$ is increasing, $y=T(x)$.
+the weak order of $x$ ($x_i<x_j\Rightarrow y_i\le y_j$). When $T(x)$ has no ties that $x$ lacks (and $x$ none that
+$T(x)$ lacks), $y$ has the same ranks as $x$, so the empirical copula of the table is unchanged; when $T$ is strictly
+increasing, $y=T(x)$. A map that merges values (a factor $0$, or rounding to integers) introduces ties, and the
+copula then changes on the merged rows.
 \end{proposition}
 \begin{proof}
-By construction $y_{(i)}=T(x)_{(i)}$ with the order of $x$, so the multiset of values is that of $T(x)$ and the ranks
-are those of $x$; the empirical copula is a function of the ranks only (Deheuvels 1979; Sklar's theorem). An
-increasing $T$ keeps the order, so sorting changes nothing. The rearrangement is the $L^p$-closest monotone map to $T$
-(Chernozhukov, Fern\'andez-Val and Galichon 2010).
+By construction $y_{(i)}=T(x)_{(i)}$ with the order of $x$, so the multiset of values is that of $T(x)$, and
+$y$ is non-decreasing in the order of $x$; with no ties added or removed it is strictly increasing on distinct values of
+$x$, so the ranks are those of $x$; the empirical copula is a function of the ranks only (Deheuvels 1979; Sklar's theorem). An
+increasing $T$ keeps the order, so sorting changes nothing. When the intended map is monotone, the rearranged estimate is
+at least as close to it in $L^p$ as $T$ is (Chernozhukov, Fern\'andez-Val and Galichon 2010, Prop.~1).
 \end{proof}
 
 \begin{proposition}[Rates and date windows by superposition and thinning]\label{prop:simrate}

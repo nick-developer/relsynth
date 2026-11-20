@@ -2482,6 +2482,10 @@ class Synthesizer:
             out[f], fact_rows[f] = self._sample_fact(f, zs, keys, sc, out, fact_rows)
             out[f] = self._apply_affinity(f, out[f], out)
             out[f] = self._apply_bridge(f, self._finish(f, out[f], None, out))
+            if getattr(self, "_scen", None) is not None:
+                # marginal maps after the rule redraws of _finish (a partitioned run maps
+                # the joined table at the same point, so ranks are the whole table's)
+                out[f] = self._scen.map_columns(f, out[f], self, out)
             out[f] = self._apply_fact_sequence(f, out, ctx["index"])
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         return self._sample_end(ctx)
@@ -2509,7 +2513,6 @@ class Synthesizer:
         self.redraw(mode, prng)
         self.rng = rng = drng
         self.run_cache = RunCache(mode)
-        self._scen_partitioned = False
         self._mode = mode
         self.posterior_log = {"mode": mode, "dataset": index}
         T = self.spec["tables"]
@@ -2574,8 +2577,6 @@ class Synthesizer:
             if df is None:
                 df = self.tm[e].sample(z, rng)
             df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
-            if scen is not None:
-                df = scen.map_columns(e, df)                 # after the guard's redraws: every row mapped
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
             ko = T[e].get("key_order")
@@ -2629,6 +2630,10 @@ class Synthesizer:
         for t in self.all_order:
             if t in self.E:
                 out[t] = self._finish(t, out[t], zs.get(t), out)
+                if scen is not None:
+                    # marginal maps of the finished rows: after the rule redraws, so no
+                    # redrawn value escapes the map; derives follow, violations counted
+                    out[t] = scen.map_columns(t, out[t], self, out)
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
                     out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
@@ -3720,8 +3725,9 @@ class Synthesizer:
 
     def _scenario_structure(self, f, st, ents, fact_rows, u, v, blk):
         """A scenario that raises a fact's rate superposes K independent draws of
-        its structure; _fact_attributes thins their rows (Prop. 1827).  Pairs of an
-        occupancy fact are unique, so repeated pairs are dropped."""
+        its structure; _fact_attributes thins their rows (Prop. 1827).  An occupancy
+        fact without a multiplicity law has unique pairs, so repeated pairs are dropped;
+        with one, the rows of every copy are kept (multiplicities add)."""
         scen = getattr(self, "_scen", None)
         if scen is None or not scen.has_fact(f):
             return u, v, blk
@@ -3732,7 +3738,10 @@ class Synthesizer:
         u = np.concatenate([np.asarray(p[0], np.int64) for p in parts])
         blk = np.concatenate([np.asarray(p[2], np.int64) for p in parts])
         v = None if parts[0][1] is None else np.concatenate([np.asarray(p[1], np.int64) for p in parts])
-        if v is not None and self.fact_info[f]["rel"].kind == "occ":
+        rel = self.fact_info[f]["rel"]
+        if v is not None and rel.kind == "occ" and getattr(rel, "mult_by", "none") == "none":
+            # unique pairs (no multiplicity law): a pair drawn by several copies is one
+            # row; with a multiplicity law the copies' rows add up, as superposition does
             _, first = np.unique(np.stack([u, v]), axis=1, return_index=True)
             first = np.sort(first)
             u, v, blk = u[first], v[first], blk[first]
@@ -3802,10 +3811,6 @@ class Synthesizer:
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
         df = self._fact_unique(f, df, ents)
-        if scen is not None and not getattr(self, "_scen_partitioned", False):
-            # marginal maps of the finished rows (rule redraws included); a partitioned
-            # run maps the joined table once, so ranks are the whole table's
-            df = scen.map_columns(f, df, self, ents)
         self._given = getattr(self, "_given", {})
         self._given[f] = self._given_frame(f, df, ents)
         return df, self._fact_entity_state(f, df, ents)

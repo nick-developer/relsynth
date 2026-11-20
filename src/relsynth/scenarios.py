@@ -133,8 +133,9 @@ def validate(spec: dict) -> list[str]:
 
 
 def _derived_target(iv, w, rules):
-    """A marginal change of a column that a derive rule computes from others would
-    break the rule (TaxAmt = 0.08 * ExtendedAmount); the scenario changes the inputs."""
+    """A marginal change of a column that a derive, aggregate or cumulative rule
+    computes from others would break the rule (TaxAmt = 0.08 * ExtendedAmount) or be
+    overwritten by it; the scenario changes the inputs."""
     if not isinstance(iv, dict) or iv.get("type") != "marginal":
         return []
     from .expr import split_assignment
@@ -143,6 +144,9 @@ def _derived_target(iv, w, rules):
             lhs = split_assignment(str(r["expr"]))[0]
             if lhs == iv.get("column"):
                 return [f"{w}: {iv['table']}.{lhs} is computed by the rule {r['expr']!r}; change its inputs instead"]
+        if (r.get("type") in ("aggregate", "cumulative") and r.get("table") == iv.get("table")
+                and r.get("column") == iv.get("column")):
+            return [f"{w}: {iv['table']}.{r['column']} is computed by a {r['type']} rule; change its inputs instead"]
     return []
 
 
@@ -191,6 +195,13 @@ def _validate_one(iv, w, T, rels, targets):
         ty = _ctype(cols.get(col))
         if ty not in _NUM + _TIME:
             errs.append(f"{w}: column {col!r} must be a number, date or datetime column of {t}")
+        keys = {tab.get("primary_key")} if isinstance(tab.get("primary_key"), str) else set(tab.get("primary_key") or [])
+        for r in rels:
+            for side, kc in (("child", "child_key"), ("parent", "parent_key")):
+                if r.get(side) == t:
+                    keys |= {r[kc]} if isinstance(r.get(kc), str) else set(r.get(kc) or [])
+        if col in keys:
+            errs.append(f"{w}: {t}.{col} is a key; a marginal map would break the links that use it")
         if tab.get("series"):
             errs.append(f"{w}: series values are changed with intensity")
         sq = tab.get("sequence") or {}
@@ -305,6 +316,21 @@ class Scenario:
                     self.temper_w[(tk, iv["key"])] = (float(iv["concentration"]), rec)
                 if iv.get("rate") is not None:
                     self.fact_rate.setdefault(t, []).append((float(iv["rate"]), rec))
+        self._seq_counts(S)
+
+    def _seq_counts(self, S):
+        """One integrated gain per sequence table, over the combined windows (what
+        tilt_sequence applies), raising its count: the fact's rate or the entity's scale."""
+        for t, wins in self.seq_windows.items():
+            g = self._seq_gain(S.seq[t]["model"], [(a, b, f) for a, b, f, _r in wins])
+            for *_w, rec in wins:
+                rec["effect"]["count_factor"] = round(g, 6)
+                if len(wins) > 1:
+                    rec["effect"]["count_factor_of"] = "all intensity windows of the table together"
+            if S.spec["tables"][t]["role"] == "fact":
+                self.fact_rate.setdefault(t, []).append((g, None))
+            else:
+                self.scale_ent[t] = self.scale_ent.get(t, 1.0) * g
 
     # -------------------------------------------------------- resolution
     @staticmethod
@@ -320,20 +346,16 @@ class Scenario:
     def _split_table(S, t, col):
         """A fact split into header and lines (fact.header) generates the header's
         columns (order date, customer key, sequence) in the internal header table."""
-        if col is None or col in S.spec["tables"][t]["columns"]:
-            return t
-        for f, h in S.plan.headers.items():
-            if f == t and col in S.spec["tables"][h["table"]]["columns"]:
-                return h["table"]
+        h = S.plan.headers.get(t)
+        if col is not None and h is not None and col in S.spec["tables"][h["table"]]["columns"]:
+            return h["table"]       # the fact keeps the moved columns only as lookups
         return t
 
     @staticmethod
     def _column_table(S, t, col):
-        if col in S.spec["tables"][t]["columns"]:
-            return t
-        for f, h in S.plan.headers.items():
-            if f == t and col in S.spec["tables"][h["table"]]["columns"]:
-                return h["table"]
+        tt = Scenario._split_table(S, t, col)
+        if col in S.spec["tables"][tt]["columns"]:
+            return tt
         raise SpecError(f"scenario: {t}.{col} is not a generated column")
 
     @staticmethod
@@ -364,13 +386,9 @@ class Scenario:
             raise SpecError(f"scenario intensity: {iv['table']} has no generated time column {col!r}")
         seq = getattr(S, "seq", {}).get(t)
         if seq is not None and seq["time"] == col:
+            # the count follows from all windows of the table together (_seq_counts):
+            # integrated gains of separate windows do not multiply
             self.seq_windows.setdefault(t, []).append((a, b, f, rec))
-            g = self._seq_gain(seq["model"], [(a, b, f)])
-            rec["effect"]["count_factor"] = round(g, 6)
-            if T["role"] == "fact":
-                self.fact_rate.setdefault(t, []).append((g, None))
-            else:
-                self.scale_ent[t] = self.scale_ent.get(t, 1.0) * g
             return
         if T["role"] == "fact":
             self.fact_windows.setdefault(t, []).append((col, a, b, f, rec))
@@ -415,6 +433,22 @@ class Scenario:
                 w = w * np.where((d >= a) & (d < b), f, 1.0)
         return w
 
+    def _bound(self, e, df):
+        """Product over the tilts of e of each tilt's largest weight on the rows df."""
+        b = 1.0
+        for kind, col, arg, _rec in self.tilt.get(e, []):
+            if not len(df):
+                continue
+            if kind == "level":
+                from .timeseries.hooks import _state_keys
+                b *= max(arg.get(k, 1.0) for k in set(_state_keys(df[col].to_numpy(dtype=object)).tolist()))
+            else:
+                from .timeseries.calendar import to_days
+                d = to_days(df[col])
+                inw = (d >= arg[0]) & (d < arg[1])
+                b *= max([arg[2]] * bool(inw.any()) + [1.0] * bool((~inw).any()))
+        return b
+
     def entity_rows(self, S, e, n0, rng):
         """(z, rows) of entity e under its tilt: rows of the fitted model accepted
         with probability w / max w (Prop. 1825), n0 rows for a level tilt (shares
@@ -436,9 +470,10 @@ class Scenario:
             wb = self._weights(e, db)
             drawn += batch
             if need is None:
-                # an upper bound of w: the product of each tilt's largest factor (at least 1)
-                wmax = float(np.prod([max(1.0, *arg.values()) if k == "level" else max(1.0, arg[2])
-                                      for k, _c, arg, _r in tilts]))
+                # the rejection bound: the product of each tilt's largest weight on the
+                # rows the model draws (levels and window sides it supports), so a common
+                # scaling of the factors leaves the acceptance rate unchanged
+                wmax = self._bound(e, db)
                 mw = float(wb.mean()) if len(wb) else 1.0
                 if window:
                     # the rate changes in the window: E[w] over the window tilts only
@@ -452,6 +487,8 @@ class Scenario:
                 else:
                     need = int(n0)
                 self._eff_mean_w = mw
+            if len(wb) and float(wb.max()) > wmax:
+                wmax = float(wb.max())      # a level too rare for the first batch
             acc = rng.random(len(wb)) * max(wmax, 1e-300) < wb
             got_z.append(zb[acc])
             got_df.append(db[acc])
@@ -480,6 +517,9 @@ class Scenario:
         rest = [k for k in base if k not in shares]
         free = max(1.0 - sum(shares.values()), 0.0)
         tot_rest = sum(base[k] for k in rest)
+        if free > 1e-9 and tot_rest <= 0:
+            raise SpecError(f"scenario shares: {e}.{col} shares sum to {1 - free:.4g}, and no other level the "
+                            f"model draws can take the remaining {free:.4g}; give shares that sum to 1")
         target = dict(shares)
         for k in rest:
             target[k] = free * base[k] / tot_rest if tot_rest > 0 else 0.0
@@ -572,7 +612,8 @@ class Scenario:
         """Rows of fact f after a partitioned run joined its partitions (the workers'
         own records stay in their processes)."""
         for _g, rec in self.fact_rate.get(f, []):
-            rec["effect"]["rows"] = int(n)
+            if rec is not None:             # None: the count factor of sequence windows
+                rec["effect"]["rows"] = int(n)
         for w in self.fact_windows.get(f, []):
             w[-1]["effect"]["rows"] = int(n)
 

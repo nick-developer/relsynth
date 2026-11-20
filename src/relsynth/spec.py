@@ -953,8 +953,8 @@ def _validate_sequences(spec):
         st = sq.get("states")
         if st is not None:
             sc = st if isinstance(st, str) else st.get("column") if isinstance(st, dict) else None
-            if sc is None:
-                errs.append(f"{where}.states must be a column name or {{column, prior}}")
+            if not isinstance(sc, str):
+                errs.append(f"{where}.states must be a column name or {{column: <name>, prior}}")
             elif (cols.get(sc).get("type") if isinstance(cols.get(sc), dict) else cols.get(sc)) not in (
                     "categorical", "boolean", "integer"):
                 errs.append(f"{where}.states {sc} must be a categorical, boolean or integer column of {tname}")

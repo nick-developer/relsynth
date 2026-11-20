@@ -160,8 +160,14 @@ def _measure(iv, base, d):
     if k == "degree":
         res = {"rows_ratio": round(len(d[t]) / max(len(base[t]), 1), 4)}
         key = iv["key"]
-        for name, df in (("gini_base", base[t]), ("gini", d[t])):
-            res[name] = round(_gini(df[key].value_counts().to_numpy()), 4)
+        rel = next((r for r in (getattr(d, "spec", None) or {}).get("relationships", [])
+                    if r.get("child") == t and r.get("child_key") == key), None)
+        for name, ds in (("gini_base", base), ("gini", d)):
+            vc = ds[t][key].value_counts()
+            if rel is not None and isinstance(rel.get("parent_key"), str) and rel["parent"] in ds:
+                # every eligible parent counts, those without rows with degree 0
+                vc = vc.reindex(ds[rel["parent"]][rel["parent_key"]].unique(), fill_value=0)
+            res[name] = round(_gini(vc.to_numpy()), 4)
         return res
     return {}
 
@@ -234,9 +240,9 @@ def main(argv=None):
     if a.what == "processes":
         res = run_processes(a.datasets, a.seeds, a.splits)
     elif a.what == "scenarios":
-        res = run_scenarios(a.datasets, a.seeds[0])
+        res = [r for sd in a.seeds for r in run_scenarios(a.datasets, sd)]
     else:
-        res = run_electricity_scenario(a.seeds[0], a.splits)
+        res = [r for sd in a.seeds for r in run_electricity_scenario(sd, a.splits)]
     if a.out:
         Path(a.out).write_text(json.dumps(res, indent=1, default=float))
 
