@@ -36,6 +36,7 @@ from .scenarios import active as scenario_active
 from .relational import (STRUCT_KAPPA, Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
                          dispersion_alpha, gumbel_argmax, multiplicity_marginal, poisson_dup_test,
                          sparse_dirichlet_draw, tree_depth)
+from .posterior import MeanRNG
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
 from .settings import table_config
 from .table_model import TableModel
@@ -2678,8 +2679,14 @@ class Synthesizer:
                     bo = _binary.column_options(cs, self.cfg)
                     if bo["generator"] != "none" and c in tables[t].columns:
                         k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
-                        self.pii[(t, c)] = _binary.BinaryColumn(bo["generator"], bo["mime"], k).fit(tables[t][c])
-                        self.log["decisions"].setdefault(t, {})[f"{c} binary"] = self.pii[(t, c)].info
+                        bcol = _binary.BinaryColumn(bo["generator"], bo["mime"], k).fit(tables[t][c])
+                        self.pii[(t, c)] = bcol
+                        self.log["decisions"].setdefault(t, {})[f"{c} binary"] = bcol.info
+                        # null share and cell shares: drawn once per dataset (every partition
+                        # uses them), from a stream keyed by the parameter stream's state, so
+                        # the other parameter blocks draw as without the column
+                        self._register(lambda r, col=bcol, t=t, c=c: col.draw_params(
+                            _binary.stream(r, t, c + "\x1fparams"), isinstance(r, MeanRNG)))
                 elif cs["type"] == "id" and c != ts.get("primary_key") and c in tables[t].columns:
                     # natural keys and codes ('0101001', 'BK-M68B-38'): new values of the
                     # source's shapes, unique; integers without leading zeros stay 1..n
@@ -5064,7 +5071,7 @@ class Synthesizer:
                 if r["column"] in cols or r["column"] not in df.columns or \
                         not ({n.split(".")[0] for n in names_in(str(r.get("step", "")))} & changed):
                     continue
-                df = cumulative_apply(df, r, self._resolver(t, df, out))
+                df = self._cumulative(t, df, r, out)    # keeps the run's floor choice
                 changed.add(r["column"])
                 redone.append(r["column"])
                 continue

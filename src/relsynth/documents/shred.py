@@ -348,14 +348,14 @@ def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = No
     # child-table path would type as personal data, free text or identifiers (an
     # array of e-mail addresses or names) stay a child table, where those types are
     # generated rather than copied
+    if opts["multihot"] == "auto" and len(vocab) > int(opts["multihot_max_columns"]):
+        if info is not None:
+            info["multihot_choice"] = {"multihot": False, "values": len(vocab), "reason": "multihot_max_columns"}
+        return None
     kind = _element_kind(name, f.item_counts, vocab)
     if kind is not None:
         if info is not None:
             info["multihot_choice"] = {"multihot": False, "values": len(vocab), "reason": f"elements typed {kind}"}
-        return None
-    if opts["multihot"] == "auto" and len(vocab) > int(opts["multihot_max_columns"]):
-        if info is not None:
-            info["multihot_choice"] = {"multihot": False, "values": len(vocab), "reason": "multihot_max_columns"}
         return None
     if info is not None:
         # recorded for the model report: how strongly the elements depend on each other
@@ -387,10 +387,17 @@ def _element_kind(name: str, counts, vocab: list) -> str | None:
 
 def _multihot_clash(tl: TableLayout, path, cname: str, k: int, siblings) -> bool:
     """Whether a multi-hot column name (or the length column) of the array at
-    `path` is already a column of the holder or a sibling field's column."""
+    `path` is already a column of the holder or a sibling field's column, or may
+    be one of a sibling's flattened descendants: a sibling ``a`` of the field
+    ``a__b`` flattens its sub-fields to ``a__...``, the namespace the indicators
+    ``a__b__h0`` live in, whether or not it has been walked yet (a child table
+    is kept then)."""
     names = {f"{cname}{SEP}h{i}" for i in range(k)} | {cname + SEP + "n"}
     taken = {c.name for c in tl.columns} | {_col(list(path[:-1]) + [s]) for s in siblings}
-    return bool(names & taken)
+    if names & taken:
+        return True
+    field = str(path[-1]) if path else ""
+    return any(s != field and (field + SEP).startswith(str(s) + SEP) for s in siblings)
 
 
 def _length_column(tl: TableLayout, f: Node, path, cname) -> str:

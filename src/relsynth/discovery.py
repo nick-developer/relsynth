@@ -538,6 +538,8 @@ class Discovery:
                  for c in dts}
             cand = {}
             for a, b in itertools.permutations(dts, 2):
+                if not (nameable(a) and nameable(b)):
+                    continue                 # b = add_days(a, gap) must be expressible
                 m = np.isfinite(d[a]) & np.isfinite(d[b])
                 if m.sum() < MIN_ROWS:
                     continue

@@ -467,10 +467,13 @@ SYNTH_DOC = {
                                     "intra-segment correlation; Prop. 1725), so segments that really differ keep "
                                     "their laws; a number fixes a for every column. 0 with segment_floor_rows 0 = off "
                                     "(2.1 output).",
-    "marginals.segment_floor_rows": "Privacy floor: every segment marginal of an entity table holds at least this "
-                                    "many rows of mass, so one source row carries at most 1 / this of it (a segment "
-                                    "of n rows gets a prior weight of at least this - n; Prop. 1726). A policy "
-                                    "choice like k in k-anonymity, never read from the data; 0 = no floor.",
+    "marginals.segment_floor_rows": "Privacy floor: every segment marginal of an entity table that "
+                                    "segment_prior_mode covers (continuous columns in shape and numeric mode, every "
+                                    "column in table mode) holds at least this many rows of mass, so one source row "
+                                    "carries at most 1 / this of the segment's own part, plus at most 1 / (rows of "
+                                    "the table or coarse group) through the parent law it is pooled with (a segment "
+                                    "of n observations gets a prior weight of at least this - n; Prop. 1726). A "
+                                    "policy choice like k in k-anonymity, never read from the data; 0 = no floor.",
     "marginals.segment_prior_mode": "What the segment prior shrinks: table (every column toward the parent's "
                                     "marginal), numeric (continuous columns only: numbers and dates), shape (continuous "
                                     "columns only, the parent's shape moved to the segment's median and spread, so the "
@@ -542,8 +545,10 @@ SYNTH_DOC = {
                                      "length shared by fewer values is only released as its power-of-two bin.",
     "binary.generator": "Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid "
                         "tiny file of the value's MIME type padded with zero bytes to a length drawn from the "
-                        "source's length law; random writes random bytes of such a length. Never copies source "
-                        "bytes; changes only the binary columns (docs/binary.md).",
+                        "source's length law (never longer than the longest source value), and random bytes for a "
+                        "type without a placeholder (PNG, GIF, JPEG and PDF have one); random writes random bytes "
+                        "of such a length. Never copies source bytes; changes only the binary columns "
+                        "(docs/binary.md).",
     "privacy.near_copy": "auto: redraw entity rows that sit closer to a real row than that row's nearest distinct "
                          "real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. "
                          "A distance rule, not a privacy guarantee (docs/privacy.md).",

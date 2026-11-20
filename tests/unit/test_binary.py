@@ -187,3 +187,27 @@ def test_binary_round_trips_through_sqlite_and_csv_targets(shop_db, tmp_path):
     with sqlite3.connect(tmp_path / "o.db") as con:
         n = con.execute("select count(*) from product where typeof(photo) = 'blob'").fetchone()[0]
     assert n == int(dict(data)["product"]["photo"].notna().sum())
+
+
+def test_drawn_lengths_never_pass_the_longest_source_value():
+    """Six lengths of 90-95 bytes, each held once, fall into the bin [64, 128):
+    the drawn lengths stay at most 95, so a varbinary(100) target takes them."""
+    vals = [b"\x00" * n for n in range(90, 96)] * 1
+    col = BinaryColumn("random", k=5).fit(vals)
+    assert col.cells == [(OCTET, "bin", 7)]
+    out = col.generate(4000, np.random.default_rng(3))
+    lens = {len(v) for v in out if v is not None}
+    assert max(lens) <= 95 and min(lens) >= 64
+
+
+def test_dataset_parameters_are_shared_by_every_partition():
+    """draw_params fixes the null share and cell shares of a dataset: values drawn
+    from different partition streams use the same parameters."""
+    col = BinaryColumn("placeholder").fit(_blobs())
+    col.draw_params(np.random.default_rng(1))
+    p = col.params
+    a = col.generate(20000, np.random.default_rng(10))
+    b = col.generate(20000, np.random.default_rng(11))
+    assert col.params is p
+    na, nb = np.mean([v is None for v in a]), np.mean([v is None for v in b])
+    assert abs(na - p[0]) < 0.01 and abs(nb - p[0]) < 0.01

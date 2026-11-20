@@ -132,6 +132,8 @@ class BinaryColumn:
         self.n_null = self.n = 0
         self.cells: list[tuple[str, str, int]] = []      # (mime, "len" | "bin", length or bin)
         self.counts = np.zeros(0)
+        self.max_len = 0
+        self.params: tuple[float, np.ndarray] | None = None   # (null share, cell shares) of the dataset
 
     def fit(self, values) -> BinaryColumn:
         s = pd.Series(list(values), dtype=object)
@@ -144,6 +146,9 @@ class BinaryColumn:
         mc = pd.Series(mimes).value_counts()
         mimes = [m if (self.mime or mc[m] >= self.k) else OCTET for m in mimes]
         L = np.array([lens[i] for i in keep], dtype=np.int64)
+        # every source value fits the column's declared length, so no drawn length
+        # passes the longest source value (a varbinary(100) target takes them all)
+        self.max_len = int(np.max(L))
         lc = pd.Series(list(zip(mimes, L))).value_counts()
         cells: dict = {}
         for m, n in zip(mimes, L):
@@ -163,16 +168,29 @@ class BinaryColumn:
         return (f"binary ({self.generator}): {', '.join(types)}; {exact} repeated length(s) kept, "
                 f"{len(self.cells) - exact} power-of-two length bin(s); null share {self.n_null / (self.n + self.n_null):.3f}")
 
+    def draw_params(self, rng, mean: bool = False) -> None:
+        """The dataset's null share and cell shares, drawn once from their posterior
+        (posterior means when mean): every partition of the dataset uses them."""
+        a0, b0 = self.n_null + 0.5, self.n + 0.5
+        alpha = self.counts + 0.5
+        if mean:
+            self.params = (a0 / (a0 + b0), alpha / alpha.sum())
+        else:
+            self.params = (float(rng.beta(a0, b0)), rng.dirichlet(alpha) if len(alpha) else alpha)
+
     def generate(self, n: int, rng: np.random.Generator, mode: str = "draw") -> list:
-        """n values (bytes or None)."""
+        """n values (bytes or None), with the dataset's parameters (draw_params);
+        without them (a column used on its own) they are drawn here."""
         if self.generator == "none" or n == 0:
             return [None] * n
-        a0, b0 = self.n_null + 0.5, self.n + 0.5
-        p_null = rng.beta(a0, b0) if mode == "draw" else a0 / (a0 + b0)
+        if self.params is None:
+            keep = self.params
+            self.draw_params(rng, mode != "draw")
+            (p_null, w), self.params = self.params, keep   # type: ignore[misc]
+        else:
+            p_null, w = self.params
         if not self.n:
             return [None] * n
-        alpha = self.counts + 0.5
-        w = rng.dirichlet(alpha) if mode == "draw" else alpha / alpha.sum()
         is_null = rng.random(n) < p_null
         cell = rng.choice(len(self.cells), size=n, p=w)
         u = rng.random(n)
@@ -185,7 +203,7 @@ class BinaryColumn:
                 length = 0
             else:            # log-uniform in [2^(v-1), 2^v)
                 lo = 1 << (v - 1)
-                length = min(int(lo * 2.0 ** u[i]), (lo << 1) - 1)
+                length = min(int(lo * 2.0 ** u[i]), (lo << 1) - 1, self.max_len)
             out[i] = self._content(m, length, rng)
         return out
 

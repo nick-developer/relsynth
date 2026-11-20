@@ -269,14 +269,24 @@ def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
                         for lab, lo, hi in (("pos0", 0, 0), ("pos1", 1, 1), ("pos2+", 2, 1 << 30)):
                             ma = pd.to_numeric(src["_pos"], errors="coerce").between(lo, hi)
                             mb = pd.to_numeric(gen["_pos"], errors="coerce").between(lo, hi)
-                            by[lab] = [int(ma.sum()), round(float((a[ma] == top).mean()), 4) if ma.any() else None,
-                                       int(mb.sum()), round(float((b[mb] == top).mean()), 4) if mb.any() else None]
+                            by[lab] = [*_cell(ma, a == top, k_small), *_cell(mb, b == top, 0)]
                         ent["by_position"] = {"level": top, "rows_share_src_rows_share_engine": by}
                     row["columns"][c] = ent
             out["tables"][t] = row
     finally:
         con.close()
     return out
+
+
+def _cell(rows, hit, k_small: int) -> list:
+    """[rows, share] of one position cell.  A source cell whose rows, holders
+    of the level or rest number fewer than suppress_small_counts is suppressed
+    (rows and share None), so a position held by a few records never reveals
+    their level; the engine's cells (k_small 0) are printed as they are."""
+    n, h = int(rows.sum()), int((hit & rows).sum())
+    if n == 0 or min(n, h, n - h) < k_small:
+        return [None if k_small and n < k_small else n, None]
+    return [n, round(h / n, 4)]
 
 
 def worst_paths(src: list, syn: list, k: int = 8) -> list:

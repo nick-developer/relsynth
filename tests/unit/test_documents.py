@@ -389,10 +389,15 @@ def test_stored_counts_keep_the_modelled_length():
              {"table": root, "type": "aggregate", "column": "AnswerCount", "agg": "count", "from": child},
              {"table": root, "type": "aggregate", "column": "Total", "agg": "sum", "of": "Score", "from": child},
              {"table": root, "type": "check", "expr": f"{length} <= 5"}]
-    out = _counts_as_lengths(lay, rules, lens)
+    out = _counts_as_lengths(lay, [r for r in rules if r.get("agg") != "sum"], lens)
     assert {"table": root, "type": "derive", "expr": f"AnswerCount = {length}"} in out
     assert not any(r.get("expr", "").startswith(f"{length} =") for r in out)
-    assert rules[2] in out and rules[3] in out and len(out) == 3
+    assert rules[3] in out and len(out) == 2
+    # a sum over the elements keeps the drawn elements (no length matching): the
+    # stored count stays the aggregate, so it equals the elements nested, and the
+    # derive about the unused length column is left out
+    out = _counts_as_lengths(lay, rules, lens)
+    assert rules[1] in out and rules[2] in out and rules[3] in out and len(out) == 3
     # a derive of the length drafted alone is reversed, not lost
     alone = _counts_as_lengths(lay, [rules[0]], lens)
     assert alone == [{"table": root, "type": "derive", "expr": f"AnswerCount = {length}"}]

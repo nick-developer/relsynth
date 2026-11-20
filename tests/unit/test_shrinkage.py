@@ -103,3 +103,25 @@ def test_floor_weight():
     for n in range(0, 40):
         a = floor_weight(n, 0.25, 20.0)
         assert 1.0 / (n + a) <= 1.0 / 20.0 + 1e-12  # one row carries at most 1 / floor
+
+
+def test_floor_counts_the_observations_the_fit_uses():
+    """Prop. 1726: the floor is computed from the non-null values (at most max_obs)
+    that Marginal.fit uses, not from the segment's rows, so observations plus
+    prior weight reach the floor; a floor that does not bind keeps the 2.1
+    options (no shape shift)."""
+    from types import SimpleNamespace
+
+    from relsynth.generators.copula import SegmentMarginals
+    gen = SegmentMarginals()
+    cont = SimpleNamespace(kind="continuous")
+    kw = {"dirichlet_a": 0.25, "max_obs": 50}
+    every = (lambda cd: True)
+    x = np.r_[np.arange(10.0), np.full(10, np.nan)]          # 20 rows, 10 values
+    out = gen._seg_kw(kw, cont, 0.0, x, (0.0, 20.0), "shape", every)
+    assert 10 + out["dirichlet_a"] >= 20 and out["shift_prior"] is True
+    big = np.arange(80.0)                                     # 80 values, the fit keeps 50
+    out = gen._seg_kw(kw, cont, 0.0, big, (0.0, 70.0), "shape", every)
+    assert 50 + out["dirichlet_a"] >= 70
+    out = gen._seg_kw(kw, cont, 0.0, np.arange(30.0), (0.0, 20.0), "shape", every)
+    assert out is kw                                          # the floor does not bind

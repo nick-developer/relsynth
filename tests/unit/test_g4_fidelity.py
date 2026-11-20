@@ -241,9 +241,20 @@ def test_constant_column_keeps_its_empty_share_and_suppresses_a_rare_value(tmp_p
             "tables": {"t": {"primary_key": "id", "columns": {
                 "id": "id", "x": "float", "half": "constant", "one": "constant"}}},
             "relationships": [], "synthesis": {"seed": 3}}
-    out = rs.fit(spec).sample()["t"]
+    syn = rs.fit(spec)
+    out = syn.sample()["t"]
     assert abs(out["half"].notna().mean() - 0.5) < 0.1 and set(out["half"].dropna()) == {"yes"}
     assert out["one"].isna().all()
+    # the standalone replica reads the exported share too
+    from relsynth import replica
+    from relsynth.export import posterior_draws, structure
+    model = syn.synthesizer
+    S, _ = structure(model)
+    assert S["constant_shares"]["t"]["half"] == pytest.approx(0.5, abs=0.01)
+    mean, D = posterior_draws(model, 1)
+    rep = replica.generate({"structure": S, "mean": mean, "draws": D}, "mean", 7)["t"]
+    assert abs(rep["half"].notna().mean() - S["constant_shares"]["t"]["half"]) < 0.1
+    assert set(rep["half"].dropna()) == {"yes"}
 
 
 def test_a_date_drawn_as_an_offset_stays_within_its_source_range(tmp_path):

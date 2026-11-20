@@ -2335,7 +2335,7 @@ claims:
     doc: docs/privacy.md
     area: privacy
     quote:
-      - "a segment of `n` rows gets the weight `max(dirichlet_prior, a, floor - n)`, so in the posterior predictive no source row of a segment carries more than `1 / floor` of a covered column's law, and changing one row moves that law by at most `1 / floor` in total variation (Prop. 1726)."
+      - "a segment of `n` observations (non-null values the fit uses) gets the weight `max(dirichlet_prior, a, floor - n)`, so in the posterior predictive no source row of a segment carries more than `1 / floor` of the segment's own part of a covered column's law, plus at most `1 / N` (the table's or coarse group's `N` rows) through the parent law it is pooled with, and, with the prior held fixed (a fixed `segment_prior_rows`, and in `shape` mode the segment's median and spread unchanged), changing one row moves that law by at most `1 / floor` in total variation (Prop. 1726)."
       - "It is a policy choice, like `k` in k-anonymity or the minimum cell frequency of a threshold rule in statistical disclosure control (Hundepool et al. 2012), and is never inferred from the data."
       - "It is not differential privacy: it bounds a predictive law, not the probability of an output, and the segments and the estimate depend on every row."
     status: supported

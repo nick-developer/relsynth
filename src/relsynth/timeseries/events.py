@@ -484,13 +484,13 @@ class SequenceModel:
         self.fit_log["pooled"] = {"theta": dict(zip(NAMES, np.round(th0, 4).tolist())), "converged": ok0,
                                   "entities": pooled.n_entities}
         sd = np.full(NPAR, self.shrinkage)
-        # calendar auto and pooled by the Bayes factor: the segments do not differ in
-        # when their events happen, so their life times and gaps are pooled too (their
-        # own fits on a few dozen entities overfit; Prop. 1784)
-        share = self.calendar == "auto" and bool(getattr(self.intensity, "pooled", False))
+        # the calendar test (Prop. 1784) compares only when events happen in the
+        # year, not how long entities live or how far apart their events are, so
+        # life times and gaps keep their own pooling rule: a segment below
+        # min_entities takes the pooled fit
         for k in range(self.K):
             m = st["seg"] == k
-            if share or m.sum() < self.min_entities:
+            if m.sum() < self.min_entities:
                 self.theta_hat[k], self.theta_cov[k] = th0, cov0
                 self.life[k] = _Lifetime().fit(pooled.n, pooled.h, pooled.q)
                 self.fit_log["segments"][k] = {"entities": int(m.sum()), "pooled": True}

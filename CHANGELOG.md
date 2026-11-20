@@ -36,6 +36,23 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Fixed
 
+- Review fixes for the spec-driven rework (G3, G4):
+  - The segment privacy floor counts the observations the fit uses (non-null values, at most `max_obs`), not
+    the segment's rows, so a segment with empty cells holds the floor too. A floor that does not bind leaves
+    the segment's fit as without it (no shape shift). The documented bound now names the parent law's share
+    (at most `1 / N` a row) and the fixed prior that the total-variation statement needs (Prop. 1726).
+  - Binary columns draw their null share and type and length shares once per dataset, shared by every
+    partition, and never draw a length past the longest source value, so values fit the declared length.
+  - A scenario that recomputes a running balance keeps the run's automatic floor choice.
+  - Event sequences pool life times and gaps only for segments below `min_entities`; a pooled calendar no
+    longer pools them.
+  - Ordered-date offsets are drafted only between columns the rule language can name.
+  - Documents: a stored element count stays an aggregate when another aggregate keeps the drawn elements, so
+    it always equals the nested elements; a set array whose indicators could collide with a sibling's
+    flattened sub-fields stays a child table; the width limit is checked before the element values are typed.
+  - The standalone replica (`replicate.py`) writes a constant column with its exported share of filled rows.
+  - The document benchmark's diagnostic suppresses position cells held by fewer than
+    `privacy.suppress_small_counts` source rows.
 - Drawing the same dataset twice in one process gives the same data. `model.sample(dataset=i)` used to depend on
   the datasets drawn before it in the process (AdventureWorks FactInternetSales 59,697 rows, then 54,778): the
   occupancy and block models' parameter draw is one Gibbs scan, and it started from the activity indicators and

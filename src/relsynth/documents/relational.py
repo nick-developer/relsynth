@@ -247,18 +247,30 @@ def _counts_as_lengths(lay: Layout, rules: list, lens: set) -> list:
             col = lay.shapes.get(tl.parent, {}).get(".".join(tl.holder), {}).get("length_col")
             if col:
                 length_of[(tl.parent, tname)] = col
+    # an element table that another aggregate (a sum of the answers' scores) reads
+    # keeps the elements the engine drew for each holder (spec_for turns its length
+    # matching off), so the number of elements follows the count law, not the
+    # length column: a stored count of it stays the aggregate, and a derive about
+    # the unused length column is left out, so the count equals the elements nested
+    def _counted(r) -> bool:
+        return (r.get("type") == "aggregate" and r.get("agg") == "count" and not r.get("of")
+                and (r.get("table"), r.get("from")) in length_of
+                and (r.get("via") is None or str(r["via"]).startswith(f"{r['from']}.{PARENT}->")))
+    unmatched = {r.get("from") for r in rules if r.get("type") == "aggregate" and not _counted(r)}
+    free_len = {(p, c) for (p, t), c in length_of.items() if t in unmatched}
     out, have = [], set()
     for r in rules:
         if r.get("type") == "derive" and isinstance(r.get("expr"), str) and "=" in r["expr"]:
             lhs, rhs = (x.strip() for x in r["expr"].split("=", 1))
+            if (r.get("table"), lhs) in free_len:
+                continue
             if (r.get("table"), lhs) in lens:
                 # the length stays as modelled; a stored count equal to it is derived from it
                 if not rhs.isidentifier() or (r.get("table"), rhs) in lens:
                     continue
                 r = {"table": r["table"], "type": "derive", "expr": f"{rhs} = {lhs}"}
-        col = length_of.get((r.get("table"), r.get("from")))
-        if (r.get("type") == "aggregate" and r.get("agg") == "count" and col and not r.get("of")
-                and (r.get("via") is None or str(r["via"]).startswith(f"{r['from']}.{PARENT}->"))):
+        if _counted(r) and r.get("from") not in unmatched:
+            col = length_of[(r["table"], r["from"])]
             r = {"table": r["table"], "type": "derive", "expr": f"{r['column']} = {col}"}
         key = (r.get("table"), r.get("expr")) if r.get("type") == "derive" else None
         if key is not None and key in have:

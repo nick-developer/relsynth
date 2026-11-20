@@ -56,7 +56,7 @@ class SegmentMarginals(TableGenerator):
                     continue
                 idx = cg == c
                 self.coarse_m[c] = [Marginal.fit(cd, x[idx], rng, prior=gm, min_rows=min_rows,
-                                                 **self._seg_kw(kw, cd, a_c[j], int(idx.sum()), seg, mode, covered))
+                                                 **self._seg_kw(kw, cd, a_c[j], x[idx], seg, mode, covered))
                                     for j, (cd, x, gm) in enumerate(zip(d.codecs, d.X, self.global_m))]
             ref = cg
         else:
@@ -67,7 +67,7 @@ class SegmentMarginals(TableGenerator):
             prior = self.coarse_m.get(parent.get(g, -1), self.global_m)
             self.group_n[g] = int(idx.sum())
             self.group_m[g] = [Marginal.fit(cd, x[idx], rng, prior=pm, min_rows=min_rows,
-                                            **self._seg_kw(kw, cd, a_g[j], self.group_n[g], seg, mode, covered))
+                                            **self._seg_kw(kw, cd, a_g[j], x[idx], seg, mode, covered))
                                for j, (cd, x, pm) in enumerate(zip(d.codecs, d.X, prior))]
 
     def _segment_prior(self):
@@ -117,14 +117,25 @@ class SegmentMarginals(TableGenerator):
         self.shrinkage[level] = info
         return out
 
-    def _seg_kw(self, kw, cd, a_col, n_rows, seg, mode, covered):
-        """Marginal.fit options of one column of one group: the prior weight
-        max(dirichlet_prior, a, floor - n) (Prop. 1726) on the columns the mode
-        covers, the 2.1 options on the others."""
+    def _seg_kw(self, kw, cd, a_col, x, seg, mode, covered):
+        """Marginal.fit options of one column of one group (codes x): the prior
+        weight max(dirichlet_prior, a, floor - n) (Prop. 1726) on the columns the
+        mode covers, the 2.1 options on the others.  n counts the observations
+        Marginal.fit uses (non-null values, at most max_obs for a continuous
+        column), so the floor holds on the mixture that is actually fitted.  A
+        segment whose weight neither the fixed prior nor the floor raises keeps
+        the 2.1 options, shape mode included (Prop. 1726 (b))."""
         if not covered(cd):
             return kw
         from ..shrinkage import floor_weight
-        a = max(float(kw["dirichlet_a"]), floor_weight(n_rows, a_col, seg[1]))
+        x = np.asarray(x)
+        if cd.kind == "discrete":
+            n_obs = int((x >= 0).sum())
+        else:
+            n_obs = min(int((~np.isnan(x)).sum()), int(kw.get("max_obs", 20000)))
+        a = max(float(kw["dirichlet_a"]), floor_weight(n_obs, a_col, seg[1]))
+        if a <= float(kw["dirichlet_a"]):
+            return kw
         out = {**kw, "dirichlet_a": a}
         if mode != "table":
             out["shift_prior"] = mode == "shape"
