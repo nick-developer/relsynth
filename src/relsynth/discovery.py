@@ -40,10 +40,12 @@ import numpy as np
 import pandas as pd
 
 from .data import canonical_keys
-from .expr import names_in
+from .expr import nameable, names_in
 from .profiling import MIN_ROWS, MIN_SHARE, canon, decimals, is_dateish, significant
 
 CATLIKE = ("categorical", "integer", "boolean", "id")
+# rows read at most (by the sample's group sizes) when a rule is tested on complete groups of a large table
+GROUP_ROWS = 1_000_000
 
 
 def _lit(v):
@@ -165,6 +167,29 @@ class Discovery:
     def _through(pr, pos, c):
         return np.where(pos >= 0, pr[c].to_numpy(dtype=object)[np.maximum(pos, 0)], None)
 
+    def group_rows(self, t, col, keys):
+        """Every row of t whose col is one of keys (complete groups, keys drawn from the
+        sample).  For a table larger than its sample the keys are kept in the order drawn
+        while the rows the sample's group sizes predict stay under GROUP_ROWS (at least
+        one key): 60 of TPC-DS's 102 stores are 17 million store_sales rows."""
+        df = self.df[t]
+        if self.whole[t]:
+            return df[df[col].isin(keys)]
+        return self.src.rows_in(t, col, self.group_keys(t, col, keys))
+
+    def group_keys(self, t, col, keys):
+        """The keys group_rows reads: all of them for a table read whole; otherwise those
+        drawn first while the rows the sample predicts stay under GROUP_ROWS."""
+        if self.whole[t]:
+            return keys
+        df = self.df[t]
+        keys = list(keys)
+        scale = self.counts.get(t, len(df)) / max(len(df), 1)
+        est = df[col].value_counts().reindex(keys).fillna(1).to_numpy(dtype=float) * scale
+        if est.sum() > GROUP_ROWS:
+            keys = keys[:max(1, int(np.searchsorted(np.cumsum(est), GROUP_ROWS, side="right")))]
+        return keys
+
     def _ctype(self, t, c):
         return self.cols.get(t, {}).get(c, {}).get("type")
 
@@ -208,9 +233,14 @@ class Discovery:
                 if n * (n - 1) / (2 * space) >= 10:
                     # the sample only screens: unique and non-null on every row
                     if not self.whole[t]:
-                        full = self.src.columns(t, list(combo))
-                        if full.isna().any().any() or full.duplicated().any():
-                            continue
+                        big = getattr(self.src, "nulls_and_repeats", lambda *_: None)(t, list(combo))
+                        if big is not None:              # a large Parquet table: counted by DuckDB
+                            if big[0] or big[1]:
+                                continue
+                        else:
+                            full = self.src.columns(t, list(combo))
+                            if full.isna().any().any() or full.duplicated().any():
+                                continue
                     return list(combo)
         return None
 
@@ -442,7 +472,7 @@ class Discovery:
                 if found or not cands or df[k].nunique() < MIN_ROWS:
                     continue
                 ks = self.rng.choice(df[k].dropna().unique(), size=min(self.n_groups, df[k].nunique()), replace=False)
-                grp = df[df[k].isin(ks)] if self.whole[t] else self.src.rows_in(t, k, list(ks))
+                grp = self.group_rows(t, k, ks)
                 kk = canonical_keys(grp[k]).astype(str)
                 for c in cands:
                     v = pd.to_numeric(grp[c], errors="coerce")
@@ -475,7 +505,7 @@ class Discovery:
                     continue
                 df = self.df[t]
                 ks = self.rng.choice(df[k].dropna().unique(), size=min(self.n_groups, df[k].nunique()), replace=False)
-                grp = df[df[k].isin(ks)] if self.whole[t] else self.src.rows_in(t, k, list(ks))
+                grp = self.group_rows(t, k, ks)
                 v = pd.to_numeric(grp[c], errors="coerce")
                 if v.isna().any():
                     continue
@@ -601,6 +631,8 @@ class Discovery:
                 if best is None:
                     continue
                 share, x, unit, d, chance = best
+                if not (nameable(x) and nameable(y)):
+                    continue
                 fn_name = "years_between" if unit == "years" else "months_between"
                 rule = {"table": t, "type": "derive", "expr": f"{y} = {fn_name}({x}, '{d:%Y-%m-%d}')"}
                 if share < MIN_SHARE:
@@ -785,7 +817,7 @@ class Discovery:
                        if r.get("table") == t and r.get("type") == "derive"}
             usable = [c for c, cs in self.cols[t].items() if c not in keys and c not in derived
                       and cs["type"] in ("categorical", "integer", "boolean") and not cs.get("offset_from")
-                      and df[c].nunique() >= 2]
+                      and df[c].nunique() >= 2 and nameable(c)]   # the anchor is checked by a rule
             levels = {c: df[c].nunique() for c in usable}
             codes = {c: canon(df[c]) for c in usable}
             det = {}
@@ -1253,7 +1285,8 @@ class Discovery:
                 {r["expr"].split("=")[0].strip() for r in self.rules if r.get("table") == t and r.get("type") == "derive"}
             ords = {}
             for c, cs in self.cols[t].items():
-                if c in keys or c in skip or cs["type"] not in ("integer", "float", "date", "datetime"):
+                if c in keys or c in skip or cs["type"] not in ("integer", "float", "date", "datetime") \
+                        or not nameable(c):
                     continue
                 isd = cs["type"] in ("date", "datetime")
                 v = pd.to_numeric(pd.Series(canon(df[c], as_date=isd)), errors="coerce").to_numpy(dtype=float)
@@ -1288,10 +1321,12 @@ class Discovery:
             dates = [c for c, cs in self.cols[t].items() if cs["type"] in ("date", "datetime") and c not in offs]
             # (a) dates inside a parent's date window
             for d in dates:
+                if not nameable(d):
+                    continue
                 dv = pd.to_numeric(pd.Series(canon(df[d], as_date=True)), errors="coerce").to_numpy(dtype=float)
                 for fk, (r, pr, pos) in hops.items():
                     for pc in pr.columns:
-                        if self._ctype(r["parent"], pc) not in ("date", "datetime"):
+                        if self._ctype(r["parent"], pc) not in ("date", "datetime") or not (nameable(fk) and nameable(pc)):
                             continue
                         pv = pd.to_numeric(pd.Series(canon(self._through(pr, pos, pc), as_date=True)),
                                            errors="coerce").to_numpy(dtype=float)
@@ -1316,19 +1351,20 @@ class Discovery:
             # (b) equalities with one exception member
             cols = {}
             for c, cs in self.cols[t].items():
-                if c in keys or cs["type"] in ("float", "text", "pii", "binary", "constant", "lookup") \
+                if c in keys or not nameable(c) or cs["type"] in ("float", "text", "pii", "binary", "constant", "lookup") \
                         or (cs["type"] == "lookup" and not is_dateish(df[c])):
                     continue
                 cols[c] = (None, canon(df[c], as_date=is_dateish(df[c])), cs["type"] in ("date", "datetime"))
             for fk, (r, pr, pos) in hops.items():
                 for pc in pr.columns:
                     pt = self._ctype(r["parent"], pc)
-                    if pc == self.pks.get(r["parent"]) or pt in ("float", "text", "pii", "binary", "constant", None):
+                    if pc == self.pks.get(r["parent"]) or pt in ("float", "text", "pii", "binary", "constant", None) \
+                            or not (nameable(fk) and nameable(pc)):
                         continue
                     v = self._through(pr, pos, pc)
                     isd = pt in ("date", "datetime")
                     cols[f"{fk}.{pc}"] = (fk, canon(v, as_date=isd), isd)
-            exc_fks = [fk for fk, (r, _, _) in hops.items() if r["parent"] in self.copy]
+            exc_fks = [fk for fk, (r, _, _) in hops.items() if r["parent"] in self.copy and nameable(fk)]
             done_pairs = set()
             names = list(cols)
             # integer codes over one dictionary of every column's values: equal values

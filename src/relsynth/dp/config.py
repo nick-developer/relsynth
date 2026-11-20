@@ -15,6 +15,7 @@
           max_degree: {Invoice: auto, InvoiceLine: 30}
           spec_is_public: true           # the spec was written from public facts only
           measure: aim                   # copula (default) | mst | aim: two-way marginals in stage 1
+          pushdown: auto                 # auto (default) | on | off: stage 1 inside the source database
 
 relsynth ships no default epsilon: a DP run without `epsilon` or `rho` is
 refused.  Inside an organisation with a policy, the ledger may refuse it
@@ -28,8 +29,10 @@ from ..errors import PrivacyError
 
 KEYS = {"enabled", "unit", "epsilon", "delta", "rho", "public_tables", "public", "max_degree", "degree_quantile",
         "split", "bins", "clip", "max_parent_attrs", "drop_columns", "spec_is_public", "levels_delta_share",
-        "max_degree_range", "degree_fallback", "measure", "max_pair_cells", "select_share", "aim_rounds", "pair_bins"}
+        "max_degree_range", "degree_fallback", "measure", "max_pair_cells", "select_share", "aim_rounds", "pair_bins",
+        "pushdown"}
 MEASURES = ("copula", "mst", "aim")
+PUSHDOWN = ("auto", "on", "off")
 SPLIT = {"discovery": 0.15, "degrees": 0.2, "marginals": 0.35, "correlations": 0.3}
 
 
@@ -57,6 +60,7 @@ class DPConfig:
     select_share: float = 0.5         # mst: share of the pairs budget spent on choosing the tree
     pair_bins: int = 8                # mst/aim: cells per coordinate in a two-way marginal (null included)
     aim_rounds: int | None = None     # aim: planned rounds (default 16 x nodes); annealing may use fewer
+    pushdown: str = "auto"            # stage 1 in the source database: auto (when it has SQL) | on | off (G2)
     units: list = field(default_factory=list)   # every privacy unit (unit is the first); each gets rho and delta
     unit_rho: dict = field(default_factory=dict)      # unit -> its own rho, when set per unit (rho is the largest)
     unit_epsilon: dict = field(default_factory=dict)  # unit -> its own epsilon, when epsilon is set per unit
@@ -157,6 +161,10 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
         raise PrivacyError("synthesis.privacy.dp.max_pair_cells: at least 4")
     if int(raw.get("pair_bins", 8)) < 3:
         raise PrivacyError("synthesis.privacy.dp.pair_bins: at least 3 (the null cell and two more)")
+    pushdown = raw.get("pushdown", "auto")
+    pushdown = {True: "on", False: "off"}.get(pushdown, pushdown) if isinstance(pushdown, bool) else str(pushdown)
+    if pushdown not in PUSHDOWN:
+        raise PrivacyError(f"synthesis.privacy.dp.pushdown: one of {list(PUSHDOWN)}")
     pt = raw.get("public_tables", [])
     if pt != "all_unowned" and not isinstance(pt, list):
         raise PrivacyError("synthesis.privacy.dp.public_tables: a list of tables, or all_unowned")
@@ -171,4 +179,4 @@ def parse(spec: dict, override: dict | None = None) -> DPConfig:
                     select_share=float(raw.get("select_share", 0.5)),
                     pair_bins=int(raw.get("pair_bins", 8)),
                     aim_rounds=int(raw["aim_rounds"]) if raw.get("aim_rounds") else None, units=units,
-                    unit_rho=unit_rho, unit_epsilon=unit_eps)
+                    unit_rho=unit_rho, unit_epsilon=unit_eps, pushdown=pushdown)
