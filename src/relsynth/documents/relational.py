@@ -148,6 +148,13 @@ def spec_for(lay: Layout, db_path, *, name: str = "documents", seed: int = 7, sa
                 cols[c.name] = {"type": "categorical"}
             elif c.role == "multihot" and c.name in cols:
                 cols[c.name] = {"type": "integer", "min": 0} | ({} if c.hot_pos else {"max": 1})
+        # a value column of a path with a tag: the tag says where the value is, so the
+        # column's empty cells are the tag's other states, not a share of its own
+        tagged = {tuple(c.path) for c in tl.columns if c.role == "tag"}
+        for c in tl.columns:
+            if c.role == "typed" and tuple(c.path) in tagged and isinstance(cols.get(c.name), dict) \
+                    and cols[c.name].get("type") == "constant":
+                cols[c.name]["nullable"] = False
         if tl.kind != "root":
             t.pop("mode", None)
             if lay.children(tname):

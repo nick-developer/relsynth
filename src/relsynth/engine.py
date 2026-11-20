@@ -2589,7 +2589,8 @@ class Synthesizer:
                     # single post was made community-owned): it is never written out
                     v = tables[t][c].dropna()
                     k = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
-                    q = len(v) / max(len(tables[t]), 1)
+                    # nullable: false (a document value whose presence a tag decides): every row
+                    q = len(v) / max(len(tables[t]), 1) if cs.get("nullable", True) else 1.0
                     if 0 < len(v) < k:
                         self.log["decisions"].setdefault(t, {})[f"{c} constant"] = (
                             f"held by {len(v)} rows (< suppress_small_counts {k}): left empty")
