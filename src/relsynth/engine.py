@@ -2532,10 +2532,11 @@ class Synthesizer:
         without it each call gives the next dataset.  relsynth.runtime runs the
         same steps with the facts split into partitions (sample_partitioned).
         scenario: the name of a scenario of synthesis.scenarios to apply
-        (relsynth.scenarios; default synthesis.scenario)."""
+        (relsynth.scenarios; default synthesis.scenario), or False for none (the
+        baseline, also when the spec names a scenario)."""
         if scenario is not None:
             keep = self.cfg.get("scenario")
-            self.cfg["scenario"] = scenario
+            self.cfg["scenario"] = None if scenario is False else scenario
             try:
                 return self.sample(scale, index)
             finally:
@@ -2556,6 +2557,7 @@ class Synthesizer:
                 # marginal maps after the rule redraws of _finish (a partitioned run maps
                 # the joined table at the same point, so ranks are the whole table's)
                 out[f] = self._scen.map_columns(f, out[f], self, out)
+                self._scen.note_fact_rows(f, len(out[f]))
             out[f] = self._apply_fact_sequence(f, out, ctx["index"])
             say(f"sample: fact {f}: {len(out[f]):,} rows")
         return self._sample_end(ctx)
@@ -3882,8 +3884,9 @@ class Synthesizer:
         scen = getattr(self, "_scen", None)
         df = self._refill(f, st, df, ents)
         if scen is not None and scen.has_fact(f):
-            # thinned after the rule redraws, so a redrawn date cannot escape the window tilt
-            df = scen.thin_fact(f, df, self.rng)
+            # thinned after the rule redraws, so a redrawn date cannot escape the window tilt;
+            # mandatory participation (every anchor has a row) is kept
+            df = scen.thin_fact(f, df, self.rng, min_one=bool(info.get("min_one") or info.get("occ_min_one")))
             self._sequences(f, df)                  # line numbers stay 1..n after thinning
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)

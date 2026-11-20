@@ -354,7 +354,7 @@ checks) as JSON, Markdown, PDF and a standalone Python sampler.
 #### `FittedModel.sample`
 
 ```python
-sample(self, scale: float | dict | None = None, dataset: int | None = None, scenario: str | None = None) -> SyntheticData
+sample(self, scale: float | dict | None = None, dataset: int | None = None, scenario: str | bool | None = None) -> SyntheticData
 ```
 
 One synthetic database.  dataset numbers independent posterior draws
@@ -362,7 +362,7 @@ One synthetic database.  dataset numbers independent posterior draws
 number for every entity, {table: factor} for some, or the spec's section
 {"default": x, "tables": {name: y}}); scenario names a scenario of
 synthesis.scenarios to apply (docs/scenarios.md; default: the spec's
-synthesis.scenario).
+synthesis.scenario; False: none, the baseline).
 
 #### `FittedModel.summary`
 
@@ -557,7 +557,7 @@ model_summary(self)
 #### `Synthesizer.redraw`
 
 ```python
-redraw(self, mode='draw', rng=None)
+redraw(self, mode='draw', rng=None, index=None)
 ```
 
 One posterior draw (posterior means in mean mode) of every parameter
@@ -567,6 +567,7 @@ profiles, extra-dimension laws, refined segment weights and rake targets.
 A dataset sampled after it is a draw from the posterior predictive
 distribution (Rubin 1993); the per-call draws of the samplers (count-law
 and tail weights) are fixed for the run as well (see posterior.py).
+index numbers the dataset (see _restore_fit_state); None is dataset 0.
 
 #### `Synthesizer.sample`
 
@@ -580,4 +581,5 @@ the rows from its data stream.  index numbers the datasets (0, 1, ...);
 without it each call gives the next dataset.  relsynth.runtime runs the
 same steps with the facts split into partitions (sample_partitioned).
 scenario: the name of a scenario of synthesis.scenarios to apply
-(relsynth.scenarios; default synthesis.scenario).
+(relsynth.scenarios; default synthesis.scenario), or False for none (the
+baseline, also when the spec names a scenario).

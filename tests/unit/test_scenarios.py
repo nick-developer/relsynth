@@ -480,3 +480,30 @@ def test_raised_rate_on_unique_pairs_is_refused():
     S.fact_info["F"]["rel"].mult_by = "block"
     uu, vv, _b = S._scenario_structure("F", {}, {}, {}, u, v, np.zeros(3, np.int64))
     assert len(uu) == 6                                        # multiplicities add
+
+
+def test_thinning_keeps_mandatory_participation():
+    from relsynth.scenarios import _keep_one_per_anchor
+    rng = np.random.default_rng(0)
+    anchor = np.repeat(np.arange(500), 3)
+    p = np.full(len(anchor), 0.2)
+    keep = rng.random(len(anchor)) < p
+    k2 = _keep_one_per_anchor(anchor, keep, p, rng)
+    assert (k2 >= keep).all()
+    assert (np.bincount(anchor[k2], minlength=500) >= 1).all()
+    assert (k2 & ~keep).sum() == (np.bincount(anchor[keep], minlength=500) == 0).sum()   # one row added each
+
+
+def test_scenario_false_gives_the_baseline_and_shares_with_a_window_is_refused(fitted):
+    S, _, base = fitted
+    keep = S.cfg.get("scenario")
+    S.cfg["scenario"] = "grow"
+    try:
+        frames_equal(base, S.sample(index=0, scenario=False))
+    finally:
+        S.cfg["scenario"] = keep
+    from relsynth.scenarios import Scenario
+    with pytest.raises(SpecError, match="target shares"):
+        Scenario(S, "x", {"interventions": [
+            {"type": "shares", "table": "Customer", "column": "Segment", "shares": {"Gov": 0.4}},
+            {"type": "shares", "table": "Customer", "column": "Tier", "factors": {"a": 2.0}}]})

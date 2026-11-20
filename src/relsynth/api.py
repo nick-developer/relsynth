@@ -418,13 +418,13 @@ class FittedModel:
         return self.synthesizer.model_summary()
 
     def sample(self, scale: float | dict | None = None, dataset: int | None = None,
-               scenario: str | None = None) -> SyntheticData:
+               scenario: str | bool | None = None) -> SyntheticData:
         """One synthetic database.  dataset numbers independent posterior draws
         (0, 1, ...; default: the next one); scale multiplies the entity sizes (a
         number for every entity, {table: factor} for some, or the spec's section
         {"default": x, "tables": {name: y}}); scenario names a scenario of
         synthesis.scenarios to apply (docs/scenarios.md; default: the spec's
-        synthesis.scenario)."""
+        synthesis.scenario; False: none, the baseline)."""
         from .data import coerce
         if dataset is None:
             dataset, self._next = self._next, self._next + 1

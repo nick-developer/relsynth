@@ -317,6 +317,11 @@ class Scenario:
                 if iv.get("rate") is not None:
                     self.fact_rate.setdefault(t, []).append((float(iv["rate"]), rec))
         self._seq_counts(S)
+        both = sorted(set(self.target) & set(self.tilt))
+        if both:
+            # target shares fix the table's rows exactly, so no other tilt can act on them
+            raise SpecError(f"scenario {name}: {', '.join(both)} has target shares; they cannot be combined with "
+                            "another tilt of the table (factors or a date window)")
 
     def _seq_counts(self, S):
         """One integrated gain per sequence table, over the combined windows (what
@@ -491,7 +496,10 @@ class Scenario:
                     need = int(n0)
                 self._eff_mean_w = mw
             if len(wb) and float(wb.max()) > wmax:
-                wmax = float(wb.max())      # a level not named and too rare for the first batch
+                # a level not named and too rare for the first batch: the rows accepted
+                # under the smaller bound are discarded, so every kept row has the same law
+                wmax = float(wb.max())
+                got_z, got_df = [], []
             acc = rng.random(len(wb)) * max(wmax, 1e-300) < wb
             got_z.append(zb[acc])
             got_df.append(db[acc])
@@ -601,8 +609,8 @@ class Scenario:
             if S is not None and todo:
                 df, redone, bad = S._after_map(t, df, [c for c, _i, _r in todo], out)
                 for _c, _i, rec in todo:
-                    rec["effect"]["recomputed"] = redone
-                    rec["effect"]["rule_violations"] = bad
+                    rec["effect"]["recomputed"] = sorted(set(rec["effect"].get("recomputed", [])) | set(redone))
+                    rec["effect"]["rule_violations"] = int(rec["effect"].get("rule_violations", 0)) + bad
                 out[t] = df
         for t, maps in self.maps.items():
             for col, _iv, rec in maps:
@@ -629,9 +637,11 @@ class Scenario:
         wmax = float(np.prod([max(fac, 1.0) for _col, _a, _b, fac, _r in self.fact_windows.get(f, [])]))
         return max(1, int(np.ceil(c * wmax - 1e-12))), c
 
-    def thin_fact(self, f, df, rng):
+    def thin_fact(self, f, df, rng, min_one=False):
         """Keep each row of K superposed draws with probability c w(t) / K
-        (Prop. 1827).  Returns the kept rows."""
+        (Prop. 1827).  With mandatory participation (min_one: every anchor has at
+        least one row) an anchor left with none keeps one of its rows, chosen with
+        probability proportional to its keep probability.  Returns the kept rows."""
         if not len(df):
             return df
         K, c = self.fact_copies(f)
@@ -642,6 +652,8 @@ class Scenario:
                 d = to_days(df[col]) if col in df.columns else np.full(len(df), np.nan)
                 p = p * np.where((d >= a) & (d < b), fac, 1.0)
         keep = rng.random(len(df)) < np.minimum(p, 1.0)
+        if min_one and "__anchor_row__" in df.columns and not keep.all():
+            keep = _keep_one_per_anchor(df["__anchor_row__"].to_numpy(), keep, p, rng)
         for _g, rec in self.fact_rate.get(f, []):
             if rec is not None:
                 rec["effect"].setdefault("rows", 0)
@@ -750,6 +762,24 @@ def _gini(w):
         return 0.0
     n = len(w)
     return float((2 * np.arange(1, n + 1) - n - 1).dot(w) / (n * w.sum()))
+
+
+def _keep_one_per_anchor(anchor, keep, p, rng):
+    """keep with one row added for every anchor that has rows but none kept: the
+    row with the largest p * (a uniform), i.e. a draw proportional to p (Efraimidis
+    and Spirakis 2006, one item)."""
+    has = np.zeros(int(anchor.max()) + 1 if len(anchor) else 0, bool)
+    has[anchor[keep]] = True
+    lost = ~has[anchor]
+    if not lost.any():
+        return keep
+    idx = np.flatnonzero(lost)
+    key = np.log(rng.random(len(idx))) / np.maximum(p[idx], 1e-300)    # larger is chosen
+    o = np.lexsort((-key, anchor[idx]))
+    first = np.r_[True, anchor[idx][o][1:] != anchor[idx][o][:-1]]
+    keep = keep.copy()
+    keep[idx[o][first]] = True
+    return keep
 
 
 def _keep_hidden(df, col):

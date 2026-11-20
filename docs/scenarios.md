@@ -40,7 +40,8 @@ peak.sample_log["scenario"]                                 # every intervention
 ```
 
 `synthesis.scenario` in the spec applies that scenario to every dataset, so leave it unset (or `null`) when the
-default datasets should be the baseline.
+default datasets should be the baseline; `model.sample(dataset=0, scenario=False)` gives the baseline either way
+(`relsynth verify` samples its posterior-predictive copies that way).
 
 Interventions apply in order. On a fact split into order headers and lines (`fact.header`), an intervention on a
 header column (the order date, the customer key, the sequence) acts on the header, and the lines follow their order. A dataset sampled under a scenario is compared with the real data by the scorecard as
@@ -66,15 +67,19 @@ Poisson count laws this is exactly the process with the rate multiplied (superpo
 binomial or DP count laws the mean is multiplied and the spread changes. On an occupancy fact with a multiplicity law
 the rows of every copy are kept (multiplicities add). An occupancy fact without one has unique pairs, each present or
 not, which copies cannot be superposed into without changing the presence law (also outside a window), so a factor
-above 1 on it stops the run with a spec error; factors at most 1 (thinning) are exact. The record gives the rows.
+above 1 on it stops the run with a spec error; factors at most 1 (thinning) are exact. When every anchor must have a
+row (mandatory participation), an anchor that thinning leaves empty keeps one of its rows, so the rule holds and the
+rate falls a little less. The record gives the rows.
 
 **shares** draws rows from the fitted model and accepts each with probability w / max w (rejection sampling). The
 accepted rows follow the model tilted by w, which is the change closest to the model (in Kullback–Leibler divergence)
 with those shares: every other column keeps its law given the tilted column, and each row keeps its segment, so its
-children (a Gov customer's orders) follow it. The acceptance bound is the largest weight among the named levels (and 1 when a level not named is drawn), so equal
-factors on every level
+children (a Gov customer's orders) follow it. The acceptance bound is the largest weight among the named levels (and 1 when a level not named is drawn; if such a
+level first appears after the first batch, the rows accepted so far are discarded and drawing restarts with the new
+bound), so equal factors on every level
 change nothing. Target `shares` that sum to less than 1 need a level not named to take the rest (otherwise the run stops
-with a spec error). They fill a quota per level with the first rows of that level
+with a spec error), and they cannot be combined with another tilt (factors or a date window) of the same table. They
+fill a quota per level with the first rows of that level
 drawn from the model. At most 50 rows are drawn per target row; a shortfall is recorded (it only happens for a level
 the model almost never draws, which the scenario should then not ask for).
 
