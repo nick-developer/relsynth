@@ -297,7 +297,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; iceberg: `catalog` (PyIceberg catalog properties) or a local `path` (a SQL catalog in <path>/catalog.db), tables in namespace `schema`; delta: `path`, a folder or object-store URI (s3://, abfss://) with one folder per table; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other engine): `url`. |
+| `kind` | csv \| parquet \| files \| iceberg \| delta \| sqlite \| postgresql \| mssql \| oracle \| mysql \| mariadb \| databricks \| fabric \| snowflake \| bigquery \| sqlalchemy | `csv` | csv / parquet / files: one <table>.csv, .csv.gz or .parquet file per table in `path`; sqlite: `path` to a file; iceberg: `catalog` (PyIceberg catalog properties) or a local `path` (a SQL catalog in <path>/catalog.db), tables in namespace `schema`; delta: `path`, a folder or object-store URI (s3://, abfss://) with one folder per table; postgresql, mssql, oracle, mysql, mariadb, databricks, fabric, snowflake, bigquery (or sqlalchemy for any other engine): `url`. |
 | `path` | str |  | Folder (files) or file (sqlite); relative to the spec's folder. |
 | `url` | str |  | Database URL, e.g. postgresql://user@host/db, mssql+pyodbc://user@host/db?driver=ODBC+Driver+18+for+SQL+Server, oracle://user@host:1521/?service_name=ORCLPDB1 (driver chosen when omitted). |
 | `url_env` | str |  | Environment variable that holds the URL (with its password), used instead of `url`: keeps the password out of the file. Specs written for sharing (introspect drafts, exported spec.yaml, bundles) show the URL with *** for the password and set url_env (RELSYNTH_SOURCE_URL). |
@@ -311,27 +311,27 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `auth` | map |  | Cloud warehouses: how to sign in, without secrets in the file. `method` (databricks: token, oauth-m2m, azure-sp, oauth-u2m, azure-u2m, default; fabric: default, azure-sp, azure-cli, managed-identity, interactive, sql-login; snowflake: key-pair, pat, oauth, password, sso, workload-identity, default; bigquery: default, service-account, external-account, impersonate) and the environment variables that hold the secrets as <name>_env (token_env, client_id_env, client_secret_env, tenant_id_env, password_env, private_key_passphrase_env) or key files as <name>_file. Without it: databricks uses DATABRICKS_TOKEN when set, else the platform's credential chain; fabric uses the Azure credential chain; snowflake uses the URL's password; bigquery uses Application Default Credentials. |
 | `guards` | map |  | Cloud warehouses: cost guards. query_tag (default relsynth: marks every query in the warehouse's history), max_rows (largest table read into memory), max_bytes (largest estimated scan of one statement, e.g. 100GB). `relsynth plan` reports the bytes each table costs. |
 | `bulk` | map |  | Cloud warehouse targets: the load path. databricks: {method: insert} (multi-row INSERT, the default), {method: volume, volume: /Volumes/cat/schema/vol} (Parquet staged in a Unity Catalog volume, then COPY INTO) or {method: path, path: <location the warehouse reads>}. fabric: {method: insert} (ODBC parameter arrays, the default) or {method: copy, stage: https://<account>.dfs.core.windows.net/<container>/<dir>} (Parquet staged in ADLS Gen2 or OneLake, then COPY INTO). snowflake: {method: insert} (multi-row INSERT, the default) or {method: stage} (Parquet PUT in a temporary stage, then COPY INTO). bigquery: {method: load} (load jobs from Parquet, the default) or {method: insert} (DML INSERT). |
-| `catalog` | map |  | Iceberg: the properties of a PyIceberg catalog (type: rest | glue | hive | sql | ..., uri, warehouse, name). Secrets come from the environment (storage_env, or the platform's credential chain). |
+| `catalog` | map |  | Iceberg: the properties of a PyIceberg catalog (type: rest \| glue \| hive \| sql \| ..., uri, warehouse, name). Secrets come from the environment (storage_env, or the platform's credential chain). |
 | `storage` | map |  | Iceberg and Delta on object storage: storage options without secrets, e.g. {s3.endpoint: ..., s3.region: ...} (Iceberg) or {AWS_REGION: ..., AZURE_STORAGE_ACCOUNT_NAME: ...} (Delta). |
 | `storage_env` | map |  | Iceberg and Delta: storage option -> environment variable holding its value (keys and tokens stay out of the file). |
 | `snapshot` | int or map |  | Iceberg and Delta sources: the version to read (Iceberg snapshot id, Delta version), one value or table -> value. Default: the current version; the bundle records what was read. |
 | `as_of` | str |  | Iceberg and Delta sources: read every table as it was at this ISO time (one consistent instant for all tables). |
-| `format` | csv | parquet | `csv` | File format written (target of kind files). |
-| `engine` | auto | duckdb | pandas | `auto` | Folders and lakehouse tables: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
+| `format` | csv \| parquet | `csv` | File format written (target of kind files). |
+| `engine` | auto \| duckdb \| pandas | `auto` | Folders and lakehouse tables: what computes the statistics and samples of pushed-down facts. duckdb runs SQL over the files without loading them; pandas reads the needed columns into memory (the 1.0 path); auto is duckdb when it is installed. |
 | `duckdb` | map |  | Folders, engine duckdb: memory_limit (e.g. '4GB'), threads, temp_directory (where larger-than-memory sorts and groupings spill). |
 
 ### `target`
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | csv | parquet | files | iceberg | delta | sqlite | postgresql | mssql | oracle | mysql | mariadb | databricks | fabric | snowflake | bigquery | sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
+| `kind` | csv \| parquet \| files \| iceberg \| delta \| sqlite \| postgresql \| mssql \| oracle \| mysql \| mariadb \| databricks \| fabric \| snowflake \| bigquery \| sqlalchemy | `csv` | As for source; csv and parquet write one file per table. |
 | `path` | str | `synthetic` | Output folder or SQLite file; dataset i > 1 goes to <path>_i. |
 | `url` | str |  | URL of the target database. |
 | `url_env` | str |  | As for source (RELSYNTH_TARGET_URL in shared specs). |
 | `password_env` | str |  | As for source. |
 | `schema` | str |  | Target schema (created when missing on PostgreSQL and SQL Server); dataset i > 1 goes to <schema>_i. |
-| `if_exists` | replace | append | truncate | fail | `replace` | replace: drop and create the tables; append: insert into existing tables; truncate: delete the rows of the existing tables (children first) and insert, keeping the target's DDL and constraints; fail: stop when a table exists. |
-| `structure` | auto | clone | infer | existing | `auto` | How target tables are created. clone: the source's DDL (column types, nullability, primary, unique and foreign keys, indexes, identity columns) when source and target are databases; infer: from the specification (keys and links as constraints) and the data's types; existing: tables created beforehand. auto: clone when possible, else infer. |
+| `if_exists` | replace \| append \| truncate \| fail | `replace` | replace: drop and create the tables; append: insert into existing tables; truncate: delete the rows of the existing tables (children first) and insert, keeping the target's DDL and constraints; fail: stop when a table exists. |
+| `structure` | auto \| clone \| infer \| existing | `auto` | How target tables are created. clone: the source's DDL (column types, nullability, primary, unique and foreign keys, indexes, identity columns) when source and target are databases; infer: from the specification (keys and links as constraints) and the data's types; existing: tables created beforehand. auto: clone when possible, else infer. |
 | `connect_args` | map |  | As for source. |
 | `engine_options` | map |  | As for source. |
 | `auth` | map |  | As for source. |
@@ -341,15 +341,15 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `storage` | map |  | As for source. |
 | `storage_env` | map |  | As for source. |
 | `partition_by` | map |  | Iceberg and Delta targets: table -> list of partition expressions. Iceberg: column, year(c), month(c), day(c), hour(c), bucket(n, c), truncate(n, c); Delta: columns. |
-| `format` | csv | parquet | `csv` | File format of a files target. |
+| `format` | csv \| parquet | `csv` | File format of a files target. |
 | `timescale` | map |  | PostgreSQL targets with TimescaleDB: hypertables (auto: the source's hypertables and tables whose series, sequence or fact time column is a date or datetime; none; or {table: time column}) and chunk_interval (e.g. '7 days'). |
 
 ### `tables.<name>`
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `role` | entity | fact | view | `entity` | entity: a thing (customer, product, order header); fact: an event or link whose rows exist because of its parents (sales lines, visits); view: a table that is the join of others (rebuilt, never modelled). |
-| `mode` | synthesize | copy | `synthesize` | copy keeps the table exactly (reference data, calendars, code lists, or any dimension you want to keep: see the recipe 'copy dimensions, synthesise facts'). |
+| `role` | entity \| fact \| view | `entity` | entity: a thing (customer, product, order header); fact: an event or link whose rows exist because of its parents (sales lines, visits); view: a table that is the join of others (rebuilt, never modelled). |
+| `mode` | synthesize \| copy | `synthesize` | copy keeps the table exactly (reference data, calendars, code lists, or any dimension you want to keep: see the recipe 'copy dimensions, synthesise facts'). |
 | `primary_key` | column |  | Key column; synthetic keys are new values (1..n for integers). |
 | `columns` | map of column |  | Column name -> type, or -> {type, options}. |
 | `unique` | list of keys | `[]` | Keys no two rows share: [a, b], or on facts {columns, where} (a filtered unique index). A key of two foreign keys makes the table a grain (occupancy of pairs). |
@@ -363,7 +363,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `scd` | scd |  | Slowly changing dimension type 2: rows are versions of a natural key. |
 | `unknown_members` | list of key values |  | Rows that stand for 'no member' (key -1 'Unknown'): copied, kept out of the model, referenced with the source's share. |
 | `bridge` | bridge |  | Weights that sum to 1 (or `total`) over the rows of a group (multivalued dimension / allocation). |
-| `generator` | name | generator | `synthesis.generator` | Generator plug-in of the table's attribute columns: a name (copula, independent, cart, or an installed plug-in) or {name, version, options}. See docs/generators.md. |
+| `generator` | name \| generator | `synthesis.generator` | Generator plug-in of the table's attribute columns: a name (copula, independent, cart, or an installed plug-in) or {name, version, options}. See docs/generators.md. |
 | `sequence` | sequence |  | The rows are events in the history of a parent entity (a customer's orders): their times are drawn jointly per entity (inter-arrival, burstiness, life span, seasonality, trend). See docs/timeseries.md. |
 | `series` | series |  | The rows are regular series, one per parent entity (a meter's hourly load): generated by the series model for each synthetic parent. See docs/timeseries.md. |
 | `description` | str |  | Free text (kept, not read). |
@@ -379,7 +379,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `factor_ar` | int | `2` | Order of the common factor's autoregression. |
 | `day` | bool | `True` | Daily profile (sub-daily steps). |
 | `week` | bool | `True` | Day-of-week profile. |
-| `year` | auto | bool | `auto` | Month-of-year profile (auto: series longer than 300 days). |
+| `year` | auto \| bool | `auto` | Month-of-year profile (auto: series longer than 300 days). |
 
 ### `tables.<name>.sequence`
 
@@ -387,15 +387,18 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 |---|---|---|---|
 | `entity` | column |  | Foreign key to the entity whose history the rows are (CustomerKey). |
 | `time` | column |  | When the event happened: a date or datetime column, or a lookup fk.col into a calendar table (OrderDate = OrderDateKey.FullDateAlternateKey). |
-| `window` | auto | none | {start, end} | `auto` | When each entity can have events. auto: from the check rules that compare the time with a column of the entity (days(OrderDate) < days(CustomerKey.EndDT)); {start, end}: columns of the entity (inclusive); none: the source's time range. |
-| `bucket` | day | week | month | quarter | year | `month` | Calendar bucket of the trend and season profile per segment. |
+| `window` | auto \| none \| {start, end} | `auto` | When each entity can have events. auto: from the check rules that compare the time with a column of the entity (days(OrderDate) < days(CustomerKey.EndDT)); {start, end}: columns of the entity (inclusive); none: the source's time range. |
+| `bucket` | day \| week \| month \| quarter \| year | `month` | Calendar bucket of the trend and season profile per segment. |
 | `weekly` | bool | `True` | Day-of-week rates. |
-| `hourly` | auto | bool | `auto` | Hour-of-day profile (auto: for datetime columns). |
+| `hourly` | auto \| bool | `auto` | Hour-of-day profile (auto: for datetime columns). |
 | `shrinkage` | number | `1.0` | Prior standard deviation of a segment's parameters around the pooled fit. |
 | `min_entities` | int | `30` | Segments with fewer entities use the pooled parameters. |
 | `redraws` | int | `10` | Redraws of an entity whose new times break a check rule; then the engine's times are kept. |
-| `process` | renewal | hawkes | `renewal` | How the events between an entity's first and last event arrive: renewal (gamma gaps, bursty to regular) or hawkes (self-exciting clusters: an event triggers more events; Bayesian Hawkes process with an exponential kernel). |
-| `states` | column | {column, prior} |  | A status column of the events whose sequence along each entity's history follows a Markov chain per segment, with status-dependent gaps (semi-Markov). prior: strength of the pooled chain in each segment's transition posterior (1.0). |
+| `calendar` | auto \| pooled \| segment | `auto` | One trend and season profile per segment, or one shared by all. auto: per segment only when a Bayes factor over the bucket counts decisively prefers it (Prop. 1784); small segments share one. |
+| `calendar_bf` | number | `100.0` | Bayes factor for one calendar per segment over a shared one that calendar auto requires (100: decisive on Jeffreys' scale, as facts.count_model_bf). |
+| `calendar_draw` | bool | `False` | Draw the calendar from its posterior for each dataset. Off: the calendar stays at its posterior mean and the life times carry the uncertainty (Prop. 1784). |
+| `process` | renewal \| hawkes | `renewal` | How the events between an entity's first and last event arrive: renewal (gamma gaps, bursty to regular) or hawkes (self-exciting clusters: an event triggers more events; Bayesian Hawkes process with an exponential kernel). |
+| `states` | column \| {column, prior} |  | A status column of the events whose sequence along each entity's history follows a Markov chain per segment, with status-dependent gaps (semi-Markov). prior: strength of the pooled chain in each segment's transition posterior (1.0). |
 
 ### `sequence.states`
 
@@ -423,16 +426,16 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `anchor` | table | relationship name | key column | `first parent` | Parent whose rows generate the fact rows (rows per customer); scaling it scales the fact. A key column (OrderDateKey) or a relationship name picks one role of a role-playing dimension. |
-| `partner` | table | relationship name | key column | `next parent` | Second dimension of the block model (customer segment x product segment rates). |
-| `pairs` | auto | poisson | occupancy | `auto` | Rows per (anchor, partner) pair as counts, or each pair present or absent. |
-| `multiplicity` | auto | none | partner | anchor | block | `auto` | For occupancy facts: rows per present pair beyond the first, grouped by. |
-| `count_model` | auto | poisson | dp | `auto` | Rows per anchor: Poisson/negative binomial or a Dirichlet-process count law. |
-| `group_fallback` | auto | anchor | partner | `auto` | Which dimension's marginals a sparse block borrows. |
-| `link_degree` | auto | segment | dp | `auto` | Degree law of the two keys of a link table (bonds per atom as the second atom, actors per movie). auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it, with the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on every modelled key. |
+| `anchor` | table \| relationship name \| key column | `first parent` | Parent whose rows generate the fact rows (rows per customer); scaling it scales the fact. A key column (OrderDateKey) or a relationship name picks one role of a role-playing dimension. |
+| `partner` | table \| relationship name \| key column | `next parent` | Second dimension of the block model (customer segment x product segment rates). |
+| `pairs` | auto \| poisson \| occupancy | `auto` | Rows per (anchor, partner) pair as counts, or each pair present or absent. |
+| `multiplicity` | auto \| none \| partner \| anchor \| block | `auto` | For occupancy facts: rows per present pair beyond the first, grouped by. |
+| `count_model` | auto \| poisson \| dp | `auto` | Rows per anchor: Poisson/negative binomial or a Dirichlet-process count law. |
+| `group_fallback` | auto \| anchor \| partner | `auto` | Which dimension's marginals a sparse block borrows. |
+| `link_degree` | auto \| segment \| dp | `auto` | Degree law of the two keys of a link table (bonds per atom as the second atom, actors per movie). auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it, with the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on every modelled key. |
 | `time_column` | column |  | Date column with a seasonal profile per segment. |
-| `time_bucket` | day | week | month | quarter | year | `month` | Bucket of the seasonal profile. |
-| `condition_on_parents` | bool | list of fk.col | `True` | Condition measures on parents' continuous attributes (unit price follows list price). |
+| `time_bucket` | day \| week \| month \| quarter \| year | `month` | Bucket of the seasonal profile. |
+| `condition_on_parents` | bool \| list of fk.col | `True` | Condition measures on parents' continuous attributes (unit price follows list price). |
 | `header` | header |  | Order header carried on the lines: {key, columns, line_number}. |
 
 ### `fact.header`
@@ -455,19 +458,20 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `type` | id | integer | float | categorical | boolean | date | datetime | text | pii | lookup | sequence | constant | binary |  | What the column holds (see the column types table). |
+| `type` | id \| integer \| float \| categorical \| boolean \| date \| datetime \| text \| pii \| lookup \| sequence \| constant \| binary |  | What the column holds (see the column types table). |
 | `nullable` | bool | `True` | Informational; null shares are always learned from the data. |
 | `min` | number |  | Hard lower bound of a number column. |
 | `max` | number |  | Hard upper bound. |
 | `decimals` | int | `from the source` | Stored precision of a number column. |
-| `lookup` | fk.col path | keyed lookup |  | For type lookup: the value of a parent's column, or {table, match, value} into a reference table. |
+| `lookup` | fk.col path \| keyed lookup |  | For type lookup: the value of a parent's column, or {table, match, value} into a reference table. |
 | `map` | map |  | Lookup values mapped through a fixed table (country -> currency). |
 | `default` | any |  | Value for codes outside `map`. |
-| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days). |
-| `ratio_of` | column | fk.col |  | This number = that number x a modelled factor (unit price = list price x one of 16 factors). |
+| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). |
+| `ratio_of` | column \| fk.col |  | This number = that number x a modelled factor (unit price = list price x one of 16 factors). |
 | `ratio_same_as` | column |  | Use the factor of another ratio column (unit cost moves with unit price). |
 | `text` | text |  | Options of a text column. |
 | `pii` | pii |  | Options of a pii column. |
+| `binary` | binary |  | Options of a binary column (content generator, MIME type). |
 | `within` | column |  | For type sequence: numbered 1..n within each value of this column. |
 | `start` | int | `1` | For type sequence: first number. |
 | `base_column` | column |  | For views: the base-table column this view column copies. |
@@ -478,8 +482,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `condition_on` | column | list of columns |  | Column(s) the text depends on (category of a product title; category and priority of a ticket). |
-| `method` | ngram | lm | pe | `ngram` | Text method: the n-gram model (1.0; DP n-gram release with dp), a local language model, or Private Evolution (always DP). See docs/text.md. |
+| `condition_on` | column \| list of columns |  | Column(s) the text depends on (category of a product title; category and priority of a ticket). |
+| `method` | ngram \| lm \| pe | `ngram` | Text method: the n-gram model (1.0; DP n-gram release with dp), a local language model, or Private Evolution (always DP). See docs/text.md. |
 | `pii` | text_pii |  | Redact personal data before training; generated texts get typed surrogates. |
 | `dp` | text_dp |  | Differential privacy for the people of unit_column in this column only. |
 | `lm` | text_lm |  | Options of method lm. |
@@ -493,7 +497,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `recognizers` | list | `['regex']` | regex (built in), {name: presidio | spacy, model}, {name: gliner, model: <local folder>, threshold}; combined by union. |
+| `recognizers` | list | `['regex']` | regex (built in), {name: presidio \| spacy, model}, {name: gliner, model: <local folder>, threshold}; combined by union. |
 
 ### `text.dp`
 
@@ -540,8 +544,15 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `generator` | email | person_name | phone | uuid | pattern | `pattern` | How identifiers are generated. |
+| `generator` | email \| person_name \| phone \| uuid \| pattern | `pattern` | How identifiers are generated. |
 | `pattern` | str |  | Shape for the pattern generator (learned when absent). |
+
+### `columns.<name>.binary`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `generator` | none \| placeholder \| random | `synthesis.binary.generator` | Content of the column: NULL, a valid tiny file of the value's MIME type padded to a length drawn from the source's length law (random bytes for a type without a placeholder: PNG, GIF, JPEG and PDF have one), or random bytes of such a length. Source bytes are never copied (docs/binary.md). |
+| `mime` | str | `detected` | MIME type of every value (image/png, image/jpeg, image/gif, application/pdf, ...) instead of the one read from each value's first bytes. |
 
 ### `columns.<name>.lookup` (keyed)
 
@@ -555,14 +566,14 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `kind` | fixed | categorical | uniform | normal | lognormal | poisson | date_range | sequence | empirical |  | The stated law (drawn independently of the other columns). |
+| `kind` | fixed \| categorical \| uniform \| normal \| lognormal \| poisson \| date_range \| sequence \| empirical |  | The stated law (drawn independently of the other columns). |
 | `value` | any |  | fixed: the value. |
 | `probabilities` | map level -> p |  | categorical: shares (normalised). |
 | `min` | number |  | uniform: lower end; others: clip below. |
 | `max` | number |  | uniform: upper end; others: clip above. |
 | `mean` | number |  | normal, poisson; lognormal: mean of the log. |
 | `sd` | number |  | normal; lognormal: sd of the log. |
-| `start` | date | number |  | date_range: first date; sequence: first value. |
+| `start` | date \| number |  | date_range: first date; sequence: first value. |
 | `end` | date |  | date_range: last date. |
 | `step` | number | `1` | sequence: increment. |
 | `decimals` | int |  | Rounding of a float. |
@@ -576,7 +587,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `natural_key` | column |  | The business key shared by the versions (ProductAlternateKey). |
 | `valid_from` | column |  | Start date of a version. |
 | `valid_to` | column |  | End date (null on the open, current version). |
-| `stable` | auto | list of column | `auto` | Columns repeated across versions (auto: equal on 99% of the source's keys). |
+| `stable` | auto \| list of column | `auto` | Columns repeated across versions (auto: equal on 99% of the source's keys). |
 | `current` | {column, value, other} | `auto` | Current flag: `value` on the open version, `other` on the rest. |
 
 ### `tables.<name>.bridge`
@@ -593,7 +604,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `column` | column |  | Column shared by the rows of a group (for a ratio column, its factor). |
-| `by` | list of column | fk.col |  | Columns that define a group (ProductKey.CategoryKey, OrderKey.OrderDate). |
+| `by` | list of column \| fk.col |  | Columns that define a group (ProductKey.CategoryKey, OrderKey.OrderDate). |
 
 ### `tables.<name>.link_affinity[]`
 
@@ -614,10 +625,10 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `child` | table |  | Table holding the foreign key. |
-| `child_key` | column | list |  | Foreign key column(s); a list for a composite key (may use fk.col). |
+| `child_key` | column \| list |  | Foreign key column(s); a list for a composite key (may use fk.col). |
 | `parent` | table |  | Referenced table. |
-| `parent_key` | column | list | `parent's primary key` | Referenced key (a declared unique key for composites). |
-| `kind` | many_to_one | self_reference | `many_to_one` | self_reference: a parent-child hierarchy in one table (manager of an employee). |
+| `parent_key` | column \| list | `parent's primary key` | Referenced key (a declared unique key for composites). |
+| `kind` | many_to_one \| self_reference | `many_to_one` | self_reference: a parent-child hierarchy in one table (manager of an employee). |
 | `name` | str | `child.key->parent` | Name used in messages, `via` and `fact.anchor`. |
 | `offset_from` | column |  | Another key into the same ordered parent (ship date from order date): the gap is modelled. |
 | `order_by` | column |  | Parent column that orders it (the calendar's date). |
@@ -627,15 +638,15 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `table` | table |  | Table the rule is on. |
-| `type` | check | derive | aggregate | cumulative |  | check: must hold (rows redrawn); derive: column = expression; aggregate: parent column from its children; cumulative: running balance. |
-| `expr` | expression |  | check/derive expression (columns, fk.col paths, functions). round() and integer derives round half away from zero (SQL: round(2.5) = 3, round(-2.5) = -3). `&` and `|` bind tighter than comparisons: write (a > 0) & (b > 0), or a > 0 and b > 0. Text compared with a number or a date must be a number or an ISO date ('2021-01-01'); 'true' / 'false' are booleans. |
+| `type` | check \| derive \| aggregate \| cumulative |  | check: must hold (rows redrawn); derive: column = expression; aggregate: parent column from its children; cumulative: running balance. |
+| `expr` | expression |  | check/derive expression (columns, fk.col paths, functions). round() and integer derives round half away from zero (SQL: round(2.5) = 3, round(-2.5) = -3). `&` and `\|` bind tighter than comparisons: write (a > 0) & (b > 0), or a > 0 and b > 0. Text compared with a number or a date must be a number or an ISO date ('2021-01-01'); 'true' / 'false' are booleans. |
 | `tolerance` | number | `0` | derive: accepted absolute difference. |
 | `holds` | number in (0, 1) | `1` | derive: share of rows on which the rule holds (a soft rule: a Bayesian mixture of the rule and its violations). |
-| `violation` | offset | model | `offset` | soft rule: violating rows take one of the source's offsets from the rule, or the modelled value. |
+| `violation` | offset \| model | `offset` | soft rule: violating rows take one of the source's offsets from the rule, or the modelled value. |
 | `column` | column |  | aggregate/cumulative: the computed column. |
-| `agg` | count | sum | min | max | mean | exists | count_distinct | `count` | aggregate function. |
+| `agg` | count \| sum \| min \| max \| mean \| exists \| count_distinct | `count` | aggregate function. |
 | `from` | table |  | aggregate: the child table. |
-| `of` | column | expression |  | aggregate: what is aggregated. |
+| `of` | column \| expression |  | aggregate: what is aggregated. |
 | `via` | relationship name |  | aggregate: which link when there are several. |
 | `by` | column |  | cumulative: the group (product). |
 | `order` | column |  | cumulative: the order (date). |
@@ -658,10 +669,10 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `segments.default_cap` | `8` | Upper bound on latent segments per table. |
 | `segments.min_rows_per_segment` | `20` | Rows per segment at least (also caps the segment count). |
 | `segments.tables` | `{}` | Per-table segment caps {table: cap}. |
-| `segments.stratify` | `auto` | auto | none | {table: [key, ...]}: segments nested in the rows of small copied parents. |
+| `segments.stratify` | `auto` | auto \| none \| {table: [key, ...]}: segments nested in the rows of small copied parents. |
 | `segments.stratify_max_levels` | `20` | Largest code list used as strata without a Bayes-factor test. |
 | `segments.stratify_max_cells` | `50000000.0` | Budget of rows x segments per sweep for strata. |
-| `segments.attribute_strata` | `auto` | auto | none | {table: column}: segments nested in an own column (only sales staff have quotas). |
+| `segments.attribute_strata` | `auto` | auto \| none \| {table: column}: segments nested in an own column (only sales staff have quotas). |
 | `segments.tie_headers` | `True` | Order headers take the segment of their customer. |
 | `segments.copied_budget_cells` | `20000000.0` | Budget for one segment per row of copied tables. |
 | `gibbs.iterations` | `120` | Sweeps of the relational segment sampler. |
@@ -670,7 +681,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `gibbs.rhat_target` | `1.1` | Convergence target of the final sweeps (split R-hat of the log-likelihood trace, second half; the first half is burn-in after the merge). |
 | `gibbs.chains` | `1` | Reserved (one chain). |
 | `gibbs.merge` | `True` | Merge segments the data does not support. |
-| `copula.mode` | `rank` | rank | bayes | fast: sampler of the correlation matrix. |
+| `copula.mode` | `rank` | rank \| bayes \| fast: sampler of the correlation matrix. |
 | `copula.sample_rows` | `1500` | Rows used to fit a copula. |
 | `copula.iterations` | `120` | Sweeps of the copula sampler. |
 | `copula.max_iterations` | `3000` | Upper bound when extending the chain until it converges (every correlation: split R-hat <= rhat_target, or Monte Carlo standard error <= 0.01 on the Fisher-z scale). |
@@ -693,9 +704,11 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.discrete_int_max` | `30` | Integer columns with at most this many distinct values are modelled as discrete. |
 | `marginals.max_obs` | `20000` | Observations kept per continuous marginal (a seeded subsample above it). |
 | `marginals.fd_sample_rows` | `50000` | Rows of the seeded subsample on which functional dependencies are tested. |
-| `marginals.segment_prior_rows` | `0.0` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps about n / (n + this) of its own distribution). 0 = off (2.1); 20 makes near copies in small dimensions rarer but weakens the link between their segments and the facts. |
+| `marginals.segment_prior_rows` | `0.0` | Prior weight, in rows, of an entity table's marginal in each segment's marginal (hierarchical shrinkage; a segment of n rows keeps n / (n + a) of its own distribution). auto: a is estimated per column and level of the hierarchy from how much the segments differ (empirical Bayes, a = (1 - rho) / rho with rho the intra-segment correlation; Prop. 1725), so segments that really differ keep their laws; a number fixes a for every column. 0 with segment_floor_rows 0 = off (2.1 output). |
+| `marginals.segment_floor_rows` | `0.0` | Privacy floor: every segment marginal of an entity table that segment_prior_mode covers (continuous columns in shape and numeric mode, every column in table mode) holds at least this many rows of mass, so one source row carries at most 1 / this of the segment's own part, plus at most 1 / (rows of the table or coarse group) through the parent law it is pooled with (a segment of n observations gets a prior weight of at least this - n; Prop. 1726). A policy choice like k in k-anonymity, never read from the data; 0 = no floor. |
+| `marginals.segment_prior_mode` | `shape` | What the segment prior shrinks: table (every column toward the parent's marginal), numeric (continuous columns only: numbers and dates), shape (continuous columns only, the parent's shape moved to the segment's median and spread, so the segment keeps its location; with auto, a measures how far the segments' shapes differ). |
 | `facts.min_group_rows` | `30` | Rows below which a block borrows the coarser dimension's marginals. |
-| `facts.frailty` | `auto` | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
+| `facts.frailty` | `auto` | auto \| on \| off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | `1.5` | Dispersion index above which frailty is used. |
 | `facts.pairs` | `auto` | Default of fact.pairs. |
 | `facts.multiplicity` | `auto` | Default of fact.multiplicity. |
@@ -708,17 +721,23 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.occupancy_z` | `-4.0` | facts.pairs auto: a pair fact is an occupancy (each pair present or absent) when the z score of its pair repeats is below this ... |
 | `facts.occupancy_min_expected` | `10.0` | ... and at least this many repeats are expected under Poisson. |
 | `facts.dp_count_sweeps` | `30` | Gibbs sweeps of the Dirichlet-process count law's conditional draw. |
+| `facts.segment_totals` | `auto` | auto: the rows of a link with a count model are spread over the parent segments so that each segment's total follows the sum of its parents' counts (a Metropolis-Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep the source's count law; off: segments drawn from the link's segment weights alone (2.2 draws). |
+| `facts.segment_total_sweeps` | `4` | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
+| `facts.dp_count_start` | `draw` | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
-| `structure.conditional_inclusion` | `auto` | auto | none: links never point at excluded parent levels. |
+| `structure.conditional_inclusion` | `auto` | auto \| none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | `10.0` | Expected references needed to call a level excluded (Bayes factor e^n). |
-| `structure.participation` | `auto` | auto | none: hurdle on the share of parents without children. |
+| `structure.inclusion_fk_levels` | `True` | Also test the levels of the parent's own foreign keys with up to inclusion_max_levels values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
+| `structure.inclusion_max_levels` | `50` | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
+| `structure.inclusion_multiplicity` | `bonferroni` | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
+| `structure.participation` | `auto` | auto \| none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
-| `uniqueness.grain` | `auto` | auto | none: unique keys of two foreign keys become grains. |
+| `uniqueness.grain` | `auto` | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.rake_rounds` | `3` | Rounds of raking for rule cells. |
-| `trees.max_depth` | `auto` | auto | int: deepest hierarchy level generated. |
-| `trees.frailty` | `auto` | auto | on | off: branching heterogeneity in trees. |
+| `trees.max_depth` | `auto` | auto \| int: deepest hierarchy level generated. |
+| `trees.frailty` | `auto` | auto \| on \| off: branching heterogeneity in trees. |
 | `text.order` | `3` | n-gram order of text columns. |
 | `text.min_token_rows` | `3` | Rows a token must appear in. |
 | `text.max_copy_ngram` | `8` | Longest rare source n-gram allowed in output. |
@@ -727,6 +746,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
 | `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
+| `rules.balance_floor` | `auto` | auto: a running balance (cumulative rule with an outflow column) that is negative on a share p of its source rows gets the floor 0 when the synthetic running sum would be negative on more than 2 p of rows, i.e. when the floor matches the source's share of negative rows better (Prop. 1787; never negative in the source: always a floor); off: only never-negative balances get the floor (2.2). |
 | `repair.pair_tries` | `200` | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | `200` | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | `200` | Rounds of anchor thinning (participation of facts). |
@@ -744,20 +764,21 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `evaluation.privacy_check_people` | `3000` | People sampled for the quick privacy check (a third fit the proxy, a third are unseen, a third are the attacker's reference). |
 | `per_table` | `{}` | Per-table settings {table: {copula: {...}, marginals: {...}, text: {...}}}. |
 | `settings_file` | `None` | A settings file merged under this block (a path relative to the spec, or preset:fast / preset:thorough). The spec's own keys win. See docs/settings.md. |
-| `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle. |
+| `binary.generator` | `placeholder` | Content of binary columns (images, files), default placeholder: none keeps NULL (2.1); placeholder writes a valid tiny file of the value's MIME type padded with zero bytes to a length drawn from the source's length law (never longer than the suppress_small_counts-th longest source value), and random bytes for a type without a placeholder (PNG, GIF, JPEG and PDF have one); random writes random bytes of such a length. Never copies source bytes; changes only the binary columns (docs/binary.md). |
+| `privacy.suppress_small_counts` | `5` | Counts below this are suppressed in the diagnostics bundle; a binary column's length shared by fewer values is only released as its power-of-two bin. |
 | `privacy.dp` | `None` | Differential privacy mode: unit, epsilon or rho, delta, public_tables, public, max_degree, spec_is_public and expert keys; validated by relsynth.dp (docs/dp.md). Off when absent. |
 | `privacy.near_copy` | `off` | auto: redraw entity rows that sit closer to a real row than that row's nearest distinct real neighbour (tables the distance check covers, up to near_copy_max_rows rows); off. A distance rule, not a privacy guarantee (docs/privacy.md). |
 | `privacy.near_copy_ratio` | `1.0` | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
 | `privacy.near_copy_rounds` | `20` | Redraws of a near copy before it is kept and counted in the sample log. |
 | `privacy.near_copy_max_rows` | `20000` | Largest entity table the near-copy guard runs on (it compares every synthetic row with every distinct real row, in memory-bounded blocks; time grows with the square of the rows). |
-| `pushdown.mode` | `auto` | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
+| `pushdown.mode` | `auto` | auto \| on \| off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | `1000000` | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | `500000` | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
 | `generator` | `copula` | Default generator plug-in of every table's attribute columns (a table's own `generator` wins): copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in. |
-| `compute.preset` | `cpu` | cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
+| `compute.preset` | `cpu` | cpu \| gpu-auto \| gpu-single \| gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
 | `compute.file` | `None` | A compute.yaml with more presets (relative to the spec). |
 | `compute.overrides` | `{}` | Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, batch_size, memory_limit, threads, fallback. |
-| `runtime.executor` | `none` | none | local | process | spark: none (default) samples in one process as relsynth 1.0; the others generate the facts in partitions (docs/runtime.md): local in this process, process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives the same data with any executor and number of workers. |
+| `runtime.executor` | `none` | none \| local \| process \| spark: none (default) samples in one process as relsynth 1.0; the others generate the facts in partitions (docs/runtime.md): local in this process, process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives the same data with any executor and number of workers. |
 | `runtime.workers` | `None` | Worker processes (process) or tasks at once (spark); default: the CPUs (process) or the Spark context's default parallelism. |
 | `runtime.partition_rows` | `1000000` | Fact rows per partition (about); part of the output's identity: change it and the draws change. |
 | `runtime.start` | `None` | process executor: fork (default on Linux), spawn or forkserver. |
@@ -776,7 +797,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `pii` | direct identifiers | `pii: {generator: email \| person_name \| phone \| uuid \| pattern}` |
 | `lookup` | a value read from a parent or a reference table | `lookup: fk.col` or `{table, match, value}`, `map`, `default` |
 | `sequence` | line numbers | `within`, `start` |
-| `constant`, `binary` | left out of modelling; binary columns are written empty | |
+| `constant` | left out of modelling | |
+| `binary` | images, documents, files: placeholder files by default (or random bytes, or NULL), synthetic content that never copies source bytes ([binary.md](binary.md)) | `binary: {generator: none \| placeholder \| random, mime}` |
 
 ### Expressions
 

@@ -172,6 +172,10 @@ def structure(syn):
                 if cs["type"] == "constant" and (t, c) in getattr(syn, "pii", {})}
         if cons:
             S["constants"][t] = cons
+            # share of rows that hold the constant (the rest are empty); 1 when absent
+            shares = {c: round(float((syn.pii[(t, c)] + (1.0,))[2]), 6) for c in cons}
+            if any(v < 1.0 for v in shares.values()):
+                S.setdefault("constant_shares", {})[t] = shares
     # ---- entities
     for e in syn.order:
         ent = syn.E[e]

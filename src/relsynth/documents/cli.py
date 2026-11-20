@@ -81,7 +81,8 @@ def cmd_synth(a, out):
     sec = _section(a.source)
     cols, design = _read(sec, a.collections, a.limit)
     refs = yaml.safe_load(Path(a.references).read_text()) if a.references else None
-    ds = DocumentSynthesizer(cols, references=refs, seed=a.seed, workdir=a.workdir)
+    ds = DocumentSynthesizer(cols, references=refs, seed=a.seed, workdir=a.workdir,
+                             options={"multihot": a.multihot, "multihot_max_columns": a.multihot_max_columns})
     syn = ds.synthesize(scale=a.scale)
     tgt = _section(a.to)
     if design is not None and tgt.get("kind") == "dynamodb":
@@ -165,6 +166,12 @@ def add_parser(sub, common):
     s.add_argument("--references", help="YAML list of declared references {collection, path, to, to_path}")
     s.add_argument("--if-exists", default="replace", choices=["replace", "append", "fail"])
     s.add_argument("--workdir", help="keep the shredded database and the spec here")
+    s.add_argument("--multihot", choices=["auto", "on", "off"], default="auto",
+                   help="set arrays of scalars as 0/1 columns on their holder: auto up to --multihot-max-columns "
+                        "values, on whenever possible, off never (the BIC gain of the values' Chow-Liu tree "
+                        "is recorded in the model report)")
+    s.add_argument("--multihot-max-columns", type=int, default=64,
+                   help="most 0/1 columns one array may add (a cost bound)")
     s.add_argument("--report", help="write the quality report (JSON) here")
     s.add_argument("--splits", type=int, default=10, help="real-versus-real splits for the limits")
     s.set_defaults(fn=cmd_synth)

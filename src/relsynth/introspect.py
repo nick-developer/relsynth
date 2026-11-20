@@ -106,7 +106,8 @@ def _infer_type(name, s: pd.Series, sqltype="", person=False, rows=None, party=F
     parties (is_party_table); rows: its row count."""
     from .source import is_binary_sqltype
     if is_binary_sqltype(sqltype) or s.dropna().head(50).map(lambda v: isinstance(v, (bytes, bytearray, memoryview))).any():
-        return {"type": "binary"}, "binary data (images, files): not synthesised, left empty"
+        return {"type": "binary"}, ("binary data (images, files): placeholder files of the source's types and lengths "
+                                    "(synthesis.binary.generator)")
     n = s.notna().sum()
     if n == 0:
         return {"type": "constant"}, "all values are empty"
@@ -212,6 +213,14 @@ class _Profiler(Discovery):
         self.n_groups = groups
         self.review = []
         self.rng = np.random.default_rng(7)
+
+    @staticmethod
+    def _keyed_rng(*key):
+        """A random stream keyed by the step and its tables: drafting is stable when
+        unrelated tables or columns change (a document layout with more columns, a
+        new table), because no step draws from a stream another step advanced."""
+        import zlib
+        return np.random.default_rng([7, zlib.crc32("\x1f".join(map(str, key)).encode())])
 
     def ask(self, msg):
         self.review.append(msg)
@@ -844,7 +853,12 @@ class _Profiler(Discovery):
 
     def aggregates(self):
         """Parent columns equal to an aggregate of their children (count, sum, sum of a
-        product, min, max), tested on every child row of a random set of parents."""
+        product, min, max), tested on every child row of a set of parents: all of
+        them, or a sample large enough that a rule holding on all of it holds on
+        MIN_SHARE of the parents with posterior probability 0.95 (2,995 parents at
+        0.999).  The 2.2 sample of 400 could not tell: airbnb's number_of_reviews =
+        count(reviews) holds on 1,497 of 1,500 listings, and 400 of them showed no
+        exception about half of the time, depending on what earlier steps had drawn."""
         for r in self.rels:
             t, p = r["child"], r["parent"]
             if t == p or isinstance(r["child_key"], list) or self.pks.get(p) is None or p in self.copy \
@@ -857,7 +871,17 @@ class _Profiler(Discovery):
             if not pcols:
                 continue
             keys = pdf[pk].dropna().unique()
-            keys = self.rng.choice(keys, size=min(len(keys), 400), replace=False)
+            # the shared stream advances as before (the later steps draw what they drew),
+            # but the parents tested come from the relation's own stream or are all of them
+            self.rng.choice(keys, size=min(len(keys), 400), replace=False)
+            # parents tested: all, or enough that a rule holding on every one of them
+            # holds on MIN_SHARE of all parents with posterior probability 0.95 (uniform
+            # prior on the share: 1 - MIN_SHARE^(m+1) >= 0.95), drawn from a stream of
+            # the relation's own, so that one relation's draft does not depend on what
+            # other steps drew
+            m_need = int(np.ceil(np.log(0.05) / np.log(MIN_SHARE)))
+            if len(keys) > m_need:
+                keys = self._keyed_rng("aggregates", t, p, r["child_key"]).choice(keys, size=m_need, replace=False)
             if not self.whole[t]:
                 # a parent's children are read whole: at most about GROUP_ROWS rows of a large
                 # child (400 days of TPC-DS SF10 are 6M store_sales rows), the other parents left out

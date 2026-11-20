@@ -28,7 +28,8 @@ from .calendar import from_days, to_days
 from .events import SequenceModel
 
 DEFAULTS = {"window": "auto", "bucket": "month", "weekly": True, "hourly": "auto", "shrinkage": 1.0,
-            "min_entities": 30, "redraws": 10, "process": "renewal", "states": None}
+            "min_entities": 30, "redraws": 10, "calendar": "auto", "calendar_draw": False,
+            "calendar_bf": 100.0, "process": "renewal", "states": None}
 NULL_LEVEL = "\x00null"
 
 
@@ -159,6 +160,8 @@ def fit_sequences(S, tables):
         hourly = is_dt if o["hourly"] == "auto" else bool(o["hourly"])
         so = state_options(o)
         m = SequenceModel(o["bucket"], bool(o["weekly"]), hourly, float(o["shrinkage"]), int(o["min_entities"]),
+                          calendar=o["calendar"], calendar_draw=bool(o["calendar_draw"]),
+                          calendar_bf=float(o["calendar_bf"]),
                           process=o["process"], states=None if so is None else {"prior": so["prior"]})
         rng = np.random.default_rng(np.random.SeedSequence([int(S.cfg["seed"]), 1201, len(S.seq)]))
         st_info = None
