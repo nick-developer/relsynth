@@ -460,8 +460,26 @@ class Entity:
         return tot
 
 
+def carried_state(rel) -> dict:
+    """Copies of the variables a relation's draw_params reads from its own last
+    call (see CARRIED on the relation classes)."""
+    return {k: np.array(getattr(rel, k), copy=True) for k in getattr(rel, "CARRIED", ())}
+
+
+def restore_carried_state(rel, state: dict) -> None:
+    """Set the carried variables of a relation back to a carried_state copy."""
+    for k, v in state.items():
+        setattr(rel, k, np.array(v, copy=True))
+
+
 class PairRel:
     """Poisson block model between e1 (anchor) and e2 with optional measures."""
+
+    # Variables draw_params reads from its previous call: the measure variances
+    # s2 (block means are drawn given s2, then s2 given the means: one Gibbs scan).
+    # The engine conditions every dataset's draw on their values at the end of
+    # the fit (Synthesizer.redraw), so dataset i never depends on earlier draws.
+    CARRIED = ("s2",)
 
     # set by the engine on a foreign-key edge (read with getattr)
     null_mask: np.ndarray
@@ -573,6 +591,9 @@ class OccRel:
     contingency table with structural zeros (Goodman 1968)."""
 
     kind = "occ"
+    # carried between draw_params calls (see PairRel.CARRIED): the measure
+    # variances s2 and the data-augmented activity act of anchors without pairs
+    CARRIED = ("s2", "act")
 
     def __init__(self, name, e1, e2, u, v, c, S=None, Q2=None, table=None, mult_by="block",
                  a=0.5, b=0.5):
@@ -907,6 +928,8 @@ def poisson_dup_test(u, v, c, n1, n2, rng, max_pairs=4_000_000):
 
 class SingleRel:
     """Fact with a single dimension: N_u ~ Pois(lambda_{z_u}), measures ~ N(m_k, s2)."""
+
+    CARRIED = ("s2",)              # see PairRel.CARRIED
 
     def __init__(self, name, e, N, S, Q2, table=None):
         self.name, self.kind, self.e1 = name, "single", e
