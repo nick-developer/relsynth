@@ -981,6 +981,19 @@ class _Profiler(Discovery):
                 n = len(sub)
                 if n < 100 or sub.duplicated().any():
                     continue
+                # a key is minimal (Codd): when one column alone never repeats on the rows
+                # where both are set, the pair adds nothing.  A column filled on one row
+                # per parent only (a header row's fields in a table of header and detail
+                # rows) pairs with the parent key without a single repeat, by construction,
+                # however many repeats chance would predict; kept as a key, it forces
+                # rows to be removed and loses the column's NULL pattern
+                if sub[a].is_unique or sub[b].is_unique:
+                    whole = sub if self.whole[t] else self.src.columns(t, [a, b]).dropna()
+                    if whole[a].is_unique or whole[b].is_unique:
+                        one = a if whole[a].is_unique else b
+                        self.ask(f"{t}: [{a}, {b}] never repeats, but {one} alone never repeats on the "
+                                 f"{len(whole):,} rows where both are set; not a composite key")
+                        continue
                 N = self.counts[t]
                 space = max(sub[a].nunique() * sub[b].nunique(), 1)
                 expected = n * (n - 1) / (2 * space)      # repeated pairs expected if the columns were drawn independently

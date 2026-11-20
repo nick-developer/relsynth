@@ -124,3 +124,33 @@ def test_drafted_ratio_needs_a_simpler_factor(tmp_path):
     up, od = cols["unit_price"], cols["ordinal"]
     assert isinstance(up, dict) and up.get("ratio_of") == "item_id.price"   # three discounts: a real ratio
     assert not (isinstance(od, dict) and od.get("ratio_of"))                 # a code: no ratio of doses
+
+
+def _header_detail_db(path, parents=600, seed=0):
+    """A child with one header row per parent (fields set on that row only) and
+    detail rows; and a true composite grain (order, line) on another child."""
+    rng = np.random.default_rng(seed)
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE parent (pid INTEGER PRIMARY KEY, kind TEXT)")
+    con.execute("CREATE TABLE detail (pid INTEGER REFERENCES parent(pid), status TEXT, amount REAL)")
+    con.execute("CREATE TABLE line (pid INTEGER REFERENCES parent(pid), slot TEXT, qty INTEGER)")
+    con.executemany("INSERT INTO parent VALUES (?, ?)", [(i, str(rng.choice(["a", "b"]))) for i in range(parents)])
+    det, lines = [], []
+    for i in range(parents):
+        det.append((i, str(rng.choice(["given", "held", "refused"])), None))         # the header row
+        det += [(i, None, float(np.round(rng.gamma(2, 5), 1))) for _ in range(int(rng.integers(1, 6)))]
+        for s in rng.choice(["x", "y", "z", "w"], size=int(rng.integers(2, 5)), replace=False):
+            lines.append((i, str(s), int(rng.integers(1, 9))))
+    con.executemany("INSERT INTO detail VALUES (?, ?, ?)", det)
+    con.executemany("INSERT INTO line VALUES (?, ?, ?)", lines)
+    con.commit()
+    con.close()
+    return f"sqlite:{path}"
+
+
+def test_composite_key_must_be_minimal(tmp_path):
+    import relsynth as rs
+    spec = rs.introspect(_header_detail_db(tmp_path / "h.db"), name="h")
+    tables = spec.raw["tables"]
+    assert ["pid", "status"] not in (tables["detail"].get("unique") or [])     # pid alone is unique where status is set
+    assert ["pid", "slot"] in (tables["line"].get("unique") or [])             # a real grain is kept
