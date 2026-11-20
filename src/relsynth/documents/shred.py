@@ -264,7 +264,7 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
         info["map"] = _child_table(lay, prof, tl, f, path, "map", refs, targets)
         info["length_col"] = _length_column(tl, f, path, cname)
         shapes[key] = info
-    vocab = _multihot_vocab(f, lay.options, info) if f.is_array else None
+    vocab = _multihot_vocab(f, lay.options, info, name=str(path[-1]) if path else "value") if f.is_array else None
     if vocab is not None and (_ref_of(refs, tl.collection, _abs_path(tl, path) + "[]") is not None
                               or _multihot_clash(tl, path, cname, len(vocab), siblings)):
         vocab = None                        # referenced elements, or a name taken: a child table
@@ -324,7 +324,8 @@ def _walk_value(lay, prof, tl, f: Node, path: list[str], refs, targets, in_varia
     shapes[key] = info
 
 
-def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = None) -> list | None:
+def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = None,
+                    name: str = "value") -> list | None:
     """The element values of a set array to model as multi-hot, sorted, or None
     (a child table).  A set array is multi-hot when its structure allows it:
     scalars of one type, no array repeats one (``distinct_items``), at least two
@@ -343,6 +344,15 @@ def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = No
             or len(it.distinct) < 2 or f.value_types != ["array"]):
         return None
     vocab = sorted(it.distinct, key=lambda v: (str(type(v)), v))
+    # a multi-hot cell writes its element value back verbatim, so values that the
+    # child-table path would type as personal data, free text or identifiers (an
+    # array of e-mail addresses or names) stay a child table, where those types are
+    # generated rather than copied
+    kind = _element_kind(name, f.item_counts, vocab)
+    if kind is not None:
+        if info is not None:
+            info["multihot_choice"] = {"multihot": False, "values": len(vocab), "reason": f"elements typed {kind}"}
+        return None
     if opts["multihot"] == "auto" and len(vocab) > int(opts["multihot_max_columns"]):
         if info is not None:
             info["multihot_choice"] = {"multihot": False, "values": len(vocab), "reason": "multihot_max_columns"}
@@ -356,6 +366,23 @@ def _multihot_vocab(f: Node, options: dict | None = None, info: dict | None = No
         info["multihot_choice"] = {"multihot": True, "values": len(vocab), "arrays": N,
                                    "bic_gain": round(float(gain), 3), "edges": edges}
     return vocab
+
+
+def _element_kind(name: str, counts, vocab: list) -> str | None:
+    """The introspection type of an array's element values when it is pii, text
+    or id (the types whose values are generated, never copied), else None.  The
+    values are typed as the child table's column would be: by the array's field
+    name and the values with their counts."""
+    import pandas as pd
+
+    from ..introspect import _infer_type
+    vals = [v for (_, v), k in counts.items() for _ in range(int(k))] if counts else list(vocab)
+    try:
+        spec, _ = _infer_type(name, pd.Series(vals, dtype=object), rows=len(vals))
+    except Exception:  # noqa: BLE001 (untypable values: treat as personal, keep the child table)
+        return "unknown"
+    t = spec.get("type")
+    return t if t in ("pii", "text", "id") else None
 
 
 def _multihot_clash(tl: TableLayout, path, cname: str, k: int, siblings) -> bool:

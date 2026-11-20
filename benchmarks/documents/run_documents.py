@@ -220,13 +220,14 @@ def sensitivity(cols: dict, out: Path, seed: int, splits: int) -> dict:
 def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
     """The shredded tables of a failing set: rows in the source and from the
     engine, the elements nesting moved, copied or dropped, and each categorical
-    column whose level shares differ by more than `tol` (aggregates only, so the
-    report never holds source records), split by element position for element
+    column whose level shares differ by more than `tol` (aggregates only, with
+    levels of fewer than suppress_small_counts source rows pooled), split by element position for element
     tables, to tell the engine's laws from the nesting step."""
     import sqlite3
 
     import pandas as pd
     out: dict = {"nest": dict(getattr(ds.layout, "stats", {}) or {}), "tables": {}}
+    k_small = int(((ds.spec or {}).get("synthesis", {}).get("privacy") or {}).get("suppress_small_counts", 5))
     con = sqlite3.connect(ds.workdir / "shredded.db")
     try:
         have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -244,22 +245,29 @@ def table_diagnostics(ds, syn: dict, tol: float = 0.02) -> dict:
             row = {"rows": [len(src), None if gen is None else len(gen)], "columns": {}}
             if gen is not None:
                 for c, d in (cs.get("columns") or {}).items():
-                    if not isinstance(d, dict) or d.get("type") != "categorical" or c not in src or c not in gen:
+                    if not isinstance(d, dict) or d.get("type") not in ("categorical", "boolean") \
+                            or c not in src or c not in gen:
                         continue
                     a = src[c].astype(object).where(src[c].notna(), "<null>").astype(str)
                     b = gen[c].astype(object).where(gen[c].notna(), "<null>").astype(str)
+                    # levels held by fewer than suppress_small_counts source rows are pooled,
+                    # so a printed level never singles out a few records
+                    vc = a.value_counts()
+                    rare = set(vc.index[vc < k_small])
+                    a = a.where(~a.isin(rare), "<rare>")
+                    b = b.where(~b.isin(rare) & b.isin(set(vc.index)), "<rare>")
                     pa, pb = a.value_counts(normalize=True), b.value_counts(normalize=True)
                     ix = pa.index.union(pb.index)
                     gap = (pb.reindex(ix, fill_value=0) - pa.reindex(ix, fill_value=0))
                     if gap.abs().max() <= tol:
                         continue
                     ent = {"share": {k: [round(float(pa.get(k, 0)), 4), round(float(pb.get(k, 0)), 4)]
-                                     for k in ix[:8]}}
+                                     for k in gap.abs().sort_values(ascending=False).index[:8]}}
                     if "_pos" in src and "_pos" in gen:
                         top = gap.abs().idxmax()
                         by = {}
                         for lab, lo, hi in (("pos0", 0, 0), ("pos1", 1, 1), ("pos2+", 2, 1 << 30)):
-                            ma = src["_pos"].between(lo, hi)
+                            ma = pd.to_numeric(src["_pos"], errors="coerce").between(lo, hi)
                             mb = pd.to_numeric(gen["_pos"], errors="coerce").between(lo, hi)
                             by[lab] = [int(ma.sum()), round(float((a[ma] == top).mean()), 4) if ma.any() else None,
                                        int(mb.sum()), round(float((b[mb] == top).mean()), 4) if mb.any() else None]
@@ -340,8 +348,12 @@ def run_set(name: str, cols: dict, out: Path, seed: int, splits: int, mongo: str
     if not res["pass"]:
         res["draft"]["worst_paths"] = {c: worst_paths(cols[c], syn.get(c, [])) for c in res["collections"]
                                        if res["collections"][c]["fails"]}
-        res["draft"]["tables"] = table_diagnostics(ds, captured)
+        try:
+            res["draft"]["tables"] = table_diagnostics(ds, captured)
+        except Exception as e:  # noqa: BLE001 (a diagnostic: the set's verdict stands)
+            res["draft"]["tables"] = {"error": f"{type(e).__name__}: {e}"}
         res["draft"]["sensitivity"] = sensitivity(cols, out / name, seed, splits)
+        (out / f"{name}.json").write_text(json.dumps(res, indent=1, default=str))
         print(json.dumps(res["draft"], indent=1, default=str))
     return res
 

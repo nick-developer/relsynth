@@ -553,6 +553,7 @@ class Discovery:
                     us = set(np.round(u, 6))
                     inset = lambda x, y: np.isin(np.round(y - x, 6), list(us))
                     chance = _perm_chance(inset, d[a][m], d[b][m], self.rng)
+                    share = 1.0                      # every row's gap is in the set, by construction
                     rank = (0, len(u))
                 else:
                     # many gaps (an answer's last activity after its creation): the order is
@@ -563,8 +564,9 @@ class Discovery:
                     # the gap modelled, the order holds by construction.  The closest
                     # earlier date is the base (smallest median gap)
                     chance = _perm_chance(lambda x, y: y >= x, d[a][m], d[b][m], self.rng)
+                    share = float(np.mean(gap >= 0))
                     rank = (1, float(np.median(gap)))
-                if not significant(float(np.mean(gap >= 0)), chance, int(m.sum())):
+                if not significant(share, chance, int(m.sum())):
                     continue
                 if b not in cand or rank < cand[b][3]:
                     cand[b] = (a, len(u), gap, rank)
@@ -1337,7 +1339,7 @@ class Discovery:
                         break
             if not hops:
                 continue
-            offs = set(getattr(self, "col_offset", {}).get(t, {}))
+            offs = set(getattr(self, "col_offset", {}).get(t, {})) - cont   # many-gap offsets keep their windows
             dates = [c for c, cs in self.cols[t].items() if cs["type"] in ("date", "datetime") and c not in offs]
             # (a) dates inside a parent's date window
             for d in dates:

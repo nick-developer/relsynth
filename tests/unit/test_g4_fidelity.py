@@ -244,3 +244,45 @@ def test_constant_column_keeps_its_empty_share_and_suppresses_a_rare_value(tmp_p
     out = rs.fit(spec).sample()["t"]
     assert abs(out["half"].notna().mean() - 0.5) < 0.1 and set(out["half"].dropna()) == {"yes"}
     assert out["one"].isna().all()
+
+
+def test_a_date_drawn_as_an_offset_stays_within_its_source_range(tmp_path):
+    """Last activity capped at the extract date (right-censored) and drafted as
+    creation plus a gap: a late creation leaves little room, and the derived date
+    is capped at the latest source date instead of running past it."""
+    import sqlite3
+
+    import relsynth as rs
+    rng = np.random.default_rng(1)
+    n = 3000
+    created = pd.Timestamp("2018-01-01") + pd.to_timedelta(rng.uniform(0, 1500, n), unit="D")
+    end = pd.Timestamp("2018-01-01") + pd.Timedelta(days=1500)
+    last = created + pd.to_timedelta(np.where(rng.random(n) < 0.5, rng.exponential(600, n), 0.0), unit="D")
+    last = pd.DatetimeIndex(np.minimum(last.values, np.datetime64(end)))
+    df = pd.DataFrame({"id": range(1, n + 1), "score": rng.poisson(3, n),
+                       "created": created.strftime("%Y-%m-%d %H:%M:%S"),
+                       "last_activity": last.strftime("%Y-%m-%d %H:%M:%S")})
+    with sqlite3.connect(tmp_path / "c.db") as con:
+        df.to_sql("posts", con, index=False)
+    d = rs.introspect(f"sqlite:{tmp_path / 'c.db'}", name="p").raw
+    assert d["tables"]["posts"]["columns"]["last_activity"].get("offset_from") == "created"
+    out = rs.fit(d).sample()["posts"]
+    la, c = pd.to_datetime(out["last_activity"]), pd.to_datetime(out["created"])
+    assert la.max() <= end + pd.Timedelta(seconds=1)
+    assert ((la - c) >= pd.Timedelta(milliseconds=-1)).all()
+
+
+def test_multihot_never_copies_personal_element_values():
+    """An array of e-mail addresses is a set array, but a multi-hot cell would write
+    the real addresses back: elements typed as personal data stay a child table,
+    whose pii type generates them, under the default multihot auto."""
+    import random
+
+    from relsynth.documents.pipeline import DocumentSynthesizer
+    random.seed(1)
+    staff = [f"person{i}.realname@corp-example.com" for i in range(40)]
+    docs = [{"_id": i, "priority": random.randint(1, 5), "cc": random.sample(staff, random.randint(1, 3))}
+            for i in range(400)]
+    out = DocumentSynthesizer({"tickets": docs}, seed=3).synthesize()
+    vals = {v for d in out["tickets"] for v in (d.get("cc") or [])}
+    assert vals and not vals & set(staff)

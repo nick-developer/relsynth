@@ -104,7 +104,9 @@ validates against the inferred schema (Prop. 1400).
    in the source's order; otherwise a cell is 1 + the value's position, and the order is modelled with the rest. Options (`DocumentSynthesizer(options=...)`,
    `spec_overrides: {documents: ...}` or `relsynth docs synth --multihot`): `multihot: auto | on | off` and
    `multihot_max_columns` (default 64), a cost bound: the copula's work grows with the square of its columns, so larger
-   vocabularies stay child tables under `auto`. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
+   vocabularies stay child tables under `auto`. A cell writes its value back verbatim, so an array whose values are typed
+   as personal data, free text or identifiers (e-mail addresses, names) stays a child table under any setting, and its
+   values are generated, not copied. The tables go to a SQLite work file with every key declared, and `introspect` drafts the spec.
    `nest(shred(D))` gives `D` back exactly (Prop. 1401).
 2. **Synthesise** with the relational engine: a Bayesian copula per table, latent segments across tables, exact keys
    and links, and a Dirichlet-process law for the number of elements per parent.
