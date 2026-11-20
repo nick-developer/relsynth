@@ -307,6 +307,11 @@ def sample_partitioned(syn, scale=None, index=None, executor: Executor | dict | 
                 df[c] = np.arange(1, len(df) + 1)
         for r in parts:
             _merge_log(syn.sample_log, r[3])
+        if getattr(syn, "_scen", None) is not None:
+            # a scenario's marginal maps run once on the joined, finished table (whole-
+            # table ranks), as in Synthesizer.sample (relsynth.scenarios)
+            df = syn._scen.map_columns(f, df, syn, out)
+            syn._scen.note_fact_rows(f, len(df))
         out[f] = df
         # event sequences (T12) order each entity's events: redrawn over the joined table
         out[f] = syn._apply_fact_sequence(f, out, index)

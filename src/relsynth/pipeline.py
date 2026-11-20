@@ -113,8 +113,13 @@ class PipelineRun:
         return not self.errors
 
 
-def _prepare_spec(spec_or_path, scale=None, datasets=None, mode=None, pushdown=None, seed=None) -> dict:
+def _prepare_spec(spec_or_path, scale=None, datasets=None, mode=None, pushdown=None, seed=None,
+                  scenario=None) -> dict:
     spec = load_spec(spec_or_path)
+    if scenario is not None:
+        from .scenarios import active
+        active({**spec["synthesis"], "scenario": scenario})        # raises SpecError for an unknown name
+        spec["synthesis"]["scenario"] = scenario
     if scale is not None:
         from .api import _scale_section
         spec["synthesis"]["scale"] = _scale_section(scale, spec)
@@ -133,7 +138,7 @@ def _prepare_spec(spec_or_path, scale=None, datasets=None, mode=None, pushdown=N
 
 def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=True, tables=None, datasets=None,
             mode=None, pushdown=None, seed=None, write=True, evaluate_data=True, fit_data=None,
-            privacy_check=False) -> PipelineRun:
+            privacy_check=False, scenario=None) -> PipelineRun:
     """Run the pipeline.  Failed steps are recorded (bundle errors and
     PipelineRun.exceptions) and the steps that depend on them are skipped.
 
@@ -145,7 +150,7 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
     synthesis.evaluation.privacy_check, False skips it)."""
     errors, exceptions, written = [], [], []
     t0 = time.time()
-    spec = _prepare_spec(spec_or_path, scale, datasets, mode, pushdown, seed)
+    spec = _prepare_spec(spec_or_path, scale, datasets, mode, pushdown, seed, scenario)
     from .dp.config import section
     if section(spec) is not None:
         from .errors import PrivacyError

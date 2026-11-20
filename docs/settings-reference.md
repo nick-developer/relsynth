@@ -10,6 +10,8 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `posterior.sample_seed` | int | `None` | 0 … 9223372036854775807 |  | Seed of the parameter and data streams (default: seed). |
 | `scale.default` | float | `1.0` | 0 … 1e+06 |  | Row multiplier for entities; facts follow their anchors. |
 | `scale.tables` | map | `{}` |  |  | Per-table multipliers {table: factor}. An entity without its own factor takes the factor of the first parent it links to that has one (orders follow their customers); facts follow their anchors. |
+| `scenario` | any | `None` |  |  | The scenario of `scenarios` applied to every dataset (null: the fitted model as it is). `relsynth run --scenario NAME` and `FittedModel.sample(scenario=...)` choose one per run. |
+| `scenarios` | map | `{}` |  |  | What-if scenarios {name: {description, interventions: [...]}}: scale, shares, marginal, intensity and degree interventions applied while a dataset is sampled (docs/scenarios.md). |
 | `segments.default_cap` | int | `8` | 1 … 512 | yes (log) | Upper bound on latent segments per table. |
 | `segments.min_rows_per_segment` | int | `20` | 1 … 1e+07 | yes (log) | Rows per segment at least (also caps the segment count). |
 | `segments.tables` | map | `{}` |  |  | Per-table segment caps {table: cap}. |
