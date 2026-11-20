@@ -127,9 +127,24 @@ class FeatureSpace:
         return out
 
     def dense(self, X: list, rows, rng) -> np.ndarray:
-        """Scores and one-hot blocks side by side (the conditioning vector of parent attributes)."""
+        """Scores and one-hot blocks side by side (the conditioning vector of parent attributes).
+
+        A missing value in a column that had no nulls at fit time has no slot of its own: it is
+        encoded as neutral (score 0, the marginal median; an all-zero one-hot block) rather than
+        as the first level or the lowest score."""
         Z, S = self.encode(X, rows, rng)
-        return np.concatenate([Z, self.one_hot(S)], axis=1)
+        H = self.one_hot(S)
+        for i, j in enumerate(self.num):
+            if float(getattr(self.marg[j], "p_null", 0.0)) <= 0.0:
+                miss = np.isnan(np.asarray(X[j], float)[rows])
+                Z[miss, i] = 0.0
+        for i, c in enumerate(self.cats):
+            if not c.has_null:
+                x = np.asarray(X[c.col])[rows]
+                miss = np.isnan(x) | (x < 0) if x.dtype.kind == "f" else x < 0
+                o = int(self.cat_offsets[i])
+                H[np.ix_(np.flatnonzero(miss), np.arange(o, o + c.width))] = 0.0
+        return np.concatenate([Z, H], axis=1)
 
     # ---- decode
     def decode_into(self, out: np.ndarray, Z: np.ndarray, S: np.ndarray, marginals: list, rng) -> None:

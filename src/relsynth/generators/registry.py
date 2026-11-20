@@ -77,6 +77,16 @@ def version_matches(version: str, spec: str | None) -> bool:
     return True
 
 
+def unavailable_reason(cls) -> str | None:
+    """cls.unavailable(), contained: a broken plug-in hook reports itself instead of breaking
+    the listing or the spec check of every generator."""
+    try:
+        r = cls.unavailable()
+    except Exception as e:  # noqa: BLE001 - third-party code; reported, not raised
+        return f"unavailable() failed: {type(e).__name__}: {e}"
+    return None if r is None else str(r)
+
+
 class Entry:
     """A registered generator class and where it comes from."""
 
@@ -89,7 +99,7 @@ class Entry:
         out = {"name": self.name, "source": self.source, "package": self.dist, "package_version": self.dist_version}
         if c is None:
             return {**out, "error": self.error}
-        return {**out, "version": c.version, "description": c.description, "unavailable": c.unavailable(),
+        return {**out, "version": c.version, "description": c.description, "unavailable": unavailable_reason(c),
                 "capabilities": c.capabilities.to_dict(), "class": f"{c.__module__}.{c.__qualname__}"}
 
 
@@ -207,7 +217,7 @@ def check(cls, spec, t, aux=False, pushed=False, ir_version="1.0") -> tuple[list
     errs, warns = [], []
     cap = cls.capabilities
     T = spec["tables"][t]
-    missing = cls.unavailable()
+    missing = unavailable_reason(cls)
     if missing:
         errs.append(f"{t}: generator {cls.name}: {missing}")
     if not version_matches(ir_version, cap.ir_versions):

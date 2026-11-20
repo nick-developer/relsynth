@@ -71,20 +71,22 @@ def dtype_of(plan):
 
 
 @contextlib.contextmanager
-def seeded(rng: np.random.Generator, plan=None):
+def seeded(rng: np.random.Generator, plan=None, device: str | None = None):
     """A torch generator seeded from the engine's generator, inside a fork of
-    torch's global random state (layer initialisation draws from it)."""
+    torch's global random state (layer initialisation draws from it).  The generator
+    lives on ``device`` when given (the fitted model's device), else on the plan's."""
     torch = torch_module()
     seed = int(rng.integers(0, 2 ** 63 - 1))
     threads = getattr(plan, "threads", None) if plan is not None else None
     old_threads = torch.get_num_threads()
-    devices = [] if device_of(plan) == "cpu" else list(range(torch.cuda.device_count()))
+    dev = device or device_of(plan)
+    devices = [] if dev == "cpu" else list(range(torch.cuda.device_count()))
     with torch.random.fork_rng(devices=devices):
         torch.manual_seed(seed)
         if threads:
             torch.set_num_threads(int(threads))
         try:
-            gen = torch.Generator(device=device_of(plan))
+            gen = torch.Generator(device=dev)
             gen.manual_seed(seed)
             yield gen
         finally:

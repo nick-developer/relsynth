@@ -1,78 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Neural generator plug-ins (relsynth.generators.neural): the DP-SGD accountant
-(no torch needed), and the tvae / ddpm generators through the engine (torch;
-CI job `neural`).  Props. 1800-1804."""
+"""Neural generator plug-ins (relsynth.generators.neural): the tvae / ddpm generators
+through the engine (torch; CI job `neural`).  Props. 1800-1802, 1804-1805.  The parts
+that need no torch are in test_neural_accountant.py."""
 from __future__ import annotations
 
 import copy
-import math
 
 import numpy as np
 import pandas as pd
 import pytest
-from scipy import integrate
-from scipy.stats import norm
 
 import relsynth as rs
 from relsynth.errors import EngineError
-from relsynth.generators import GeneratorError, Registry, check, default_registry
+from relsynth.generators import GeneratorError, default_registry
 from relsynth.generators.neural import accountant as acc
-from relsynth.generators.neural.ddpm import cosine_abar
 
 from conftest import write_scenario
 
 INTEGRITY = {"fk_integrity", "rule_violation_rate", "unique_duplicate_rate", "tree_cycles"}
-
-
-# ---------------------------------------------------------------- accountant (Prop. 1803)
-def test_full_batch_is_the_gaussian_mechanism():
-    """q = 1: eps_RDP(alpha) = alpha / (2 sigma^2), i.e. rho = T / (2 sigma^2) zCDP."""
-    r = acc.rdp_sampled_gaussian(1.0, 2.0, orders=(2, 5, 64))
-    assert np.allclose(r, np.array([2, 5, 64]) / 8.0)
-    assert acc.zcdp_rho(2.0, 10) == pytest.approx(10 / 8)
-
-
-@pytest.mark.parametrize("q,sigma,alpha", [(0.01, 1.0, 2), (0.05, 0.8, 8), (0.2, 2.0, 16), (0.5, 3.0, 5)])
-def test_sampled_gaussian_matches_numerical_integration(q, sigma, alpha):
-    """The closed form equals E_{mu0}[(mu/mu0)^alpha] with mu0 = N(0, s^2), mu = (1-q) mu0 + q N(1, s^2),
-    integrated numerically (Mironov, Talwar and Zhang 2019, sec. 3.3)."""
-    def f(x):     # mu(x) / mu0(x) = (1 - q) + q exp((2x - 1) / (2 s^2))
-        return norm.pdf(x, 0, sigma) * ((1 - q) + q * math.exp((2 * x - 1) / (2 * sigma ** 2))) ** alpha
-    hi = 12 * sigma + alpha        # the integrand's mass lies below alpha + 12 sigma
-    val, _ = integrate.quad(f, -12 * sigma, hi, limit=400, epsabs=0, epsrel=1e-10)
-    want = math.log(val) / (alpha - 1)
-    got = acc.rdp_sampled_gaussian(q, sigma, orders=(alpha,))[0]
-    assert got == pytest.approx(want, rel=1e-6, abs=1e-12)
-
-
-def test_epsilon_is_monotone_and_calibration_inverts_it():
-    e1 = acc.epsilon(0.01, 1.0, 1000, 1e-5)[0]
-    e2 = acc.epsilon(0.01, 1.5, 1000, 1e-5)[0]
-    e3 = acc.epsilon(0.01, 1.0, 2000, 1e-5)[0]
-    assert e2 < e1 < e3
-    s = acc.calibrate_sigma(2.0, 1e-5, 0.01, 1000)
-    assert acc.epsilon(0.01, s, 1000, 1e-5)[0] <= 2.0
-    assert acc.epsilon(0.01, s * 0.99, 1000, 1e-5)[0] > 2.0
-    with pytest.raises(ValueError, match="out of reach"):
-        acc.calibrate_sigma(1e-6, 1e-5, 1.0, 10 ** 6)
-
-
-def test_cosine_schedule():
-    ab = cosine_abar(1000)
-    assert ab[0] == 1.0 and np.all(np.diff(ab) < 0) and 0 < ab[-1] < 1e-3
-
-
-# ---------------------------------------------------------------- registry without torch
-def test_neural_generators_are_registered_and_report_a_missing_torch(monkeypatch):
-    reg = Registry(entry_points=False)
-    assert {"tvae", "ddpm"} <= set(reg.names())
-    info = {g["name"]: g for g in reg.list()}
-    assert info["ddpm"]["capabilities"]["gpu"] == "optional"
-    from relsynth.generators.neural import train
-    monkeypatch.setattr(train, "torch_missing", lambda: train.INSTALL_HINT)
-    spec = {"tables": {"t": {"columns": {"x": {"type": "float"}}}}, "synthesis": {}}
-    errs, _ = check(reg.entry("tvae").cls, spec, "t")
-    assert any("relsynth[neural]" in e for e in errs)
 
 
 # ---------------------------------------------------------------- generators (torch)
@@ -160,11 +105,15 @@ def test_unseen_group_backs_off_through_the_null_token(shop):
 def test_options_are_validated(shop):
     for bad, msg in [({"epochs": 0}, "positive integer"), ({"nope": 1}, "unknown tvae options"),
                      ({"dp": {"epsilon": -1}}, "epsilon > 0"), ({"dp": {"eps": 1}}, "unknown dp options"),
-                     ({"hidden": []}, "hidden")]:
+                     ({"hidden": []}, "hidden"), ({"max_steps": True}, "max_steps"),
+                     ({"loss_factor": "2"}, "loss_factor")]:
         with pytest.raises((GeneratorError, EngineError), match=msg):   # wrapped by the API
             rs.fit(_with(shop, "tvae", **bad), seed=1)
     with pytest.raises((GeneratorError, EngineError), match="sample_steps"):
         rs.fit(_with(shop, "ddpm", timesteps=10, sample_steps=20), seed=1)
+    # null means the generator's default, not a crash later in training
+    model = rs.fit(_with(shop, "tvae", patience=None, lr=None), seed=1)
+    assert model.synthesizer.tm["customer"].generator.opts["patience"] == 30
 
 
 @pytest.mark.parametrize("gen", ["tvae", "ddpm"])

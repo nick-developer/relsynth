@@ -2305,7 +2305,7 @@ claims:
     status: supported
     evidence:
       - code: src/relsynth/generators/neural/ddpm.py::DDPMGenerator
-      - test: tests/unit/test_neural.py::test_cosine_schedule
+      - test: tests/unit/test_neural_accountant.py::test_cosine_schedule
 
   - id: NN-07
     doc: docs/neural.md
@@ -2341,7 +2341,7 @@ claims:
       - prop: prop:nndpsgd
       - prop: prop:nnacct
       - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
-      - test: tests/unit/test_neural.py::test_sampled_gaussian_matches_numerical_integration
+      - test: tests/unit/test_neural_accountant.py::test_sampled_gaussian_matches_numerical_integration
 
   - id: NN-11
     doc: docs/neural.md
@@ -2395,7 +2395,7 @@ claims:
     evidence:
       - prop: prop:nnacct
       - report: docs/research/neural-and-simulation-generators.md
-      - test: tests/unit/test_neural.py::test_sampled_gaussian_matches_numerical_integration
+      - test: tests/unit/test_neural_accountant.py::test_sampled_gaussian_matches_numerical_integration
 
 not_claims:
   - {doc: docs/privacy.md, quote: "Every key is optional.", reason: "describes the configuration file format"}

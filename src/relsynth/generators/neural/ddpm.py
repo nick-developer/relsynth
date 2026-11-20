@@ -41,7 +41,7 @@ import math
 
 import numpy as np
 
-from .base import NeuralGenerator, mlp
+from .base import NeuralGenerator, _number, _pos_int, mlp
 from .features import ZCLIP
 from .train import GeneratorError, torch_module
 
@@ -65,12 +65,12 @@ class DDPMGenerator(NeuralGenerator):
 
     def _check_options(self, o, table):
         h = o["hidden"]
-        if not (isinstance(h, (list, tuple)) and h and all(isinstance(x, int) and x > 0 for x in h)):
+        if not (isinstance(h, (list, tuple)) and h and all(_pos_int(x) for x in h)):
             raise GeneratorError(f"{table}: ddpm option hidden must be a list of positive integers")
         for k in ("emb_dim", "timesteps", "sample_steps"):
-            if not isinstance(o[k], int) or o[k] < 1:
+            if not _pos_int(o[k]):
                 raise GeneratorError(f"{table}: ddpm option {k} must be a positive integer")
-        if not isinstance(o["aux_weight"], (int, float)) or isinstance(o["aux_weight"], bool) or o["aux_weight"] < 0:
+        if not _number(o["aux_weight"]) or o["aux_weight"] < 0:
             raise GeneratorError(f"{table}: ddpm option aux_weight must be a number >= 0")
         if o["sample_steps"] > o["timesteps"]:
             raise GeneratorError(f"{table}: ddpm sample_steps may not exceed timesteps")

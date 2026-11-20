@@ -507,7 +507,7 @@ jobs:
       - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,neural,bench]"
       - name: Neural unit tests
-        run: pytest -q tests/unit/test_neural.py tests/unit/test_generators.py
+        run: pytest -q tests/unit/test_neural.py tests/unit/test_neural_accountant.py tests/unit/test_generators.py
       - name: Adult with tvae and ddpm (quality and privacy)
         run: |
           for g in tvae ddpm; do

@@ -37,6 +37,28 @@ COMMON = {"epochs": None, "batch_size": None, "lr": None, "weight_decay": 1e-5, 
           "p_uncond": 0.1, "dp": None, "sample_batch": 65536, "calibrate": True, "calib_rows": 20000}
 
 
+def _pos_int(v) -> bool:
+    return isinstance(v, (int, np.integer)) and not isinstance(v, bool) and v >= 1
+
+
+def _number(v) -> bool:
+    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def score_map(z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Knots (x, y) of the strictly increasing map that sends the empirical law of the scores z to
+    N(0, 1) (Prop. 1805): 1999 inner quantiles and the sample's ends.  The end knots' probabilities stay
+    outside the inner grid, so the map is increasing for any sample size."""
+    z = np.asarray(z, np.float64)
+    m = len(z)
+    grid = np.linspace(0.0, 1.0, 2001)[1:-1]
+    e = min(0.5 / m, grid[0] / 2)
+    x = np.concatenate([[z.min()], np.quantile(z, grid), [z.max()]])
+    y = ndtri(np.concatenate([[e], grid, [1 - e]]))
+    x = np.maximum.accumulate(x + np.arange(len(x)) * 1e-9)   # strictly increasing knots
+    return x, y
+
+
 class NeuralGenerator(TableGenerator):
     """Base class; subclasses set DEFAULTS and implement _build, _loss_rows,
     _noise and _generate."""
@@ -57,24 +79,27 @@ class NeuralGenerator(TableGenerator):
             raise GeneratorError(f"{context.table}: unknown {self.name} options {sorted(bad)} "
                                  f"(allowed: {sorted(allowed)})")
         o = {**allowed, **raw}
+        plan_bs = getattr(context.compute, "batch_size", None) if context.compute is not None else None
+        if raw.get("batch_size") is None and plan_bs:
+            o["batch_size"] = int(plan_bs)
+        for k in ("epochs", "batch_size", "lr", "patience"):     # null means "the generator's default"
+            if o[k] is None:
+                o[k] = self.DEFAULTS[k]
         if not isinstance(o["calibrate"], bool):
             raise GeneratorError(f"{context.table}: {self.name} option calibrate must be true or false")
         for k in ("epochs", "batch_size", "max_rows", "max_levels", "patience", "cond_dim", "sample_batch",
                   "calib_rows"):
-            if o[k] is not None and (not isinstance(o[k], (int, np.integer)) or isinstance(o[k], bool) or o[k] < 1):
+            if not _pos_int(o[k]):
                 raise GeneratorError(f"{context.table}: {self.name} option {k} must be a positive integer")
-        if o["max_steps"] is not None and (not isinstance(o["max_steps"], (int, np.integer)) or o["max_steps"] < 1):
+        if o["max_steps"] is not None and not _pos_int(o["max_steps"]):
             raise GeneratorError(f"{context.table}: {self.name} option max_steps must be a positive integer or null")
         for k in ("lr", "weight_decay", "valid_share", "p_uncond"):
             v = o[k]
-            if v is not None and (not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or v < 0):
+            if not _number(v) or v < 0:
                 raise GeneratorError(f"{context.table}: {self.name} option {k} must be a number >= 0")
         if not 0 <= o["valid_share"] < 0.5 or not 0 <= o["p_uncond"] < 1:
             raise GeneratorError(f"{context.table}: {self.name} needs 0 <= valid_share < 0.5 and 0 <= p_uncond < 1")
         o["dp"] = T.DPOptions.parse(o["dp"], context.table)
-        plan_bs = getattr(context.compute, "batch_size", None) if context.compute is not None else None
-        if raw.get("batch_size") is None and plan_bs:
-            o["batch_size"] = int(plan_bs)
         self._check_options(o, context.table)
         return o
 
@@ -108,8 +133,8 @@ class NeuralGenerator(TableGenerator):
         c_fit = sorted(set(coarse.tolist()))
         self.coarse_ix = {c: i + 1 for i, c in enumerate(c_fit)}
         self.device = T.device_of(context.compute)
+        T.dtype_of(context.compute)                # validation only: rejects bf16/fp16, training runs in fp32
         self.dtype_name = "float32"
-        T.dtype_of(context.compute)
         self.report = None
         if self.n_fit == 0 or self.space.dim == 0:
             self.weights = None
@@ -181,17 +206,7 @@ class NeuralGenerator(TableGenerator):
                     self.cat_bias_target = target
         if sp.n_num:
             Z = Z.cpu().numpy()
-            grid = np.linspace(0.0, 1.0, 2001)[1:-1]
-            ends = np.array([0.5 / m, 1 - 0.5 / m])
-            maps = []
-            for i in range(sp.n_num):
-                zq = np.quantile(Z[:, i], grid)
-                lo, hi = float(Z[:, i].min()), float(Z[:, i].max())
-                x = np.concatenate([[lo], zq, [hi]])
-                y = ndtri(np.concatenate([[ends[0]], grid, [ends[1]]]))
-                x = np.maximum.accumulate(x + np.arange(len(x)) * 1e-9)   # strictly increasing knots
-                maps.append((x.astype(np.float64), y.astype(np.float64)))
-            self.num_maps = maps
+            self.num_maps = [score_map(Z[:, i]) for i in range(sp.n_num)]
 
     def _apply_num_maps(self, Z: np.ndarray) -> np.ndarray:
         if not getattr(self, "num_maps", None):
@@ -269,7 +284,7 @@ class NeuralGenerator(TableGenerator):
         g, c, A = self._cond_inputs(M, conditioning, rng)
         self._ensure_model()
         Zs, Ss = [], []
-        with T.seeded(rng) as gen, torch.no_grad():
+        with T.seeded(rng, device=self.device) as gen, torch.no_grad():
             bs = self.opts["sample_batch"]
             for i in range(0, M, bs):
                 sl = slice(i, i + bs)
