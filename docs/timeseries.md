@@ -43,10 +43,52 @@ Options (all optional):
 | `shrinkage` | `1.0` | prior scale of a segment's gap parameters around the pooled fit (smaller pools more) |
 | `min_entities` | `30` | segments with fewer entities use the pooled parameters |
 | `redraws` | `10` | an entity whose new dates break a check rule is redrawn up to this many times, then keeps the engine's dates |
+| `process` | `renewal` | how events between the first and last arrive: `renewal` (gamma gaps) or `hawkes` (self-exciting clusters, below) |
+| `states` | none | a status column whose order along each history follows a Markov chain (below): a column name or `{column, prior}` |
 
 Guarantees: keys, counts, links and the other tables are identical with and without `sequence`, and no check rule
 that held before is broken (Prop. 1203). The sample log has `sequences: {table: {entities, events,
 redrawn_entities, kept_engine_times}}`.
+
+### Self-exciting events: `process: hawkes`
+
+Some histories come in clusters: an order is followed by a return and a re-order within days, a claim by follow-up
+claims. The renewal bridge treats the gaps as independent, so it cannot make clusters. With `process: hawkes` the
+events between an entity's first and last event follow a Hawkes process in operational time,
+`lambda(u) = mu_i + eta * beta * sum exp(-beta (u - u_k))`: each event triggers on average `eta` more (the branching
+ratio, below 1), after delays of mean `1 / beta`, on top of a baseline rate `mu_i` per entity.
+
+- **Fit.** `eta` and `beta` per segment by maximum a posteriori of the Hawkes likelihood with each entity's baseline
+  profiled out, a prior centred on the pooled fit (strength `shrinkage`) and a Laplace posterior, so every dataset
+  draws its own parameters (Prop. 1820). The fit log (`sequence` decisions and `SequenceModel.summary()`) gives `eta`,
+  `beta` and `residual_ks`, the distance of the time-rescaled gaps from Exp(1), a diagnostic (small: the model fits; the fitted parameters and short histories shift it, so it is not a calibrated test).
+- **Sampling.** The engine still fixes each entity's count, and the life-time law its first and last event. The events
+  between them are drawn from the cluster form of the process given their number: how many clusters (Borel–Tanner),
+  which event triggered which (a random forest given its size), and exponential delays within the span (Prop. 1821).
+  Clusters that would run past the span's end are cut, so very long clusters come out slightly shorter; the effect
+  vanishes when the mean delay is short against the span.
+
+### Status chains: `states`
+
+```yaml
+    sequence: {entity: AccountKey, time: EventDate, states: Status}     # or states: {column: Status, prior: 1.0}
+```
+
+An event table often has a status that evolves along a history (opened, active, dormant, closed). Without `states`
+each event's status is drawn on its own, so a history can go closed, opened, closed. With it:
+
+- the statuses of each history follow a Markov chain per segment: the first status from the segment's initial law,
+  each next one from its transition matrix, with Dirichlet posteriors centred on the pooled chain (`prior` pseudo-counts
+  per status; segments with fewer than `min_entities` entities use the pooled chain; Prop. 1822);
+- the gap after an event depends on its status (semi-Markov): the gap shares of the span are Dirichlet with shape
+  `alpha_i * exp(delta_status)`, the exact law of gamma holding times with a common scale, so a status with
+  `delta > 0` holds longer and more regularly (Prop. 1823). The status with the most events has `delta = 0`;
+- the engine's rows keep their contents: each history's rows are placed at the positions of their own status, in the
+  engine's order, and a row left over takes the status of the position it fills. The sample log gives
+  `status_rewritten`, the number of such rows (it is small when the engine's status shares agree with the chain's).
+
+`states` uses the renewal bridge with status-dependent shapes, so it cannot be combined with `process: hawkes`. The
+column must be categorical, boolean or integer, with at most 50 levels.
 
 ## Regular series
 

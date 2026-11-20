@@ -2088,6 +2088,16 @@ claims:
       - check: C1740
       - check: C1741
 
+  - id: RM-70
+    doc: README.md
+    area: structure
+    quote: "Every intervention and its effect is logged; relsynth run --scenario NAME picks one."
+    status: supported
+    evidence:
+      - prop: prop:simscenbase
+      - test: tests/unit/test_scenarios.py::test_scale_resizes_entities_and_children_follow
+      - test: tests/unit/test_scenarios.py::test_api_and_run_select_a_scenario
+
   # ------------------------------------------------------------------ docs/privacy.md, small dimensions (G3)
 
   - id: PRV-20

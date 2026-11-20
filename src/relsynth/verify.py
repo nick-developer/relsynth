@@ -207,7 +207,7 @@ def verify(spec, *, draws: int = 5, stability: bool = True, out=None, privacy: b
         sims = []
         for i in range(1, draws + 1):
             log.info("verify R3: posterior predictive copy %d of %d", i, draws)
-            d = syn.sample(index=i)              # its own parameter draw, then new data
+            d = syn.sample(index=i, scenario=False)   # its own parameter draw, then new data (no scenario)
             sims.append(key_stats(s, {t: coerce(df, T[t]) for t, df in d.items() if t in T}, skip=sampled))
         for k, v in rs.items():
             col = np.array([x.get(k, np.nan) for x in sims], dtype=float)
