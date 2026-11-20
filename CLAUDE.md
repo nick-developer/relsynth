@@ -71,7 +71,8 @@ how it affects privacy and fidelity, with evidence (privacy checks and quality r
    (`ci` always; `codeql` and `security` when the pull request targets `main`, since they run only
    there; and any workflow the change triggers) is green, and the pre-merge audit of rule 1 is
    done with every finding above warning resolved and its result in the pull-request
-   description. Fix red checks while still in draft; do not mark ready to "see what CodeRabbit
+   description. A stacked pull request may be marked ready with the `codeql` and `security`
+   parts of the audit still pending; they must pass once it targets `main`, before it is merged. Fix red checks while still in draft; do not mark ready to "see what CodeRabbit
    says".
 4. **Wait for CodeRabbit to finish.** Marking a pull request to `main` ready starts one full review.
    CodeRabbit reviews only pull requests to `main` on its own (`base_branches`), so for a stacked
