@@ -56,7 +56,7 @@ Steps 1 and 2 are exact for the cluster process given N; the truncation in
 step 3 is the conditioning on the span, exact for each child given its
 parent and approximate jointly (an edge effect that vanishes when
 1 / beta << S).  ``simulate`` is Ogata's (1981) thinning algorithm for the
-unconditional process, used by the checks and for forward simulation.
+unconditional process, used by the tests (relsynth extend does not continue Hawkes histories yet).
 """
 from __future__ import annotations
 

@@ -266,6 +266,9 @@ def sample_partitioned(syn, scale=None, index=None, executor: Executor | dict | 
     ex = make_executor(executor)
     ctx = syn._sample_entities(scale, index)
     index = int(ctx["index"])
+    # a scenario's marginal maps of a fact run once on the joined table (whole-table
+    # ranks), not in each partition (relsynth.scenarios)
+    syn._scen_partitioned = True
     pc = syn.cfg.get("posterior", {})
     seed = int(syn.cfg["seed"] if pc.get("sample_seed") is None else pc["sample_seed"])
     syn.run_cache = KeyedRunCache(syn.run_cache, seed, index).bind(syn)
@@ -307,12 +310,16 @@ def sample_partitioned(syn, scale=None, index=None, executor: Executor | dict | 
                 df[c] = np.arange(1, len(df) + 1)
         for r in parts:
             _merge_log(syn.sample_log, r[3])
+        if getattr(syn, "_scen", None) is not None:
+            df = syn._scen.map_columns(f, df, syn, out)
+            syn._scen.note_fact_rows(f, len(df))
         out[f] = df
         # event sequences (T12) order each entity's events: redrawn over the joined table
         out[f] = syn._apply_fact_sequence(f, out, index)
         fact_rows[f] = _join_rows([r[1] for r in parts])
         plans.append(FactPlan(f, mode, why, n1, [b[:3] for b in blocks], len(df), time.time() - t1))
         say(f"sample: fact {f}: {len(df):,} rows in {len(blocks)} partition(s)")
+    syn._scen_partitioned = False
     syn.rng = stream(seed, index, "tail")
     tables = syn._sample_end(ctx)
     run = PartitionedRun(plans, ex.describe(), int(partition_rows), time.time() - t0)

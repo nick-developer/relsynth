@@ -166,6 +166,11 @@ def fit_sequences(S, tables):
             m.fit(tdays, owner, z, K, (A, B), datetime=is_dt, rng=rng)
         else:
             from .states import MAX_LEVELS
+            if so["column"] not in df.columns:
+                from ..spec import SpecError
+                raise SpecError(f"{t}: sequence.states {so['column']} is not a column of the table that carries the "
+                                "sequence (with fact.header the sequence moves to the order header; give a header "
+                                "column, or leave the time column on the lines)")
             keys = _state_keys(df[so["column"]])
             levels, first = np.unique(keys, return_index=True)
             if len(levels) > MAX_LEVELS:
@@ -285,7 +290,7 @@ def _apply_sequence(S, t, df, out, index, info):
         return frame
 
     st_info = info.get("states")
-    rewritten = [0]
+    rewritten = np.zeros(len(df), bool)       # rows whose status the chain set
     if st_info is not None:
         scol = st_info["column"]
         row_code = np.full(len(df), -1, dtype=np.int64)
@@ -330,7 +335,8 @@ def _apply_sequence(S, t, df, out, index, info):
                 frame[scol] = pd.Series(vals, index=frame.index).astype(orig[scol].dtype)
             except (TypeError, ValueError):
                 frame[scol] = vals
-            rewritten[0] += len(rr2)
+            rewritten[rsel] = False
+            rewritten[rr2] = True
             return frame
         df = place(df, np.ones(len(ents), bool))
     else:
@@ -364,11 +370,13 @@ def _apply_sequence(S, t, df, out, index, info):
                     df[c] = pd.Series(v, index=df.index).astype(orig[c].dtype)
                 except (TypeError, ValueError):
                     df[c] = v
+        if st_info is not None:
+            rewritten[rr] = False
     S.sample_log.setdefault("sequences", {})[t] = {"entities": int(len(ents)), "events": int(len(rows)),
                                                     "redrawn_entities": int(redrawn),
                                                     "kept_engine_times": int(reverted)}
     if st_info is not None:
-        S.sample_log["sequences"][t]["status_rewritten"] = int(rewritten[0])
+        S.sample_log["sequences"][t]["status_rewritten"] = int(rewritten.sum())
     return df
 
 

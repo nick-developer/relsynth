@@ -2509,6 +2509,7 @@ class Synthesizer:
         self.redraw(mode, prng)
         self.rng = rng = drng
         self.run_cache = RunCache(mode)
+        self._scen_partitioned = False
         self._mode = mode
         self.posterior_log = {"mode": mode, "dataset": index}
         T = self.spec["tables"]
@@ -2572,9 +2573,9 @@ class Synthesizer:
                 par = None
             if df is None:
                 df = self.tm[e].sample(z, rng)
-            if scen is not None:
-                df = scen.map_columns(e, df)
             df = self._guard_near_copies(e, df, z, rng)      # must stay before keys and _computed
+            if scen is not None:
+                df = scen.map_columns(e, df)                 # after the guard's redraws: every row mapped
             pk = T[e]["primary_key"]
             keys[e] = self._make_keys(e, len(z))
             ko = T[e].get("key_order")
@@ -2644,7 +2645,7 @@ class Synthesizer:
         self.__dict__.pop("_parent_cols", None)
         out, t0 = ctx["out"], ctx["t0"]
         if getattr(self, "_scen", None) is not None:
-            self._scen.map_derived(out)
+            self._scen.map_derived(out, self)
         for t in out:
             if t in self.spec["tables"] and _hidden_cols(out[t]):
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
@@ -3139,7 +3140,9 @@ class Synthesizer:
         phi = info["phi"]
         Kp = phi.shape[1]
         w = self._weights(info["parent_frailty"], zp, cache, ("edge", name), ent=info["rel"].e2, obs=info.get("obs"))
-        if getattr(self, "_scen", None) is not None:
+        if getattr(self, "_scen", None) is not None and not cache.get(("tempered", name)):
+            # a scenario's degree tempering, once: weights written back to the cache
+            # below are already tempered (later proposals reuse them)
             w = self._scen.temper(info["spec"]["child"], info["spec"]["child_key"], w, zp, Kp)
         if mask is None:
             mask = getattr(self, "_edge_masks", {}).get(name)
@@ -3147,6 +3150,8 @@ class Synthesizer:
         if mask is not None and not mask.all():
             w = self._renormalise(w * mask, zp, Kp)
             cache[("edge", name)] = w
+            if getattr(self, "_scen", None) is not None:
+                cache[("tempered", name)] = True
         members = [np.flatnonzero(zp == t) for t in range(Kp)]
         if mask is not None and not mask.all():
             members = [m[w[m] > 0] for m in members]
@@ -3790,14 +3795,17 @@ class Synthesizer:
         info = self.fact_info[f]
         df = self._fact_rows(f, st, u, v, blk, ents)
         scen = getattr(self, "_scen", None)
-        if scen is not None:
-            if scen.has_fact(f):
-                df = scen.thin_fact(f, df, self.rng)
-            df = scen.map_columns(f, df)
+        if scen is not None and scen.has_fact(f):
+            df = scen.thin_fact(f, df, self.rng)
+            self._sequences(f, df)                  # line numbers stay 1..n after thinning
         df = self._refill(f, st, df, ents)
         if info["nested"]:
             df = self._nested_consistency(f, df, ents, fact_rows)
         df = self._fact_unique(f, df, ents)
+        if scen is not None and not getattr(self, "_scen_partitioned", False):
+            # marginal maps of the finished rows (rule redraws included); a partitioned
+            # run maps the joined table once, so ranks are the whole table's
+            df = scen.map_columns(f, df, self, ents)
         self._given = getattr(self, "_given", {})
         self._given[f] = self._given_frame(f, df, ents)
         return df, self._fact_entity_state(f, df, ents)
@@ -4676,6 +4684,28 @@ class Synthesizer:
                 new[z] = fx[z]
                 df[lhs] = new
         return df
+
+    def _after_map(self, t, df, cols, out):
+        """After a scenario's marginal map of cols of table t: the derive rules that
+        read them are computed again (in rule order, so chains follow), and the rows
+        breaking a check rule that reads them are counted.  Returns (df, recomputed
+        columns, rule violations)."""
+        changed, redone, bad = set(cols), [], 0
+        for r in self.spec["rules"]:
+            if r["table"] != t or r["type"] != "derive":
+                continue
+            lhs, rhs = split_assignment(r["expr"])
+            if lhs in cols or lhs in self.late.get(t, ()) or \
+                    not ({n.split(".")[0] for n in names_in(rhs)} & changed):
+                continue
+            df = self._apply_derive(t, df, r, out)
+            changed.add(lhs)
+            redone.append(lhs)
+        res = self._resolver(t, df, out)
+        for r in self.spec["rules"]:
+            if r["table"] == t and r["type"] == "check" and {n.split(".")[0] for n in names_in(r["expr"])} & changed:
+                bad += int((~check_mask(df, r["expr"], res)).sum())
+        return df, redone, bad
 
     def _apply_derive(self, t, df, rule, out):
         lhs, _ = split_assignment(rule["expr"])

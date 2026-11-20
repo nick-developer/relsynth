@@ -28,6 +28,7 @@ SCEN = {
                                    "end": "2022-01-01", "factor": 2.0}]},
     "conc": {"interventions": [{"type": "degree", "table": "Line", "key": "ProductKey", "concentration": 3.0}]},
     "spread": {"interventions": [{"type": "degree", "table": "Line", "key": "ProductKey", "concentration": 0.0}]},
+    "qty": {"interventions": [{"type": "marginal", "table": "Line", "column": "Qty", "multiply": 2}]},
 }
 
 
@@ -278,3 +279,30 @@ def test_marginal_map_on_a_derived_column():
     assert np.isclose(np.median(y), np.median(x))
     assert 1.1 < np.quantile(y, 0.995) / np.quantile(x, 0.995) <= 1.2
     assert "applied" in rec["effect"]
+
+
+def test_fact_map_once_on_the_finished_rows_and_in_partitioned_runs(fitted):
+    """A fact's marginal map acts on its finished rows (the same rows as the
+    baseline), and a partitioned run maps the joined table once, not once per
+    partition and again at the end."""
+    from relsynth.runtime.partitioned import sample_partitioned
+    S, _, base = fitted
+    d = S.sample(index=0, scenario="qty")
+    assert np.array_equal(d["Line"]["Qty"].to_numpy(), 2 * base["Line"]["Qty"].to_numpy())
+    keep = S.cfg.get("scenario")
+    pb = sample_partitioned(S, None, 0, executor={"executor": "local"}, partition_rows=400)[0]
+    S.cfg["scenario"] = "qty"
+    try:
+        ps = sample_partitioned(S, None, 0, executor={"executor": "local"}, partition_rows=400)[0]
+    finally:
+        S.cfg["scenario"] = keep
+    assert len(ps["Line"]) == len(pb["Line"])
+    assert np.array_equal(ps["Line"]["Qty"].to_numpy(), 2 * pb["Line"]["Qty"].to_numpy())
+
+
+def test_marginal_on_the_sequence_time_is_rejected():
+    sp = spec(scenarios=False)
+    sp["synthesis"]["scenarios"] = {"s": {"interventions": [
+        {"type": "marginal", "table": "Orders", "column": "OrderDate", "add": 30}]}}
+    with pytest.raises(SpecError, match="sequence time"):
+        load_spec(sp)
