@@ -548,24 +548,41 @@ class Discovery:
                 if np.mean(gap >= 0) < MIN_SHARE:
                     continue
                 u = np.unique(gap)
-                if len(u) > 60:
+                if len(u) <= 60:
+                    # a few gaps (delivery 0..7 days): the set of gaps is the structure
+                    us = set(np.round(u, 6))
+                    inset = lambda x, y: np.isin(np.round(y - x, 6), list(us))
+                    chance = _perm_chance(inset, d[a][m], d[b][m], self.rng)
+                    rank = (0, len(u))
+                else:
+                    # many gaps (an answer's last activity after its creation): the order is
+                    # the structure.  Drawn as two dates and checked, rows that break the
+                    # order would be redrawn, which tilts every column that moves with the
+                    # gap (rejection keeps Q(x | rule), not the source law, when Q misses
+                    # the dependence, e.g. an atom of equal dates); drawn as a + gap with
+                    # the gap modelled, the order holds by construction.  The closest
+                    # earlier date is the base (smallest median gap)
+                    chance = _perm_chance(lambda x, y: y >= x, d[a][m], d[b][m], self.rng)
+                    rank = (1, float(np.median(gap)))
+                if not significant(float(np.mean(gap >= 0)), chance, int(m.sum())):
                     continue
-                us = set(np.round(u, 6))
-                inset = lambda x, y: np.isin(np.round(y - x, 6), list(us))
-                chance = _perm_chance(inset, d[a][m], d[b][m], self.rng)
-                if not significant(1.0, chance, int(m.sum())):
-                    continue
-                if b not in cand or len(u) < cand[b][1]:
-                    cand[b] = (a, len(u), gap)
-            for b in sorted(cand, key=lambda x: cand[x][1]):
-                a, nu, gap = cand[b]
+                if b not in cand or rank < cand[b][3]:
+                    cand[b] = (a, len(u), gap, rank)
+            for b in sorted(cand, key=lambda x: cand[x][3]):
+                a, nu, gap, _ = cand[b]
                 if a in self.col_offset.get(t, {}) or b in {x for x, _ in self.col_offset.get(t, {}).values()}:
                     continue
                 self.col_offset.setdefault(t, {})[b] = (a, nu)
                 self.cols[t][b]["offset_from"] = a
                 u, k = np.unique(gap, return_counts=True)
-                top = ", ".join(f"{x:g} ({n / len(gap):.0%})" for x, n in sorted(zip(u, k), key=lambda z: -z[1])[:3])
-                self.ask(f"{t}.{b}: offset from {a} (never earlier; {nu} distinct gaps, most common {top}); "
+                if nu <= 60:
+                    top = ", ".join(f"{x:g} ({n / len(gap):.0%})"
+                                    for x, n in sorted(zip(u, k), key=lambda z: -z[1])[:3])
+                    how = f"{nu} distinct gaps, most common {top}"
+                else:
+                    how = (f"{nu} distinct gaps, median {float(np.median(gap)):.3g} days, "
+                           f"{float(np.mean(gap == 0)):.0%} equal")
+                self.ask(f"{t}.{b}: offset from {a} (never earlier; {how}); "
                          f"generated as {a} plus a modelled gap")
 
     # ------------------------------------------------------- soft rules (ages)

@@ -1776,6 +1776,16 @@ claims:
     - code: src/relsynth/documents/setarrays.py::dependence_gain
     - code: src/relsynth/documents/shred.py::_multihot_value
 
+  - id: RM-63
+    doc: README.md
+    area: statistics
+    quote: "A date that never precedes another date of its row (an answer's last activity after its creation) is drafted as that date plus a modelled gap, so the order holds by construction and no row is redrawn for it."
+    status: supported
+    evidence:
+    - prop: prop:ordergap
+    - check: C1788
+    - code: src/relsynth/discovery.py::Discovery::col_offsets
+
   - id: BIN-01
     doc: docs/settings-reference.md
     area: privacy-measured

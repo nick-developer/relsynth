@@ -199,7 +199,7 @@ fixed = diagnosis.fixed_spec("spec.yaml")
    - Each table's columns follow a Bayesian Gaussian copula with exact marginals, per segment or pooled.
    - Facts are counts of links between segments, with fitted rates, multiplicities, participation and seasonality.
    - Hierarchies follow a Galton–Watson process, and text follows a proper predictive law with memorisation guards.
-3. **Synthesis.** A dataset draws every parameter once from its posterior, then the rows, entities first and facts after. Rules are imposed by exact conditioning: rejection, a redraw instead of a deletion, or calibrated link draws.
+3. **Synthesis.** A dataset draws every parameter once from its posterior, then the rows, entities first and facts after. Rules are imposed by exact conditioning: rejection, a redraw instead of a deletion, or calibrated link draws. A date that never precedes another date of its row (an answer's last activity after its creation) is drafted as that date plus a modelled gap, so the order holds by construction and no row is redrawn for it.
 4. **Evaluation.** The scorecard checks marginals, dependence, joins, cardinalities, trees, time, text, rules and privacy, each against a limit calibrated to the sampling noise of a posterior predictive draw.
 
 The [user guide](docs/user-guide.md) walks through each step with a worked example.

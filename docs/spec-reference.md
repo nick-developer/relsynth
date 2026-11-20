@@ -457,7 +457,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `lookup` | fk.col path \| keyed lookup |  | For type lookup: the value of a parent's column, or {table, match, value} into a reference table. |
 | `map` | map |  | Lookup values mapped through a fixed table (country -> currency). |
 | `default` | any |  | Value for codes outside `map`. |
-| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days). |
+| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). |
 | `ratio_of` | column \| fk.col |  | This number = that number x a modelled factor (unit price = list price x one of 16 factors). |
 | `ratio_same_as` | column |  | Use the factor of another ratio column (unit cost moves with unit price). |
 | `text` | text |  | Options of a text column. |

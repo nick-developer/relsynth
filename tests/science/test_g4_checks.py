@@ -308,3 +308,44 @@ def test_c1787_auto_floor_matches_the_source_negative_share():
     obj = SimpleNamespace(balance_auto={("s", "y"): 0.5}, sample_log={}, _resolver=lambda t, d, o: None)
     out = Synthesizer._cumulative(obj, "s", df.copy(), {**rule, "floor": 0.0}, {})
     assert (out.y >= 0).all() and "balance_floor" not in obj.sample_log
+
+
+# --------------------------------------------------------------------- C1788
+def _edited_posts(path, n=1500, seed=4):
+    """Posts whose last activity equals the creation unless edited (30 %)."""
+    import sqlite3
+    rng = np.random.default_rng(seed)
+    created = pd.Timestamp("2018-01-01") + pd.to_timedelta(rng.uniform(0, 1500, n), unit="D")
+    edited = rng.random(n) < 0.3
+    last = created + pd.to_timedelta(np.where(edited, rng.exponential(200, n), 0.0), unit="D")
+    df = pd.DataFrame({"id": range(1, n + 1), "score": rng.poisson(3, n),
+                       "created": created.strftime("%Y-%m-%d %H:%M:%S"),
+                       "last_activity": pd.DatetimeIndex(last).strftime("%Y-%m-%d %H:%M:%S"),
+                       "edited": np.where(edited, "yes", "no")})
+    with sqlite3.connect(path) as con:
+        df.to_sql("posts", con, index=False)
+    return float(edited.mean())
+
+
+def test_c1788_ordered_dates_are_drafted_as_a_base_plus_a_gap(tmp_path):
+    """Prop. 1788: a date never earlier than another, with many gaps and an atom
+    of equal dates, is drafted as the earlier date plus a modelled gap; the order
+    holds on every row and the column that moves with the gap keeps its share.
+    Drawn as two dates and checked (rejection), the share is tilted."""
+    share = _edited_posts(tmp_path / "a.db")
+    d = rs.introspect(f"sqlite:{tmp_path / 'a.db'}", name="p").raw
+    assert d["tables"]["posts"]["columns"]["last_activity"].get("offset_from") == "created"
+    d["synthesis"] = {**(d.get("synthesis") or {}), "seed": 5}
+
+    def edited_share(spec):
+        out = rs.fit(spec).sample()["posts"]
+        gap = pd.to_datetime(out["last_activity"]) - pd.to_datetime(out["created"])
+        held = out["edited"].astype(str).str.lower().isin(["yes", "true", "1"])   # drafted as a boolean
+        return float(held.mean()), bool((gap >= pd.Timedelta(milliseconds=-1)).all())   # float day arithmetic
+
+    s_off, ordered = edited_share(copy.deepcopy(d))
+    assert ordered and abs(s_off - share) < 0.04
+    d["tables"]["posts"]["columns"]["last_activity"].pop("offset_from")
+    d.setdefault("rules", []).append({"table": "posts", "type": "check", "expr": "days(created) <= days(last_activity)"})
+    s_rej, _ = edited_share(d)
+    assert s_rej - share > 0.04                      # the ratio Q(B >= A | X) / Q(B >= A) of the proposition

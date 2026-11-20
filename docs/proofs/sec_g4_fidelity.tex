@@ -83,4 +83,14 @@ The first statement is the definition of the capped update, by induction over th
 \end{proof}
 \noindent 2.2 drafted the floor when the source was negative on at most 1\,\% of rows, a cut-off from one database. The rule here needs no cut-off: on AdventureWorks inventory ($p=0.4\,\%$) the plain walk is negative on 11.7\,\% of rows, so the floor is applied and the share falls to 0, the closer of the two to the source; a ledger that is negative on a third of its rows keeps its plain walk unless that walk is negative on two thirds. The source's share is computed from the rows read (the sample under pushdown) and logged with the choice (\texttt{sample\_log.balance\_floor}). A balance never negative in the source always gets the floor, as before. Checks C1786 and C1787 test both propositions on constructed data.
 
+\begin{proposition}[Ordered dates as a base plus a gap]\label{prop:ordergap}
+Let $A\le B$ hold on every source row for two dates of a table, with other columns $X$, and let a model $Q$ with $Q_X=P_X$ draw $(A,B,X)$. Redrawing the rows that break the order until they hold gives the law $Q(\cdot\mid B\ge A)$, whose marginal of $X$ is
+$$Q(X\mid B\ge A)=P_X(X)\,\frac{Q(B\ge A\mid X)}{Q(B\ge A)},$$
+equal to $P_X$ iff $Q(B\ge A\mid X)$ does not depend on $X$. Drawn instead as $B=A+G$ with the gap $G$ modelled jointly with $(A,X)$ and a marginal supported on $[0,\infty)$, the order holds with probability $1$, no row is redrawn, and $X$ keeps the law $Q_X=P_X$; an atom of $G$ at $0$ (equal dates) is kept by the gap's marginal.
+\end{proposition}
+\begin{proof}
+Rejection sampling with acceptance event $R=\{B\ge A\}$ returns draws from $Q(\cdot\mid R)$ (each attempt is independent and accepted with probability $Q(R)>0$), and Bayes' rule gives the marginal of $X$. Under the reparametrisation the event $R$ is $\{G\ge0\}$, of probability $1$ under a marginal on $[0,\infty)$; the copula leaves every marginal unchanged, so $X$ is drawn from its own marginal.
+\end{proof}
+\noindent The dependence the ratio measures is common in operational data: an answer's last activity equals its creation unless it was edited, so $B-A$ has an atom at $0$ on unedited rows. A copula over $(A,B)$ draws two close but distinct dates for those rows, which break the order about half the time, while edited rows, with a long gap, almost never do; on StackExchange answers rejection raised the edited share from 29\,\% to 39\,\%. Introspect drafted the offset only for gaps with at most 60 values (the gap set as the structure); with many gaps it is now drafted when the order holds on at least 99.9\,\% of rows and beyond chance (one-sided binomial test against the order's share under permutation), from the closest earlier date (smallest median gap). Check C1788 builds such a table: drafted as an offset the edited share is kept and the order holds on every row.
+
 \setcounter{proposition}{\value{savedpropgfour}}

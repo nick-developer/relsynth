@@ -239,7 +239,7 @@ S = {
         "map": ("map", None, "Lookup values mapped through a fixed table (country -> currency)."),
         "default": ("any", None, "Value for codes outside `map`."),
         "offset_from": ("column", None, "This date/number = that column + a modelled gap (delivery = order + 0..7 "
-                        "days)."),
+                        "days; an answer's last activity = its creation + a gap that is often 0)."),
         "ratio_of": ("column | fk.col", None, "This number = that number x a modelled factor (unit price = list "
                      "price x one of 16 factors)."),
         "ratio_same_as": ("column", None, "Use the factor of another ratio column (unit cost moves with unit "
