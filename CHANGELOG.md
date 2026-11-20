@@ -17,11 +17,13 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 ### Fixed
 
 - Drawing the same dataset twice in one process gives the same data. `model.sample(dataset=i)` used to depend on
-  the datasets drawn before it in the process (AdventureWorks FactInternetSales 59,697 rows, then 54,895): the
+  the datasets drawn before it in the process (AdventureWorks FactInternetSales 59,697 rows, then 54,778): the
   occupancy and block models' parameter draw is one Gibbs scan, and it started from the activity indicators and
-  measure variances the previous draw left. Every draw now starts from their values at the end of the fit, so
-  dataset i depends only on the fit and its own streams (scenario-vs-baseline runs share random numbers). The
-  first dataset drawn after a fit is byte-identical to before; later datasets in a process change.
+  measure variances the previous draw left. Those variables now follow a chain of their own, started at the end
+  of the fit and advanced one scan per dataset index with its own stream, and dataset i starts from state i: it
+  depends only on the fit and its index (scenario-vs-baseline runs share random numbers), and the spread between
+  datasets keeps their posterior uncertainty. The first dataset after a fit is byte-identical to before; later
+  datasets, and the posterior draws of `export-model` (now dataset m's draw, as documented), change.
 - Matching file-table rows by key maps each key on its own, so requested keys and every Parquet batch
   agree (`"2.0"` beside `"001"`); `-2**63` is an Int64 key; out-of-range floats no longer collapse in the
   streamed distinct-key count.

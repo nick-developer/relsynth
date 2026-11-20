@@ -32,7 +32,7 @@ from .generators.contract import GeneratorError
 from .pii import PiiGenerator
 from .prepare import (_index, _keystr, _tuple_frame, compute_aggregate, lookup_column, lookup_deps, make_resolver,
                       prepare_source)
-from .relational import (Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
+from .relational import (STRUCT_KAPPA, Entity, OccRel, PairRel, RelationalModel, SingleRel, TreeRel,
                          dispersion_alpha, gumbel_argmax, multiplicity_marginal, poisson_dup_test,
                          sparse_dirichlet_draw, tree_depth)
 from .spec import SpecError, resolve_path, simple_fks, table_edges, topo_order
@@ -725,21 +725,22 @@ class Synthesizer:
             fn(self.rng)
         self._post_fns.append(fn)
 
-    def redraw(self, mode="draw", rng=None):
+    def redraw(self, mode="draw", rng=None, index=None):
         """One posterior draw (posterior means in mean mode) of every parameter
         given the fitted partitions: segment weights, link and block rates,
         occupancy and activity probabilities, marginals, copula matrices, time
         profiles, extra-dimension laws, refined segment weights and rake targets.
         A dataset sampled after it is a draw from the posterior predictive
         distribution (Rubin 1993); the per-call draws of the samplers (count-law
-        and tail weights) are fixed for the run as well (see posterior.py)."""
+        and tail weights) are fixed for the run as well (see posterior.py).
+        index numbers the dataset (see _restore_fit_state); None is dataset 0."""
         from .posterior import param_rng
         base = self.rng if rng is None else rng
         prng = param_rng(base, mode)
         keep, keep_rm = self.rng, self.rm.rng
         self.rng = self.rm.rng = prng
         try:
-            self._restore_fit_state()
+            self._restore_fit_state(0 if mode == "mean" or index is None else int(index))
             self.rm.draw_params(pi_s=self.pi_s)
             self._post_edges()
             for f in self.fact_order:
@@ -762,47 +763,70 @@ class Synthesizer:
             self.rng, self.rm.rng = keep, keep_rm
         return self
 
-    def _carrying_relations(self):
-        """Every relation whose draw_params reads variables left by its previous
-        call (relational.PairRel.CARRIED), in a fixed order, each once."""
-        seen, out = set(), []
+    STATE_CHECKPOINT = 32        # carried-chain states kept every this many datasets (_restore_fit_state)
 
-        def add(r):
-            if r is not None and getattr(r, "CARRIED", ()) and id(r) not in seen:
-                seen.add(id(r))
-                out.append(r)
-        for r in self.rm.R:
-            add(r)
-        for e in self.rm.E.values():
-            for r, _role in e.rels:
-                add(r)
+    def _carrying_relations(self):
+        """The relations redraw draws (those of the relational model, then each
+        fact's own relation) whose draw_params reads variables left by its
+        previous call (relational.PairRel.CARRIED), in redraw's order."""
+        out = [r for r in self.rm.R if getattr(r, "CARRIED", ())]
         for f in self.fact_order:
-            info = self.fact_info[f]
-            add(info.get("rel"))
-            for r in info.get("extra") or ():
-                add(r)
-        for info in self.edge_info.values():
-            add(info.get("rel"))
+            r = self.fact_info[f].get("rel")
+            if r is not None and r not in self.rm.R and getattr(r, "CARRIED", ()) and r not in out:
+                out.append(r)
         return out
 
-    def _restore_fit_state(self):
-        """Condition the parameter draw on the state the fit ended in.
+    def _restore_fit_state(self, index=0):
+        """Set the carried variables to their state for dataset `index`.
 
         Some draw_params are one Gibbs scan: block means given the measure
         variances s2, then s2 given the means; occupancy rates given the
         augmented activity of anchors without pairs, then the activity again.
         Left alone, each dataset's draw would start where the previous one
         stopped, so dataset i would depend on which datasets were drawn before
-        it in the process (and the samplers' random-number use with it).  The
-        first call records the carried variables (the end of the fit: no
-        dataset has been drawn yet); every call sets them back, so dataset i is
-        a function of the fit and its own streams only, and the first dataset
-        is unchanged."""
+        it in the process.  Freezing the state at the end of the fit instead
+        would leave out the posterior uncertainty of s2 and of the augmented
+        activity: every dataset would condition on the same values.
+
+        So the carried variables follow their own Markov chain, started at the
+        end of the fit (state 0, recorded at the first call, before any dataset
+        is drawn) and advanced one scan at a time with a stream of its own
+        (posterior.state_stream), and dataset i starts from state i.  Dataset i
+        is then a function of the fit and its index only (whatever was drawn
+        before it in the process); dataset 0 is unchanged; and the states are
+        draws from the same chain the datasets formed when drawn in order in a
+        fresh process, so the spread between datasets keeps that uncertainty.
+        Every STATE_CHECKPOINT-th state is kept with the stream's position, so
+        state i costs at most STATE_CHECKPOINT scans once its checkpoint exists."""
+        from .posterior import state_stream
         from .relational import carried_state, restore_carried_state
-        if getattr(self, "_fit_state", None) is None:      # also a model saved before this attribute
-            self._fit_state = [(r, carried_state(r)) for r in self._carrying_relations()]
-            return
-        for r, st in self._fit_state:
+        fs = getattr(self, "_fit_state", None)        # None also for a model saved before this attribute
+        if fs is None:
+            rels = self._carrying_relations()
+            pc = self.cfg.get("posterior", {})
+            rng = state_stream(self.cfg["seed"], pc.get("sample_seed"))
+            fs = self._fit_state = {"rels": rels, "states": {0: ([carried_state(r) for r in rels],
+                                                                 rng.bit_generator.state)}}
+        rels, states = fs["rels"], fs["states"]
+        j = max(k for k in states if k <= index)      # nearest kept state at or before `index`
+        cur, bg = states[j]
+        if j < index:
+            rng = state_stream(0, None)
+            rng.bit_generator.state = bg              # the chain's stream where state j left it
+            kappa = self.cfg.get("structure", {}).get("structural_pooling", STRUCT_KAPPA)
+            for k in range(j + 1, index + 1):         # advance the chain one scan per state
+                for r, st in zip(rels, cur):
+                    restore_carried_state(r, st)
+                    r.struct_kappa = kappa            # as redraw sets it
+                    r.draw_params(rng, self.pi_s)
+                cur = [carried_state(r) for r in rels]
+                if k % self.STATE_CHECKPOINT == 0 or k == index:
+                    states[k] = (cur, rng.bit_generator.state)
+            # keep state 0, every STATE_CHECKPOINT-th state and the latest one: memory stays
+            # bounded by the largest index drawn / STATE_CHECKPOINT, and a nearby index is cheap
+            for k in [k for k in states if k and k % self.STATE_CHECKPOINT and k != index]:
+                del states[k]
+        for r, st in zip(rels, cur):
             restore_carried_state(r, st)
 
     # ------------------------------------------------------------------ layout
@@ -2535,7 +2559,7 @@ class Synthesizer:
         index = self._runs if index is None else index
         self._runs = index + 1
         prng, drng = run_streams(cfg["seed"], pc.get("sample_seed"), index)
-        self.redraw(mode, prng)
+        self.redraw(mode, prng, index)
         self.rng = rng = drng
         self.run_cache = RunCache(mode)
         self._mode = mode

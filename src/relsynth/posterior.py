@@ -101,6 +101,14 @@ def run_streams(seed, sample_seed, index):
     return np.random.default_rng(a), np.random.default_rng(b)
 
 
+def state_stream(seed, sample_seed):
+    """Stream of the chain of carried relation variables (Synthesizer.
+    _restore_fit_state): one per fit and sample seed, apart from every
+    dataset's streams."""
+    base = seed if sample_seed is None else sample_seed
+    return np.random.default_rng(np.random.SeedSequence([int(base), 7920]))
+
+
 class RunCache:
     """Per-dataset cache of draws that samplers reuse (Bayesian-bootstrap weights
     of count laws and pooled levels): drawn at first use, fixed for the run."""
