@@ -1298,7 +1298,10 @@ class Discovery:
                     if self._ctype(t, r["child_key"]) != "lookup"}
             hops = {k: v for k, v in hops.items() if v[1] is not None and (v[2] >= 0).mean() >= 0.95}
             # (c) order between two columns of the row (cost below price, start before end)
-            skip = {c for c, cs in self.cols[t].items() if cs.get("ratio_of") or cs.get("offset_from")} | \
+            # an offset with many gaps (Prop. 1788) keeps its order as a check: the order is a
+            # business rule of the data, and it guards the rare row whose modelled gap is negative
+            cont = {b for b, (_, nu) in getattr(self, "col_offset", {}).get(t, {}).items() if nu > 60}
+            skip = {c for c, cs in self.cols[t].items() if cs.get("ratio_of") or (cs.get("offset_from") and c not in cont)} | \
                 {r["expr"].split("=")[0].strip() for r in self.rules if r.get("table") == t and r.get("type") == "derive"}
             ords = {}
             for c, cs in self.cols[t].items():
