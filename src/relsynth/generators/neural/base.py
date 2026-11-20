@@ -38,11 +38,11 @@ COMMON = {"epochs": None, "batch_size": None, "lr": None, "weight_decay": 1e-5, 
 
 
 def _pos_int(v) -> bool:
-    return isinstance(v, (int, np.integer)) and not isinstance(v, bool) and v >= 1
+    return bool(isinstance(v, (int, np.integer)) and not isinstance(v, bool) and v >= 1)
 
 
 def _number(v) -> bool:
-    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, bool) and math.isfinite(v)
+    return bool(isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, bool) and math.isfinite(v))
 
 
 def score_map(z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
