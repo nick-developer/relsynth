@@ -1,0 +1,102 @@
+name: experiments
+
+# Research experiments that run before any engine change (CLAUDE.md: test before
+# implementing). Started by hand (workflow_dispatch, once this file is on main) or by a push
+# to a branch whose commit message contains [experiments] (the defaults below); nothing in a
+# pull request or on main depends on them. One job per dataset and seed on a hosted CPU runner; each uploads its JSON
+# report, and the summary job writes a Markdown table to the run's summary.
+# experiments/context_vae/README.md describes the variants, metrics and acceptance rule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      datasets:
+        description: "Comma-separated datasets (experiments/context_vae/data.py)"
+        default: "chinook,berka"
+      seeds:
+        description: "Comma-separated seeds"
+        default: "1,2,3"
+      variants:
+        description: "Comma-separated encoder:prior variants, plus shuffle"
+        default: "transformer:none,transformer:gru,transformer:transformer,mlp:transformer,shuffle"
+      steps:
+        description: "Training steps per stage (row VAE, family prior)"
+        default: "3000"
+      max_families:
+        description: "Subsample families (0 = all)"
+        default: "0"
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: experiments-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[experiments]') }}
+    runs-on: ubuntu-latest
+    outputs:
+      parts: ${{ steps.m.outputs.parts }}
+    steps:
+      - id: m
+        env:
+          DATASETS: ${{ inputs.datasets || 'chinook,berka' }}
+          SEEDS: ${{ inputs.seeds || '1,2,3' }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, re
+          ds = [d for d in os.environ["DATASETS"].split(",") if re.fullmatch(r"[a-z0-9_]+", d)]
+          ss = [int(s) for s in os.environ["SEEDS"].split(",") if s.strip().isdigit()]
+          print("parts=" + json.dumps([{"dataset": d, "seed": s} for d in ds for s in ss]))
+          EOF
+
+  run:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON(needs.plan.outputs.parts) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[bench]" xgboost
+      - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-${{ matrix.part.dataset }}-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: ${{ matrix.part.dataset }} seed ${{ matrix.part.seed }}
+        env:
+          DATASET: ${{ matrix.part.dataset }}
+          SEED: ${{ matrix.part.seed }}
+          VARIANTS: ${{ inputs.variants || 'transformer:none,transformer:gru,transformer:transformer,mlp:transformer,shuffle' }}
+          STEPS: ${{ inputs.steps || '3000' }}
+          MAXF: ${{ inputs.max_families || '0' }}
+        run: |
+          python -m experiments.context_vae.run --dataset "$DATASET" --seed "$SEED" --variants "$VARIANTS" \
+            --vae-steps "$STEPS" --prior-steps "$STEPS" --max-families "$MAXF" --out "out/$DATASET-$SEED.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: "context-vae-${{ matrix.part.dataset }}-${{ matrix.part.seed }}", path: out/ }
+
+  summary:
+    needs: run
+    if: ${{ always() && needs.run.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { pattern: context-vae-*, path: out, merge-multiple: true }
+      - run: python -m experiments.context_vae.summarize out/*.json >> "$GITHUB_STEP_SUMMARY"
