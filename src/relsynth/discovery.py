@@ -89,6 +89,20 @@ def _perm_chance(ok_fn, a, b, rng, reps=3):
     return float(np.mean(vals))
 
 
+def _step_rng(*key) -> np.random.Generator:
+    """A random stream keyed by a drafting step and what it tests, so one test's
+    outcome never depends on how many draws earlier tests took."""
+    import zlib
+    return np.random.default_rng([7, zlib.crc32("\x1f".join(map(str, key)).encode())])
+
+
+def _entropy(v) -> float:
+    """Plug-in Shannon entropy (nats) of the values of v."""
+    _, c = np.unique(np.asarray(v), return_counts=True)
+    p = c / c.sum()
+    return float(-(p * np.log(p)).sum())
+
+
 def _eq_chance(a, b):
     """Expected share of equal pairs when b is permuted: sum over values of
     p_a(v) p_b(v) (the mean of the permutation statistic, exactly)."""
@@ -570,12 +584,19 @@ class Discovery:
                     rank = (1, float(np.median(gap)))
                 if not significant(share, chance, int(m.sum())):
                     continue
-                if b not in cand or rank < cand[b][3]:
-                    cand[b] = (a, len(u), gap, rank)
-            for b in sorted(cand, key=lambda x: cand[x][3]):
-                a, nu, gap, _ = cand[b]
-                if a in self.col_offset.get(t, {}) or b in {x for x, _ in self.col_offset.get(t, {}).values()}:
+                cand.setdefault(b, []).append((a, len(u), gap, rank))
+            for b in sorted(cand, key=lambda x: min(c[3] for c in cand[x])):
+                # offsets do not chain: a base is never itself an offset, and an offset is
+                # never a base.  When the closest base is taken (store date offset from the
+                # chart date), the next significant one is used (store time from the chart
+                # date), so the order still holds by construction
+                done = self.col_offset.get(t, {})
+                if b in {x for x, _ in done.values()}:
                     continue
+                ok = sorted((c for c in cand[b] if c[0] not in done), key=lambda c: c[3])
+                if not ok:
+                    continue
+                a, nu, gap, _ = ok[0]
                 self.col_offset.setdefault(t, {})[b] = (a, nu)
                 self.cols[t][b]["offset_from"] = a
                 u, k = np.unique(gap, return_counts=True)
@@ -1039,8 +1060,21 @@ class Discovery:
 
                         def reproduced(a, b, fl=fl):
                             return np.isclose(np.round(a[:, None] * fl[None, :], dd), b[:, None], atol=tol).any(1)
-                        sub = self.rng.permutation(int(m.sum()))[:3000]
-                        chance = _perm_chance(reproduced, xv[m][sub], yv[m][sub], self.rng, reps=2)
+                        # a stream of its own per (table, column, base): the outcome does not
+                        # depend on which tests ran before it
+                        rng = _step_rng("ratio", t, y, x)
+                        sub = rng.permutation(int(m.sum()))[:3000]
+                        chance = _perm_chance(reproduced, xv[m][sub], yv[m][sub], rng, reps=2)
+                        # effect size (minimum description length): y = x * f replaces y by
+                        # the factor f, so f must be a simpler variable than y.  A code with
+                        # a few values next to a small integer (1.1, 1.2, 2.1 over doses
+                        # 1..6) is "reproduced" by some factor list on nearly every row,
+                        # under random pairing too (chance 0.997), and a large sample makes
+                        # even that tiny excess "significant"; its factor then has more
+                        # values and more entropy than y itself, and drawing y as x * f
+                        # loses y's own law
+                        if _entropy(np.round(r_, k)) >= _entropy(np.round(yv[m], dd)):
+                            break
                         if significant(float(rep_.mean()), chance, int(m.sum())):
                             cands.append((y, (len(lv), "." not in x, x, k, float(rep_.mean()), chance)))
                         break

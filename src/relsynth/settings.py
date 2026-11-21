@@ -207,6 +207,7 @@ META: dict[str, dict] = dict([
     _p("facts.count_model_bf", type="float", low=1.0, high=1e300, tunable=True, scale="log", affects=_CARD,
        direction={f: -1 for f in _CARD}),
     _p("facts.group_fallback", type="choice", choices=("auto", "anchor", "partner")),
+    _p("facts.null_partner", type="choice", choices=("auto", "model", "drop"), affects=_CARD + _JOIN),
     _p("facts.link_degree", type="choice", choices=("auto", "segment", "dp"), tunable=True, affects=_CARD),
     _p("facts.link_degree_min_rows", type="float", low=0, high=1e9, tunable=True, scale="log", affects=_CARD + _JOIN),
     _p("facts.frailty_min_rows", type="int", low=2, high=1e9),
@@ -728,7 +729,8 @@ def reference() -> str:
         if p.choices and p.type != "choice":
             rng += " or " + ", ".join(map(str, p.choices))
         tun = ("yes" + (" (log)" if p.scale == "log" else "")) if p.tunable else ""
-        out.append(f"| `{k}` | {p.type} | `{p.default}` | {rng} | {tun} | {p.doc} |")
+        doc = (p.doc or "").replace("|", "\\|")     # a literal pipe would end the table cell
+        out.append(f"| `{k}` | {p.type} | `{p.default}` | {rng} | {tun} | {doc} |")
     out += ["", "## `evaluation.thresholds`", "",
             ("Fixed tolerances of the scorecard. Each item's limit is the larger of its tolerance and its sampling "
              "limit, so lowering a tolerance never makes a check stricter than its noise allows."), "",
