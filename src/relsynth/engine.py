@@ -1766,7 +1766,7 @@ class Synthesizer:
 
     def _null_partner_mask(self, f, info, df, aidx, require_rows=True):
         """Rows of fact f (in df) with a valid anchor and a NULL partner key, when
-        facts.null_partner is "model" and such rows exist; else None.  A NULL partner
+        facts.null_partner is not "drop" and such rows exist; else None.  A NULL partner
         (an optional second link: a header row of a header-and-detail table, a sale
         without a promotion) is a value of the row, not a broken link, so these rows are
         modelled (_null_partner) rather than left out.  Orphan keys (set, but with no
@@ -1774,7 +1774,7 @@ class Synthesizer:
         parent of a nested fact (its rows must be entity rows of a pair block), or
         facts without a partner."""
         info.pop("null2", None)
-        if _setting(self, "facts", "null_partner", "model") != "model":
+        if _setting(self, "facts", "null_partner", "auto") == "drop":
             return None
         fks = info["fks"]
         if len(fks) < 2 or fks[1].get("virtual") or info.get("vdim") or f in self.fact_key_index:

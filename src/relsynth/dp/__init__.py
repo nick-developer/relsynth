@@ -66,6 +66,12 @@ def stage2_spec(spec: dict) -> dict:
     s = copy.deepcopy(spec)
     s["synthesis"]["privacy"] = {k: v for k, v in s["synthesis"].get("privacy", {}).items() if k != "dp"}
     s["synthesis"]["pushdown"] = {**s["synthesis"].get("pushdown", {}), "mode": "off"}
+    # a NULL key in the seed database is stage 1's noise unless the spec says that
+    # rows without a partner are wanted: stage 2 keeps links valid (Prop. 905), so
+    # facts.null_partner: auto leaves rows with a NULL partner out here (model sets it)
+    facts = s["synthesis"].setdefault("facts", {})
+    if facts.get("null_partner", "auto") == "auto":
+        facts["null_partner"] = "drop"
     return s
 
 
