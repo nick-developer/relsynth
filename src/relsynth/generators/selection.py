@@ -141,7 +141,7 @@ def _device(spec, name) -> str:
         return "cpu"
 
 
-def auto_rule(spec, t, n_rows, available, device=None) -> tuple[str, str]:
+def auto_rule(spec, t, n_rows, available, device=None) -> tuple[str | None, str]:
     """(generator, reason) for table t by the documented rules (docs/generators.md):
 
     1. fewer than 1,000 rows: copula (a parametric Bayesian model; flexible learners overfit small
@@ -276,6 +276,8 @@ def apply(spec, real, stats=None) -> tuple[dict, Selection | None]:
         return spec, None
     stats = stats or {}
     sel = select(spec, real, stats, set(stats), fit_sample_evaluate=evaluate_candidate)
+    if sel is None:                                  # not reached: the mode is not off
+        return spec, None
     return with_choice(spec, sel.chosen), sel
 
 
