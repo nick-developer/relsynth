@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 
-def _header_detail_db(path, n=600, seed=0):
+def _header_detail_db(path, n=600, seed=0, header_nurse=True):
     """emar (anchor) -> detail <- pharmacy (partner): each emar row has one header row
     (no pharmacy, a status) and one to three detail rows (a pharmacy, a dose)."""
     rng = np.random.default_rng(seed)
@@ -31,8 +31,8 @@ def _header_detail_db(path, n=600, seed=0):
     rows, j = [], 0
     for i in range(n):
         # the header row is signed by a senior nurse (0-2), detail rows by any nurse
-        rows.append((j, i, None, int(rng.integers(0, 3)), str(rng.choice(["given", "held", "refused"], p=[.8, .15, .05])),
-                     None))
+        nurse = int(rng.integers(0, 3)) if header_nurse else None
+        rows.append((j, i, None, nurse, str(rng.choice(["given", "held", "refused"], p=[.8, .15, .05])), None))
         j += 1
         for _ in range(int(rng.integers(1, 4))):
             rows.append((j, i, int(rng.integers(0, 200)), int(rng.integers(0, 10)), None,
@@ -74,3 +74,34 @@ def test_null_partner_rows(tmp_path, mode, pushdown):
     assert s["status_with_partner"] + s["dose_without_partner"] <= 0.005 * s["rows"]
     assert s["junior_on_header"] < 0.05                    # the extra link's law given a missing partner
     assert "null_partner" in model.log["decisions"]["detail"]
+
+
+def test_extra_key_null_only_without_a_partner(tmp_path):
+    """The extra link is NULL on every row without a partner and set on every row with
+    one: the law given no partner keeps its own null level."""
+    import relsynth as rs
+    src = _header_detail_db(tmp_path / "hd.db", header_nurse=False)
+    syn = rs.fit(rs.introspect(src, name="hd")).sample()["detail"]
+    head = syn["pharmacy_id"].isna()
+    assert head.any()
+    assert syn.loc[head, "nurse_id"].isna().mean() > 0.95
+    assert syn.loc[~head, "nurse_id"].notna().all()
+
+
+def test_pushdown_sample_without_null_partner_rows(tmp_path):
+    """With push-down, a sample that holds no row without a partner cannot fit their
+    attributes: they are left out with a warning, not drawn from the table's marginals."""
+    import relsynth as rs
+    con_path = tmp_path / "hd.db"
+    src = _header_detail_db(con_path, n=300)
+    con = sqlite3.connect(con_path)          # only 3 rows without a partner in about 900
+    con.execute("DELETE FROM detail WHERE pharmacy_id IS NULL AND emar_id >= 3")
+    con.commit()
+    con.close()
+    spec = rs.introspect(src, name="hd").set("synthesis.pushdown.mode", "on").set("synthesis.pushdown.sample_rows", 50)
+    fit = rs.fit(spec)
+    syn = fit.sample()["detail"]
+    if "null_partner" in fit.log["decisions"].get("detail", {}):
+        pytest.skip("the sample happened to hold a row without a partner")
+    assert any("left out of the model: the sample holds none" in w for w in fit.log["warnings"])
+    assert syn["pharmacy_id"].notna().all()

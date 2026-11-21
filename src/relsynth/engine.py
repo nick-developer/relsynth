@@ -1618,8 +1618,14 @@ class Synthesizer:
         info.update({"rel": rel, "model": model, "mult_setting": mult})
         rels = [rel]
         if nul is not None and nulg is not None and nulg.any():
-            N0 = np.bincount(idx[0][nulg], weights=n[nulg], minlength=e1.n).round().astype(np.int64)
-            self._null_partner(f, info, e1, N0, nul)
+            if nul.any():
+                N0 = np.bincount(idx[0][nulg], weights=n[nulg], minlength=e1.n).round().astype(np.int64)
+                self._null_partner(f, info, e1, N0, nul)
+            else:
+                # their attributes would have no rows to be fitted on: left out, as in 2.2
+                self.log["warnings"].append(
+                    f"{f}: {int(n[nulg].sum())} rows with a NULL {keys[1]} left out of the model: the sample "
+                    f"holds none of them (raise synthesis.pushdown.sample_rows to model them)")
         info["extra"] = []
         # extra dimensions: rows with a valid anchor and partner (as in memory), the
         # partner checked in the store by a semi-join on its parent
@@ -1827,6 +1833,10 @@ class Synthesizer:
         for k in np.unique(z0):
             parent[int(self.NULL_GROUP + k)] = self.NULL_POOL
         parent[self.NULL_POOL] = -1
+        # where an anchor segment had no such rows: the pooled group when it has rows of its
+        # own, else the largest segment's group (a generator falls back to the table's
+        # marginals for a group it has not fitted, which mixes in the rows with a partner)
+        nz["fallback"] = self.NULL_POOL if small.any() else int(self.NULL_GROUP + np.argmax(cnt))
         nz["extra_p"] = []
         for r, rx in zip(info["fks"][2:], info["extra"]):
             ex = rx.e2
@@ -1838,7 +1848,11 @@ class Synthesizer:
 
     def _null_partner_rows(self, f, info, z1, elig):
         """Rows without a partner per anchor row at sampling, from the count law fitted
-        by _post_null_partner (as the rows of a single-dimension fact)."""
+        by _post_null_partner (as the rows of a single-dimension fact).  The anchor's
+        degree weights (frailty, scenario tempering) are fitted on the rows with a
+        partner and are not applied here; anchors excluded by an inclusion rule get
+        none (their segment's zero mass is not moved to the others, as _anchor_thin
+        does for single-dimension facts)."""
         nz = info["null2"]
         lam = nz["rel"].lam
         if nz["count_dp"]:
@@ -2121,7 +2135,7 @@ class Synthesizer:
             Bn = len(buckets)
             K = e1.K
             cnt = np.zeros((K, Bn))
-            okt = ok & (bidx >= 0)
+            okt = (ok | info["null2"]["rows"] if info.get("null2") else ok) & (bidx >= 0)
             np.add.at(cnt, (e1.z[a_idx[okt]], bidx[okt]), 1)
             glob = cnt.sum(0) / max(cnt.sum(), 1)
             nnull = int(t.isna().sum())
@@ -4392,24 +4406,29 @@ class Synthesizer:
                 st_nb = info["rel"].e1.K * K2
                 isn = blk >= st_nb
                 g0 = self.NULL_GROUP + (blk - st_nb)
-                groups = np.where(isn, np.where(np.isin(g0, list(fitted)), g0, self.NULL_POOL), groups)
+                groups = np.where(isn, np.where(np.isin(g0, list(fitted)), g0, nz["fallback"]), groups)
             for xj, (r, xp, kx, wx, memx, availx) in enumerate(st["extras"]):
                 Kx = len(memx)
                 res = np.empty(len(u), dtype=object)
                 for b in np.unique(blk):
                     rows = np.flatnonzero(blk == b)
+                    kb = Kx
                     if st_nb is not None and b >= st_nb:
-                        P0 = nz["extra_p"][xj]["P"][b - st_nb]
-                        p = np.zeros(Kx)
-                        p[:min(Kx, len(P0))] = P0[:Kx]
-                        p = p * availx
+                        # the law given no partner has its own null level (index ex.K) even
+                        # when the rows with a partner never leave this key NULL
+                        P0 = np.asarray(nz["extra_p"][xj]["P"][b - st_nb], dtype=float)
+                        kb = len(P0)
+                        exk = Kx - int(bool(xp.get("null")))
+                        av0 = np.r_[np.asarray(availx, float)[:exk], np.ones(max(kb - exk, 0))][:kb]
+                        p = P0 * av0
+                        p = p / p.sum() if p.sum() > 0 else av0 / av0.sum()
                     else:
                         p = xp["P"][b] * availx
-                    p = p / p.sum() if p.sum() > 0 else availx / availx.sum()
-                    seg = rng.choice(Kx, size=len(rows), p=p)
+                        p = p / p.sum() if p.sum() > 0 else availx / availx.sum()
+                    seg = rng.choice(kb, size=len(rows), p=p)
                     for s_ in np.unique(seg):
                         rr = rows[seg == s_]
-                        m = memx[s_]
+                        m = memx[s_] if s_ < len(memx) else np.zeros(0, np.int64)
                         if len(m) == 0 or wx[m].sum() <= 0:              # null key
                             res[rr] = None
                             continue
@@ -5360,7 +5379,11 @@ class Synthesizer:
             deg = pd.Series(_keystr(df[st["fk"]]).to_numpy(dtype=object)).value_counts()
             pw = pd.Series(_keystr(P[pk]).to_numpy(dtype=object)).map(deg).fillna(0).to_numpy(dtype=float) + 0.5
             byval = pd.Series(np.arange(len(P))).groupby(_keystr(P[st["col"]]).to_numpy(dtype=object)).indices
-            cand = np.flatnonzero(~same & np.array([x is not None and x in byval for x in av]))
+            keep_null = np.ones(len(df), bool)
+            nz = (getattr(self, "fact_info", {}).get(t) or {}).get("null2")
+            if nz and st["fk"] == self.fact_info[t]["fks"][1]["child_key"]:
+                keep_null = df[st["fk"]].notna().to_numpy()    # a row without a partner keeps none
+            cand = np.flatnonzero(~same & np.array([x is not None and x in byval for x in av]) & keep_null)
             cand = cand[self.rng.permutation(len(cand))]
             # every row rule is re-checked: a moved link can also break a rule that the
             # sampler treats as an attribute rule (a link fixed by stratification)
