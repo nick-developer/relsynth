@@ -1027,9 +1027,12 @@ class _Profiler(Discovery):
 
     # ---------------------------------------------------------------- spec
     def _set_share(self, t, c):
-        """Share of the (sampled) rows of t on which column c is set."""
+        """Share of the (sampled) rows of t on which column c is set (1 for a table
+        without rows: nothing to lose, so its role is decided as before)."""
         col = self.df[t][c] if c in self.df[t].columns else None
-        return float(col.notna().mean()) if col is not None and len(col) else 0.0
+        if col is None:
+            return 0.0
+        return float(col.notna().mean()) if len(col) else 1.0
 
     def anchor(self, t):
         fks = self.simple(t)
