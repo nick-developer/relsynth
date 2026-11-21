@@ -247,3 +247,28 @@ def test_table_whose_links_are_mostly_null_is_an_entity(tmp_path):
     real = pd.read_sql("SELECT * FROM Tags", sqlite3.connect(tmp_path / "opt.db"))
     assert len(syn["Tags"]) == len(real)
     assert abs(syn["Tags"]["ExcerptPostId"].isna().mean() - real["ExcerptPostId"].isna().mean()) < 0.1
+
+
+def test_offset_falls_back_to_the_next_base_when_the_closest_is_an_offset(tmp_path):
+    """Offsets do not chain.  Store date is chart date plus 0-7 days and store time falls on
+    the store date: its closest base (store date) is itself an offset, so store time is
+    drafted from the next base (chart date), and the order holds in every synthetic row.
+    Before, it got no offset and was drawn as a free date, often years from the chart date."""
+    import relsynth as rs
+    rng = np.random.default_rng(3)
+    n = 2000
+    chart = pd.Timestamp("2150-01-01") + pd.to_timedelta(rng.integers(0, 20000, n), unit="D")
+    store = chart + pd.to_timedelta(rng.integers(0, 8, n), unit="D")
+    stime = store + pd.to_timedelta(rng.uniform(0.1, 0.9, n), unit="D")
+    df = pd.DataFrame({"id": range(1, n + 1), "spec": rng.integers(1, 9, n),
+                       "chartdate": chart.strftime("%Y-%m-%d"), "storedate": store.strftime("%Y-%m-%d"),
+                       "storetime": stime.strftime("%Y-%m-%d %H:%M:%S")})
+    with sqlite3.connect(tmp_path / "m.db") as con:
+        df.to_sql("micro", con, index=False)
+    d = rs.introspect(f"sqlite:{tmp_path / 'm.db'}", name="m").raw
+    cols = d["tables"]["micro"]["columns"]
+    assert cols["storedate"].get("offset_from") == "chartdate"
+    assert cols["storetime"].get("offset_from") == "chartdate"
+    out = rs.fit(d).sample()["micro"]
+    gap = pd.to_datetime(out["storetime"]) - pd.to_datetime(out["chartdate"])
+    assert (gap >= pd.Timedelta(0)).all() and (gap <= pd.Timedelta(days=9)).all()

@@ -584,12 +584,19 @@ class Discovery:
                     rank = (1, float(np.median(gap)))
                 if not significant(share, chance, int(m.sum())):
                     continue
-                if b not in cand or rank < cand[b][3]:
-                    cand[b] = (a, len(u), gap, rank)
-            for b in sorted(cand, key=lambda x: cand[x][3]):
-                a, nu, gap, _ = cand[b]
-                if a in self.col_offset.get(t, {}) or b in {x for x, _ in self.col_offset.get(t, {}).values()}:
+                cand.setdefault(b, []).append((a, len(u), gap, rank))
+            for b in sorted(cand, key=lambda x: min(c[3] for c in cand[x])):
+                # offsets do not chain: a base is never itself an offset, and an offset is
+                # never a base.  When the closest base is taken (store date offset from the
+                # chart date), the next significant one is used (store time from the chart
+                # date), so the order still holds by construction
+                done = self.col_offset.get(t, {})
+                if b in {x for x, _ in done.values()}:
                     continue
+                ok = sorted((c for c in cand[b] if c[0] not in done), key=lambda c: c[3])
+                if not ok:
+                    continue
+                a, nu, gap, _ = ok[0]
                 self.col_offset.setdefault(t, {})[b] = (a, nu)
                 self.cols[t][b]["offset_from"] = a
                 u, k = np.unique(gap, return_counts=True)
