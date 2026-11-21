@@ -1,7 +1,7 @@
 # Compute presets (`compute.yaml`)
 
 relsynth's own engine runs on the CPU, and the default spec never uses a GPU. GPUs matter only to generator
-plug-ins that declare a GPU need, such as the optional neural generators of a later release. A spec chooses the
+plug-ins that declare a GPU need, such as the optional neural generators `tvae` and `ddpm` ([neural.md](neural.md)). A spec chooses the
 devices those plug-ins may use with a **preset** and, for experts, **overrides**:
 
 ```yaml
