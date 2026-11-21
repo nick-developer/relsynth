@@ -185,7 +185,8 @@ class DDPMGenerator(NeuralGenerator):
         dev = cond["g"].device
         m = self.model
         T, S = o["timesteps"], o["sample_steps"]
-        steps = np.unique(np.round(np.linspace(1, T, S)).astype(int))[::-1]
+        # respaced times from T down towards 1 (a one-step chain goes from T straight to 0)
+        steps = np.unique(np.round(np.linspace(T, 1, S)).astype(int))[::-1]
         z = torch.randn(n, sp.n_num, generator=gen, device=dev)
         xs = []
         for K in sp.cat_widths:              # x_T: uniform over the levels

@@ -90,8 +90,33 @@ def test_serialize_and_load(shop, gen):
     groups = np.asarray(g._groups)[:200]
     from relsynth.generators import Conditioning
     a = g.sample(len(groups), Conditioning(groups), np.random.default_rng(5))
+    torch.manual_seed(7)
+    before = torch.random.get_rng_state().clone()
     b = h.sample(len(groups), Conditioning(groups), np.random.default_rng(5))
     pd.testing.assert_frame_equal(a, b)
+    # rebuilding the network of a loaded model leaves torch's global state alone
+    assert torch.equal(before, torch.random.get_rng_state())
+    # the model file holds no source rows: no encoded column array and no per-row segment labels
+    assert h.data.X is None and "_groups" not in h.__dict__ and getattr(h.data, "generator", None) is None
+    assert g.data.X is not None and tm.generator is g          # the live model is unchanged
+    if h.data.cfg["marginals"]["bayesian_bootstrap"]:
+        with pytest.raises(GeneratorError, match="no source rows"):
+            h.posterior_draw(np.random.default_rng(0))
+
+
+@pytest.mark.parametrize("gen", ["tvae", "ddpm"])
+def test_rare_columns_stay_out_of_the_network(shop, gen):
+    """Columns whose non-modal values occur in fewer than min_dependence_rows rows are drawn
+    independently from their marginals, as in the copula, and not learned jointly."""
+    spec = _with(shop, gen)
+    spec.setdefault("synthesis", {}).setdefault("marginals", {})["min_dependence_rows"] = 10 ** 6
+    model = rs.fit(spec, seed=1)
+    g = model.synthesizer.tm["customer"].generator
+    own = [g.data.cols[j] for j in g.own]
+    assert g.independent and set(g.independent) <= set(own)
+    assert all(j not in g.space.cols for j in g.indep)
+    out = model.sample(dataset=0)
+    assert len(out["customer"]) > 0
 
 
 def test_unseen_group_backs_off_through_the_null_token(shop):

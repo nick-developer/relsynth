@@ -54,7 +54,8 @@ flags, integers coded as levels) becomes a one-hot block, with a null level when
 column has more than `max_levels` levels, the rare ones share one `other` level, which decodes as a draw from the
 marginal restricted to those levels. A synthetic score decodes through the marginal's quantile function, so
 
-- continuous values come out between the marginal's quantile knots: no observed number is copied;
+- decoding never picks a donor row: continuous values are interpolated between the marginal's quantile knots, so
+  an observed number comes out only where it is a knot or a point mass of the marginal (Prop. 1800(c));
 - each dataset's marginals are a fresh posterior draw (`synthesis.posterior`), so datasets are posterior predictive
   draws of the marginals given one fitted network (the same split as `cart`, Prop. 706).
 
@@ -67,8 +68,8 @@ sampled through the null token with its coarse segment: the engine's back-off, i
 **Marginal calibration (Prop. 1805).** A network rarely gets each column's marginal law exactly right on its own.
 After training, the generator draws `calib_rows` rows with the contexts of the training rows and fits, per
 continuous score, a strictly increasing map that makes the aggregate law of the score N(0, 1), and, per discrete
-column, logit offsets that make the aggregate level frequencies those of the marginal (two rounds of a prior-shift
-correction). Strictly increasing maps leave the network's rank dependence untouched, so calibration repairs the
+column, logit offsets that bring the aggregate level frequencies close to those of the marginal (two rounds of an
+iterative prior-shift correction; approximate, since each context's softmax renormalises). Strictly increasing maps leave the network's rank dependence untouched, so calibration repairs the
 marginals without changing what the network learned about dependence. The offsets follow each dataset's posterior
 draw of the marginals. `calibrate: false` turns it off.
 
@@ -129,12 +130,16 @@ generator:
 
 What this covers, and what it does not:
 
-- It bounds what the **network weights** reveal about any one **row of this table**. It is row-level, not
-  per person: a person with many rows, or with rows in several tables, is covered only by DP mode.
+- It bounds what the **network weights** reveal about any one **row of this table**, for a fixed category set and
+  fixed null presence. It is row-level, not per person: a person with many rows, or with rows in several tables,
+  is covered only by DP mode.
+- The levels kept and whether a column has nulls set the shapes of the weight tensors, so a row that adds a new
+  level (below `max_levels`) or a column's first null changes the shapes, which the stored weights show. The bound
+  does not cover such changes.
 - The encoding marginals, the category levels kept and the latent segments are fitted without noise. The
   guarantee is therefore not end to end, and the generator reports it with `dp: false` and the spent epsilon and
   delta in `privacy_cost()` and the model summary.
-- As in DP mode, the noise and the sampling come from the operating system's random source and are never seeded,
+- As in DP mode, the noise and the sampling come from the operating system's CSPRNG (`os.urandom`) and are never seeded,
   so a DP-SGD fit is not bit-reproducible. Early stopping is off, since choosing an epoch on held-out rows would
   spend budget that is not accounted.
 - The noise is floating-point Gaussian noise; the attacks on floating-point noise (Mironov 2012) apply in principle.

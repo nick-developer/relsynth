@@ -2405,7 +2405,7 @@ claims:
   - id: NN-10
     doc: docs/neural.md
     area: privacy-formal
-    quote: "- It bounds what the **network weights** reveal about any one **row of this table**."
+    quote: "- It bounds what the **network weights** reveal about any one **row of this table**, for a fixed category set and fixed null presence."
     status: supported
     evidence:
       - prop: prop:nndpsgd
@@ -2424,11 +2424,29 @@ claims:
   - id: NN-12
     doc: docs/neural.md
     area: privacy-formal
-    quote: "- As in DP mode, the noise and the sampling come from the operating system's random source and are never seeded, so a DP-SGD fit is not bit-reproducible."
+    quote: "- As in DP mode, the noise and the sampling come from the operating system's CSPRNG (os.urandom) and are never seeded, so a DP-SGD fit is not bit-reproducible."
     status: supported
     evidence:
       - code: src/relsynth/generators/neural/train.py::train
       - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+
+  - id: NN-16
+    doc: docs/neural.md
+    area: privacy
+    quote: "- decoding never picks a donor row: continuous values are interpolated between the marginal's quantile knots, so an observed number comes out only where it is a knot or a point mass of the marginal (Prop. 1800(c));"
+    status: supported
+    evidence:
+      - prop: prop:nnmarg
+      - code: src/relsynth/generators/neural/features.py::FeatureSpace
+
+  - id: NN-17
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The bound does not cover such changes."
+    status: limitation
+    evidence:
+      - prop: prop:nndpsgd
+      - code: src/relsynth/generators/neural/features.py::FeatureSpace
 
   - id: NN-13
     doc: docs/neural.md

@@ -17,8 +17,9 @@ Propositions 1800-1804 (`docs/proofs/sec_v70_neural.tex`). User guide: [docs/neu
     segment the way ClavaDDPM (Pang et al. 2024) conditions on parent clusters. Diffusion is the family that leads
     the recent fidelity benchmarks on mixed-type tables.
 - Both model the **dependence** only: every column goes through relsynth's own Bayesian marginal (Prop. 1800), so
-  marginals stay Bayesian, nulls and point masses are handled as in the copula, continuous values are never copied
-  from a row, and posterior predictive datasets keep working.
+  marginals stay Bayesian, nulls and point masses are handled as in the copula, decoding never picks a donor row
+  (an observed number comes out only at a knot or point mass of the marginal), and posterior predictive datasets
+  keep working.
 - Privacy: the formal route for releases outside the organisation stays **DP mode** (stage 1 noisy statistics,
   stage 2 any generator as post-processing, Prop. 905). DP-SGD is available inside both generators with an exact
   Rényi accountant (checked against Opacus), but it covers the network weights only and is reported as such.
@@ -122,7 +123,8 @@ of history consistent with these rules". Section 7 maps these to the engine.
 marginal by the randomised probability integral transform; discrete columns become one-hot blocks with a null
 level and an `other` level for the levels beyond `max_levels` (decoded from the marginal restricted to the rare
 levels). Scores decode through a posterior draw of the marginal, so continuous values are interpolated between
-quantile knots and never copied from a row, and each dataset has its own marginal draw.
+quantile knots (an observed number appears only where it is a knot or a point mass), no donor row is picked, and
+each dataset has its own marginal draw.
 
 **Conditioning (Prop. 1801).** Learned embeddings of the row's segment and coarse segment, plus the encoded parent
 attributes. A null token replaces the segment for a share `p_uncond` of training rows (classifier-free guidance
@@ -142,8 +144,9 @@ categorical columns of Adult came out independent, because the KL terms carry a 
 per-row clipping via `torch.func.vmap`, calibrated noise and no early stopping (Prop. 1802).
 
 **Engineering.** torch is imported only when a neural generator fits (`relsynth generators list` works without
-it, and `relsynth check` reports the install command). Seeds give identical CPU results and leave torch's global
-state untouched (Prop. 1804). Model files store weights as numpy arrays. Devices and batch size come from
+it, and `relsynth check` reports how to install it). Without DP, seeds give identical CPU results and leave
+torch's global state untouched (Prop. 1804); DP-SGD draws its sampling and noise from the operating system's
+CSPRNG and is not bit-reproducible. Model files store weights as numpy arrays. Devices and batch size come from
 `compute.yaml`. No file or network I/O during fit or sample.
 
 ## 6. Bench results

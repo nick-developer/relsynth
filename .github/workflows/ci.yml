@@ -513,6 +513,16 @@ jobs:
           for g in tvae ddpm; do
             python -m bench run --datasets adult --seeds 1 --no-fake --set synthesis.generator=$g \
               --label "neural-$g" --out-dir "bench-out/adult-$g" || exit 1
+            # a failed run is recorded, not raised: fail on an error, a skip or a missing Adult run
+            # (the quality and privacy numbers stay informational)
+            python - "bench-out/adult-$g" <<'PY'
+          import glob, json, sys
+          runs = [r for f in glob.glob(sys.argv[1] + "/*.json") for r in json.load(open(f)).get("runs", [])]
+          adult = [r for r in runs if r.get("dataset") == "adult"]
+          bad = [r for r in adult if r.get("error") or r.get("skipped")]
+          if not adult or bad:
+              sys.exit(f"Adult run missing or failed in {sys.argv[1]}: {[r.get('error') or 'skipped' for r in bad]}")
+          PY
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

@@ -117,3 +117,27 @@ def test_a_broken_unavailable_hook_does_not_break_the_registry():
     assert "unavailable() failed" in info["broken-hook"]["unavailable"]
     errs, _ = check(Broken, {"tables": {"t": {"columns": {}}}, "synthesis": {}}, "t")
     assert any("unavailable() failed" in e for e in errs)
+
+
+def test_dp_options_reject_non_finite_values():
+    from relsynth.generators import GeneratorError
+    from relsynth.generators.neural.train import DPOptions
+    for bad in ({"epsilon": 1, "clip": float("nan")}, {"epsilon": 1, "clip": float("inf")},
+                {"epsilon": 1, "clip": float("-inf")}, {"epsilon": float("inf")}, {"epsilon": 1, "clip": 0},
+                {"epsilon": 1, "delta": 1.5}, {"epsilon": 1, "clip": "x"}):
+        with pytest.raises(GeneratorError):
+            DPOptions.parse(bad, "t")
+    assert DPOptions.parse({"epsilon": 2, "clip": 0.5}, "t").clip == 0.5
+
+
+def test_dp_noise_comes_from_the_os_csprng():
+    """The privacy-relevant draws of DP-SGD: uniforms with 53 random bits and Box-Muller normals
+    from os.urandom (moments and a Kolmogorov-Smirnov test)."""
+    from scipy.stats import kstest
+    from relsynth.generators.neural.train import os_normal, os_uniform
+    u = os_uniform(200_000)
+    assert u.min() >= 0 and u.max() < 1 and abs(u.mean() - 0.5) < 0.005
+    z = os_normal(200_001)
+    assert len(z) == 200_001 and abs(z.mean()) < 0.01 and abs(z.std() - 1) < 0.01
+    assert kstest(z, "norm").pvalue > 1e-4
+    assert not np.array_equal(os_uniform(8), os_uniform(8))

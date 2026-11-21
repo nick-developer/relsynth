@@ -22,6 +22,7 @@ marginals given a fixed dependence model, the same split as cart's
 """
 from __future__ import annotations
 
+import copy
 import math
 
 import numpy as np
@@ -125,7 +126,22 @@ class NeuralGenerator(TableGenerator):
         self.dec_m = self.enc_m
         self.own = [j for j, c in enumerate(data.cols) if c not in data.aux]
         self.auxj = [j for j, c in enumerate(data.cols) if c in data.aux]
-        self.space = FeatureSpace(data, self.own, o["max_levels"], self.enc_m)
+        # columns whose non-modal values occur in fewer than marginals.min_dependence_rows rows carry
+        # no estimable dependence, and learning their co-occurrences would let the network reproduce
+        # the rows that hold them: as in the copula, they stay out of the network and are drawn
+        # independently from their marginals
+        k = int(data.cfg["marginals"].get("min_dependence_rows", 0) or 0)
+        self.indep = []
+        if k and len(use):
+            for j in self.own:
+                x = np.asarray(data.X[j])[use]
+                x = np.where(np.isnan(x), -1, x) if x.dtype.kind == "f" else x
+                cnt = np.unique(x, return_counts=True)[1]
+                if 0 < len(use) - cnt.max() < k:
+                    self.indep.append(j)
+        self.independent = [data.cols[j] for j in self.indep]
+        net = [j for j in self.own if j not in self.indep]
+        self.space = FeatureSpace(data, net, o["max_levels"], self.enc_m)
         self.cond_space = FeatureSpace(data, self.auxj, o["max_levels"], self.enc_m)
         g_fit = sorted(set(groups[use].tolist()))
         self.group_ix = {g: i + 1 for i, g in enumerate(g_fit)}
@@ -261,7 +277,10 @@ class NeuralGenerator(TableGenerator):
     def _ensure_model(self):
         torch = T.torch_module()
         if getattr(self, "model", None) is None:
-            self.model = self._build()
+            # layer initialisation draws from torch's global generators: keep the caller's state
+            devs = list(range(torch.cuda.device_count())) if self.device != "cpu" else []
+            with torch.random.fork_rng(devices=devs):
+                self.model = self._build()
             self.model.load_state_dict({k: torch.as_tensor(v) for k, v in self.weights.items()})
             dev = self.device if (self.device == "cpu" or torch.cuda.is_available()) else "cpu"
             self.model = self.model.to(dev)
@@ -296,12 +315,17 @@ class NeuralGenerator(TableGenerator):
         Z = self._apply_num_maps(np.concatenate(Zs)) if self.space.n_num else np.zeros((M, 0))
         S = np.concatenate(Ss) if self.space.cats else np.zeros((M, 0), np.int64)
         self.space.decode_into(out, Z, S, self.dec_m, rng)
+        for j in getattr(self, "indep", []):        # rare columns: independent marginal draws
+            out[:, j] = self.dec_m[j].sample(M, rng)
         return d.decode(out, rng)
 
     # ---------------------------------------------------------------- posterior
     def posterior_draw(self, rng, mode="draw"):
         from ...posterior import param_rng
         if self.data.cfg["marginals"]["bayesian_bootstrap"]:
+            if getattr(self.data, "X", None) is None:
+                raise GeneratorError(f"{self.table}: a loaded {self.name} model has no source rows, so it cannot "
+                                     "draw new posterior marginals; sample it as saved, or refit")
             self.dec_m = table_marginals(self.data, param_rng(rng, mode), bootstrap=True)
         else:
             self.dec_m = self.enc_m
@@ -340,8 +364,20 @@ class NeuralGenerator(TableGenerator):
 
     # ---------------------------------------------------------------- persistence
     def state(self):
+        """The persisted state: no torch model (rebuilt from the numpy weights on load) and no source
+        rows: the table data is a detached copy without its encoded rows (X) and without the back-
+        reference to the generator, and the per-row segment labels are dropped.  A loaded model samples
+        with the marginals it was saved with (posterior_draw needs the rows)."""
         st = dict(self.__dict__)
-        st.pop("model", None)                     # rebuilt from the weights (numpy arrays) on load
+        st.pop("model", None)
+        st.pop("_groups", None)
+        d = st.get("data")
+        if d is not None:
+            d = copy.copy(d)
+            d.X = None
+            if hasattr(d, "generator"):
+                d.generator = None
+            st["data"] = d
         return st
 
     # ---------------------------------------------------------------- shared pieces for subclasses

@@ -15,8 +15,8 @@ norm C, summed, plus N(0, sigma^2 C^2) noise, divided by the expected batch
 size, then an Adam step (post-processing).  sigma is calibrated so that the
 Renyi accountant (accountant.py) gives the requested epsilon at delta after
 all steps.  As in relsynth's DP mode, the noise and the sampling are drawn
-from the operating system's CSPRNG and are never seeded, so a DP fit is not
-bit-reproducible.  No early stopping is done (choosing an epoch on held-out
+from the operating system's CSPRNG (os.urandom; Gaussian noise by Box-Muller) and
+are never seeded, so a DP fit is not bit-reproducible.  No early stopping is done (choosing an epoch on held-out
 real rows would spend budget that is not accounted).
 
 The loss functions receive every random number they use as an input tensor
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import os
 import secrets
 from dataclasses import dataclass, field
 
@@ -36,6 +37,25 @@ from ..contract import GeneratorError
 from . import accountant
 
 INSTALL_HINT = "neural generators need PyTorch: pip install 'relsynth[neural]'"
+
+
+def os_uniform(n: int) -> np.ndarray:
+    """n uniforms on [0, 1) with 53 random bits each, from the operating system's CSPRNG
+    (os.urandom).  The privacy-relevant draws of DP-SGD (the Poisson sampling and the
+    Gaussian noise) come from here, not from a seeded Mersenne Twister."""
+    if n <= 0:
+        return np.zeros(0)
+    w = np.frombuffer(os.urandom(8 * n), dtype=np.uint64)
+    return (w >> np.uint64(11)).astype(np.float64) * (1.0 / (1 << 53))
+
+
+def os_normal(n: int) -> np.ndarray:
+    """n standard normal draws from os_uniform by the Box-Muller transform."""
+    m = (n + 1) // 2
+    u1 = 1.0 - os_uniform(m)                   # (0, 1]: log is finite
+    u2 = os_uniform(m)
+    r = np.sqrt(-2.0 * np.log(u1))
+    return np.concatenate([r * np.cos(2 * np.pi * u2), r * np.sin(2 * np.pi * u2)])[:n]
 
 
 def torch_module():
@@ -82,7 +102,10 @@ def seeded(rng: np.random.Generator, plan=None, device: str | None = None):
     dev = device or device_of(plan)
     devices = [] if dev == "cpu" else list(range(torch.cuda.device_count()))
     with torch.random.fork_rng(devices=devices):
-        torch.manual_seed(seed)
+        if dev == "cpu":
+            torch.default_generator.manual_seed(seed)   # leaves accelerator generators untouched
+        else:
+            torch.manual_seed(seed)
         if threads:
             torch.set_num_threads(int(threads))
         try:
@@ -113,10 +136,15 @@ class DPOptions:
         except (KeyError, TypeError, ValueError) as e:
             raise GeneratorError(f"{table}: dp.epsilon must be a positive number") from e
         delta = raw.get("delta")
-        clip = float(raw.get("clip", 1.0))
-        if not (eps > 0 and math.isfinite(eps)) or clip <= 0 or (delta is not None and not 0 < float(delta) < 1):
-            raise GeneratorError(f"{table}: dp needs epsilon > 0, clip > 0 and 0 < delta < 1")
-        return cls(eps, None if delta is None else float(delta), clip)
+        try:
+            clip = float(raw.get("clip", 1.0))
+            delta_f = None if delta is None else float(delta)
+        except (TypeError, ValueError) as e:
+            raise GeneratorError(f"{table}: dp.clip and dp.delta must be numbers") from e
+        if not (eps > 0 and math.isfinite(eps)) or not (clip > 0 and math.isfinite(clip)) \
+                or (delta_f is not None and not 0 < delta_f < 1):
+            raise GeneratorError(f"{table}: dp needs a finite epsilon > 0, a finite clip > 0 and 0 < delta < 1")
+        return cls(eps, delta_f, clip)
 
     def resolve_delta(self, n: int) -> float:
         # the usual choice delta << 1/n (Dwork and Roth 2014, sec. 2.3): 1 / (10 n), at most 1e-5
@@ -211,6 +239,8 @@ def train(model, loss_rows, tensors: dict, noise_fn, *, epochs: int, batch_size:
         steps = min(steps, int(max_steps))
     sigma = accountant.calibrate_sigma(dp.epsilon, delta, q, steps)
     eps, order = accountant.epsilon(q, sigma, steps, delta)
+    # the loss's own random inputs (VAE noise, diffusion times and noise) from an unseeded generator;
+    # the privacy-relevant draws (row sampling, gradient noise) from the OS CSPRNG (os_uniform, os_normal)
     secure = torch.Generator(device=gen.device)
     secure.manual_seed(secrets.randbits(63))           # never seeded from the run seed (see the module doc)
 
@@ -224,8 +254,7 @@ def train(model, loss_rows, tensors: dict, noise_fn, *, epochs: int, batch_size:
     chunk = 512
     model.train()
     for _ in range(steps):
-        mask = torch.rand(n, generator=secure, device=gen.device) < q
-        idx = torch.nonzero(mask).flatten()
+        idx = torch.as_tensor(np.flatnonzero(os_uniform(n) < q), device=gen.device)
         summed = {k: torch.zeros_like(v) for k, v in params.items()}
         for i in range(0, len(idx), chunk):
             sub = idx[i:i + chunk]
@@ -240,7 +269,8 @@ def train(model, loss_rows, tensors: dict, noise_fn, *, epochs: int, batch_size:
                 summed[k] += torch.einsum("b,b...->...", factor, gi)
         opt.zero_grad(set_to_none=True)
         for k, p in params.items():
-            noise = torch.randn(p.shape, generator=secure, device=gen.device) * (sigma * dp.clip)
+            noise = torch.as_tensor(os_normal(p.numel()), dtype=p.dtype, device=gen.device).reshape(p.shape) \
+                * (sigma * dp.clip)
             p.grad = (summed[k] + noise) / (q * n)
         opt.step()
         rep.steps += 1
