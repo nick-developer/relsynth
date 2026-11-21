@@ -767,6 +767,8 @@ def cmd_generators(a, out):
             continue
         src = "built-in" if g["source"] == "built-in" else f"{g['package']} {g['package_version']}"
         out.line(f"{g['name']:<14} {g['version']:<6} {src:<28} {g['description']}")
+        if g.get("unavailable"):
+            out.line(f"  unavailable: {g['unavailable']}")
         if a.action == "show":
             for k, v in g["capabilities"].items():
                 out.line(f"  {k}: {', '.join(v) if isinstance(v, list) else v}")

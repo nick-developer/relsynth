@@ -23,6 +23,7 @@ scope:
   - README.md
   - docs/documents.md
   - docs/agents.md
+  - docs/neural.md
 
 claims:
 
@@ -2318,6 +2319,190 @@ claims:
     evidence:
       - test: tests/science/test_small_dims_checks.py::test_c1722_scorecard_marks_a_guarded_table
 
+  # ------------------------------------------------------------------ docs/neural.md (neural generators)
+
+  - id: NN-01
+    doc: docs/neural.md
+    area: structure
+    quote: "The propositions are 1800-1805 (docs/proofs/sec_v70_neural.tex)."
+    status: supported
+    evidence:
+      - prop: prop:nnmarg
+      - prop: prop:nncalib
+
+  - id: NN-02
+    doc: docs/neural.md
+    area: statistics
+    quote: "The networks never see raw values."
+    status: supported
+    evidence:
+      - prop: prop:nnmarg
+      - code: src/relsynth/generators/neural/features.py::FeatureSpace
+      - test: tests/unit/test_neural.py::test_neural_generators_keep_keys_links_and_rules
+
+  - id: NN-03
+    doc: docs/neural.md
+    area: statistics
+    quote: "A segment the fit never saw, such as a sparse fact block passed with its coarse label, is then sampled through the null token with its coarse segment: the engine's back-off, in neural form."
+    status: supported
+    evidence:
+      - prop: prop:nnnull
+      - test: tests/unit/test_neural.py::test_unseen_group_backs_off_through_the_null_token
+
+  - id: NN-04
+    doc: docs/neural.md
+    area: statistics
+    quote: "A network rarely gets each column's marginal law exactly right on its own."
+    status: supported
+    evidence:
+      - report: docs/research/neural-and-simulation-generators.md
+      - prop: prop:nncalib
+      - test: tests/unit/test_neural.py::test_calibration_matches_the_encoding_marginals
+
+  - id: NN-05
+    doc: docs/neural.md
+    area: statistics
+    quote: "| `valid_share` | 0.1 | Rows held out for early stopping (0 turns it off; always off with `dp`). |"
+    status: supported
+    evidence:
+      - code: src/relsynth/generators/neural/train.py::train
+      - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+
+  - id: NN-06
+    doc: docs/neural.md
+    area: statistics
+    quote: "`sample_steps` (200; the reverse chain runs on that many respaced steps, exact for the coarser chain), `aux_weight`"
+    status: supported
+    evidence:
+      - code: src/relsynth/generators/neural/ddpm.py::DDPMGenerator
+      - test: tests/unit/test_neural_accountant.py::test_cosine_schedule
+
+  - id: NN-07
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The neural generators give no end-to-end formal guarantee by themselves (`privacy_cost().dp` is false)."
+    status: limitation
+    evidence:
+      - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+
+  - id: NN-08
+    doc: docs/neural.md
+    area: privacy-measured
+    quote: "Measure every release with the privacy attacks (`relsynth.privacy`, run by default as the quick check)."
+    status: supported
+    evidence:
+      - report: docs/research/neural-and-simulation-generators.md
+      - test: tests/unit/test_privacy_quick.py::test_quick_check_passes_a_fitted_release_and_reports_counts
+
+  - id: NN-09
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "A neural generator in stage 2 never sees real data, so it is post-processing and keeps the guarantee (Prop. 905)."
+    status: supported
+    evidence:
+      - prop: prop:post
+
+  - id: NN-10
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "- It bounds what the **network weights** reveal about any one **row of this table**, for a fixed category set and fixed null presence."
+    status: supported
+    evidence:
+      - prop: prop:nndpsgd
+      - prop: prop:nnacct
+      - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+      - test: tests/unit/test_neural_accountant.py::test_sampled_gaussian_matches_numerical_integration
+
+  - id: NN-11
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The guarantee is therefore not end to end, and the generator reports it with `dp: false` and the spent epsilon and delta in `privacy_cost()` and the model summary."
+    status: limitation
+    evidence:
+      - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+
+  - id: NN-12
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "- As in DP mode, the noise and the sampling come from the operating system's CSPRNG (os.urandom) and are never seeded, so a DP-SGD fit is not bit-reproducible."
+    status: supported
+    evidence:
+      - code: src/relsynth/generators/neural/train.py::train
+      - test: tests/unit/test_neural.py::test_dp_sgd_spends_at_most_the_target
+
+  - id: NN-16
+    doc: docs/neural.md
+    area: privacy
+    quote: "- decoding never picks a donor row: continuous values are interpolated between the marginal's quantile knots, so an observed number comes out only where it is a knot or a point mass of the marginal (Prop. 1800(c));"
+    status: supported
+    evidence:
+      - prop: prop:nnmarg
+      - code: src/relsynth/generators/neural/features.py::FeatureSpace
+
+  - id: NN-17
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The bound does not cover such changes."
+    status: limitation
+    evidence:
+      - prop: prop:nndpsgd
+      - code: src/relsynth/generators/neural/features.py::FeatureSpace
+
+  - id: NN-18
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "- The rare-column selection (marginals.min_dependence_rows) is skipped under DP-SGD: which columns stay out of the network depends on the rows and would change the input width, so every column is learned."
+    status: supported
+    evidence:
+      - test: tests/unit/test_neural.py::test_dp_fits_keep_every_column_in_the_network
+      - code: src/relsynth/generators/neural/base.py::NeuralGenerator
+
+  - id: NN-19
+    doc: docs/neural.md
+    area: structure
+    quote: "The file holds no source rows, so a loaded model cannot redraw its marginals from the posterior: every dataset decodes through the marginals saved with it, and uncertainty() reports posterior_frozen: true."
+    status: supported
+    evidence:
+      - test: tests/unit/test_neural.py::test_serialize_and_load
+      - code: src/relsynth/generators/neural/base.py::NeuralGenerator
+
+  - id: NN-13
+    doc: docs/neural.md
+    area: structure
+    quote: "On the CPU a seed gives the same model and data (Prop. 701): every random number comes from torch generators seeded from the engine's generator, inside a fork of torch's global random state, which is left as it was."
+    status: supported
+    evidence:
+      - prop: prop:nnseed
+      - test: tests/unit/test_neural.py::test_neural_generators_are_seeded_and_have_a_marginal_posterior
+      - test: tests/unit/test_neural.py::test_torch_global_random_state_is_left_alone
+
+  - id: NN-14
+    doc: docs/neural.md
+    area: security
+    quote: "As for every generator, model files are pickles: load only files you wrote."
+    status: supported
+    evidence:
+      - test: tests/unit/test_neural.py::test_serialize_and_load
+
+  - id: RM-64
+    doc: README.md
+    area: privacy-formal
+    quote: "Optional DP-SGD reports its epsilon for the network weights; DP mode remains the formal guarantee."
+    status: supported
+    evidence:
+      - claim: NN-10
+      - claim: NN-09
+
+  - id: NN-15
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The accountant agrees with Opacus to 1e-11 (Prop. 1803)."
+    status: supported
+    evidence:
+      - prop: prop:nnacct
+      - report: docs/research/neural-and-simulation-generators.md
+      - test: tests/unit/test_neural_accountant.py::test_sampled_gaussian_matches_numerical_integration
+
   - id: PRV-48
     doc: docs/privacy.md
     area: statistics
@@ -2372,4 +2557,9 @@ not_claims:
   - {doc: docs/agents.md, quote: 'This guide covers what each agent does, the safeguards, the command line, the service, and how accurate the agents are on the four real databases', reason: introduces the guide}
   - {doc: docs/agents.md, quote: 'Review answers. relsynth introspect lists every inference it made from a sample under review:', reason: describes introspect's output format (the review list)}
   - {doc: README.md, quote: '- Agents: drafting and explaining, never deciding', reason: table of contents}
-
+  - {doc: docs/neural.md, quote: "Use the quality report (`relsynth evaluate`) and the privacy attacks on your own data to choose: the bench numbers in the design record are a guide, not a guarantee.", reason: "advice to the user"}
+  - {doc: docs/neural.md, quote: "Deep learning with differential privacy.", reason: "bibliography entry"}
+  - {doc: docs/neural.md, quote: "Rényi differential privacy.", reason: "bibliography entry"}
+  - {doc: docs/neural.md, quote: "Rényi differential privacy of the sampled Gaussian mechanism. arXiv:1908.10530.", reason: "bibliography entry"}
+  - {doc: docs/neural.md, quote: "The discrete Gaussian for differential privacy.", reason: "bibliography entry"}
+  - {doc: docs/neural.md, quote: "On significance of the least significant bits for differential privacy.", reason: "bibliography entry"}

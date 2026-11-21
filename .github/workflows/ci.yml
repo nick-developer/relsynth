@@ -491,6 +491,43 @@ jobs:
         if: always()
         with: { name: text-lm, path: bench-out/ }
 
+  neural:
+    # The neural generator plug-ins (tvae, ddpm) with the CPU build of PyTorch: unit tests
+    # (Props. 1800-1804) and a quick Adult run of each through the benchmark harness
+    # (quality and privacy attacks), uploaded as an artifact.  Informational for the bench numbers.
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      # Exact pin, from PyTorch's CPU index only (no fallback to PyPI); bump it with the extra.
+      - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[dev,neural,bench]"
+      - name: Neural unit tests
+        run: pytest -q tests/unit/test_neural.py tests/unit/test_neural_accountant.py tests/unit/test_generators.py
+      - name: Adult with tvae and ddpm (quality and privacy)
+        run: |
+          for g in tvae ddpm; do
+            python -m bench run --datasets adult --seeds 1 --no-fake --set synthesis.generator=$g \
+              --label "neural-$g" --out-dir "bench-out/adult-$g" || exit 1
+            # a failed run is recorded, not raised: fail on an error, a skip or a missing Adult run
+            # (the quality and privacy numbers stay informational)
+            python - "bench-out/adult-$g" <<'PY'
+          import glob, json, sys
+          runs = [r for f in glob.glob(sys.argv[1] + "/*.json") for r in json.load(open(f)).get("runs", [])]
+          adult = [r for r in runs if r.get("dataset") == "adult"]
+          bad = [r for r in adult if r.get("error") or r.get("skipped")]
+          if not adult or bad:
+              sys.exit(f"Adult run missing or failed in {sys.argv[1]}: {[r.get('error') or 'skipped' for r in bad]}")
+          PY
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: neural, path: bench-out/ }
+
   databricks-stand-in:
     needs: lint
     runs-on: ubuntu-latest

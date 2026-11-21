@@ -46,7 +46,12 @@ jobs:
         run: deploy/e2e/compose-e2e.sh
 
   kind:
-    runs-on: ubuntu-latest
+    # Pinned to the last runner image on which this job passed (2026-11-15). ubuntu-latest moved
+    # to ubuntu-26.04, where `kind load docker-image` fails in `ctr images import --all-platforms`
+    # with "content digest ... not found" (Docker's containerd image store exports an image index
+    # whose other-platform and attestation blobs are absent). Move back to ubuntu-latest once the
+    # load step uses a platform-specific archive or kind handles that store.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       KIND_VERSION: v0.27.0
@@ -69,8 +74,11 @@ jobs:
         run: |
           v=$(python3 -c "exec(open('src/relsynth/_version.py').read());print(__version__)")
           docker build -f deploy/docker/Dockerfile.service -t "relsynth-service:$v" .
-          docker pull postgres:16-alpine
-          docker pull keycloak/keycloak:26.0.7
+          # The last images this job passed with, by digest, retagged to the names the manifests use.
+          docker pull "postgres:16-alpine@sha256:f377d590e5474681d4d7838635031a2b50647923b7abfa803ce9b5ff35d5c663"
+          docker tag "postgres@sha256:f377d590e5474681d4d7838635031a2b50647923b7abfa803ce9b5ff35d5c663" postgres:16-alpine
+          docker pull "keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81"
+          docker tag "keycloak/keycloak@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81" keycloak/keycloak:26.0.7
           kind load docker-image --name relsynth-e2e "relsynth-service:$v" postgres:16-alpine keycloak/keycloak:26.0.7
       - name: Helm lint and a server-side dry run under Pod Security "restricted"
         run: |
