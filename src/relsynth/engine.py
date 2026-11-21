@@ -1619,7 +1619,7 @@ class Synthesizer:
         rels = [rel]
         if nul is not None and nulg is not None and nulg.any():
             N0 = np.bincount(idx[0][nulg], weights=n[nulg], minlength=e1.n).round().astype(np.int64)
-            rels.append(self._null_partner(f, info, e1, N0, nul))
+            self._null_partner(f, info, e1, N0, nul)
         info["extra"] = []
         # extra dimensions: rows with a valid anchor and partner (as in memory), the
         # partner checked in the store by a semi-join on its parent
@@ -1750,7 +1750,7 @@ class Synthesizer:
         info.update({"rel": rel, "model": model, "mult_setting": mult})
         rels = [rel]
         if nul is not None:
-            rels.append(self._null_partner(f, info, e1, np.bincount(idx[0][nul], minlength=e1.n), nul))
+            self._null_partner(f, info, e1, np.bincount(idx[0][nul], minlength=e1.n), nul)
         info["extra"] = []
         for j in range(2, len(e_list)):
             ex = e_list[j]
@@ -1788,10 +1788,12 @@ class Synthesizer:
     def _null_partner(self, f, info, e1, N0, rows):
         """The rows of fact f without a partner: their number per anchor row is a
         relation of its own (relational.SingleRel, N0_u rows with a NULL partner per
-        anchor row u, Poisson with a gamma-posterior rate per anchor segment), which
-        takes part in segment discovery like any count relation.  Their attributes
-        get groups of their own per anchor segment (_post_fact).  This is a null level
-        of the partner given the anchor segment (Prop. 1843)."""
+        anchor row u, Poisson with a gamma-posterior rate per anchor segment), fitted
+        given the segments that the rows with a partner give (it does not take part in
+        segment discovery: on MIMIC-IV, one header row per anchor added no information
+        and coarsened the anchor segments, so the rows with a partner lost fidelity).
+        Their attributes get groups of their own per anchor segment (_post_fact).
+        This is a null level of the partner given the anchor segment (Prop. 1843)."""
         rel0 = SingleRel(f"{f}.{info['fks'][1]['child_key']}=NULL", e1, np.asarray(N0, dtype=np.int64),
                          np.zeros((e1.n, 0)), np.zeros((e1.n, 0)), table=f)
         info["null2"] = {"rel": rel0, "rows": np.asarray(rows, bool), "n": int(np.asarray(N0).sum())}
@@ -1811,8 +1813,7 @@ class Synthesizer:
         attribute groups and their coarse groups) are updated in place."""
         nz = info["null2"]
         rel0, e1 = nz["rel"], info["rel"].e1
-        if not hasattr(rel0, "lam"):
-            rel0.draw_params(self.rng)
+        self._register(lambda rng, r=rel0: r.draw_params(rng))     # one draw now and one per dataset
         cp1 = e1.fixed or getattr(e1, "copied", False)
         mand = _mandatory(rel0.N, e1.z, e1.K)
         nz["count_dp"] = None if cp1 else _dp_floor(
