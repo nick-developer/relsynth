@@ -74,6 +74,11 @@ PARTY_TABLE = (r"(^|_)(reporter|reporting_agent|customer|client|supplier|vendor|
 
 
 SELF_REF = r"(parent|manager|reports_?to|boss|supervisor)"
+# share of rows on which a fact's anchor key must be set: the engine draws a fact's rows
+# per anchor row, so a row whose anchor is NULL is not synthesised.  A table with a key
+# whose every link is NULL on more rows than this allows (a tag list with an optional
+# excerpt post) is drafted as an entity, which keeps every row and each link's NULL rate
+ANCHOR_MIN_SET = 0.95
 
 
 def is_party_table(table, columns) -> bool:
@@ -437,8 +442,16 @@ class _Profiler(Discovery):
             elif fks and (len(fks) >= 2 or rows >= 2 * self.counts.get(fks[0]["parent"], rows)
                           or any(r["parent"] in self.calendar for r in fks)):
                 # rows that point at several parents, outnumber their parent, or are
-                # dated by a calendar (one row per day, found from the data) are events
-                self.role[t] = "fact"
+                # dated by a calendar (one row per day, found from the data) are events,
+                # when one link can anchor them (set on nearly every row)
+                best = max(self._set_share(t, r["child_key"]) for r in fks)
+                if best >= ANCHOR_MIN_SET:
+                    self.role[t] = "fact"
+                else:
+                    self.role[t] = "entity"
+                    self.ask(f"{t}: drafted as an entity, not a fact: every link is NULL on more than "
+                             f"{1 - ANCHOR_MIN_SET:.0%} of the rows (the most complete is set on {best:.0%}), and a "
+                             "fact keeps only rows whose anchor is set")
             else:
                 self.role[t] = "entity"
         drop = [t for t in self.names if self.role[t] == "entity" and self.pks[t] is None]
@@ -1013,6 +1026,11 @@ class _Profiler(Discovery):
                              "it is kept in the synthetic data")
 
     # ---------------------------------------------------------------- spec
+    def _set_share(self, t, c):
+        """Share of the (sampled) rows of t on which column c is set."""
+        col = self.df[t][c] if c in self.df[t].columns else None
+        return float(col.notna().mean()) if col is not None and len(col) else 0.0
+
     def anchor(self, t):
         fks = self.simple(t)
         hdr = self.header.get(t)
@@ -1034,7 +1052,9 @@ class _Profiler(Discovery):
         # not a calendar or a copied code list; a large parent whose every row has
         # rows here (a header always has lines, a product need not sell); one that
         # links to other tables itself; the larger one
-        return max(fks, key=lambda r: (stem.startswith(table_stem(r["parent"])) and stem != table_stem(r["parent"]),
+        # a link that is set on nearly every row first: rows with a NULL anchor are not synthesised
+        return max(fks, key=lambda r: (self._set_share(t, r["child_key"]) >= ANCHOR_MIN_SET,
+                                        stem.startswith(table_stem(r["parent"])) and stem != table_stem(r["parent"]),
                                         r["parent"] not in self.calendar, r["parent"] not in self.copy,
                                         covered(r) and self.counts.get(r["parent"], 0) >= 100,
                                         depth[r["parent"]] > 0, self.counts.get(r["parent"], 0)))["parent"]

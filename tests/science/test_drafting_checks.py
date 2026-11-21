@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Checks C1840-C1842: reproducible drafting (docs/proofs/sec_v72_drafting.tex),
+"""Checks C1840-C1844: reproducible drafting (docs/proofs/sec_v72_drafting.tex),
 tested on the shipped code.
 
     pytest -m science tests/science/test_drafting_checks.py
@@ -17,7 +17,12 @@ from scipy import stats
 pytestmark = [pytest.mark.science]
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from unit.test_introspect_stability import _header_detail_db, _keyless_db, _ratio_db  # noqa: E402
+from unit.test_introspect_stability import (  # noqa: E402
+    _header_detail_db,
+    _keyless_db,
+    _optional_links_db,
+    _ratio_db,
+)
 
 import relsynth as rs  # noqa: E402
 from relsynth.discovery import _entropy  # noqa: E402
@@ -109,3 +114,19 @@ def test_c1843_rows_without_a_partner(tmp_path):
             assert s["junior_on_header"] < 0.05
         s = _shares(rs.fit(base.set("synthesis.facts.null_partner", "drop")).sample()["detail"])
         assert s["null_partner"] == 0
+
+
+def test_c1844_a_fact_needs_an_anchor_that_is_set(tmp_path):
+    """Prop. 1844: a keyed table whose links are all mostly NULL is drafted as an entity
+    (every row kept); a fact anchors on a link that is set on nearly every row."""
+    import sqlite3
+    for seed in range(3):
+        src = _optional_links_db(tmp_path / f"o{seed}.db", seed=seed)
+        spec = rs.introspect(src, name="o")
+        T = spec.raw["tables"]
+        assert T["Tags"]["role"] == "entity"
+        assert T["Votes"]["fact"]["anchor"] == "Posts"
+        syn = rs.fit(spec).sample()
+        real = pd.read_sql("SELECT * FROM Tags", sqlite3.connect(tmp_path / f"o{seed}.db"))
+        assert len(syn["Tags"]) == len(real)
+        assert abs(syn["Tags"]["WikiPostId"].isna().mean() - real["WikiPostId"].isna().mean()) < 0.1

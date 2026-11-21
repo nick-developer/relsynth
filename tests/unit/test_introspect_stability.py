@@ -202,3 +202,48 @@ def test_shared_key_word_two_tables(tmp_path):
     links = {r["child_key"]: r["parent"] for r in rels if r["child"] == "PostLinks"}
     assert "LinkTypeId" not in links
     assert links.get("TagId") == "Tags"
+
+
+def _optional_links_db(path, seed=0):
+    """Posts and Users; Tags points at two posts on 59% of its rows only (both links NULL
+    together); Votes always has its post and has a user on 13% of its rows."""
+    rng = np.random.default_rng(seed)
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE Users (Id INTEGER PRIMARY KEY, Reputation INTEGER)")
+    con.execute("CREATE TABLE Posts (Id INTEGER PRIMARY KEY, Score INTEGER, OwnerUserId INTEGER REFERENCES Users(Id))")
+    con.execute("CREATE TABLE Tags (Id INTEGER PRIMARY KEY, TagName TEXT, Count INTEGER, "
+                "ExcerptPostId INTEGER REFERENCES Posts(Id), WikiPostId INTEGER REFERENCES Posts(Id))")
+    con.execute("CREATE TABLE Votes (Id INTEGER PRIMARY KEY, UserId INTEGER REFERENCES Users(Id), "
+                "PostId INTEGER REFERENCES Posts(Id), VoteTypeId INTEGER)")
+    con.executemany("INSERT INTO Users VALUES (?, ?)", [(i, int(rng.gamma(1, 200))) for i in range(1, 801)])
+    con.executemany("INSERT INTO Posts VALUES (?, ?, ?)",
+                    [(i, int(rng.poisson(3)), int(rng.integers(1, 801))) for i in range(1, 1501)])
+    tags = []
+    for i in range(1, 301):
+        has = rng.random() < 0.59
+        tags.append((i, f"t{i}", int(rng.gamma(1, 30)), int(rng.integers(1, 1501)) if has else None,
+                     int(rng.integers(1, 1501)) if has else None))
+    con.executemany("INSERT INTO Tags VALUES (?, ?, ?, ?, ?)", tags)
+    con.executemany("INSERT INTO Votes VALUES (?, ?, ?, ?)",
+                    [(i, int(rng.integers(1, 801)) if rng.random() < 0.13 else None, int(rng.integers(1, 1501)),
+                      int(rng.choice([2, 3, 5]))) for i in range(1, 6001)])
+    con.commit()
+    con.close()
+    return f"sqlite:{path}"
+
+
+def test_table_whose_links_are_mostly_null_is_an_entity(tmp_path):
+    """A fact keeps only rows whose anchor is set, so a keyed table whose every link is NULL
+    on more than 5% of its rows (Tags) is drafted as an entity and keeps every row and its
+    links' NULL rates; a fact anchors on a link set on nearly every row (Votes: PostId, not
+    the mostly-NULL UserId, whatever the column order)."""
+    import relsynth as rs
+    src = _optional_links_db(tmp_path / "opt.db")
+    spec = rs.introspect(src, name="opt")
+    T = spec.raw["tables"]
+    assert T["Tags"]["role"] == "entity"
+    assert T["Votes"]["role"] == "fact" and T["Votes"]["fact"]["anchor"] == "Posts"
+    syn = rs.fit(spec).sample()
+    real = pd.read_sql("SELECT * FROM Tags", sqlite3.connect(tmp_path / "opt.db"))
+    assert len(syn["Tags"]) == len(real)
+    assert abs(syn["Tags"]["ExcerptPostId"].isna().mean() - real["ExcerptPostId"].isna().mean()) < 0.1
