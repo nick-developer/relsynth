@@ -129,10 +129,12 @@ class NeuralGenerator(TableGenerator):
         # columns whose non-modal values occur in fewer than marginals.min_dependence_rows rows carry
         # no estimable dependence, and learning their co-occurrences would let the network reproduce
         # the rows that hold them: as in the copula, they stay out of the network and are drawn
-        # independently from their marginals
+        # independently from their marginals.  Under DP-SGD the selection is skipped: it depends on the
+        # rows and would change the network's input width (and so the published weight shapes) between
+        # neighbouring tables, which the DP-SGD bound does not cover; every column is then learned
         k = int(data.cfg["marginals"].get("min_dependence_rows", 0) or 0)
         self.indep = []
-        if k and len(use):
+        if k and len(use) and o["dp"] is None:
             for j in self.own:
                 x = np.asarray(data.X[j])[use]
                 x = np.where(np.isnan(x), -1, x) if x.dtype.kind == "f" else x
@@ -324,8 +326,10 @@ class NeuralGenerator(TableGenerator):
         from ...posterior import param_rng
         if self.data.cfg["marginals"]["bayesian_bootstrap"]:
             if getattr(self.data, "X", None) is None:
-                raise GeneratorError(f"{self.table}: a loaded {self.name} model has no source rows, so it cannot "
-                                     "draw new posterior marginals; sample it as saved, or refit")
+                # a loaded model holds no source rows, so the marginals cannot be redrawn: every dataset
+                # decodes through the marginals saved with it (posterior_frozen says so in the report)
+                self.posterior_frozen = True
+                return self
             self.dec_m = table_marginals(self.data, param_rng(rng, mode), bootstrap=True)
         else:
             self.dec_m = self.enc_m
@@ -338,7 +342,8 @@ class NeuralGenerator(TableGenerator):
     def uncertainty(self):
         r = self.report
         out = {"rows_fitted": getattr(self, "n_fit", 0), "groups": len(getattr(self, "group_ix", {})),
-               "features": getattr(getattr(self, "space", None), "dim", 0)}
+               "features": getattr(getattr(self, "space", None), "dim", 0),
+               "posterior_frozen": bool(getattr(self, "posterior_frozen", False))}
         if r is not None:
             out.update({"steps": r.steps, "epochs": round(r.epochs_run, 2), "best_epoch": r.best_epoch,
                         "train_loss_last": r.train_loss[-1] if r.train_loss else None,

@@ -136,6 +136,8 @@ What this covers, and what it does not:
 - The levels kept and whether a column has nulls set the shapes of the weight tensors, so a row that adds a new
   level (below `max_levels`) or a column's first null changes the shapes, which the stored weights show. The bound
   does not cover such changes.
+- The rare-column selection (`marginals.min_dependence_rows`) is skipped under DP-SGD: which columns stay out of
+  the network depends on the rows and would change the input width, so every column is learned.
 - The encoding marginals, the category levels kept and the latent segments are fitted without noise. The
   guarantee is therefore not end to end, and the generator reports it with `dp: false` and the spent epsilon and
   delta in `privacy_cost()` and the model summary.
@@ -157,6 +159,8 @@ both generators declare `gpu: optional` and train in fp32 (`precision: fp32` or 
 
 `serialize()` stores the network weights as numpy arrays with the rest of the fitted state, and `load(blob,
 trusted=True)` rebuilds the network. As for every generator, model files are pickles: load only files you wrote.
+The file holds no source rows, so a loaded model cannot redraw its marginals from the posterior: every dataset
+decodes through the marginals saved with it, and `uncertainty()` reports `posterior_frozen: true`.
 
 ## References
 

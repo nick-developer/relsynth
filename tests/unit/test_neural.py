@@ -99,9 +99,18 @@ def test_serialize_and_load(shop, gen):
     # the model file holds no source rows: no encoded column array and no per-row segment labels
     assert h.data.X is None and "_groups" not in h.__dict__ and getattr(h.data, "generator", None) is None
     assert g.data.X is not None and tm.generator is g          # the live model is unchanged
+    # a loaded model cannot redraw its marginals (no source rows): it keeps the saved ones, and the
+    # engine's per-dataset redraw then samples it as saved
+    dec = h.dec_m
+    assert h.posterior_draw(np.random.default_rng(0)) is h
     if h.data.cfg["marginals"]["bayesian_bootstrap"]:
-        with pytest.raises(GeneratorError, match="no source rows"):
-            h.posterior_draw(np.random.default_rng(0))
+        assert h.dec_m is dec and h.uncertainty()["posterior_frozen"]
+    tm.generator = h
+    try:
+        out = model.sample(dataset=1)
+        assert len(out["invoice"]) > 0
+    finally:
+        tm.generator = g
 
 
 @pytest.mark.parametrize("gen", ["tvae", "ddpm"])
@@ -117,6 +126,16 @@ def test_rare_columns_stay_out_of_the_network(shop, gen):
     assert all(j not in g.space.cols for j in g.indep)
     out = model.sample(dataset=0)
     assert len(out["customer"]) > 0
+
+
+def test_dp_fits_keep_every_column_in_the_network(shop):
+    """The rare-column selection depends on the rows and would change the published weight shapes
+    between neighbouring tables, so DP-SGD fits learn every column (no data-dependent mask)."""
+    spec = _with(shop, "tvae", dp={"epsilon": 4.0}, epochs=2)
+    spec.setdefault("synthesis", {}).setdefault("marginals", {})["min_dependence_rows"] = 10 ** 6
+    g = rs.fit(spec, seed=1).synthesizer.tm["customer"].generator
+    assert g.independent == [] and g.indep == []
+    assert g.space.dim > 0
 
 
 def test_unseen_group_backs_off_through_the_null_token(shop):

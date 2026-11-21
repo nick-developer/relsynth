@@ -130,14 +130,25 @@ def test_dp_options_reject_non_finite_values():
     assert DPOptions.parse({"epsilon": 2, "clip": 0.5}, "t").clip == 0.5
 
 
-def test_dp_noise_comes_from_the_os_csprng():
+def test_dp_noise_comes_from_the_os_csprng(monkeypatch):
     """The privacy-relevant draws of DP-SGD: uniforms with 53 random bits and Box-Muller normals
-    from os.urandom (moments and a Kolmogorov-Smirnov test)."""
+    from os.urandom.  The distribution checks (moments and a Kolmogorov-Smirnov test) run on fixed
+    test-local bytes so they are reproducible; production draws stay unseeded."""
     from scipy.stats import kstest
-    from relsynth.generators.neural.train import os_normal, os_uniform
-    u = os_uniform(200_000)
+    from relsynth.generators.neural import train
+    calls = []
+    real = train.os.urandom
+
+    def spy(k):
+        calls.append(k)
+        return real(k)
+    monkeypatch.setattr(train.os, "urandom", spy)
+    assert not np.array_equal(train.os_uniform(8), train.os_uniform(8))
+    assert calls == [64, 64]                       # 8 bytes per uniform, from the OS
+    fixed = np.random.default_rng(20261121)
+    monkeypatch.setattr(train.os, "urandom", lambda k: fixed.bytes(k))
+    u = train.os_uniform(200_000)
     assert u.min() >= 0 and u.max() < 1 and abs(u.mean() - 0.5) < 0.005
-    z = os_normal(200_001)
+    z = train.os_normal(200_001)
     assert len(z) == 200_001 and abs(z.mean()) < 0.01 and abs(z.std() - 1) < 0.01
     assert kstest(z, "norm").pvalue > 1e-4
-    assert not np.array_equal(os_uniform(8), os_uniform(8))

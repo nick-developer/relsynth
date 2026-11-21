@@ -2448,6 +2448,24 @@ claims:
       - prop: prop:nndpsgd
       - code: src/relsynth/generators/neural/features.py::FeatureSpace
 
+  - id: NN-18
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "- The rare-column selection (marginals.min_dependence_rows) is skipped under DP-SGD: which columns stay out of the network depends on the rows and would change the input width, so every column is learned."
+    status: supported
+    evidence:
+      - test: tests/unit/test_neural.py::test_dp_fits_keep_every_column_in_the_network
+      - code: src/relsynth/generators/neural/base.py::NeuralGenerator
+
+  - id: NN-19
+    doc: docs/neural.md
+    area: structure
+    quote: "The file holds no source rows, so a loaded model cannot redraw its marginals from the posterior: every dataset decodes through the marginals saved with it, and uncertainty() reports posterior_frozen: true."
+    status: supported
+    evidence:
+      - test: tests/unit/test_neural.py::test_serialize_and_load
+      - code: src/relsynth/generators/neural/base.py::NeuralGenerator
+
   - id: NN-13
     doc: docs/neural.md
     area: structure
