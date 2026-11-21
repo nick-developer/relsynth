@@ -36,7 +36,10 @@ evidence when it is unlikely by chance:
   end);
 * coverage C = share of K referenced;
 * name similarity N (optional): the parent's table or key words found in the
-  column name, weighted by inverse frequency (Chaudhuri et al. 2003).  A name
+  column name, weighted by inverse frequency (Chaudhuri et al. 2003); the words
+  that most primary-key names of the database share ('Id', 'Key') name no table,
+  so where every key is called Id a column matches a table by the table's name
+  only (LinkTypeId does not name Tags, PostId names Posts).  A name
   is evidence only together with values that look like a sample of the key:
   R >= R_crit(v) = min(0.5, 1 - 2/sqrt(v)) (below the 0.1% point of R for v
   random keys), or chance inclusion; a measure named after a table (OrderQty
@@ -131,12 +134,16 @@ class Names:
             den += wa
         return num / den if den else 0.0
 
-    def link(self, col, parent, pkey) -> float:
-        """Evidence that column `col` names table `parent` (key `pkey`)."""
+    def link(self, col, parent, pkey, key_words=frozenset()) -> float:
+        """Evidence that column `col` names table `parent` (key `pkey`).  key_words:
+        the words most primary-key names of the database share (Keyfind.key_words,
+        such as 'id'); they name no table, so a key named by them alone (every table's
+        key is 'Id') is matched by the table's name only."""
         tc = tokens(col)
         # a column whose words are exactly the parent's key words (CustomerKey ->
         # Customer.CustomerKey), or that contains the parent table's distinctive words
-        a = self.contained(tokens(pkey), tc) if set(tokens(pkey)) - {w for w in tokens(pkey) if self.weight(w) < 0.5} else 0.0
+        own = set(tokens(pkey)) - {w for w in tokens(pkey) if self.weight(w) < 0.5} - set(key_words)
+        a = self.contained(tokens(pkey), tc) if own else 0.0
         b = self.contained(tokens(parent), tc)
         return max(a, b)
 
@@ -490,7 +497,7 @@ class KeyFinder:
             cl = chance_log10(inc, K)
             R = randomness(inc, K)
             C = len(inc) / len(K)
-            N = self.names.link(c, pt, pk) if self.use_names else 0.0
+            N = self.names.link(c, pt, pk, self.key_words(parents, least=2)) if self.use_names else 0.0
             x = {"parent": pt, "key": pk, "sigma": sigma, "chance": cl, "R": R, "C": C, "N": N,
                  "R_crit": r_crit(len(inc)), "forest": None, "p_forest": None, "v": len(vals)}
             if pt == t:
@@ -539,17 +546,21 @@ class KeyFinder:
     def score(x, use_names):
         return (2.0 * x["N"] if use_names else 0.0) + x["R"] + x["C"] + (0.5 if x["chance"] <= CHANCE_LOG10 else 0.0)
 
-    def key_words(self, parents):
+    def key_words(self, parents, least=3):
         """Words that at least half of this database's primary-key names share (for
-        example 'id' or 'key'): learnt from the keys found, not from a list."""
-        if getattr(self, "_kw", None) is None:
+        example 'id' or 'key'), when it has at least `least` key names: learnt from the
+        keys found, not from a list.  Name evidence (Names.link) leaves them out from
+        two keys on (two tables keyed Id: 'Id' names neither); a column is taken as
+        named like a key (best_parent) from three keys on."""
+        kw = self.__dict__.setdefault("_kw", {})
+        if least not in kw:
             names = [set(tokens(pk)) for _, pk in parents if isinstance(pk, str)]
             cnt = {}
             for ws in names:
                 for w in ws:
                     cnt[w] = cnt.get(w, 0) + 1
-            self._kw = {w for w, k in cnt.items() if len(names) >= 3 and k >= len(names) / 2}
-        return self._kw
+            kw[least] = {w for w, k in cnt.items() if len(names) >= least and k >= len(names) / 2}
+        return kw[least]
 
     def best_parent(self, t, c, parents):
         """(chosen candidate with 'why', ambiguous alternatives) or (None, [])."""

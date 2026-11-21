@@ -38,11 +38,11 @@ import numpy as np
 import pandas as pd
 
 from .data import canonical_keys, is_stringlike
-from .discovery import Discovery
+from .discovery import Discovery, _step_rng
 from .expr import nameable
 from .profiling import (MIN_ROWS, MIN_SHARE, algebraic_rules, canon, choose_rules, cumulative_rule, decimals,
                         equality, fd_profile, is_dateish, parse_dates, sequence_share, significant)
-from .source import Source
+from .source import KEY_SAMPLE_MAX_ROWS, Source
 
 PII_NAMES = {
     "email": r"e_?mail", "person_name": r"(^|_)(first|last|full|given|family|sur|middle)_?name$|contact_name",
@@ -74,6 +74,11 @@ PARTY_TABLE = (r"(^|_)(reporter|reporting_agent|customer|client|supplier|vendor|
 
 
 SELF_REF = r"(parent|manager|reports_?to|boss|supervisor)"
+# share of rows on which a fact's anchor key must be set: the engine draws a fact's rows
+# per anchor row, so a row whose anchor is NULL is not synthesised.  A table with a key
+# whose every link is NULL on more rows than this allows (a tag list with an optional
+# excerpt post) is drafted as an entity, which keeps every row and each link's NULL rate
+ANCHOR_MIN_SET = 0.95
 
 
 def is_party_table(table, columns) -> bool:
@@ -219,8 +224,7 @@ class _Profiler(Discovery):
         """A random stream keyed by the step and its tables: drafting is stable when
         unrelated tables or columns change (a document layout with more columns, a
         new table), because no step draws from a stream another step advanced."""
-        import zlib
-        return np.random.default_rng([7, zlib.crc32("\x1f".join(map(str, key)).encode())])
+        return _step_rng(*key)
 
     def ask(self, msg):
         self.review.append(msg)
@@ -243,11 +247,10 @@ class _Profiler(Discovery):
                          f"tables.{t}.series, an event history with tables.{t}.sequence (docs/timeseries.md)")
         if src.unseeded and not src.random_order:
             self.ask("NOTE: this database has no random function known to relsynth; samples of "
-                     + ", ".join(src.unseeded) + " (no primary key) are the first rows")
+                     + ", ".join(src.unseeded) + f" (over {KEY_SAMPLE_MAX_ROWS:,} rows) are the first rows")
         elif src.unseeded:
-            self.ask("NOTE: samples of " + ", ".join(src.unseeded) + " (no declared primary or unique key, or "
-                     "very large) use the database's random order, so a second introspect may draft slightly "
-                     "different rules for them")
+            self.ask("NOTE: samples of " + ", ".join(src.unseeded) + f" (over {KEY_SAMPLE_MAX_ROWS:,} rows) use the "
+                     "database's random order, so a second introspect may draft slightly different rules for them")
 
     def full_keys(self, t, c):
         if self.whole[t]:
@@ -439,8 +442,16 @@ class _Profiler(Discovery):
             elif fks and (len(fks) >= 2 or rows >= 2 * self.counts.get(fks[0]["parent"], rows)
                           or any(r["parent"] in self.calendar for r in fks)):
                 # rows that point at several parents, outnumber their parent, or are
-                # dated by a calendar (one row per day, found from the data) are events
-                self.role[t] = "fact"
+                # dated by a calendar (one row per day, found from the data) are events,
+                # when one link can anchor them (set on nearly every row)
+                best = max(self._set_share(t, r["child_key"]) for r in fks)
+                if best >= ANCHOR_MIN_SET:
+                    self.role[t] = "fact"
+                else:
+                    self.role[t] = "entity"
+                    self.ask(f"{t}: drafted as an entity, not a fact: every link is NULL on more than "
+                             f"{1 - ANCHOR_MIN_SET:.0%} of the rows (the most complete is set on {best:.0%}), and a "
+                             "fact keeps only rows whose anchor is set")
             else:
                 self.role[t] = "entity"
         drop = [t for t in self.names if self.role[t] == "entity" and self.pks[t] is None]
@@ -983,6 +994,21 @@ class _Profiler(Discovery):
                 n = len(sub)
                 if n < 100 or sub.duplicated().any():
                     continue
+                # a key is minimal (Codd): when one column alone never repeats on the rows
+                # where both are set, the pair adds nothing.  A column filled on one row
+                # per parent only (a header row's fields in a table of header and detail
+                # rows) pairs with the parent key without a single repeat, by construction,
+                # however many repeats chance would predict; kept as a key, it forces
+                # rows to be removed and loses the column's NULL pattern
+                if sub[a].is_unique or sub[b].is_unique:
+                    # on the whole table, counted in the store (no column read into memory)
+                    nw, uq = (n, [sub[a].is_unique, sub[b].is_unique]) if self.whole[t] else \
+                        self.src.unique_where_set(t, [a, b])
+                    if any(uq):
+                        one = a if uq[0] else b
+                        self.ask(f"{t}: [{a}, {b}] never repeats, but {one} alone never repeats on the "
+                                 f"{nw:,} rows where both are set; not a composite key")
+                        continue
                 N = self.counts[t]
                 space = max(sub[a].nunique() * sub[b].nunique(), 1)
                 expected = n * (n - 1) / (2 * space)      # repeated pairs expected if the columns were drawn independently
@@ -1000,6 +1026,14 @@ class _Profiler(Discovery):
                              "it is kept in the synthetic data")
 
     # ---------------------------------------------------------------- spec
+    def _set_share(self, t, c):
+        """Share of the (sampled) rows of t on which column c is set (1 for a table
+        without rows: nothing to lose, so its role is decided as before)."""
+        col = self.df[t][c] if c in self.df[t].columns else None
+        if col is None:
+            return 0.0
+        return float(col.notna().mean()) if len(col) else 1.0
+
     def anchor(self, t):
         fks = self.simple(t)
         hdr = self.header.get(t)
@@ -1021,7 +1055,9 @@ class _Profiler(Discovery):
         # not a calendar or a copied code list; a large parent whose every row has
         # rows here (a header always has lines, a product need not sell); one that
         # links to other tables itself; the larger one
-        return max(fks, key=lambda r: (stem.startswith(table_stem(r["parent"])) and stem != table_stem(r["parent"]),
+        # a link that is set on nearly every row first: rows with a NULL anchor are not synthesised
+        return max(fks, key=lambda r: (self._set_share(t, r["child_key"]) >= ANCHOR_MIN_SET,
+                                        stem.startswith(table_stem(r["parent"])) and stem != table_stem(r["parent"]),
                                         r["parent"] not in self.calendar, r["parent"] not in self.copy,
                                         covered(r) and self.counts.get(r["parent"], 0) >= 100,
                                         depth[r["parent"]] > 0, self.counts.get(r["parent"], 0)))["parent"]

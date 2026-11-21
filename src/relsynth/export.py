@@ -247,6 +247,9 @@ def structure(syn):
                          "(engine only)")
             continue
         S["fact_order"].append(f)
+        if info.get("null2"):
+            scope.append(f"{f}: rows with a NULL {info['fks'][1]['child_key']} (rows without a partner) "
+                         "are engine only; the exported model draws rows with a partner")
         fk = {"model": "single" if rel.kind == "single" else info["model"], "anchor": info["anchor"],
               "anchor_key": info["fks"][0]["child_key"], "count_dp": _dp(info.get("count_dp")),
               "min_one": bool(info.get("min_one")), "anchor_copied": bool(getattr(rel.e1, "copied", False)),
