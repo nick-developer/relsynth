@@ -181,3 +181,24 @@ def test_shared_key_word_names_no_table(tmp_path):
     links = {r["child_key"]: r["parent"] for r in rels if r["child"] == "PostLinks"}
     assert "LinkTypeId" not in links
     assert links.get("PostId") == "Posts"
+
+
+def test_shared_key_word_two_tables(tmp_path):
+    """Two tables, both keyed Id: the shared 'Id' gives no name evidence either, so a
+    code column LinkTypeId (values 1 and 3, both Tags ids) is not linked to Tags; a
+    TagId column still is, by the table's name."""
+    import relsynth as rs
+    rng = np.random.default_rng(1)
+    con = sqlite3.connect(tmp_path / "two.db")
+    con.execute("CREATE TABLE Tags (Id INTEGER PRIMARY KEY, TagName TEXT)")
+    con.execute("CREATE TABLE PostLinks (Id INTEGER PRIMARY KEY, LinkTypeId INTEGER, TagId INTEGER)")
+    tags = sorted(set(rng.choice(np.arange(4, 260), 100, replace=False).tolist()) | {1, 3})
+    con.executemany("INSERT INTO Tags VALUES (?, ?)", [(t, f"t{t}") for t in tags])
+    con.executemany("INSERT INTO PostLinks VALUES (?, ?, ?)",
+                    [(i, int(rng.choice([1, 3], p=[.8, .2])), int(rng.choice(tags))) for i in range(1, 623)])
+    con.commit()
+    con.close()
+    rels = rs.introspect(f"sqlite:{tmp_path / 'two.db'}", name="two").raw["relationships"]
+    links = {r["child_key"]: r["parent"] for r in rels if r["child"] == "PostLinks"}
+    assert "LinkTypeId" not in links
+    assert links.get("TagId") == "Tags"

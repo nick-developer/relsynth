@@ -15,10 +15,10 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `segments.default_cap` | int | `8` | 1 … 512 | yes (log) | Upper bound on latent segments per table. |
 | `segments.min_rows_per_segment` | int | `20` | 1 … 1e+07 | yes (log) | Rows per segment at least (also caps the segment count). |
 | `segments.tables` | map | `{}` |  |  | Per-table segment caps {table: cap}. |
-| `segments.stratify` | choice | `auto` | auto, none, map |  | auto | none | {table: [key, ...]}: segments nested in the rows of small copied parents. |
+| `segments.stratify` | choice | `auto` | auto, none, map |  | auto \| none \| {table: [key, ...]}: segments nested in the rows of small copied parents. |
 | `segments.stratify_max_levels` | int | `20` | 0 … 1e+06 |  | Largest code list used as strata without a Bayes-factor test. |
 | `segments.stratify_max_cells` | float | `50000000.0` | 0 … 1e+12 |  | Budget of rows x segments per sweep for strata. |
-| `segments.attribute_strata` | choice | `auto` | auto, none, map |  | auto | none | {table: column}: segments nested in an own column (only sales staff have quotas). |
+| `segments.attribute_strata` | choice | `auto` | auto, none, map |  | auto \| none \| {table: column}: segments nested in an own column (only sales staff have quotas). |
 | `segments.tie_headers` | bool | `True` |  |  | Order headers take the segment of their customer. |
 | `segments.copied_budget_cells` | float | `20000000.0` | 0 … 1e+12 |  | Budget for one segment per row of copied tables. |
 | `gibbs.iterations` | int | `120` | 1 … 1e+06 | yes (log) | Sweeps of the relational segment sampler. |
@@ -27,7 +27,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `gibbs.rhat_target` | float | `1.1` | 1 … 10 |  | Convergence target of the final sweeps (split R-hat of the log-likelihood trace, second half; the first half is burn-in after the merge). |
 | `gibbs.chains` | int | `1` | 1 … 1 |  | Reserved (one chain). |
 | `gibbs.merge` | bool | `True` |  |  | Merge segments the data does not support. |
-| `copula.mode` | choice | `rank` | rank, bayes, fast | yes | rank | bayes | fast: sampler of the correlation matrix. |
+| `copula.mode` | choice | `rank` | rank, bayes, fast | yes | rank \| bayes \| fast: sampler of the correlation matrix. |
 | `copula.sample_rows` | int | `1500` | 10 … 1e+08 | yes (log) | Rows used to fit a copula. |
 | `copula.iterations` | int | `120` | 1 … 1e+07 |  | Sweeps of the copula sampler. |
 | `copula.max_iterations` | int | `3000` | 0 … 1e+08 |  | Upper bound when extending the chain until it converges (every correlation: split R-hat <= rhat_target, or Monte Carlo standard error <= 0.01 on the Fisher-z scale). |
@@ -54,7 +54,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `marginals.segment_floor_rows` | float | `0.0` | 0 … 1e+06 | yes | Privacy floor: every segment marginal of an entity table that segment_prior_mode covers (continuous columns in shape and numeric mode, every column in table mode) holds at least this many rows of mass, so one source row carries at most 1 / this of the segment's own part, plus at most 1 / (rows of the table or coarse group) through the parent law it is pooled with (a segment of n observations gets a prior weight of at least this - n; Prop. 1726). A policy choice like k in k-anonymity, never read from the data; 0 = no floor. |
 | `marginals.segment_prior_mode` | choice | `shape` | table, numeric, shape | yes | What the segment prior shrinks: table (every column toward the parent's marginal), numeric (continuous columns only: numbers and dates), shape (continuous columns only, the parent's shape moved to the segment's median and spread, so the segment keeps its location; with auto, a measures how far the segments' shapes differ). |
 | `facts.min_group_rows` | int | `30` | 0 … 1e+09 | yes (log) | Rows below which a block borrows the coarser dimension's marginals. |
-| `facts.frailty` | choice | `auto` | auto, on, off | yes | auto | on | off: heavy-tailed rows per parent (gamma frailty). |
+| `facts.frailty` | choice | `auto` | auto, on, off | yes | auto \| on \| off: heavy-tailed rows per parent (gamma frailty). |
 | `facts.frailty_threshold` | float | `1.5` | 1 … 1e+06 | yes (log) | Dispersion index above which frailty is used. |
 | `facts.pairs` | choice | `auto` | auto, poisson, occupancy |  | Default of fact.pairs. |
 | `facts.multiplicity` | choice | `auto` | auto, none, partner, anchor, block |  | Default of fact.multiplicity. |
@@ -70,21 +70,21 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `facts.segment_totals` | choice | `auto` | auto, off | yes | auto: the rows of a link with a count model are spread over the parent segments so that each segment's total follows the sum of its parents' counts (a Metropolis-Hastings kernel on the rows' parent segments, Prop. 1783), so small segments keep the source's count law; off: segments drawn from the link's segment weights alone (2.2 draws). |
 | `facts.segment_total_sweeps` | int | `4` | 0 … 10000 |  | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
 | `facts.dp_count_start` | choice | `draw` | draw, balanced |  | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
-| `facts.null_partner` | choice | `auto` | auto, model, drop |  | auto | model | drop: rows whose partner key is NULL (an optional second link) are modelled as rows without a partner, a null level given the anchor segment (model), or left out of the model as in 2.2 (drop). auto is model, except in stage 2 of DP mode, where a NULL key is stage 1's noise and is left out. |
+| `facts.null_partner` | choice | `auto` | auto, model, drop |  | auto \| model \| drop: rows whose partner key is NULL (an optional second link) are modelled as rows without a partner, a null level given the anchor segment (model), or left out of the model as in 2.2 (drop). auto is model, except in stage 2 of DP mode, where a NULL key is stage 1's noise and is left out. Not modelled (left out, as in drop): a fact whose partner is virtual, a fact that is the parent of a nested fact, and, with push-down, rows absent from the push-down sample. |
 | `structure.structural_prior` | float | `0.9` | 0 … 0.999 | yes | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | float | `3.0` | 0 … 1e+06 | yes | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | float | `0.5` | 1e-06 … 1e+06 | yes (log) | Beta prior of link and occupancy rates. |
-| `structure.conditional_inclusion` | choice | `auto` | auto, none | yes | auto | none: links never point at excluded parent levels. |
+| `structure.conditional_inclusion` | choice | `auto` | auto, none | yes | auto \| none: links never point at excluded parent levels. |
 | `structure.inclusion_min_expected` | float | `10.0` | 0 … 1e+09 | yes (log) | Expected references needed to call a level excluded (Bayes factor e^n). |
 | `structure.inclusion_fk_levels` | bool | `True` |  | yes | Also test the levels of the parent's own foreign keys with up to inclusion_max_levels values (a product subcategory never sold online), so links never reach a parent of a level the source never reaches through them, also one hop further (a product category through the subcategory key) (G4). |
 | `structure.inclusion_max_levels` | int | `50` | 1 … 1e+06 | yes (log) | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
 | `structure.inclusion_multiplicity` | choice | `bonferroni` | bonferroni, none | yes | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
-| `structure.participation` | choice | `auto` | auto, none | yes | auto | none: hurdle on the share of parents without children. |
+| `structure.participation` | choice | `auto` | auto, none | yes | auto \| none: hurdle on the share of parents without children. |
 | `uniqueness.mh_sweeps` | int | `20` | 0 … 1e+06 | yes (log) | Sweeps of the unique-key sampler. |
-| `uniqueness.grain` | choice | `auto` | auto, none |  | auto | none: unique keys of two foreign keys become grains. |
+| `uniqueness.grain` | choice | `auto` | auto, none |  | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.rake_rounds` | int | `3` | 0 … 10000 | yes | Rounds of raking for rule cells. |
-| `trees.max_depth` | int | `auto` | 1 … 1e+06 or auto |  | auto | int: deepest hierarchy level generated. |
-| `trees.frailty` | choice | `auto` | auto, on, off | yes | auto | on | off: branching heterogeneity in trees. |
+| `trees.max_depth` | int | `auto` | 1 … 1e+06 or auto |  | auto \| int: deepest hierarchy level generated. |
+| `trees.frailty` | choice | `auto` | auto, on, off | yes | auto \| on \| off: branching heterogeneity in trees. |
 | `text.order` | int | `3` | 1 … 12 | yes | n-gram order of text columns. |
 | `text.min_token_rows` | int | `3` | 1 … 1e+06 | yes | Rows a token must appear in. |
 | `text.max_copy_ngram` | int | `8` | 1 … 1000 | yes | Longest rare source n-gram allowed in output. |
@@ -118,14 +118,14 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `privacy.near_copy_ratio` | float | `1.0` | 0 … 100 |  | A synthetic row is a near copy when its distance to its nearest real row is below this times that row's nearest-distinct-neighbour distance. |
 | `privacy.near_copy_rounds` | int | `20` | 0 … 1e+06 |  | Redraws of a near copy before it is kept and counted in the sample log. |
 | `privacy.near_copy_max_rows` | int | `20000` | 0 … 1e+12 |  | Largest entity table the near-copy guard runs on (it compares every synthetic row with every distinct real row, in memory-bounded blocks; time grows with the square of the rows). |
-| `pushdown.mode` | choice | `auto` | auto, on, off |  | auto | on | off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
+| `pushdown.mode` | choice | `auto` | auto, on, off |  | auto \| on \| off: fit eligible fact tables from exact statistics computed where the data lives (row counts, rows per key and key pair, distinct keys, rank-score sums) and a uniform sample for their attribute models, instead of loading them. auto: facts with at least min_rows rows; on: every eligible fact; off: load every table. |
 | `pushdown.min_rows` | int | `1000000` | 0 … 1e+15 |  | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | int | `500000` | 1 … 1e+12 | yes (log) | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
 | `generator` | str | `copula` |  |  | Default generator plug-in of every table's attribute columns (a table's own `generator` wins): copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in. |
-| `compute.preset` | str | `cpu` |  |  | cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
+| `compute.preset` | str | `cpu` |  |  | cpu \| gpu-auto \| gpu-single \| gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
 | `compute.file` | str | `None` |  |  | A compute.yaml with more presets (relative to the spec). |
 | `compute.overrides` | map | `{}` |  |  | Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, batch_size, memory_limit, threads, fallback. |
-| `runtime.executor` | str | `none` |  |  | none | local | process | spark: none (default) samples in one process as relsynth 1.0; the others generate the facts in partitions (docs/runtime.md): local in this process, process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives the same data with any executor and number of workers. |
+| `runtime.executor` | str | `none` |  |  | none \| local \| process \| spark: none (default) samples in one process as relsynth 1.0; the others generate the facts in partitions (docs/runtime.md): local in this process, process in a pool of worker processes, spark as the tasks of a Spark job. The same seed gives the same data with any executor and number of workers. |
 | `runtime.workers` | any | `None` |  |  | Worker processes (process) or tasks at once (spark); default: the CPUs (process) or the Spark context's default parallelism. |
 | `runtime.partition_rows` | int | `1000000` |  |  | Fact rows per partition (about); part of the output's identity: change it and the draws change. |
 | `runtime.start` | any | `None` |  |  | process executor: fork (default on Linux), spawn or forkserver. |

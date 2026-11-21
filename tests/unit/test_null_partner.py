@@ -10,9 +10,10 @@ import pandas as pd
 import pytest
 
 
-def _header_detail_db(path, n=600, seed=0, header_nurse=True):
-    """emar (anchor) -> detail <- pharmacy (partner): each emar row has one header row
-    (no pharmacy, a status) and one to three detail rows (a pharmacy, a dose)."""
+def _header_detail_db(path, n=600, seed=0, header_nurse=True, headers=1, unique=False):
+    """emar (anchor) -> detail <- pharmacy (partner): each emar row has `headers` header
+    rows (or 1 to `headers`; no pharmacy, a status) and one to three detail rows (a
+    pharmacy, a dose); unique declares UNIQUE (emar_id, pharmacy_id)."""
     rng = np.random.default_rng(seed)
     con = sqlite3.connect(path)
     con.execute("CREATE TABLE ward (ward_id INTEGER PRIMARY KEY, kind TEXT)")
@@ -21,7 +22,7 @@ def _header_detail_db(path, n=600, seed=0, header_nurse=True):
     con.execute("CREATE TABLE emar (emar_id INTEGER PRIMARY KEY, ward_id INTEGER REFERENCES ward(ward_id), route TEXT)")
     con.execute("CREATE TABLE detail (detail_id INTEGER PRIMARY KEY, emar_id INTEGER REFERENCES emar(emar_id), "
                 "pharmacy_id INTEGER REFERENCES pharmacy(pharmacy_id), nurse_id INTEGER REFERENCES nurse(nurse_id), "
-                "status TEXT, dose REAL)")
+                "status TEXT, dose REAL" + (", UNIQUE (emar_id, pharmacy_id))" if unique else ")"))
     con.executemany("INSERT INTO ward VALUES (?, ?)", [(i, str(rng.choice(["icu", "gen"]))) for i in range(20)])
     con.executemany("INSERT INTO nurse VALUES (?, ?)", [(i, str(rng.choice(["a", "b"]))) for i in range(10)])
     con.executemany("INSERT INTO pharmacy VALUES (?, ?, ?)",
@@ -31,12 +32,12 @@ def _header_detail_db(path, n=600, seed=0, header_nurse=True):
     rows, j = [], 0
     for i in range(n):
         # the header row is signed by a senior nurse (0-2), detail rows by any nurse
-        nurse = int(rng.integers(0, 3)) if header_nurse else None
-        rows.append((j, i, None, nurse, str(rng.choice(["given", "held", "refused"], p=[.8, .15, .05])), None))
-        j += 1
-        for _ in range(int(rng.integers(1, 4))):
-            rows.append((j, i, int(rng.integers(0, 200)), int(rng.integers(0, 10)), None,
-                         float(np.round(rng.gamma(2, 3), 1))))
+        for _ in range(1 if headers == 1 else int(rng.integers(1, headers + 1))):
+            nurse = int(rng.integers(0, 3)) if header_nurse else None
+            rows.append((j, i, None, nurse, str(rng.choice(["given", "held", "refused"], p=[.8, .15, .05])), None))
+            j += 1
+        for ph in rng.choice(200, int(rng.integers(1, 4)), replace=not unique):
+            rows.append((j, i, int(ph), int(rng.integers(0, 10)), None, float(np.round(rng.gamma(2, 3), 1))))
             j += 1
     con.executemany("INSERT INTO detail VALUES (?, ?, ?, ?, ?, ?)", rows)
     con.commit()
@@ -101,7 +102,29 @@ def test_pushdown_sample_without_null_partner_rows(tmp_path):
     spec = rs.introspect(src, name="hd").set("synthesis.pushdown.mode", "on").set("synthesis.pushdown.sample_rows", 50)
     fit = rs.fit(spec)
     syn = fit.sample()["detail"]
-    if "null_partner" in fit.log["decisions"].get("detail", {}):
-        pytest.skip("the sample happened to hold a row without a partner")
+    assert "null_partner" not in fit.log["decisions"].get("detail", {})
     assert any("left out of the model: the sample holds none" in w for w in fit.log["warnings"])
     assert syn["pharmacy_id"].notna().all()
+
+
+@pytest.mark.parametrize("headers", [1, 3])
+def test_unique_key_with_a_null_partner(tmp_path, headers):
+    """UNIQUE (anchor, partner): when the source repeats (anchor, NULL), as SQL allows
+    (NULLs distinct), the rows without a partner are kept; when it never does, at most
+    one row without a partner per anchor is kept (NULLs equal, as SQL Server)."""
+    import relsynth as rs
+    src = _header_detail_db(tmp_path / "hd.db", headers=headers, unique=True)
+    spec = rs.introspect(src, name="hd")
+    assert ["emar_id", "pharmacy_id"] in spec.raw["tables"]["detail"].get("unique", [])
+    syn = rs.fit(spec).sample()["detail"]
+    # emar_id 0 reads as an unknown member: its rows are drawn by the unknown-row step,
+    # which does not check unique keys (outside this test)
+    syn = syn[syn["emar_id"] != 0]
+    real = pd.read_sql("SELECT * FROM detail WHERE emar_id <> 0", sqlite3.connect(tmp_path / "hd.db"))
+    r, s = _shares(real), _shares(syn)
+    assert not syn.dropna(subset=["pharmacy_id"]).duplicated(["emar_id", "pharmacy_id"]).any()
+    if headers == 1:
+        assert not syn[syn["pharmacy_id"].isna()].duplicated("emar_id").any()
+    else:
+        assert abs(s["header_per_anchor"] - r["header_per_anchor"]) < 0.1, (r, s)
+        assert abs(s["null_partner"] - r["null_partner"]) < 0.03, (r, s)

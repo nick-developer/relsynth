@@ -530,3 +530,29 @@ def test_int_distinct_leaves_floats_beyond_int64_to_the_object_path(tmp_path, mo
     lazy = src.Source({"kind": "parquet", "path": str(d)})
     assert lazy.int_distinct("t", "big") is None
     assert list(lazy.int_distinct("t", "id")[0]) == [1, 2, 3]
+
+
+def test_unique_where_set_counts_in_the_store(tmp_path, monkeypatch):
+    """The whole-table minimality test of a drafted composite key (Prop. 1842) is counted in the
+    store, with the pandas answer, for SQL, small files and a large Parquet table."""
+    import sqlite3
+
+    import relsynth.source as src
+    df = pd.DataFrame({"a": [1, 2, 3, 1, None, 4, 7], "b": [1, 1, None, 2, 5, 3, 9], "c d": [1, 2, 3, 4, 5, 6, None]})
+    d = tmp_path / "pq"
+    d.mkdir()
+    df.to_parquet(d / "t.parquet")
+    db = tmp_path / "t.db"
+    with sqlite3.connect(db) as con:
+        df.to_sql("t", con, index=False)
+
+    def want(cols):
+        sub = df[cols].dropna()
+        return len(sub), [bool(sub[c].is_unique) for c in cols]
+    plain = src.Source({"kind": "parquet", "path": str(d)})
+    sql = src.Source({"kind": "sqlite", "path": str(db)})
+    monkeypatch.setattr(src, "LAZY_PARQUET_ROWS", 0)
+    lazy = src.Source({"kind": "parquet", "path": str(d)})
+    for cols in (["a", "b"], ["b", "c d"], ["a", "c d"]):
+        for s in (plain, sql, lazy):
+            assert s.unique_where_set("t", cols) == want(cols), (cols, s.kind)

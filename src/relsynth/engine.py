@@ -1623,6 +1623,7 @@ class Synthesizer:
                 self._null_partner(f, info, e1, N0, nul)
             else:
                 # their attributes would have no rows to be fitted on: left out, as in 2.2
+                info["dropped"] += int(n[nulg].sum())       # reported by model_summary()
                 self.log["warnings"].append(
                     f"{f}: {int(n[nulg].sum())} rows with a NULL {keys[1]} left out of the model: the sample "
                     f"holds none of them (raise synthesis.pushdown.sample_rows to model them)")
@@ -1845,6 +1846,16 @@ class Synthesizer:
             d = self._extra_dist(z0, np.zeros(len(z0), np.int64), sx, e1.K, 1, ex)
             self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
             nz["extra_p"].append(d)
+        # unique keys over the partner key: SQL leaves a key with a NULL part unchecked
+        # (NULLs distinct), some databases (SQL Server) count NULLs as equal.  The source
+        # decides: a key whose rows without a partner repeat in the source (two header rows
+        # of one anchor) is not checked on rows with a NULL part (_key_dup_mask); otherwise
+        # NULLs stay equal, which satisfies both conventions
+        T, c = self.spec["tables"][f], info["fks"][1]["child_key"]
+        nz["nulls_distinct"] = set()
+        for cols in [u for u in T.get("unique", [])] + [p["columns"] for p in T.get("partial_unique", [])]:
+            if c in cols and all(x in df.columns for x in cols) and df.loc[rows, cols].duplicated().any():
+                nz["nulls_distinct"].add(tuple(cols))
 
     def _null_partner_rows(self, f, info, z1, elig):
         """Rows without a partner per anchor row at sampling, from the count law fitted
@@ -4543,11 +4554,21 @@ class Synthesizer:
             if not all(c in w.columns for c in cols):
                 continue
             m = ok.copy() if where is None else ok & check_mask(w, where, res) & ~check_mask(w, f"not ({where})", res)
+            m &= self._key_checked(f, w, cols)
             sub = w.loc[m, cols].astype(object)
             sub = sub.where(sub.notna(), None)
             dup = sub.duplicated(keep="first").to_numpy()
             ok[np.flatnonzero(m)[dup]] = False
         return ok
+
+    def _key_checked(self, f, df, cols):
+        """Rows of fact f on which the unique key cols is checked: all rows, except rows
+        with a NULL part when the source's rows without a partner repeat that key
+        (_post_null_partner: the source treats NULLs as distinct)."""
+        nz = (getattr(self, "fact_info", {}).get(f) or {}).get("null2")
+        if not nz or tuple(cols) not in nz.get("nulls_distinct", ()):
+            return np.ones(len(df), bool)
+        return df[list(cols)].notna().all(axis=1).to_numpy()
 
     def _refill(self, f, st, df, ents):
         """Exact conditioning on the fact's rules without losing rows.  Given its
@@ -4626,6 +4647,7 @@ class Synthesizer:
             m = np.ones(len(df), bool) if where is None else \
                 (check_mask(df, where, self._resolver(f, df, ents)) &
                  ~check_mask(df, f"not ({where})", self._resolver(f, df, ents)))
+            m &= self._key_checked(f, df, cols)
             sub = df.loc[m & ~drop, cols].astype(object).where(df.loc[m & ~drop, cols].notna(), None)
             dup = sub.duplicated(keep="first")
             drop[np.flatnonzero(m & ~drop)[dup.to_numpy()]] = True

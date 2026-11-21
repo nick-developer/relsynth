@@ -988,11 +988,13 @@ class _Profiler(Discovery):
                 # however many repeats chance would predict; kept as a key, it forces
                 # rows to be removed and loses the column's NULL pattern
                 if sub[a].is_unique or sub[b].is_unique:
-                    whole = sub if self.whole[t] else self.src.columns(t, [a, b]).dropna()
-                    if whole[a].is_unique or whole[b].is_unique:
-                        one = a if whole[a].is_unique else b
+                    # on the whole table, counted in the store (no column read into memory)
+                    nw, uq = (n, [sub[a].is_unique, sub[b].is_unique]) if self.whole[t] else \
+                        self.src.unique_where_set(t, [a, b])
+                    if any(uq):
+                        one = a if uq[0] else b
                         self.ask(f"{t}: [{a}, {b}] never repeats, but {one} alone never repeats on the "
-                                 f"{len(whole):,} rows where both are set; not a composite key")
+                                 f"{nw:,} rows where both are set; not a composite key")
                         continue
                 N = self.counts[t]
                 space = max(sub[a].nunique() * sub[b].nunique(), 1)

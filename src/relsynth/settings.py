@@ -729,7 +729,8 @@ def reference() -> str:
         if p.choices and p.type != "choice":
             rng += " or " + ", ".join(map(str, p.choices))
         tun = ("yes" + (" (log)" if p.scale == "log" else "")) if p.tunable else ""
-        out.append(f"| `{k}` | {p.type} | `{p.default}` | {rng} | {tun} | {p.doc} |")
+        doc = (p.doc or "").replace("|", "\\|")     # a literal pipe would end the table cell
+        out.append(f"| `{k}` | {p.type} | `{p.default}` | {rng} | {tun} | {doc} |")
     out += ["", "## `evaluation.thresholds`", "",
             ("Fixed tolerances of the scorecard. Each item's limit is the larger of its tolerance and its sampling "
              "limit, so lowering a tolerance never makes a check stricter than its noise allows."), "",

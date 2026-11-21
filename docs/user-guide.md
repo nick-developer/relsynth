@@ -44,7 +44,7 @@ relsynth introspect --source sqlite:shop.db --out spec.yaml
 wrote spec.yaml: 9 tables, 9 relationships
 ```
 
-`introspect` reads the catalog (declared keys and constraints) and a seeded random sample of rows from each table (`--sample-rows`, 20,000 by default; up to 5 million rows a table gives the same draft for the same data and seed, Props. 1840–1842). From these it identifies:
+`introspect` reads the catalog (declared keys and constraints) and a seeded random sample of rows from each table (`--sample-rows`, 20,000 by default). The sample is seeded: for a table of up to 5 million rows, the same data and seed give the same sampled rows, whatever order the database returns them in (Props. 1840–1842). From these, it identifies:
 
 - **Keys and links**: declared ones, and undeclared ones it finds in the data (values contained in another table's key, and names that match).
 - **Table roles**: entities (customers, tracks), facts (invoice lines), reference lists copied as they are (genres), views and calendars.

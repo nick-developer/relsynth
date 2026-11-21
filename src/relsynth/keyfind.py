@@ -497,7 +497,7 @@ class KeyFinder:
             cl = chance_log10(inc, K)
             R = randomness(inc, K)
             C = len(inc) / len(K)
-            N = self.names.link(c, pt, pk, self.key_words(parents)) if self.use_names else 0.0
+            N = self.names.link(c, pt, pk, self.key_words(parents, least=2)) if self.use_names else 0.0
             x = {"parent": pt, "key": pk, "sigma": sigma, "chance": cl, "R": R, "C": C, "N": N,
                  "R_crit": r_crit(len(inc)), "forest": None, "p_forest": None, "v": len(vals)}
             if pt == t:
@@ -546,17 +546,21 @@ class KeyFinder:
     def score(x, use_names):
         return (2.0 * x["N"] if use_names else 0.0) + x["R"] + x["C"] + (0.5 if x["chance"] <= CHANCE_LOG10 else 0.0)
 
-    def key_words(self, parents):
+    def key_words(self, parents, least=3):
         """Words that at least half of this database's primary-key names share (for
-        example 'id' or 'key'): learnt from the keys found, not from a list."""
-        if getattr(self, "_kw", None) is None:
+        example 'id' or 'key'), when it has at least `least` key names: learnt from the
+        keys found, not from a list.  Name evidence (Names.link) leaves them out from
+        two keys on (two tables keyed Id: 'Id' names neither); a column is taken as
+        named like a key (best_parent) from three keys on."""
+        kw = self.__dict__.setdefault("_kw", {})
+        if least not in kw:
             names = [set(tokens(pk)) for _, pk in parents if isinstance(pk, str)]
             cnt = {}
             for ws in names:
                 for w in ws:
                     cnt[w] = cnt.get(w, 0) + 1
-            self._kw = {w for w, k in cnt.items() if len(names) >= 3 and k >= len(names) / 2}
-        return self._kw
+            kw[least] = {w for w, k in cnt.items() if len(names) >= least and k >= len(names) / 2}
+        return kw[least]
 
     def best_parent(self, t, c, parents):
         """(chosen candidate with 'why', ambiguous alternatives) or (None, [])."""

@@ -448,6 +448,44 @@ class Source:
                 con.close()
         return bool(nulls), bool(reps)
 
+    def unique_where_set(self, t, cols):
+        """(rows where every column of cols is set, [is each column unique on those rows])
+        over the whole table, counted in the store (SQL COUNT(DISTINCT), DuckDB for a
+        large Parquet table) so no column is held in memory.  Values compare as the
+        store compares them (a case-insensitive collation counts 'a' and 'A' once)."""
+        cols = [str(c) for c in cols]
+        if t in self._lazy:
+            import tempfile
+
+            import duckdb
+            from duckdb import ColumnExpression, FunctionExpression
+            notnull = None
+            for c in cols:
+                e = ColumnExpression(c).isnotnull()
+                notnull = e if notnull is None else notnull & e
+            n = FunctionExpression("count_star")
+            with tempfile.TemporaryDirectory() as tmp:
+                con = duckdb.connect(config={"memory_limit": "2GB", "temp_directory": tmp})
+                try:
+                    con.execute("SET enable_progress_bar = false")
+                    full = con.read_parquet(str(self._files[t])).filter(notnull)
+                    rows = int(full.aggregate([n]).fetchall()[0][0])
+                    dist = [int(full.project(ColumnExpression(c)).distinct().aggregate([n]).fetchall()[0][0])
+                            for c in cols]
+                finally:
+                    con.close()
+        elif self.kind == "csv":
+            sub = self._frame(t)[cols].dropna()
+            rows, dist = len(sub), [int(sub[c].nunique()) for c in cols]
+        else:
+            from sqlalchemy import and_, distinct, func, select
+            tbl = self._tables[t]
+            q = select(func.count(), *[func.count(distinct(tbl.c[c])) for c in cols]) \
+                .where(and_(*[tbl.c[c].isnot(None) for c in cols]))
+            with self.eng.connect() as con:
+                rows, *dist = (int(x) for x in con.execute(q).one())
+        return rows, [d == rows for d in dist]
+
     def int_distinct(self, t, c):
         """(sorted distinct values, non-null count) of an integer or float column of a large Parquet table,
         streamed by row group (a 133-million-row column never becomes Python objects); None for any other."""
