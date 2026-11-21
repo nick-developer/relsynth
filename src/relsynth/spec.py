@@ -100,6 +100,10 @@ DEFAULT_SYNTHESIS = {
     # generator plug-in of the attribute columns (relsynth.generators) and the
     # devices plug-ins may use (relsynth.compute); the default engine is CPU-only
     "generator": "copula",
+    # generator selection (relsynth.generators.selection): off keeps the spec's choice (the
+    # default, chosen by Cod3r 2026-11-21); auto picks per table by documented rules; trial fits,
+    # samples and scores every candidate with `seeds` seeds and keeps the best (privacy first)
+    "generator_selection": {"mode": "off", "seeds": 1, "candidates": None},
     "compute": {"preset": "cpu", "file": None, "overrides": {}},
     # where the facts of a dataset are generated (relsynth.runtime): none keeps the
     # single-process sampler of 1.0; local, process and spark generate them in
@@ -930,6 +934,12 @@ def _validate_io(spec):
         else:
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
+    from .generators.selection import config as selection_config, validate as validate_selection
+    errs += validate_selection(spec)
+    from .dp.config import section as dp_section
+    if selection_config(spec)["mode"] != "off" and dp_section(spec) is not None:
+        errs.append("synthesis.generator_selection: a choice made from the real data is not covered by the "
+                    "privacy budget; set its mode to off in differential privacy mode and name the generator")
     errs += _validate_sequences(spec)
     from .scenarios import validate as validate_scenarios
     errs += validate_scenarios(spec)

@@ -23,9 +23,14 @@ The datasets cover as many categories, sizes and schema shapes as the
 [dataset register](../docs/datasets.md) allows, in four tiers. A tier runs only
 its own datasets (`python -m bench run --tier weekly`); each dataset runs on its
 own seeds unless `--seeds` is given. The 2.0 golden databases keep their frozen
-specs; every dataset added by G7 runs with the unedited `relsynth introspect`
-draft of the code under test (made once per commit into the cache; its SHA-256
-is in the history record), and with the schema-level checks X0–X6 of
+specs. A G7 dataset whose structure, keys and rules are documented by its
+publisher runs with a spec written from that documentation (`bench/specs/`: Adult,
+CoverType, Synthea 1K, MIMIC-IV demo, Stack Exchange, TPC-H at every scale; each
+spec names its sources in its header, and every documented rule was checked on the
+data first). The others, whose documentation says little about structure or rules
+or could not be read from the build environment, run with the unedited `relsynth
+introspect` draft of the code under test (made once per commit into the cache; its
+SHA-256 is in the history record). Every G7 dataset also runs with the schema-level checks X0–X6 of
 `checks/generic.py` (primary keys unique, links resolve, no cycles in
 self-references: identities; fan-out skew, row ratio, NULL shares: recorded).
 Data that cannot be fetched by checksum is generated (TPC-H/DS by DuckDB's

@@ -101,6 +101,34 @@ jobs:
         if: always()
         with: { name: "bench-history-${{ matrix.part.name }}", path: bench-out/ }
 
+  generator-trial:
+    # synthesis.generator_selection: trial (docs/generators.md): every installed generator is fitted, drawn
+    # and scored with one seed on a single table, a small relational set and the wide stress schema, and the
+    # best is kept. Its own job, so the timed bench jobs and their baseline are unchanged; the choices and
+    # each candidate's score go to the job summary and an artifact.
+    if: ${{ !inputs.records_from_run && (inputs.tier || 'weekly') == 'weekly' && github.event.schedule != '0 3 2 * *' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev,bench,benchmark]" datasketches
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bench/.cache
+          key: bench-data-trial-${{ hashFiles('bench/datasets.py', 'bench/builders/**') }}
+      - name: Trial selection (1 seed per candidate)
+        run: |
+          python -m bench run --datasets adult chinook stress_s --seeds 1 --no-fake --suites scorecard \
+            --set synthesis.generator_selection.mode=trial --set synthesis.generator_selection.seeds=1 \
+            --out-dir bench-trial --label trial --jobs 2
+          python -m bench selections bench-trial/*.json --require
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: { name: "bench-generator-trial", path: bench-trial/ }
+
   compare:
     needs: bench
     if: ${{ always() && !inputs.records_from_run }}

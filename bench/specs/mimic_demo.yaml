@@ -1,0 +1,1479 @@
+# MIMIC-IV Clinical Database Demo 2.2, written from the MIMIC-IV documentation.
+# Sources: (read 2026-11-21)
+#  - schema overview: https://mimic.mit.edu/docs/IV/about/schema-overview.html
+#  - per-table pages: https://mimic.mit.edu/docs/iv/modules (hosp/<table>.html, icu/<table>.html)
+# The SQLite build declares no keys, so primary keys, unique keys and links follow the table pages:
+# the documented composite links diagnoses_icd / procedures_icd -> d_icd_diagnoses / d_icd_procedures on
+# (icd_code, icd_version) cannot be declared (a fact takes no composite link besides its anchor, and a
+# referenced table needs a single-column key), so both dictionaries are copied as-is and the codes stay
+# modelled columns of the facts; d_icd_procedures, which the draft left out, is added.
+# Documented rules (deathtime only for in-hospital deaths, anchor_age capped at 91, chartdate = date of
+# charttime, seq_num from 1, los = outtime - intime) and code lists were checked on the demo before they
+# were written.  Settings the documentation does not speak to (column types, offsets, date order rules,
+# fact roles) are relsynth introspect's draft.
+version: 1
+name: mimic_demo
+source:
+  kind: sqlite
+  path: bench/.cache/mimic_demo/mimic.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  admissions:
+    role: entity
+    columns:
+      subject_id:
+        type: id
+      hadm_id:
+        type: id
+      admittime:
+        type: datetime
+      dischtime:
+        type: datetime
+        offset_from: admittime
+      deathtime:
+        type: datetime
+        description: present only if the patient died in hospital
+      admission_type:
+        type: categorical
+        description: 9 documented values (AMBULATORY OBSERVATION ... URGENT)
+      admit_provider_id:
+        type: id
+      admission_location:
+        type: categorical
+      discharge_location:
+        type: categorical
+      insurance:
+        type: categorical
+      language:
+        type: categorical
+      marital_status:
+        type: categorical
+      race:
+        type: categorical
+      edregtime:
+        type: datetime
+      edouttime:
+        type: datetime
+        offset_from: edregtime
+      hospital_expire_flag:
+        type: categorical
+        description: 1 died in hospital, 0 survived to discharge
+    primary_key: hadm_id
+  caregiver:
+    role: entity
+    columns:
+      caregiver_id:
+        type: id
+    primary_key: caregiver_id
+  chartevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      charttime:
+        type: datetime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      value:
+        type: categorical
+      valuenum:
+        type: float
+      valueuom:
+        type: categorical
+      warning:
+        type: boolean
+    fact:
+      anchor: icustays
+      partner: caregiver
+      time_column: charttime
+      time_bucket: month
+  d_hcpcs:
+    role: entity
+    columns:
+      code:
+        type: id
+      category:
+        type: integer
+      long_description:
+        type: text
+      short_description:
+        type: categorical
+    primary_key: code
+    dimensions:
+    - key: short_description
+      columns:
+      - category
+  d_icd_diagnoses:
+    role: entity
+    columns:
+      icd_code:
+        type: categorical
+      icd_version:
+        type: categorical
+      long_title:
+        type: categorical
+    mode: copy
+    unique:
+    - - icd_code
+      - icd_version
+  d_items:
+    role: entity
+    columns:
+      itemid:
+        type: id
+      label:
+        type: text
+      abbreviation:
+        type: text
+      linksto:
+        type: categorical
+      category:
+        type: categorical
+      unitname:
+        type: categorical
+      param_type:
+        type: categorical
+      lownormalvalue:
+        type: integer
+      highnormalvalue:
+        type: float
+    primary_key: itemid
+  d_labitems:
+    role: entity
+    columns:
+      itemid:
+        type: id
+      label:
+        type: text
+      fluid:
+        type: categorical
+      category:
+        type: categorical
+    primary_key: itemid
+  datetimeevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      charttime:
+        type: datetime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      value:
+        type: datetime
+      valueuom:
+        type: categorical
+      warning:
+        type: boolean
+    fact:
+      anchor: patients
+      partner: caregiver
+      time_column: charttime
+      time_bucket: month
+  diagnoses_icd:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      seq_num:
+        type: sequence
+        within: hadm_id
+        start: 1
+        description: priority of the diagnosis within the admission, from 1
+      icd_code:
+        type: text
+        text:
+          condition_on: icd_version
+          whole_values: true
+      icd_version:
+        type: categorical
+        description: '9 or 10: the ICD coding system of icd_code'
+    unique:
+    - - hadm_id
+      - seq_num
+    fact:
+      anchor: admissions
+  drgcodes:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      drg_type:
+        type: categorical
+      drg_code:
+        type: integer
+      description:
+        type: text
+      drg_severity:
+        type: integer
+      drg_mortality:
+        type: integer
+    unique:
+    - - hadm_id
+      - drg_type
+    fact:
+      anchor: patients
+      partner: admissions
+  emar:
+    role: entity
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      emar_id:
+        type: id
+      emar_seq:
+        type: integer
+      poe_id:
+        type: text
+        text:
+          condition_on: medication
+          whole_values: true
+      pharmacy_id:
+        type: id
+      enter_provider_id:
+        type: id
+      charttime:
+        type: datetime
+      medication:
+        type: categorical
+      event_txt:
+        type: categorical
+      scheduletime:
+        type: datetime
+      storetime:
+        type: datetime
+    primary_key: emar_id
+  emar_detail:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: emar_id.subject_id
+      emar_id:
+        type: id
+      emar_seq:
+        type: lookup
+        lookup: emar_id.emar_seq
+      parent_field_ordinal:
+        type: float
+      administration_type:
+        type: categorical
+      pharmacy_id:
+        type: id
+      barcode_type:
+        type: categorical
+      reason_for_no_barcode:
+        type: categorical
+      complete_dose_not_given:
+        type: boolean
+      dose_due:
+        type: categorical
+      dose_due_unit:
+        type: categorical
+      dose_given:
+        type: float
+      dose_given_unit:
+        type: categorical
+      will_remainder_of_dose_be_given:
+        type: boolean
+      product_amount_given:
+        type: float
+      product_unit:
+        type: categorical
+      product_code:
+        type: categorical
+      product_description:
+        type: categorical
+      product_description_other:
+        type: categorical
+      prior_infusion_rate:
+        type: float
+      infusion_rate:
+        type: float
+        ratio_of: prior_infusion_rate
+      infusion_rate_adjustment:
+        type: categorical
+      infusion_rate_adjustment_amount:
+        type: integer
+      infusion_rate_unit:
+        type: categorical
+      route:
+        type: categorical
+      infusion_complete:
+        type: boolean
+      completion_interval:
+        type: categorical
+      new_iv_bag_hung:
+        type: constant
+      continued_infusion_in_other_location:
+        type: constant
+      restart_interval:
+        type: categorical
+      side:
+        type: categorical
+      site:
+        type: categorical
+      non_formulary_visual_verification:
+        type: constant
+    group_effects:
+    - column: complete_dose_not_given
+      by:
+      - administration_type
+      - emar_id.pharmacy_id
+    fact:
+      anchor: emar
+      partner: pharmacy
+  hcpcsevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      chartdate:
+        type: date
+      hcpcs_cd:
+        type: id
+      seq_num:
+        type: integer
+      short_description:
+        type: lookup
+        lookup: hcpcs_cd.short_description
+    fact:
+      anchor: d_hcpcs
+      partner: admissions
+      time_column: chartdate
+      time_bucket: month
+  icustays:
+    role: entity
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      stay_id:
+        type: id
+      first_careunit:
+        type: categorical
+      last_careunit:
+        type: categorical
+      intime:
+        type: datetime
+      outtime:
+        type: datetime
+        offset_from: intime
+      los:
+        type: float
+        description: length of stay in fractional days (outtime - intime)
+    primary_key: stay_id
+  ingredientevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      starttime:
+        type: datetime
+      endtime:
+        type: datetime
+        offset_from: starttime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      amount:
+        type: float
+      amountuom:
+        type: lookup
+        lookup: itemid.unitname
+        map:
+          Kcal: Kcal
+          grams: grams
+          kJ: kJ
+          mL: ml
+          mg: mg
+      rate:
+        type: float
+      rateuom:
+        type: categorical
+      orderid:
+        type: id
+      linkorderid:
+        type: integer
+      statusdescription:
+        type: categorical
+      originalamount:
+        type: integer
+      originalrate:
+        type: float
+    fact:
+      anchor: patients
+      partner: d_items
+      header:
+        key: orderid
+        columns:
+        - subject_id
+        - hadm_id
+        - stay_id
+        - caregiver_id
+        - starttime
+        - endtime
+        - storetime
+        - linkorderid
+        - statusdescription
+  inputevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      starttime:
+        type: datetime
+      endtime:
+        type: datetime
+        offset_from: starttime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      amount:
+        type: float
+      amountuom:
+        type: categorical
+      rate:
+        type: float
+      rateuom:
+        type: categorical
+      orderid:
+        type: id
+      linkorderid:
+        type: integer
+      ordercategoryname:
+        type: categorical
+      secondaryordercategoryname:
+        type: categorical
+      ordercomponenttypedescription:
+        type: categorical
+      ordercategorydescription:
+        type: categorical
+      patientweight:
+        type: float
+      totalamount:
+        type: float
+      totalamountuom:
+        type: constant
+      isopenbag:
+        type: boolean
+      continueinnextdept:
+        type: integer
+      statusdescription:
+        type: categorical
+      originalamount:
+        type: float
+      originalrate:
+        type: float
+    fact:
+      anchor: patients
+      partner: d_items
+      header:
+        key: orderid
+        columns:
+        - subject_id
+        - hadm_id
+        - stay_id
+        - caregiver_id
+        - starttime
+        - endtime
+        - storetime
+        - linkorderid
+        - ordercategoryname
+        - secondaryordercategoryname
+        - ordercategorydescription
+        - patientweight
+        - totalamount
+        - statusdescription
+  labevents:
+    role: fact
+    columns:
+      labevent_id:
+        type: id
+      subject_id:
+        type: id
+      hadm_id:
+        type: id
+      specimen_id:
+        type: id
+      itemid:
+        type: id
+      order_provider_id:
+        type: id
+      charttime:
+        type: datetime
+      storetime:
+        type: datetime
+        offset_from: charttime
+      value:
+        type: categorical
+      valuenum:
+        type: float
+      valueuom:
+        type: categorical
+      ref_range_lower:
+        type: float
+      ref_range_upper:
+        type: float
+      flag:
+        type: constant
+      priority:
+        type: categorical
+      comments:
+        type: text
+    primary_key: labevent_id
+    fact:
+      anchor: patients
+      partner: d_labitems
+      header:
+        key: specimen_id
+        columns:
+        - subject_id
+        - hadm_id
+        - order_provider_id
+        - charttime
+        - priority
+  microbiologyevents:
+    role: fact
+    columns:
+      microevent_id:
+        type: id
+      subject_id:
+        type: id
+      hadm_id:
+        type: id
+      micro_specimen_id:
+        type: integer
+      order_provider_id:
+        type: id
+      chartdate:
+        type: date
+        description: the date part of charttime
+      charttime:
+        type: datetime
+        offset_from: chartdate
+      spec_itemid:
+        type: integer
+      spec_type_desc:
+        type: categorical
+      test_seq:
+        type: integer
+      storedate:
+        type: date
+        offset_from: chartdate
+      storetime:
+        type: datetime
+        offset_from: chartdate
+      test_itemid:
+        type: integer
+      test_name:
+        type: categorical
+      org_itemid:
+        type: integer
+      org_name:
+        type: categorical
+      isolate_num:
+        type: integer
+      quantity:
+        type: constant
+      ab_itemid:
+        type: integer
+      ab_name:
+        type: categorical
+      dilution_text:
+        type: categorical
+      dilution_comparison:
+        type: categorical
+      dilution_value:
+        type: float
+      interpretation:
+        type: categorical
+        description: S sensitive, R resistant, I intermediate, P pending
+      comments:
+        type: text
+    primary_key: microevent_id
+    group_effects:
+    - column: spec_itemid
+      by:
+      - spec_type_desc
+      - test_name
+    - column: test_seq
+      by:
+      - chartdate
+      - interpretation
+    fact:
+      anchor: patients
+      partner: provider
+      time_column: chartdate
+      time_bucket: month
+  omr:
+    role: fact
+    columns:
+      subject_id:
+        type: id
+      chartdate:
+        type: date
+      seq_num:
+        type: integer
+      result_name:
+        type: categorical
+      result_value:
+        type: text
+        text:
+          condition_on: result_name
+          whole_values: true
+    fact:
+      anchor: patients
+      time_column: chartdate
+      time_bucket: month
+  outputevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      charttime:
+        type: datetime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      value:
+        type: integer
+      valueuom:
+        type: constant
+    fact:
+      anchor: patients
+      partner: caregiver
+      time_column: charttime
+      time_bucket: month
+  patients:
+    role: entity
+    columns:
+      subject_id:
+        type: id
+      gender:
+        type: categorical
+      anchor_age:
+        type: integer
+        description: age in anchor_year; over 89 is set to 91
+      anchor_year:
+        type: integer
+      anchor_year_group:
+        type: categorical
+      dod:
+        type: date
+        description: de-identified date of death, censored one year after the last discharge
+    primary_key: subject_id
+  pharmacy:
+    role: entity
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: poe_id.hadm_id
+      pharmacy_id:
+        type: id
+      poe_id:
+        type: id
+      starttime:
+        type: datetime
+      stoptime:
+        type: datetime
+      medication:
+        type: text
+        text:
+          condition_on: route
+          whole_values: true
+      proc_type:
+        type: categorical
+      status:
+        type: categorical
+      entertime:
+        type: datetime
+      verifiedtime:
+        type: datetime
+        offset_from: entertime
+      route:
+        type: categorical
+      frequency:
+        type: categorical
+      disp_sched:
+        type: categorical
+      infusion_type:
+        type: categorical
+      sliding_scale:
+        type: boolean
+      lockout_interval:
+        type: integer
+      basal_rate:
+        type: float
+      one_hr_max:
+        type: float
+      doses_per_24_hrs:
+        type: integer
+      duration:
+        type: integer
+      duration_interval:
+        type: categorical
+      expiration_value:
+        type: integer
+      expiration_unit:
+        type: categorical
+      expirationdate:
+        type: constant
+      dispensation:
+        type: categorical
+      fill_quantity:
+        type: constant
+    primary_key: pharmacy_id
+  poe:
+    role: entity
+    columns:
+      poe_id:
+        type: id
+      poe_seq:
+        type: integer
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      ordertime:
+        type: datetime
+      order_type:
+        type: categorical
+      order_subtype:
+        type: categorical
+      transaction_type:
+        type: categorical
+      discontinue_of_poe_id:
+        type: pii
+        pii:
+          generator: pattern
+      discontinued_by_poe_id:
+        type: pii
+        pii:
+          generator: pattern
+      order_provider_id:
+        type: id
+      order_status:
+        type: constant
+    primary_key: poe_id
+  poe_detail:
+    role: fact
+    columns:
+      poe_id:
+        type: id
+      poe_seq:
+        type: lookup
+        lookup: poe_id.poe_seq
+      subject_id:
+        type: lookup
+        lookup: poe_id.subject_id
+      field_name:
+        type: categorical
+      field_value:
+        type: categorical
+    unique:
+    - - poe_id
+      - field_name
+    fact:
+      anchor: poe
+  prescriptions:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: pharmacy_id.hadm_id
+      pharmacy_id:
+        type: id
+      poe_id:
+        type: lookup
+        lookup: pharmacy_id.poe_id
+      poe_seq:
+        type: lookup
+        lookup: poe_id.poe_seq
+      order_provider_id:
+        type: id
+      starttime:
+        type: lookup
+        lookup: pharmacy_id.starttime
+      stoptime:
+        type: lookup
+        lookup: pharmacy_id.stoptime
+      drug_type:
+        type: categorical
+      drug:
+        type: text
+        text:
+          condition_on: form_unit_disp
+          whole_values: true
+      formulary_drug_cd:
+        type: text
+        text:
+          condition_on: form_unit_disp
+          whole_values: true
+      gsn:
+        type: text
+        text:
+          condition_on: form_unit_disp
+          whole_values: true
+      ndc:
+        type: integer
+      prod_strength:
+        type: text
+        text:
+          condition_on: form_unit_disp
+          whole_values: true
+      form_rx:
+        type: categorical
+      dose_val_rx:
+        type: text
+        text:
+          condition_on: drug_type
+          whole_values: true
+      dose_unit_rx:
+        type: categorical
+      form_val_disp:
+        type: text
+        text:
+          condition_on: drug_type
+          whole_values: true
+      form_unit_disp:
+        type: categorical
+      doses_per_24_hrs:
+        type: lookup
+        lookup: pharmacy_id.doses_per_24_hrs
+      route:
+        type: lookup
+        lookup: pharmacy_id.route
+    fact:
+      anchor: pharmacy
+      partner: provider
+  procedureevents:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: lookup
+        lookup: stay_id.hadm_id
+      stay_id:
+        type: id
+      caregiver_id:
+        type: id
+      starttime:
+        type: datetime
+      endtime:
+        type: datetime
+        offset_from: starttime
+      storetime:
+        type: datetime
+      itemid:
+        type: id
+      value:
+        type: float
+      valueuom:
+        type: categorical
+      location:
+        type: categorical
+      locationcategory:
+        type: categorical
+      orderid:
+        type: id
+      linkorderid:
+        type: integer
+      ordercategoryname:
+        type: categorical
+      ordercategorydescription:
+        type: categorical
+      patientweight:
+        type: float
+      isopenbag:
+        type: boolean
+      continueinnextdept:
+        type: integer
+      statusdescription:
+        type: categorical
+      ORIGINALAMOUNT:
+        type: float
+        ratio_of: value
+      ORIGINALRATE:
+        type: boolean
+    primary_key: orderid
+    fact:
+      anchor: patients
+      partner: caregiver
+      time_column: starttime
+      time_bucket: month
+  procedures_icd:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      seq_num:
+        type: sequence
+        within: hadm_id
+        start: 1
+      chartdate:
+        type: date
+      icd_code:
+        type: text
+        text:
+          condition_on: icd_version
+          whole_values: true
+      icd_version:
+        type: categorical
+        description: '9 or 10: the ICD coding system of icd_code'
+    unique:
+    - - hadm_id
+      - seq_num
+    fact:
+      anchor: admissions
+      time_column: chartdate
+      time_bucket: month
+  provider:
+    role: entity
+    columns:
+      provider_id:
+        type: id
+    primary_key: provider_id
+  services:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      transfertime:
+        type: datetime
+      prev_service:
+        type: categorical
+      curr_service:
+        type: categorical
+    fact:
+      anchor: admissions
+      time_column: transfertime
+      time_bucket: month
+  transfers:
+    role: fact
+    columns:
+      subject_id:
+        type: lookup
+        lookup: hadm_id.subject_id
+      hadm_id:
+        type: id
+      transfer_id:
+        type: id
+      eventtype:
+        type: categorical
+        description: '''ed'', ''admit'', ''transfer'', ''discharge'''
+      careunit:
+        type: categorical
+      intime:
+        type: datetime
+      outtime:
+        type: datetime
+        offset_from: intime
+    primary_key: transfer_id
+    fact:
+      anchor: admissions
+      time_column: intime
+      time_bucket: month
+  d_icd_procedures:
+    role: entity
+    mode: copy
+    columns:
+      icd_code:
+        type: categorical
+      icd_version:
+        type: categorical
+      long_title:
+        type: categorical
+    unique:
+    - - icd_code
+      - icd_version
+relationships:
+- child: admissions
+  child_key: subject_id
+  parent: patients
+- child: admissions
+  child_key: admit_provider_id
+  parent: provider
+- child: chartevents
+  child_key: subject_id
+  parent: patients
+- child: chartevents
+  child_key: hadm_id
+  parent: admissions
+- child: chartevents
+  child_key: stay_id
+  parent: icustays
+- child: chartevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: chartevents
+  child_key: itemid
+  parent: d_items
+- child: datetimeevents
+  child_key: subject_id
+  parent: patients
+- child: datetimeevents
+  child_key: hadm_id
+  parent: admissions
+- child: datetimeevents
+  child_key: stay_id
+  parent: icustays
+- child: datetimeevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: datetimeevents
+  child_key: itemid
+  parent: d_items
+- child: diagnoses_icd
+  child_key: subject_id
+  parent: patients
+- child: diagnoses_icd
+  child_key: hadm_id
+  parent: admissions
+- child: drgcodes
+  child_key: subject_id
+  parent: patients
+- child: drgcodes
+  child_key: hadm_id
+  parent: admissions
+- child: emar
+  child_key: subject_id
+  parent: patients
+- child: emar
+  child_key: hadm_id
+  parent: admissions
+- child: emar
+  child_key: pharmacy_id
+  parent: pharmacy
+- child: emar
+  child_key: enter_provider_id
+  parent: provider
+- child: emar_detail
+  child_key: subject_id
+  parent: patients
+- child: emar_detail
+  child_key: emar_id
+  parent: emar
+- child: emar_detail
+  child_key: pharmacy_id
+  parent: pharmacy
+- child: hcpcsevents
+  child_key: subject_id
+  parent: patients
+- child: hcpcsevents
+  child_key: hadm_id
+  parent: admissions
+- child: hcpcsevents
+  child_key: hcpcs_cd
+  parent: d_hcpcs
+- child: icustays
+  child_key: subject_id
+  parent: patients
+- child: icustays
+  child_key: hadm_id
+  parent: admissions
+- child: ingredientevents
+  child_key: subject_id
+  parent: patients
+- child: ingredientevents
+  child_key: hadm_id
+  parent: admissions
+- child: ingredientevents
+  child_key: stay_id
+  parent: icustays
+- child: ingredientevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: ingredientevents
+  child_key: itemid
+  parent: d_items
+- child: inputevents
+  child_key: subject_id
+  parent: patients
+- child: inputevents
+  child_key: hadm_id
+  parent: admissions
+- child: inputevents
+  child_key: stay_id
+  parent: icustays
+- child: inputevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: inputevents
+  child_key: itemid
+  parent: d_items
+- child: labevents
+  child_key: subject_id
+  parent: patients
+- child: labevents
+  child_key: hadm_id
+  parent: admissions
+- child: labevents
+  child_key: itemid
+  parent: d_labitems
+- child: labevents
+  child_key: order_provider_id
+  parent: provider
+- child: microbiologyevents
+  child_key: subject_id
+  parent: patients
+- child: microbiologyevents
+  child_key: hadm_id
+  parent: admissions
+- child: microbiologyevents
+  child_key: order_provider_id
+  parent: provider
+- child: omr
+  child_key: subject_id
+  parent: patients
+- child: outputevents
+  child_key: subject_id
+  parent: patients
+- child: outputevents
+  child_key: hadm_id
+  parent: admissions
+- child: outputevents
+  child_key: stay_id
+  parent: icustays
+- child: outputevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: outputevents
+  child_key: itemid
+  parent: d_items
+- child: pharmacy
+  child_key: subject_id
+  parent: patients
+- child: pharmacy
+  child_key: hadm_id
+  parent: admissions
+- child: pharmacy
+  child_key: poe_id
+  parent: poe
+- child: poe
+  child_key: subject_id
+  parent: patients
+- child: poe
+  child_key: hadm_id
+  parent: admissions
+- child: poe
+  child_key: order_provider_id
+  parent: provider
+- child: poe_detail
+  child_key: poe_id
+  parent: poe
+- child: poe_detail
+  child_key: subject_id
+  parent: patients
+- child: prescriptions
+  child_key: subject_id
+  parent: patients
+- child: prescriptions
+  child_key: hadm_id
+  parent: admissions
+- child: prescriptions
+  child_key: pharmacy_id
+  parent: pharmacy
+- child: prescriptions
+  child_key: poe_id
+  parent: poe
+- child: prescriptions
+  child_key: order_provider_id
+  parent: provider
+- child: procedureevents
+  child_key: subject_id
+  parent: patients
+- child: procedureevents
+  child_key: hadm_id
+  parent: admissions
+- child: procedureevents
+  child_key: stay_id
+  parent: icustays
+- child: procedureevents
+  child_key: caregiver_id
+  parent: caregiver
+- child: procedureevents
+  child_key: itemid
+  parent: d_items
+- child: procedures_icd
+  child_key: subject_id
+  parent: patients
+- child: procedures_icd
+  child_key: hadm_id
+  parent: admissions
+- child: services
+  child_key: subject_id
+  parent: patients
+- child: services
+  child_key: hadm_id
+  parent: admissions
+- child: transfers
+  child_key: subject_id
+  parent: patients
+- child: transfers
+  child_key: hadm_id
+  parent: admissions
+rules:
+- table: admissions
+  type: check
+  expr: days(admittime) < days(dischtime)
+- table: admissions
+  type: check
+  expr: days(edregtime) < days(dischtime)
+- table: admissions
+  type: check
+  expr: days(edregtime) < days(edouttime)
+- table: admissions
+  type: check
+  expr: days(admittime) < days(subject_id.dod)
+- table: admissions
+  type: check
+  expr: days(edregtime) < days(subject_id.dod)
+- table: admissions
+  type: check
+  expr: days(edouttime) < days(subject_id.dod)
+- table: chartevents
+  type: check
+  expr: days(charttime) < days(stay_id.outtime)
+- table: chartevents
+  type: check
+  expr: days(stay_id.intime) <= days(storetime)
+- table: chartevents
+  type: check
+  expr: days(storetime) < days(stay_id.outtime)
+- table: datetimeevents
+  type: check
+  expr: days(charttime) < days(stay_id.outtime)
+- table: datetimeevents
+  type: check
+  expr: days(stay_id.intime) <= days(storetime)
+- table: datetimeevents
+  type: check
+  expr: days(storetime) < days(stay_id.outtime)
+- table: datetimeevents
+  type: check
+  expr: days(value) < days(stay_id.outtime)
+- table: emar
+  type: check
+  expr: days(charttime) <= days(hadm_id.deathtime)
+- table: emar
+  type: check
+  expr: days(hadm_id.edregtime) < days(charttime)
+- table: emar
+  type: check
+  expr: days(scheduletime) <= days(hadm_id.deathtime)
+- table: emar
+  type: check
+  expr: days(hadm_id.edregtime) < days(scheduletime)
+- table: emar
+  type: check
+  expr: days(hadm_id.edregtime) < days(storetime)
+- table: icustays
+  type: check
+  expr: days(intime) < days(outtime)
+- table: icustays
+  type: check
+  expr: days(intime) < days(hadm_id.dischtime)
+- table: icustays
+  type: check
+  expr: days(hadm_id.edregtime) < days(intime)
+- table: icustays
+  type: check
+  expr: days(hadm_id.admittime) < days(outtime)
+- table: icustays
+  type: check
+  expr: days(hadm_id.edregtime) < days(outtime)
+- table: icustays
+  type: check
+  expr: days(hadm_id.edouttime) < days(outtime)
+- table: ingredientevents
+  type: check
+  expr: days(starttime) < days(endtime)
+- table: ingredientevents
+  type: check
+  expr: days(starttime) < days(stay_id.outtime)
+- table: ingredientevents
+  type: check
+  expr: days(endtime) < days(stay_id.outtime)
+- table: ingredientevents
+  type: check
+  expr: days(stay_id.intime) <= days(storetime)
+- table: ingredientevents
+  type: check
+  expr: days(storetime) < days(stay_id.outtime)
+- table: inputevents
+  type: check
+  expr: days(starttime) < days(endtime)
+- table: inputevents
+  type: check
+  expr: days(starttime) < days(stay_id.outtime)
+- table: inputevents
+  type: check
+  expr: days(stay_id.intime) <= days(endtime)
+- table: inputevents
+  type: check
+  expr: days(endtime) < days(stay_id.outtime)
+- table: inputevents
+  type: check
+  expr: days(stay_id.intime) <= days(storetime)
+- table: inputevents
+  type: check
+  expr: days(storetime) < days(stay_id.outtime)
+- table: labevents
+  type: check
+  expr: days(charttime) <= days(storetime)
+- table: labevents
+  type: check
+  expr: ref_range_lower <= ref_range_upper
+- table: microbiologyevents
+  type: check
+  expr: days(chartdate) <= days(charttime)
+- table: microbiologyevents
+  type: check
+  expr: days(chartdate) < days(storetime)
+- table: microbiologyevents
+  type: check
+  expr: days(charttime) < days(storetime)
+- table: microbiologyevents
+  type: check
+  expr: days(chartdate) <= days(subject_id.dod)
+- table: omr
+  type: check
+  expr: days(chartdate) < days(subject_id.dod)
+- table: outputevents
+  type: check
+  expr: days(charttime) < days(stay_id.outtime)
+- table: outputevents
+  type: check
+  expr: days(stay_id.intime) < days(storetime)
+- table: outputevents
+  type: check
+  expr: days(storetime) < days(stay_id.outtime)
+- table: pharmacy
+  type: check
+  expr: days(entertime) <= days(verifiedtime)
+- table: poe
+  type: check
+  expr: days(hadm_id.edregtime) < days(ordertime)
+- table: procedureevents
+  type: check
+  expr: days(starttime) < days(endtime)
+- table: procedureevents
+  type: check
+  expr: days(starttime) < days(stay_id.outtime)
+- table: procedures_icd
+  type: check
+  expr: days(chartdate) < days(hadm_id.deathtime)
+- table: services
+  type: check
+  expr: days(transfertime) < days(hadm_id.dischtime)
+- table: services
+  type: check
+  expr: days(hadm_id.edregtime) < days(transfertime)
+- table: transfers
+  type: check
+  expr: days(intime) < days(outtime)
+- table: transfers
+  type: check
+  expr: days(hadm_id.edregtime) <= days(outtime)
+- table: admissions
+  type: check
+  expr: isnull(deathtime) or hospital_expire_flag == 1
+- table: admissions
+  type: check
+  expr: hospital_expire_flag == 0 or notnull(deathtime)
+- table: patients
+  type: check
+  expr: anchor_age <= 91
+- table: microbiologyevents
+  type: check
+  expr: isnull(charttime) or floor(days(charttime)) == floor(days(chartdate))
+- table: diagnoses_icd
+  type: check
+  expr: seq_num >= 1
+- table: icustays
+  type: derive
+  expr: los = days(outtime) - days(intime)
+  tolerance: 0.001
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

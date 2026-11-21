@@ -4,6 +4,7 @@ the schema-level checks X1-X6 and the engine findings fixed with it."""
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 import subprocess
 import sys
@@ -19,6 +20,20 @@ from bench.datasets import DATASETS, FEATURES, REQUIRED_FEATURES, TIERS, tier_da
 
 ROOT = Path(__file__).resolve().parents[2]
 STRESS = ROOT / "bench" / "builders" / "stress_schema.py"
+
+
+def test_every_bench_spec_is_valid_and_documented():
+    """Specs written from a dataset's documentation load, and name their sources in a header comment."""
+    from relsynth.spec import load_spec
+
+    used = {Path(d.spec()) for d in DATASETS.values() if d.spec.__qualname__.startswith("_spec")}
+    assert used, "no dataset uses a written spec"
+    for path in sorted(used):
+        assert path.exists(), path
+        load_spec(path)
+    for name in ("stackexchange", "mimic_demo", "tpch", "adult", "covtype", "synthea"):
+        head = (ROOT / "bench" / "specs" / f"{name}.yaml").read_text().split("\nversion:", 1)[0]
+        assert "Sources:" in head and "https://" in head, name
 
 
 def test_every_dataset_has_a_known_tier_and_known_features():
@@ -556,3 +571,22 @@ def test_unique_where_set_counts_in_the_store(tmp_path, monkeypatch):
     for cols in (["a", "b"], ["b", "c d"], ["a", "c d"]):
         for s in (plain, sql, lazy):
             assert s.unique_where_set("t", cols) == want(cols), (cols, s.kind)
+
+
+def test_selections_table_lists_choices_and_missing_runs(tmp_path):
+    from bench.__main__ import selections_table
+    rec = {"runs": [
+        {"dataset": "adult", "seed": 1, "scorecard": {"passed": 9, "total": 10},
+         "generator_selection": {"mode": "trial", "chosen": {"adult": "cart"}, "candidates": [
+             {"generator": "copula", "score": 0.8, "privacy_failed": 0, "seconds": 3.0},
+             {"generator": "cart", "score": 0.9, "privacy_failed": 0, "seconds": 4.0},
+             {"generator": "ddpm", "error": "cannot model every table"}]}},
+        {"dataset": "chinook", "seed": 1, "scorecard": {"passed": 1, "total": 2}},
+        {"dataset": "stress_s", "seed": 1, "error": "boom", "generator_selection": {"mode": "trial", "chosen": {}}},
+    ]}
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps(rec))
+    table, missing = selections_table([p])
+    assert "| adult seed 1 | trial | cart | 9/10 |" in table and "cart 0.900 (0 privacy, 4.0 s)" in table
+    assert "ddpm: cannot model" in table
+    assert missing == ["chinook seed 1", "stress_s seed 1"]

@@ -448,6 +448,11 @@ def cmd_run(a, out):
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
             written=[_mask(w) for w in res.written])
+    sel = res.bundle.get("generator_selection")
+    if sel:
+        out.put(generator_selection=sel)
+        picked = sorted(set(sel["chosen"].values()))
+        out.line(f"generator selection ({sel['mode']}): {', '.join(picked) or 'no table to choose for'}")
     if res.report is not None:
         out.put(scorecard={"passed": res.report.passed, "total": res.report.total, "score": res.report.score,
                            "failed": res.report.failed})

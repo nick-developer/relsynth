@@ -1,0 +1,1041 @@
+# Synthea 1k-patient sample (SDV copy), written from the Synthea CSV data dictionary.
+# Sources:
+#  - https://github.com/synthetichealth/synthea/wiki/CSV-File-Data-Dictionary (files, columns, primary
+#    and foreign keys, code lists, what a cost column includes)
+#  - keys and foreign keys of the copy: the SDV metadata the builder declares.
+# Each documented rule was checked on the data before it was written. Where the copy differs from the
+# dictionary, the data is kept and noted:
+#  - claims.PRIMARYPATIENTINSURANCEID is a payer on 78% of rows only, so it is not declared as a link;
+#  - claims_transactions.PATIENTINSURANCEID holds patient ids (the dictionary: a payer-transition member
+#    id; MEMBERID is empty in the copy), so it links to patients;
+#  - claims.REFERRINGPROVIDERID is empty.
+# The dictionary states no date order; the date rules, roles and offsets are relsynth introspect's
+# draft, kept where the dictionary does not speak.
+version: 1
+name: synthea_1k
+source:
+  kind: sqlite
+  path: bench/.cache/synthea/synthea.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  allergies:
+    role: fact
+    columns:
+      START:
+        type: date
+      STOP:
+        type: constant
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      SYSTEM:
+        type: constant
+      DESCRIPTION:
+        type: categorical
+      TYPE:
+        type: categorical
+        description: allergy or intolerance
+      CATEGORY:
+        type: categorical
+        description: drug, medication, food, environment
+      REACTION1:
+        type: integer
+      DESCRIPTION1:
+        type: categorical
+      SEVERITY1:
+        type: categorical
+        description: MILD, MODERATE, SEVERE
+      REACTION2:
+        type: integer
+      DESCRIPTION2:
+        type: categorical
+      SEVERITY2:
+        type: categorical
+        description: MILD, MODERATE, SEVERE
+    unique:
+    - - PATIENT
+      - DESCRIPTION
+    - - ENCOUNTER
+      - DESCRIPTION
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  careplans:
+    role: fact
+    columns:
+      Id:
+        type: id
+      START:
+        type: date
+      STOP:
+        type: date
+        offset_from: START
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+      REASONCODE:
+        type: integer
+      REASONDESCRIPTION:
+        type: categorical
+    primary_key: Id
+    group_effects:
+    - column: CODE
+      by:
+      - DESCRIPTION
+      - REASONDESCRIPTION
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  claims:
+    role: entity
+    columns:
+      Id:
+        type: id
+      PATIENTID:
+        type: lookup
+        lookup: APPOINTMENTID.PATIENT
+      PROVIDERID:
+        type: lookup
+        lookup: APPOINTMENTID.PROVIDER
+      PRIMARYPATIENTINSURANCEID:
+        type: lookup
+        lookup: APPOINTMENTID.PAYER
+        map:
+          047f6ec3-6215-35eb-9608-f9dda363a44c: 047f6ec3-6215-35eb-9608-f9dda363a44c
+          42c4fca7-f8a9-3cd1-982a-dd9751bf3e2a: 42c4fca7-f8a9-3cd1-982a-dd9751bf3e2a
+          4d71f845-a6a9-3c39-b242-14d25ef86a8d: 4d71f845-a6a9-3c39-b242-14d25ef86a8d
+          5059a55e-5d6e-34d1-b6cb-d83d16e57bcf: 5059a55e-5d6e-34d1-b6cb-d83d16e57bcf
+          6e2f1a2d-27bd-3701-8d08-dae202c58632: 6e2f1a2d-27bd-3701-8d08-dae202c58632
+          7c4411ce-02f1-39b5-b9ec-dfbea9ad3c1a: 7c4411ce-02f1-39b5-b9ec-dfbea9ad3c1a
+          7caa7254-5050-3b5e-9eae-bd5ea30e809c: 7caa7254-5050-3b5e-9eae-bd5ea30e809c
+          b1c428d6-4f07-31e0-90f0-68ffa6ff8c76: '0'
+          b3221cfc-24fb-339e-823d-bc4136cbc4ed: b3221cfc-24fb-339e-823d-bc4136cbc4ed
+          d47b3510-2895-3b70-9897-342d681c769d: d47b3510-2895-3b70-9897-342d681c769d
+      SECONDARYPATIENTINSURANCEID:
+        type: categorical
+      DEPARTMENTID:
+        type: integer
+      PATIENTDEPARTMENTID:
+        type: integer
+      DIAGNOSIS1:
+        type: integer
+      DIAGNOSIS2:
+        type: integer
+      DIAGNOSIS3:
+        type: integer
+      DIAGNOSIS4:
+        type: integer
+      DIAGNOSIS5:
+        type: integer
+      DIAGNOSIS6:
+        type: integer
+      DIAGNOSIS7:
+        type: integer
+      DIAGNOSIS8:
+        type: integer
+      REFERRINGPROVIDERID:
+        type: constant
+      APPOINTMENTID:
+        type: id
+      CURRENTILLNESSDATE:
+        type: datetime
+      SERVICEDATE:
+        type: lookup
+        lookup: APPOINTMENTID.START
+      SUPERVISINGPROVIDERID:
+        type: lookup
+        lookup: APPOINTMENTID.PROVIDER
+      STATUS1:
+        type: categorical
+        description: BILLED or CLOSED
+      STATUS2:
+        type: categorical
+        description: BILLED or CLOSED
+      STATUSP:
+        type: categorical
+        description: BILLED or CLOSED
+      OUTSTANDING1:
+        type: integer
+      OUTSTANDING2:
+        type: integer
+      OUTSTANDINGP:
+        type: integer
+      LASTBILLEDDATE1:
+        type: datetime
+        offset_from: LASTBILLEDDATEP
+      LASTBILLEDDATE2:
+        type: datetime
+        offset_from: LASTBILLEDDATEP
+      LASTBILLEDDATEP:
+        type: datetime
+      HEALTHCARECLAIMTYPEID1:
+        type: categorical
+        description: 1 professional, 2 institutional
+      HEALTHCARECLAIMTYPEID2:
+        type: categorical
+        description: 1 professional, 2 institutional
+    primary_key: Id
+    dimensions:
+    - key: HEALTHCARECLAIMTYPEID2
+      columns:
+      - STATUS2
+      anchor: STATUS2
+  claims_transactions:
+    role: fact
+    columns:
+      ID:
+        type: id
+      CLAIMID:
+        type: id
+      CHARGEID:
+        type: integer
+      PATIENTID:
+        type: lookup
+        lookup: CLAIMID.PATIENTID
+      TYPE:
+        type: categorical
+        description: CHARGE, PAYMENT, ADJUSTMENT, TRANSFERIN, TRANSFEROUT
+      AMOUNT:
+        type: float
+        description: dollar amount for a CHARGE or TRANSFERIN
+      METHOD:
+        type: categorical
+        description: CASH, CHECK, ECHECK, COPAY, SYSTEM, CC
+      FROMDATE:
+        type: datetime
+      TODATE:
+        type: datetime
+      PLACEOFSERVICE:
+        type: lookup
+        lookup: APPOINTMENTID.ORGANIZATION
+      PROCEDURECODE:
+        type: integer
+      MODIFIER1:
+        type: constant
+      MODIFIER2:
+        type: constant
+      DIAGNOSISREF1:
+        type: constant
+      DIAGNOSISREF2:
+        type: constant
+      DIAGNOSISREF3:
+        type: constant
+      DIAGNOSISREF4:
+        type: constant
+      UNITS:
+        type: constant
+      DEPARTMENTID:
+        type: lookup
+        lookup: CLAIMID.DEPARTMENTID
+      NOTES:
+        type: text
+      UNITAMOUNT:
+        type: float
+      TRANSFEROUTID:
+        type: integer
+      TRANSFERTYPE:
+        type: categorical
+        description: 1, 2 or p
+      PAYMENTS:
+        type: float
+      ADJUSTMENTS:
+        type: constant
+      TRANSFERS:
+        type: float
+      OUTSTANDING:
+        type: float
+      APPOINTMENTID:
+        type: lookup
+        lookup: CLAIMID.APPOINTMENTID
+      LINENOTE:
+        type: constant
+      PATIENTINSURANCEID:
+        type: id
+      FEESCHEDULEID:
+        type: constant
+      PROVIDERID:
+        type: lookup
+        lookup: CLAIMID.PROVIDERID
+      SUPERVISINGPROVIDERID:
+        type: lookup
+        lookup: CLAIMID.SUPERVISINGPROVIDERID
+    primary_key: ID
+    fact:
+      anchor: claims
+      partner: patients
+      time_column: FROMDATE
+      time_bucket: month
+  conditions:
+    role: fact
+    columns:
+      START:
+        type: date
+      STOP:
+        type: date
+        offset_from: START
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  devices:
+    role: fact
+    columns:
+      START:
+        type: datetime
+      STOP:
+        type: datetime
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+      UDI:
+        type: id
+    primary_key: UDI
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  encounters:
+    role: entity
+    columns:
+      Id:
+        type: id
+      START:
+        type: datetime
+      STOP:
+        type: datetime
+        offset_from: START
+      PATIENT:
+        type: id
+      ORGANIZATION:
+        type: lookup
+        lookup: PROVIDER.ORGANIZATION
+      PROVIDER:
+        type: id
+      PAYER:
+        type: id
+      ENCOUNTERCLASS:
+        type: categorical
+        description: such as ambulatory, emergency, inpatient, wellness, urgentcare
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+      BASE_ENCOUNTER_COST:
+        type: float
+        description: cost of the encounter, not including any line item costs
+      TOTAL_CLAIM_COST:
+        type: float
+        description: total cost of the encounter, including all line items
+      PAYER_COVERAGE:
+        type: float
+      REASONCODE:
+        type: integer
+      REASONDESCRIPTION:
+        type: categorical
+    primary_key: Id
+    dimensions:
+    - key: REASONDESCRIPTION
+      columns:
+      - REASONCODE
+      anchor: REASONDESCRIPTION
+    - key: DESCRIPTION
+      columns:
+      - CODE
+      anchor: DESCRIPTION
+  imaging_studies:
+    role: fact
+    columns:
+      Id:
+        type: categorical
+      DATE:
+        type: datetime
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      SERIES_UID:
+        type: categorical
+      BODYSITE_CODE:
+        type: integer
+      BODYSITE_DESCRIPTION:
+        type: categorical
+      MODALITY_CODE:
+        type: categorical
+      MODALITY_DESCRIPTION:
+        type: categorical
+      INSTANCE_UID:
+        type: pii
+        pii:
+          generator: pattern
+      SOP_CODE:
+        type: categorical
+      SOP_DESCRIPTION:
+        type: categorical
+      PROCEDURE_CODE:
+        type: integer
+    fact:
+      anchor: encounters
+      time_column: DATE
+      time_bucket: month
+  immunizations:
+    role: fact
+    columns:
+      DATE:
+        type: lookup
+        lookup: ENCOUNTER.START
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+      BASE_COST:
+        type: float
+    unique:
+    - - ENCOUNTER
+      - DESCRIPTION
+    fact:
+      anchor: patients
+      partner: encounters
+  medications:
+    role: fact
+    columns:
+      START:
+        type: datetime
+      STOP:
+        type: datetime
+        offset_from: START
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      PAYER:
+        type: lookup
+        lookup: ENCOUNTER.PAYER
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: text
+      BASE_COST:
+        type: float
+      PAYER_COVERAGE:
+        type: float
+      DISPENSES:
+        type: integer
+        description: number of times the prescription was filled
+      TOTALCOST:
+        type: float
+      REASONCODE:
+        type: integer
+      REASONDESCRIPTION:
+        type: categorical
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  observations:
+    role: fact
+    columns:
+      DATE:
+        type: datetime
+      PATIENT:
+        type: id
+      ENCOUNTER:
+        type: id
+      CATEGORY:
+        type: categorical
+      CODE:
+        type: categorical
+      DESCRIPTION:
+        type: text
+      VALUE:
+        type: text
+        text:
+          condition_on: CATEGORY
+          whole_values: true
+      UNITS:
+        type: categorical
+      TYPE:
+        type: categorical
+        description: text or numeric
+    fact:
+      anchor: patients
+      partner: encounters
+      time_column: DATE
+      time_bucket: month
+  organizations:
+    role: entity
+    columns:
+      Id:
+        type: id
+      NAME:
+        type: pii
+        pii:
+          generator: person_name
+      ADDRESS:
+        type: pii
+        pii:
+          generator: pattern
+      CITY:
+        type: categorical
+      STATE:
+        type: constant
+      ZIP:
+        type: pii
+        pii:
+          generator: pattern
+      LAT:
+        type: float
+      LON:
+        type: float
+      PHONE:
+        type: pii
+        pii:
+          generator: phone
+      REVENUE:
+        type: integer
+      UTILIZATION:
+        type: integer
+        description: number of encounters performed by this organization
+    primary_key: Id
+  patients:
+    role: entity
+    columns:
+      Id:
+        type: id
+      BIRTHDATE:
+        type: date
+      DEATHDATE:
+        type: date
+      SSN:
+        type: pii
+        pii:
+          generator: pattern
+      DRIVERS:
+        type: pii
+        pii:
+          generator: pattern
+      PASSPORT:
+        type: pii
+        pii:
+          generator: pattern
+      PREFIX:
+        type: categorical
+      FIRST:
+        type: categorical
+      LAST:
+        type: categorical
+      SUFFIX:
+        type: categorical
+      MAIDEN:
+        type: categorical
+      MARITAL:
+        type: categorical
+        description: M married, S single (no divorce or widowing in Synthea)
+      RACE:
+        type: categorical
+      ETHNICITY:
+        type: categorical
+      GENDER:
+        type: categorical
+        description: M, F
+      BIRTHPLACE:
+        type: text
+      ADDRESS:
+        type: pii
+        pii:
+          generator: pattern
+      CITY:
+        type: text
+        text:
+          condition_on: COUNTY
+          whole_values: true
+      STATE:
+        type: constant
+      COUNTY:
+        type: categorical
+      ZIP:
+        type: pii
+        pii:
+          generator: pattern
+      LAT:
+        type: float
+      LON:
+        type: float
+      HEALTHCARE_EXPENSES:
+        type: float
+        description: what the patient paid over the lifetime
+      HEALTHCARE_COVERAGE:
+        type: float
+        description: what the insurance company paid over the lifetime
+    primary_key: Id
+  payer_transitions:
+    role: fact
+    columns:
+      PATIENT:
+        type: id
+      MEMBERID:
+        type: categorical
+      START_YEAR:
+        type: datetime
+      END_YEAR:
+        type: datetime
+        offset_from: START_YEAR
+      PAYER:
+        type: id
+      SECONDARY_PAYER:
+        type: id
+      OWNERSHIP:
+        type: categorical
+      OWNERNAME:
+        type: text
+    fact:
+      anchor: patients
+      partner: payers
+      time_column: START_YEAR
+      time_bucket: month
+  payers:
+    role: entity
+    columns:
+      Id:
+        type: id
+      NAME:
+        type: pii
+        pii:
+          generator: person_name
+      ADDRESS:
+        type: pii
+        pii:
+          generator: pattern
+      CITY:
+        type: categorical
+      STATE_HEADQUARTERED:
+        type: categorical
+      ZIP:
+        type: pii
+        pii:
+          generator: pattern
+      PHONE:
+        type: pii
+        pii:
+          generator: phone
+      AMOUNT_COVERED:
+        type: integer
+      AMOUNT_UNCOVERED:
+        type: integer
+      REVENUE:
+        type: integer
+      COVERED_ENCOUNTERS:
+        type: integer
+      UNCOVERED_ENCOUNTERS:
+        type: integer
+      COVERED_MEDICATIONS:
+        type: integer
+      UNCOVERED_MEDICATIONS:
+        type: integer
+      COVERED_PROCEDURES:
+        type: integer
+      UNCOVERED_PROCEDURES:
+        type: integer
+      COVERED_IMMUNIZATIONS:
+        type: integer
+      UNCOVERED_IMMUNIZATIONS:
+        type: integer
+      UNIQUE_CUSTOMERS:
+        type: integer
+      QOLS_AVG:
+        type: float
+      MEMBER_MONTHS:
+        type: integer
+    primary_key: Id
+  procedures:
+    role: fact
+    columns:
+      START:
+        type: datetime
+      STOP:
+        type: datetime
+        offset_from: START
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: text
+      BASE_COST:
+        type: float
+      REASONCODE:
+        type: integer
+      REASONDESCRIPTION:
+        type: categorical
+    fact:
+      anchor: encounters
+      time_column: START
+      time_bucket: month
+  providers:
+    role: entity
+    columns:
+      Id:
+        type: id
+      ORGANIZATION:
+        type: id
+      NAME:
+        type: pii
+        pii:
+          generator: person_name
+      GENDER:
+        type: categorical
+      SPECIALITY:
+        type: categorical
+      ADDRESS:
+        type: lookup
+        lookup: ORGANIZATION.ADDRESS
+      CITY:
+        type: lookup
+        lookup: ORGANIZATION.CITY
+      STATE:
+        type: constant
+      ZIP:
+        type: lookup
+        lookup: ORGANIZATION.ZIP
+      LAT:
+        type: lookup
+        lookup: ORGANIZATION.LAT
+      LON:
+        type: lookup
+        lookup: ORGANIZATION.LON
+      UTILIZATION:
+        type: integer
+    primary_key: Id
+  supplies:
+    role: fact
+    columns:
+      DATE:
+        type: date
+      PATIENT:
+        type: lookup
+        lookup: ENCOUNTER.PATIENT
+      ENCOUNTER:
+        type: id
+      CODE:
+        type: integer
+      DESCRIPTION:
+        type: categorical
+      QUANTITY:
+        type: integer
+    fact:
+      anchor: encounters
+      time_column: DATE
+      time_bucket: month
+relationships:
+- child: allergies
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: allergies
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: careplans
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: careplans
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: claims
+  child_key: PATIENTID
+  parent: patients
+  parent_key: Id
+- child: claims
+  child_key: PROVIDERID
+  parent: providers
+  parent_key: Id
+- child: claims
+  child_key: APPOINTMENTID
+  parent: encounters
+  parent_key: Id
+- child: claims
+  child_key: SUPERVISINGPROVIDERID
+  parent: providers
+  parent_key: Id
+- child: claims_transactions
+  child_key: CLAIMID
+  parent: claims
+  parent_key: Id
+- child: claims_transactions
+  child_key: PATIENTID
+  parent: patients
+  parent_key: Id
+- child: claims_transactions
+  child_key: PLACEOFSERVICE
+  parent: organizations
+  parent_key: Id
+- child: claims_transactions
+  child_key: APPOINTMENTID
+  parent: encounters
+  parent_key: Id
+- child: claims_transactions
+  child_key: PATIENTINSURANCEID
+  parent: patients
+  parent_key: Id
+- child: claims_transactions
+  child_key: PROVIDERID
+  parent: providers
+  parent_key: Id
+- child: claims_transactions
+  child_key: SUPERVISINGPROVIDERID
+  parent: providers
+  parent_key: Id
+- child: conditions
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: conditions
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: devices
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: devices
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: encounters
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: encounters
+  child_key: ORGANIZATION
+  parent: organizations
+  parent_key: Id
+- child: encounters
+  child_key: PROVIDER
+  parent: providers
+  parent_key: Id
+- child: encounters
+  child_key: PAYER
+  parent: payers
+  parent_key: Id
+- child: imaging_studies
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: imaging_studies
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: immunizations
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: immunizations
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: medications
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: medications
+  child_key: PAYER
+  parent: payers
+  parent_key: Id
+- child: medications
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: observations
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: observations
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: payer_transitions
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: payer_transitions
+  child_key: PAYER
+  parent: payers
+  parent_key: Id
+- child: payer_transitions
+  child_key: SECONDARY_PAYER
+  parent: payers
+  parent_key: Id
+- child: procedures
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: procedures
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+- child: providers
+  child_key: ORGANIZATION
+  parent: organizations
+  parent_key: Id
+- child: supplies
+  child_key: PATIENT
+  parent: patients
+  parent_key: Id
+- child: supplies
+  child_key: ENCOUNTER
+  parent: encounters
+  parent_key: Id
+rules:
+- table: claims
+  type: derive
+  expr: PATIENTDEPARTMENTID = DEPARTMENTID
+- table: claims_transactions
+  type: derive
+  expr: UNITAMOUNT = AMOUNT
+  tolerance: 0.01
+- table: claims_transactions
+  type: derive
+  expr: TRANSFERS = AMOUNT
+  tolerance: 0.01
+- table: claims_transactions
+  type: derive
+  expr: OUTSTANDING = AMOUNT
+  tolerance: 0.01
+- table: medications
+  type: derive
+  expr: TOTALCOST = BASE_COST * DISPENSES
+  tolerance: 0.01
+- table: claims
+  type: aggregate
+  column: PATIENTDEPARTMENTID
+  agg: min
+  from: claims_transactions
+  of: DEPARTMENTID
+- table: organizations
+  type: aggregate
+  column: UTILIZATION
+  agg: sum
+  from: providers
+  of: UTILIZATION
+- table: allergies
+  type: check
+  expr: days(START) < days(ENCOUNTER.START)
+- table: allergies
+  type: check
+  expr: days(START) < days(ENCOUNTER.STOP)
+- table: careplans
+  type: check
+  expr: days(START) <= days(STOP)
+- table: claims
+  type: check
+  expr: days(CURRENTILLNESSDATE) <= days(LASTBILLEDDATEP)
+- table: claims
+  type: check
+  expr: days(CURRENTILLNESSDATE) <= days(APPOINTMENTID.START)
+- table: claims
+  type: check
+  expr: days(CURRENTILLNESSDATE) < days(APPOINTMENTID.STOP)
+- table: claims
+  type: check
+  expr: days(APPOINTMENTID.START) <= days(LASTBILLEDDATEP)
+- table: claims
+  type: check
+  expr: days(LASTBILLEDDATEP) <= days(APPOINTMENTID.STOP)
+- table: claims_transactions
+  type: check
+  expr: TRANSFEROUTID < CHARGEID
+- table: conditions
+  type: check
+  expr: days(START) <= days(STOP)
+- table: encounters
+  type: check
+  expr: days(START) < days(STOP)
+- table: encounters
+  type: check
+  expr: PAYER_COVERAGE <= TOTAL_CLAIM_COST
+- table: encounters
+  type: check
+  expr: days(PATIENT.BIRTHDATE) < days(START)
+- table: encounters
+  type: check
+  expr: days(PATIENT.BIRTHDATE) < days(STOP)
+- table: imaging_studies
+  type: check
+  expr: days(ENCOUNTER.START) <= days(DATE)
+- table: imaging_studies
+  type: check
+  expr: days(DATE) < days(ENCOUNTER.STOP)
+- table: medications
+  type: check
+  expr: days(START) <= days(STOP)
+- table: medications
+  type: check
+  expr: PAYER_COVERAGE < BASE_COST
+- table: medications
+  type: check
+  expr: days(ENCOUNTER.START) <= days(STOP)
+- table: observations
+  type: check
+  expr: days(PATIENT.BIRTHDATE) < days(DATE)
+- table: payer_transitions
+  type: check
+  expr: days(START_YEAR) < days(END_YEAR)
+- table: payer_transitions
+  type: check
+  expr: days(PATIENT.BIRTHDATE) < days(START_YEAR)
+- table: payer_transitions
+  type: check
+  expr: days(START_YEAR) < days(PATIENT.DEATHDATE)
+- table: payer_transitions
+  type: check
+  expr: days(PATIENT.BIRTHDATE) < days(END_YEAR)
+- table: procedures
+  type: check
+  expr: days(START) <= days(STOP)
+- table: claims_transactions
+  type: check
+  expr: notnull(AMOUNT) == (TYPE == 'CHARGE' or TYPE == 'TRANSFERIN')
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

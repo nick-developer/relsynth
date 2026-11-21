@@ -532,6 +532,13 @@ SYNTH_DOC = {
     "rules.max_rejection_rounds": "Redraw rounds for rows that fail a check rule.",
     "generator": "Default generator plug-in of every table's attribute columns (a table's own `generator` wins): "
                  "copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in.",
+    "generator_selection.mode": "off | auto | trial: how each table's generator is chosen when the table names "
+                                "none. off: synthesis.generator. auto: rules on the table's rows, column kinds and "
+                                "compute, from published comparisons. trial: fit, sample and score every candidate "
+                                "on the real data and keep the best (fewest failed privacy items, then the highest "
+                                "scorecard share). Not allowed in differential privacy mode. See docs/generators.md.",
+    "generator_selection.seeds": "Seeds per candidate in trial mode (1 to 10): synthesis.seed, then the next ones.",
+    "generator_selection.candidates": "Generators trial and auto may choose from (default: every installed one).",
     "compute.preset": "cpu | gpu-auto | gpu-single | gpu-multi, or a preset of compute.file: the devices generator "
                       "plug-ins may use. The default engine is CPU-only; see docs/compute.md.",
     "compute.file": "A compute.yaml with more presets (relative to the spec).",

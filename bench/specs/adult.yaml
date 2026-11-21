@@ -1,0 +1,80 @@
+# UCI Adult (Census Income), written from its documentation.
+# Sources:
+#  - https://archive.ics.uci.edu/dataset/2/adult (variables, value lists, the extraction rule
+#    ((AAGE>16) && (AGI>100) && (AFNLWGT>1) && (HRSWK>0)); AGI is not a column of the release)
+#  - https://www.cs.utoronto.ca/~delve/data/adult/adultDetail.html (which columns have missing values;
+#    education may be taken as nominal or ordinal)
+# The extraction rule gives the lower bounds of age, fnlwgt and hours-per-week. education-num is the
+# ordinal code of education: one code per level on the data (16 levels, 16 codes, 16 pairs), so it is
+# declared as a level of education-num. Column types are relsynth introspect's draft where the
+# documentation agrees with it.
+version: 1
+name: adult
+source:
+  kind: sqlite
+  path: bench/.cache/adult/adult.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  adult:
+    role: entity
+    columns:
+      row_id:
+        type: id
+        description: row number added by the bench builder (not in the release)
+      age:
+        type: integer
+        min: 17
+        description: years; the extraction kept AAGE > 16
+      workclass:
+        type: categorical
+        description: '"?" marks a missing value (missing values occur only in workclass, occupation and native-country)'
+      fnlwgt:
+        type: integer
+        min: 2
+        description: final sampling weight of the Current Population Survey; the extraction kept AFNLWGT > 1
+      education:
+        type: categorical
+      education-num:
+        type: integer
+        description: ordinal code of education (one code per education level)
+      marital-status:
+        type: categorical
+      occupation:
+        type: categorical
+        description: '"?" marks a missing value (missing values occur only in workclass, occupation and native-country)'
+      relationship:
+        type: categorical
+      race:
+        type: categorical
+      sex:
+        type: categorical
+        description: Female, Male
+      capital-gain:
+        type: integer
+        description: capital gains (continuous)
+      capital-loss:
+        type: integer
+        description: capital losses (continuous)
+      hours-per-week:
+        type: integer
+        min: 1
+        description: usual hours worked per week; the extraction kept HRSWK > 0
+      native-country:
+        type: categorical
+        description: '"?" marks a missing value (missing values occur only in workclass, occupation and native-country)'
+      label:
+        type: categorical
+        description: 'income class: <=50K or >50K'
+    primary_key: row_id
+    dimensions:
+    - key: education-num
+      columns:
+      - education
+relationships: []
+rules: []
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

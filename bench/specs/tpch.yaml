@@ -1,0 +1,278 @@
+# TPC-H test database (DuckDB's dbgen), written from the TPC-H specification.
+# Sources:
+#  - TPC Benchmark H Standard Specification, Revision 3.0.0 and 2.6.0, Clause 1.4.1 (tables, columns,
+#    datatypes, keys and foreign keys), Clause 1.4.2.4 (check constraints) and the comment on ORDERS
+#    (one third of customers have no order). https://www.tpc.org/tpch/
+#  - Clause 4.2.3 (how dbgen draws each column) could not be read from the build environment, so no
+#    generation rule is written here; the engine learns ranges, gaps between dates and code lists from
+#    the data.
+# One spec serves every scale factor: tpch_sf1, tpch_sf10 and tpch_sf100 differ only in row counts.
+# Datatypes map as: identifier -> id; integer -> integer; decimal -> float with 2 decimals;
+# date -> date; fixed text of a short coded value -> categorical; variable text -> text.
+# Model settings no clause speaks to (fact anchors and partners, the seasonal time column) are
+# relsynth's usual choices for an order-and-lines schema.
+# Engine limits, noted rather than worked around:
+#  - the composite foreign key (L_PARTKEY, L_SUPPKEY) -> PARTSUPP cannot be declared on a fact beside
+#    its anchor, so lineitem links to part and supplier separately;
+#  - names, addresses and phones are generated (pii) and so cannot appear in rules.
+# Results from this data are scale and integrity tests of relsynth, not TPC-H results.
+version: 1
+name: tpch
+source:
+  kind: parquet
+  path: bench/.cache/tpch_sf1/parquet
+target:
+  kind: csv
+  path: synthetic
+tables:
+  region:
+    role: entity
+    mode: copy
+    description: 5 regions (Clause 1.4.1)
+    columns:
+      r_regionkey:
+        type: id
+      r_name:
+        type: categorical
+      r_comment:
+        type: text
+    primary_key: r_regionkey
+  nation:
+    role: entity
+    mode: copy
+    description: 25 nations (Clause 1.4.1)
+    columns:
+      n_nationkey:
+        type: id
+      n_name:
+        type: categorical
+      n_regionkey:
+        type: id
+      n_comment:
+        type: text
+    primary_key: n_nationkey
+  part:
+    role: entity
+    description: SF*200,000 parts
+    columns:
+      p_partkey:
+        type: id
+      p_name:
+        type: text
+      p_mfgr:
+        type: categorical
+      p_brand:
+        type: categorical
+      p_type:
+        type: categorical
+      p_size:
+        type: integer
+        min: 0
+      p_container:
+        type: categorical
+      p_retailprice:
+        type: float
+        min: 0
+        decimals: 2
+      p_comment:
+        type: text
+    primary_key: p_partkey
+  supplier:
+    role: entity
+    description: SF*10,000 suppliers
+    columns:
+      s_suppkey:
+        type: id
+      s_name:
+        type: pii
+        pii:
+          generator: pattern
+      s_address:
+        type: pii
+        pii:
+          generator: pattern
+      s_nationkey:
+        type: id
+      s_phone:
+        type: pii
+        pii:
+          generator: phone
+      s_acctbal:
+        type: float
+        decimals: 2
+      s_comment:
+        type: text
+    primary_key: s_suppkey
+  partsupp:
+    role: fact
+    description: the suppliers of each part; primary key (ps_partkey, ps_suppkey)
+    columns:
+      ps_partkey:
+        type: id
+      ps_suppkey:
+        type: id
+      ps_availqty:
+        type: integer
+        min: 0
+      ps_supplycost:
+        type: float
+        min: 0
+        decimals: 2
+      ps_comment:
+        type: text
+    unique:
+    - [ps_partkey, ps_suppkey]
+    fact:
+      anchor: part
+      partner: supplier
+  customer:
+    role: entity
+    description: SF*150,000 customers
+    columns:
+      c_custkey:
+        type: id
+      c_name:
+        type: pii
+        pii:
+          generator: pattern
+      c_address:
+        type: pii
+        pii:
+          generator: pattern
+      c_nationkey:
+        type: id
+      c_phone:
+        type: pii
+        pii:
+          generator: phone
+      c_acctbal:
+        type: float
+        decimals: 2
+      c_mktsegment:
+        type: categorical
+      c_comment:
+        type: text
+    primary_key: c_custkey
+  orders:
+    role: entity
+    description: SF*1,500,000 orders, the header of lineitem; one third of customers have none
+    columns:
+      o_orderkey:
+        type: id
+      o_custkey:
+        type: id
+      o_orderstatus:
+        type: categorical
+      o_totalprice:
+        type: float
+        min: 0
+        decimals: 2
+      o_orderdate:
+        type: date
+      o_orderpriority:
+        type: categorical
+      o_clerk:
+        type: categorical
+      o_shippriority:
+        type: integer
+      o_comment:
+        type: text
+    primary_key: o_orderkey
+  lineitem:
+    role: fact
+    description: order lines; primary key (l_orderkey, l_linenumber)
+    columns:
+      l_orderkey:
+        type: id
+      l_partkey:
+        type: id
+      l_suppkey:
+        type: id
+      l_linenumber:
+        type: sequence
+        within: l_orderkey
+        start: 1
+      l_quantity:
+        type: float
+        min: 0
+        decimals: 2
+      l_extendedprice:
+        type: float
+        min: 0
+        decimals: 2
+      l_discount:
+        type: float
+        min: 0
+        max: 1
+        decimals: 2
+      l_tax:
+        type: float
+        min: 0
+        decimals: 2
+      l_returnflag:
+        type: categorical
+      l_linestatus:
+        type: categorical
+      l_shipdate:
+        type: date
+      l_commitdate:
+        type: date
+      l_receiptdate:
+        type: date
+        offset_from: l_shipdate
+        description: L_SHIPDATE <= L_RECEIPTDATE (Clause 1.4.2.4), so a non-negative gap after the ship date
+      l_shipinstruct:
+        type: categorical
+      l_shipmode:
+        type: categorical
+      l_comment:
+        type: text
+    unique:
+    - [l_orderkey, l_linenumber]
+    fact:
+      anchor: orders
+      partner: part
+      time_column: l_shipdate
+      time_bucket: month
+relationships:
+- child: nation
+  child_key: n_regionkey
+  parent: region
+  parent_key: r_regionkey
+- child: supplier
+  child_key: s_nationkey
+  parent: nation
+  parent_key: n_nationkey
+- child: customer
+  child_key: c_nationkey
+  parent: nation
+  parent_key: n_nationkey
+- child: partsupp
+  child_key: ps_partkey
+  parent: part
+  parent_key: p_partkey
+- child: partsupp
+  child_key: ps_suppkey
+  parent: supplier
+  parent_key: s_suppkey
+- child: orders
+  child_key: o_custkey
+  parent: customer
+  parent_key: c_custkey
+- child: lineitem
+  child_key: l_orderkey
+  parent: orders
+  parent_key: o_orderkey
+- child: lineitem
+  child_key: l_partkey
+  parent: part
+  parent_key: p_partkey
+- child: lineitem
+  child_key: l_suppkey
+  parent: supplier
+  parent_key: s_suppkey
+rules:
+# Clause 1.4.2.4, positive keys and open intervals (bounds above), and the multi-column constraint
+- table: lineitem
+  type: check
+  expr: days(l_shipdate) <= days(l_receiptdate)

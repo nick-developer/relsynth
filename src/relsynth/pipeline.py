@@ -181,6 +181,19 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
         fit = step("load", lambda: load_for_fit(spec))
         real = fit.tables if fit is not None else None
     stats = fit.stats if fit is not None else {}
+    selection = None
+    if real is not None:
+        from .generators.selection import config as selection_config, select, with_choice
+        if selection_config(spec)["mode"] != "off":
+            def fit_sample_evaluate(s, r, st):
+                cand = Synthesizer(s).fit(r, stats=st)
+                drawn = {t: coerce(df, s["tables"][t]) for t, df in cand.sample(index=0).items()}
+                return evaluate(s, r, drawn, privacy=privacy, sample_log=cand.sample_log, real_stats=st)
+            selection = step("select", lambda: select(spec, real, stats, set(stats), fit_sample_evaluate))
+            if selection is None:
+                real = None                          # the asked-for choice failed: nothing is fitted
+            else:
+                spec = with_choice(spec, selection.chosen)
     if real is not None:
         syn = step("fit", lambda: Synthesizer(spec).fit(real, stats=stats))
     if syn is not None:
@@ -207,6 +220,8 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
                 written.append(tgt)
         syn.sample_log = first_log
     extra_b: dict[str, Any] = {"wall_seconds": round(time.time() - t0, 1)}
+    if selection is not None:
+        extra_b["generator_selection"] = selection.to_dict()
     if privacy_check and real is not None and fake is not None \
             and spec["synthesis"]["evaluation"].get("privacy_check", True):
         # after every write, on its own seeded streams: the release is the same without it (Prop. 1741)
