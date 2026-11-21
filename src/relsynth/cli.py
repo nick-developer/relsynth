@@ -286,7 +286,9 @@ def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public
             stated = (pu or privacy)["stated"]
             cfg["release"] = {"dp": {"epsilon": float(stated["epsilon"]), "delta": float(stated["delta"]),
                                      "unit": cfg.get("unit") if pu else privacy["unit"]}}
-        rep = P.assess(s, cfg, generator=generator, progress=lambda m: out.line(m))
+        # outside DP mode the attacks fit the spec the release applied (the generators the selection chose)
+        target = s if privacy is not None or generator is not None else res.data.spec
+        rep = P.assess(target, cfg, generator=generator, progress=lambda m: out.line(m))
     report = report if privacy is not None else res.report
     sc = None
     if report is not None:

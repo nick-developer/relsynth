@@ -142,9 +142,72 @@ def test_trial_records_failing_candidates_and_keeps_going(shop):
 def test_trial_end_to_end_is_paired_with_the_release(shop):
     """The chosen candidate's trial draw uses the release's seed, so its score is the release's score."""
     s = load_spec(_sel(shop, mode="trial", candidates=["copula", "independent"]))
-    r = execute(s, write=False, privacy=False)
+    r = execute(s, write=False, privacy=True)            # the trial always scores with the privacy items
     sel = r.bundle["generator_selection"]
     best = [c for c in sel["candidates"] if c["generator"] == next(iter(sel["chosen"].values()))][0]
     sc = r.report["scorecard"]
     assert best["score"] == pytest.approx(sc["passed"] / sc["total"], abs=1e-6)
     assert {c["generator"] for c in sel["candidates"]} == {"copula", "independent"}
+
+
+def test_auto_keeps_the_specs_generator_when_nothing_allowed_fits():
+    name, why = S.auto_rule(_table(["float"]), "t", 5_000, [])
+    assert name is None and "kept" in why
+    spec = _table(["float"])
+    spec["synthesis"] = {"generator": "cart"}
+    assert S.auto_rule(spec, "t", 500, ["independent", "cart"])[0] == "cart"   # copula not allowed: the spec's
+
+
+def test_trial_tries_a_candidate_on_the_tables_it_can_model(shop, monkeypatch):
+    s = load_spec(_sel(shop, mode="trial", candidates=["copula", "cart"]))
+    tables = S.selectable(s)
+    assert len(tables) >= 2
+    only = tables[0]
+    real = S._compatible
+
+    def compatible(spec, t, names, pushed):
+        return [n for n in real(spec, t, names, pushed) if n != "cart" or t == only]
+    monkeypatch.setattr(S, "_compatible", compatible)
+    sel = S.trial(s, None, fit_sample_evaluate=_fake_report({"copula": (80, 100, 0), "cart": (95, 100, 0)}))
+    assert sel.chosen == {only: "cart"}                                  # the others keep the spec's generator
+    assert all("kept" in sel.reasons[t] for t in tables if t != only)
+    assert next(c for c in sel.candidates if c["generator"] == "cart")["tables"] == [only]
+
+
+def test_trial_gives_an_empty_scorecard_no_credit(shop):
+    s = load_spec(_sel(shop, mode="trial", candidates=["copula", "independent"]))
+
+    def fse(spec, real, stats):
+        if any(T.get("generator") == "independent" for T in spec["tables"].values()):
+            return {"scorecard": {"passed": None, "total": 0, "items": []}}
+        return {"scorecard": {"passed": 5, "total": 10, "items": []}}
+    sel = S.trial(s, None, fit_sample_evaluate=fse)
+    assert set(sel.chosen.values()) == {"copula"}
+
+
+def test_trial_scores_privacy_even_when_the_run_skips_it(shop, monkeypatch):
+    import importlib
+    E = importlib.import_module("relsynth.evaluate")       # the module (the package exports a function too)
+    seen, real = [], E.evaluate
+
+    def spy(*a, **kw):
+        seen.append(kw.get("privacy"))
+        return real(*a, **kw)
+    monkeypatch.setattr(E, "evaluate", spy)
+    s = load_spec(_sel(shop, mode="trial", candidates=["independent"]))
+    spec, sel = S.apply(s, *_load(s))
+    assert seen and all(p is True for p in seen) and sel.chosen
+
+
+def _load(spec):
+    from relsynth.pushdown import load_for_fit
+    fd = load_for_fit(spec)
+    return fd.tables, fd.stats
+
+
+def test_every_fit_path_applies_the_selection(shop):
+    import relsynth
+    s = load_spec(_sel(shop, mode="auto"))
+    m = relsynth.fit(s)
+    tables = S.selectable(s)
+    assert tables and all(m.spec["tables"][t].get("generator") for t in tables)

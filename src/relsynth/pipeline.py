@@ -183,17 +183,14 @@ def execute(spec_or_path, *, scale=None, out=None, bundle_path=None, privacy=Tru
     stats = fit.stats if fit is not None else {}
     selection = None
     if real is not None:
-        from .generators.selection import config as selection_config, select, with_choice
+        from .generators.selection import apply as apply_selection, config as selection_config
         if selection_config(spec)["mode"] != "off":
-            def fit_sample_evaluate(s, r, st):
-                cand = Synthesizer(s).fit(r, stats=st)
-                drawn = {t: coerce(df, s["tables"][t]) for t, df in cand.sample(index=0).items()}
-                return evaluate(s, r, drawn, privacy=privacy, sample_log=cand.sample_log, real_stats=st)
-            selection = step("select", lambda: select(spec, real, stats, set(stats), fit_sample_evaluate))
-            if selection is None:
+            # candidates are always evaluated with the privacy items, whatever `privacy` says for the release
+            applied = step("select", lambda: apply_selection(spec, real, stats))
+            if applied is None:
                 real = None                          # the asked-for choice failed: nothing is fitted
             else:
-                spec = with_choice(spec, selection.chosen)
+                spec, selection = applied
     if real is not None:
         syn = step("fit", lambda: Synthesizer(spec).fit(real, stats=stats))
     if syn is not None:
@@ -294,7 +291,10 @@ def export_model_for(spec_or_path, out_dir, *, draws=5, formats=("json", "md", "
     if synthesizer is None or fit_data is None:
         from .pushdown import load_for_fit
         fit_data = fit_data or load_for_fit(spec)
-        synthesizer = synthesizer or Synthesizer(spec).fit(fit_data.tables, stats=fit_data.stats)
+        if synthesizer is None:
+            from .generators.selection import apply as apply_selection
+            spec = apply_selection(spec, fit_data.tables, fit_data.stats)[0]
+            synthesizer = Synthesizer(spec).fit(fit_data.tables, stats=fit_data.stats)
     spec_path = str(spec_or_path) if isinstance(spec_or_path, (str, Path)) else None
     return export_model(synthesizer, out_dir, spec_path=spec_path, draws=draws, formats=tuple(formats),
                         real=fit_data.tables, real_stats=fit_data.stats, check_replica=replica_check, stan=stan,

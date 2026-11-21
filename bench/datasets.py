@@ -625,7 +625,8 @@ DATASETS = {
                            _bi_checks, public=False, tier="local",
                            note="private; RELSYNTH_BENCH_BI_DIR with data/, spec.yaml and checks.py (B1-B8)",
                            coverage=("high_cardinality", "skew")),
-    # ---------------------------------------------------------------- G7 matrix (unedited introspect drafts)
+    # ---------------------------------------------------------------- G7 matrix (written specs where the
+    # publisher documents the data, bench/specs/; the unedited introspect draft elsewhere)
     "adult": Dataset("adult", lambda: f"sqlite:{_sdv('adult')()}", _spec("adult"),
                      note="UCI Adult (32,561 people, 15 columns; SDV copy, CC BY 4.0)", tier="pr", seeds=(1,),
                      generic=True, privacy={"shadow": {"enabled": False}}, quality=AW_QUALITY, minutes=6,   # PR budget

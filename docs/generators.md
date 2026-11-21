@@ -75,9 +75,14 @@ synthesis:
   the next ones), and keeps the best for every selectable table. "Best" is privacy first: the fewest failed
   privacy items of the scorecard (distance to closest record, exact matches, rare-text copies), then the
   highest mean share of passed scorecard items, then the spec's own generator, then the registry's order
-  (Prop. 1845). Each candidate costs one fit, one draw and one scorecard per seed.
+  (Prop. 1845). Each candidate costs one fit, one draw and one scorecard per seed. The privacy items are
+  computed for every candidate even when the run itself skips privacy evaluation (`--no-privacy`). A
+  candidate that cannot model some tables is tried on the others, which keep the spec's generator.
 
-Either way, a table that names its `generator` keeps it, and copied tables and views take no part. The choice
+Either way, a table that names its `generator` keeps it, and copied tables and views take no part. In auto
+mode, a table that no allowed generator can model keeps the spec's generator. Every path that fits a model
+applies the same selection: `relsynth run` and `verify`, `relsynth.fit` and `relsynth.sample` in Python, and
+the model export; the attacks of a governed `relsynth run --assess` fit the chosen generators too. The choice
 and its reasons go into the diagnostics bundle (`generator_selection`: the generator per table, why, and in
 trial mode every candidate's score, failed privacy items and time) and into the `--json` output of
 `relsynth run`. Selection reads the real data, so it is refused in differential privacy mode

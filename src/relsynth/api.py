@@ -515,6 +515,8 @@ def fit(spec, *, pushdown: str | None = None, seed: int | None = None, settings=
         cls = SourceError if exit_code_for(e) == 3 or isinstance(e, (FileNotFoundError, ValueError)) else EngineError
         raise cls(f"loading the source failed: {e}") from e
     try:
+        from .generators.selection import apply as apply_selection
+        s = apply_selection(s, data.tables, data.stats)[0]       # synthesis.generator_selection (off: unchanged)
         syn = Synthesizer(s).fit(data.tables, stats=data.stats)
     except (RelsynthError, SpecError):
         raise

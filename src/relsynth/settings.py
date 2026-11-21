@@ -281,7 +281,7 @@ META: dict[str, dict] = dict([
     _p("generator", type="str"),
     _p("generator_selection.mode", type="choice", choices=("off", "auto", "trial")),
     _p("generator_selection.seeds", type="int", low=1, high=10),
-    _p("generator_selection.candidates", type="list", nullable=True),
+    _p("generator_selection.candidates", type="any", nullable=True),
     _p("compute.preset", type="str"),
     _p("compute.file", type="str", nullable=True),
     _p("compute.overrides", type="map"),

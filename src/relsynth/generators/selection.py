@@ -14,7 +14,13 @@ Trial ranks the candidates by privacy first, then fidelity (Prop. 1845): fewer f
 items of the scorecard (distance to closest record, exact matches, rare-text copies), then the
 higher mean share of passed scorecard items over the seeds, then the spec's own generator, then
 the registry's order.  Each candidate is fitted on the same rows with the same seeds, so the
-comparison is paired.  Every candidate's result is kept in the decision record.
+comparison is paired.  The privacy items are always computed for the trial, whatever the run's own
+privacy setting.  A candidate that cannot model some tables is tried on the others, which keep the
+spec's generator; one that can model none is recorded as such.  Every candidate's result is kept
+in the decision record.
+
+Every entry point that fits a model applies the selection through ``apply`` (relsynth run, the
+Python API's fit, the model export and verify), so one spec gives one model whatever the path.
 """
 from __future__ import annotations
 
@@ -163,9 +169,11 @@ def auto_rule(spec, t, n_rows, available, device=None) -> tuple[str, str]:
     for cond, name, why in rules:
         if cond and name in available:
             return name, why
-    # nothing the rules name can model the table: keep the spec's default if it can, else the first available
-    fallback = DEFAULT if DEFAULT in available else (available[0] if available else DEFAULT)
-    return fallback, "no rule's generator can model this table"
+    # no rule's generator can model the table: the spec's own generator when it is allowed, else the first allowed
+    own = (spec.get("synthesis") or {}).get("generator", DEFAULT)
+    if not available:
+        return None, "no allowed generator can model this table: the spec's generator is kept"
+    return (own if own in available else available[0]), "no rule's generator can model this table"
 
 
 def auto(spec, real, stats=None, pushed=()) -> Selection:
@@ -175,7 +183,9 @@ def auto(spec, real, stats=None, pushed=()) -> Selection:
     for t in selectable(spec):
         avail = _compatible(spec, t, names, set(pushed))
         name, why = auto_rule(spec, t, _rows(t, real, stats), avail, lambda n: _device(spec, n))
-        sel.chosen[t], sel.reasons[t] = name, why
+        if name is not None:
+            sel.chosen[t] = name
+        sel.reasons[t] = why
     return sel
 
 
@@ -198,9 +208,10 @@ def _score(spec, real, stats, seeds, fit_sample_evaluate) -> dict:
         sc = rep.get("scorecard") or {}
         items = sc.get("items") or []
         total = sc.get("total") or len(items)
-        shares.append((sc.get("passed", 0) / total) if total else 1.0)
+        passed = sc.get("passed") or 0
+        shares.append(passed / total if total else 0.0)     # an empty scorecard earns nothing
         priv.append(sum(1 for i in items if i.get("metric") in PRIVACY_METRICS and not i.get("pass")))
-        failed.append(sc.get("total", 0) - sc.get("passed", 0))
+        failed.append(total - passed)
     return {"score": round(sum(shares) / len(shares), 6), "privacy_failed": max(priv),
             "failed": round(sum(failed) / len(failed), 2)}
 
@@ -219,28 +230,53 @@ def trial(spec, real, stats=None, pushed=(), fit_sample_evaluate=None) -> Select
     order = {n: i for i, n in enumerate(names)}
     results = []
     for name in names:
-        if any(name not in _compatible(spec, t, [name], set(pushed)) for t in tables):
-            results.append({"generator": name, "error": "cannot model every table"})
+        fits = [t for t in tables if name in _compatible(spec, t, [name], set(pushed))]
+        if not fits:
+            results.append({"generator": name, "error": "cannot model any table"})
             continue
         t0 = time.time()
-        log.info("generator selection: trying %s with %d seed(s)", name, g["seeds"])
+        log.info("generator selection: trying %s on %d of %d table(s) with %d seed(s)", name, len(fits),
+                 len(tables), g["seeds"])
         try:
-            r = _score(with_choice(spec, dict.fromkeys(tables, name)), real, stats, g["seeds"], fit_sample_evaluate)
+            r = _score(with_choice(spec, dict.fromkeys(fits, name)), real, stats, g["seeds"], fit_sample_evaluate)
         except Exception as e:  # noqa: BLE001 - a candidate that fails is a result, not a crash
             results.append({"generator": name, "error": type(e).__name__ + ": " + str(e)[:300]})
             continue
-        results.append({"generator": name, **r, "seconds": round(time.time() - t0, 1)})
+        results.append({"generator": name, **r, "tables": fits, "seconds": round(time.time() - t0, 1)})
     ok = [r for r in results if "error" not in r]
     if not ok:
         raise GeneratorError("generator selection: no candidate could be fitted: "
                              + "; ".join(f"{r['generator']}: {r['error']}" for r in results))
     best = min(ok, key=lambda r: (r["privacy_failed"], -r["score"], r["generator"] != own, order[r["generator"]]))
     sel.candidates = results
+    why = (f"trial: {best['privacy_failed']} privacy item(s) failed, scorecard share {best['score']:.3f} over "
+           f"{g['seeds']} seed(s)")
     for t in tables:
-        sel.chosen[t] = best["generator"]
-        sel.reasons[t] = (f"trial: {best['privacy_failed']} privacy item(s) failed, scorecard share "
-                          f"{best['score']:.3f} over {g['seeds']} seed(s)")
+        if t in best["tables"]:
+            sel.chosen[t], sel.reasons[t] = best["generator"], why
+        else:
+            sel.reasons[t] = f"{why}; {best['generator']} cannot model this table: the spec's generator is kept"
     return sel
+
+
+def evaluate_candidate(spec, real, stats):
+    """Fit, draw and evaluate one candidate, privacy items included (the trial ranks on them)."""
+    from ..data import coerce
+    from ..engine import Synthesizer
+    from ..evaluate import evaluate
+    cand = Synthesizer(spec).fit(real, stats=stats)
+    drawn = {t: coerce(df, spec["tables"][t]) for t, df in cand.sample(index=0).items()}
+    return evaluate(spec, real, drawn, privacy=True, sample_log=cand.sample_log, real_stats=stats)
+
+
+def apply(spec, real, stats=None) -> tuple[dict, Selection | None]:
+    """(spec with the chosen generators, the decision) for the spec's mode; (spec, None) when off.
+    Tables fitted from in-database statistics (the keys of `stats`) are checked as pushed down."""
+    if config(spec)["mode"] == "off":
+        return spec, None
+    stats = stats or {}
+    sel = select(spec, real, stats, set(stats), fit_sample_evaluate=evaluate_candidate)
+    return with_choice(spec, sel.chosen), sel
 
 
 def select(spec, real, stats=None, pushed=(), fit_sample_evaluate=None) -> Selection | None:
@@ -249,7 +285,8 @@ def select(spec, real, stats=None, pushed=(), fit_sample_evaluate=None) -> Selec
     if mode == "off":
         return None
     t0 = time.time()
-    sel = auto(spec, real, stats, pushed) if mode == "auto" else trial(spec, real, stats, pushed, fit_sample_evaluate)
+    sel = (auto(spec, real, stats, pushed) if mode == "auto"
+           else trial(spec, real, stats, pushed, fit_sample_evaluate or evaluate_candidate))
     sel.seconds = time.time() - t0
     for t, name in sel.chosen.items():
         log.info("generator selection (%s): %s -> %s (%s)", mode, t, name, sel.reasons[t])
