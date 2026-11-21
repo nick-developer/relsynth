@@ -31,7 +31,7 @@ def test_every_bench_spec_is_valid_and_documented():
     for path in sorted(used):
         assert path.exists(), path
         load_spec(path)
-    for name in ("stackexchange", "mimic_demo", "tpch", "adult", "covtype", "synthea"):
+    for name in ("stackexchange", "mimic_demo", "tpch", "adult", "covtype", "synthea", "nyc_tlc", "online_retail_ii"):
         head = (ROOT / "bench" / "specs" / f"{name}.yaml").read_text().split("\nversion:", 1)[0]
         assert "Sources:" in head and "https://" in head, name
 

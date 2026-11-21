@@ -5,9 +5,12 @@
 #  - https://www.cs.utoronto.ca/~delve/data/adult/adultDetail.html (which columns have missing values;
 #    education may be taken as nominal or ordinal)
 # The extraction rule gives the lower bounds of age, fnlwgt and hours-per-week. education-num is the
-# ordinal code of education: one code per level on the data (16 levels, 16 codes, 16 pairs), so it is
-# declared as a level of education-num. Column types are relsynth introspect's draft where the
-# documentation agrees with it.
+# ordinal code of education: one code per level on the data (16 levels, 16 codes, 16 pairs). The
+# spec does not state that pairing: declared as a dimension (education under education-num) it raised
+# the fidelity share from 0.92 to 0.97 but tripled multivariate singling-out (0.029 to 0.092) and
+# lowered the distance-to-closest-record ratio (1.61 to 1.45) on seed 1, so privacy first, it is left
+# out; a rule cannot state it either (the expression language has no quoting for "education-num").
+# Column types are relsynth introspect's draft where the documentation agrees with it.
 version: 1
 name: adult
 source:
@@ -68,10 +71,6 @@ tables:
         type: categorical
         description: 'income class: <=50K or >50K'
     primary_key: row_id
-    dimensions:
-    - key: education-num
-      columns:
-      - education
 relationships: []
 rules: []
 synthesis:
