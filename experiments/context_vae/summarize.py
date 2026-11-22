@@ -20,7 +20,8 @@ def main(paths):
     acc = defaultdict(lambda: defaultdict(list))
     seeds = defaultdict(set)
     for p in paths:
-        r = json.load(open(p))
+        with open(p) as fh:
+            r = json.load(fh)
         seeds[r["dataset"]].add(r["seed"])
         for v, res in r["variants"].items():
             for k, _ in KEYS:
