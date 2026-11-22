@@ -80,7 +80,7 @@ def test_fork_branch_named_security_patch_does_not_block():
 def test_summary_prints_counts_only():
     """Alert details never reach the public job summary."""
     work = {"findings": [{"source": "code-scanning", "path": "src/secret_place.py", "rule": "py/sql-injection"}],
-            "dependabot_prs": [], "pending_pr": "", "problems": []}
+            "manual": [], "dependabot_prs": [], "pending_pr": "", "problems": []}
     out = sf.summary(work)
     assert "| code-scanning | 1 |" in out
     assert "secret_place" not in out and "sql-injection" not in out
@@ -103,3 +103,29 @@ def test_main_rejects_bad_pip_audit_argument(tmp_path):
     """--pip-audit needs LABEL=FILE."""
     with pytest.raises(SystemExit):
         sf.main(["--pip-audit", "nofile", "--out", str(tmp_path / "f.json")])
+
+
+def test_protected_findings_go_to_the_maintainer(tmp_path):
+    """Workflow, test and tool alerts are not counted: the patch job may not change them."""
+    def at(n, path, tool="CodeQL"):
+        a = _cs(n, "error")
+        a["tool"]["name"] = tool
+        a["most_recent_instance"]["location"]["path"] = path
+        return a
+    cs = tmp_path / "cs.json"
+    cs.write_text(json.dumps([[at(1, "src/a.py"), at(2, ".github/workflows/ci.yml", "zizmor"), at(3, "tests/x.py"),
+                               at(4, "tools/release.py"), at(5, ".github/requirements/semgrep.txt")]]))
+    out = tmp_path / "f.json"
+    sf.main(["--code-scanning", str(cs), "--out", str(out)])
+    work = json.loads(out.read_text())
+    assert [f["alert"] for f in work["findings"]] == [1, 5]
+    assert [f["alert"] for f in work["manual"]] == [2, 3, 4]
+
+
+def test_api_error_body_is_a_problem(tmp_path):
+    """gh api writes the error body before failing; it must not read as "no alerts"."""
+    cs = tmp_path / "cs.json"
+    cs.write_text(json.dumps({"message": "no analysis found", "status": "404"}))
+    out = tmp_path / "f.json"
+    sf.main(["--code-scanning", str(cs), "--out", str(out)])
+    assert "API error: no analysis found" in json.loads(out.read_text())["problems"][0]

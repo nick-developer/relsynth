@@ -38,7 +38,8 @@ concurrency:
 jobs:
   patch:
     name: Collect and patch
-    if: vars.SECURITY_PATCH_ENABLED != 'false'
+    # only from main: the draft pull request targets main
+    if: vars.SECURITY_PATCH_ENABLED != 'false' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -91,7 +92,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" \
-            > "$RUNNER_TEMP/code-scanning.json" || echo "::warning::code-scanning alerts could not be read"
+            > "$RUNNER_TEMP/code-scanning.json" || echo "::warning::code-scanning alerts could not be read (reported below)"
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
             > "$RUNNER_TEMP/prs.json" || echo "::warning::open pull requests could not be read"
 
@@ -120,12 +121,15 @@ jobs:
             --open-prs "$RUNNER_TEMP/prs.json" \
             --out .security-patch/findings.json \
             --github-output "$GITHUB_OUTPUT" | tee -a "$GITHUB_STEP_SUMMARY"
-          rm -f "$RUNNER_TEMP"/dependabot.json "$RUNNER_TEMP"/code-scanning.json
+          # nothing but the work list stays within Claude's reach: the raw reports hold
+          # alert details and pull request text that anyone can write
+          rm -f "$RUNNER_TEMP"/dependabot.json "$RUNNER_TEMP"/code-scanning.json "$RUNNER_TEMP"/prs.json \
+                "$RUNNER_TEMP"/audit-*.json "$RUNNER_TEMP"/req-*.txt
 
       - name: Claude credential configured?
         id: cred
         env:
-          HAS_CRED: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' || vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
+          HAS_CRED: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
         run: |
           echo "ready=$HAS_CRED" >> "$GITHUB_OUTPUT"
           [ "$HAS_CRED" = true ] || echo "::notice::No Claude credential is set; findings counted, nothing patched"
@@ -136,7 +140,7 @@ jobs:
           steps.work.outputs.count != '0' && steps.work.outputs.pending_pr == '' &&
           steps.cred.outputs.ready == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
         run: |
-          pip install -e ".[dev]" pip-audit
+          pip install -e ".[dev]" "pip-audit==2.10.1"
           echo "go=true" >> "$GITHUB_OUTPUT"
 
       - uses: anthropics/claude-code-action@402b5b79551e3ce6614c179fbccbfdb79291cead # v1.0.269
@@ -178,7 +182,7 @@ jobs:
                change, do not make it: list it in the pull request text under "Not fixed" with the reason.
             4. Check before you finish, and fix what you broke:
                ruff check src tests tools bench; bandit -q -c pyproject.toml -r src;
-               pip install -e ".[dev]" (installs the new floors), then pip-audit --skip-editable;
+               pip install -e .[dev] (exactly this; it installs the new floors), then pip-audit --skip-editable;
                pytest -q -x tests/unit (and the tests of every module you touched);
                python tools/check_licenses.py and python tools/release.py check when pyproject.toml changed.
             5. When there is nothing to fix safely, stop without a commit.
@@ -197,7 +201,7 @@ jobs:
           claude_args: >-
             --max-turns 80
             --disallowedTools "WebFetch,WebSearch"
-            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit -s:*),Bash(pip install -e:*),Bash(pip index versions:*),Bash(pip show:*),Bash(pip-audit:*),Bash(uv pip compile:*),Bash(ruff:*),Bash(mypy:*),Bash(bandit:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(python tools/check_licenses.py:*),Bash(python tools/release.py check:*),Bash(python tools/check_spdx.py:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit -s:*),Bash(pip install -e .[dev]),Bash(pip install -e \".[dev]\"),Bash(pip index versions:*),Bash(pip show:*),Bash(pip-audit:*),Bash(uv pip compile:*),Bash(ruff:*),Bash(mypy:*),Bash(bandit:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(python tools/check_licenses.py:*),Bash(python tools/release.py check:*),Bash(python tools/check_spdx.py:*)"
 
       - name: Export the commits
         id: export
@@ -245,13 +249,24 @@ jobs:
           printf '%s\n' "$BODY" > "$RUNNER_TEMP/body.md"
           git -c user.name="security-patch" -c user.email="security-patch@users.noreply.github.com" \
             am --keep-cr "$RUNNER_TEMP/patch.mbox"
-          # paths the agent may not change: workflows and their scripts, scanner and agent
-          # configuration, ownership, and tests (a fix must pass the existing tests)
-          denied='^(\.github/(workflows|scripts|codeql)/|\.github/(CODEOWNERS|zizmor\.yml|dependabot\.yml)$|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$|CLAUDE\.md$|CONTRIBUTING\.md$|tests/)'
-          if git diff --name-only "$GITHUB_SHA..HEAD" | grep -E "$denied"; then
+          # paths the agent may not change: everything under .github/ but the hash-pinned
+          # requirements, scanner and agent configuration, tests and the gate scripts in tools/
+          denied='^(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$|CLAUDE\.md$|CONTRIBUTING\.md$|tests/|tools/)'
+          # --no-renames: a moved file is listed under its old path too
+          if git diff --no-renames --name-only "$GITHUB_SHA..HEAD" | grep -Ev '^\.github/requirements/' | grep -E "$denied"; then
             echo "::error::The patch changes protected paths (listed above); nothing is published"
             exit 1
           fi
+          # pyproject.toml may change its dependencies, never the tool settings
+          # (ruff, bandit, mypy, pytest): a fix must not weaken a check
+          python3 - "$GITHUB_SHA" <<'PY'
+          import subprocess, sys, tomllib
+          old = tomllib.loads(subprocess.run(["git", "show", f"{sys.argv[1]}:pyproject.toml"],
+                                             check=True, capture_output=True, text=True).stdout)
+          new = tomllib.loads(open("pyproject.toml", encoding="utf-8").read())
+          if old.get("tool") != new.get("tool"):
+              sys.exit("::error::The patch changes [tool.*] settings in pyproject.toml; nothing is published")
+          PY
           echo "branch=security-patch/$(date -u +%Y-%m-%d)-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: Push the branch and open a draft pull request
         env:
@@ -271,6 +286,8 @@ jobs:
           fi
           if [ -n "$token" ]; then
             echo "::add-mask::$token"
+            # revoke it however the step ends
+            trap 'curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" "$GITHUB_API_URL/installation/token" || true' EXIT
           else
             echo "::warning::Claude GitHub App token not available; using the workflow token (needs 'Allow GitHub Actions to create pull requests'), so CI starts on the next push"
             token="$FALLBACK_TOKEN"
@@ -278,7 +295,3 @@ jobs:
           git push "https://x-access-token:${token}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
           GH_TOKEN="$token" gh pr create --repo "$GITHUB_REPOSITORY" --draft --base main --head "$BRANCH" \
             --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
-          if [ "$token" != "$FALLBACK_TOKEN" ]; then
-            curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $token" \
-              -H "Accept: application/vnd.github+json" "$GITHUB_API_URL/installation/token" || true
-          fi

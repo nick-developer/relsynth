@@ -14,6 +14,8 @@ Sources (each optional; a missing or unreadable file is reported, not fatal):
 * ``--code-scanning``: ``GET /repos/{repo}/code-scanning/alerts?state=open``;
   only alerts above warning are kept (rule severity ``error`` or security
   severity ``high``/``critical``: project rule 1 in CLAUDE.md);
+  findings in paths the agent may not change (workflows, tests, tools, scanner
+  configuration) go to ``manual`` and are not counted;
 * ``--pip-audit LABEL=FILE``: ``pip-audit -f json`` reports, for example of the
   lowest versions the ``pyproject.toml`` ranges allow and of the newest ones;
   only vulnerabilities with a fixed version are kept;
@@ -38,6 +40,16 @@ BRANCH_PREFIX = "security-patch/"
 MAX_ITEMS = 200            # per source; keeps the job output far below GitHub's 1 MB limit
 MAX_TEXT = 300             # characters kept from any free-text field
 _SECURITY_LEVELS = {"high", "critical"}
+# paths the patch job may not change (security-patch.yml refuses such a patch); findings
+# there are listed for the maintainer instead of being handed to the agent
+PROTECTED = (".github/", "tests/", "tools/", ".semgrep/", ".claude/")
+ALLOWED_UNDER_PROTECTED = (".github/requirements/",)
+
+
+def protected(path: str | None) -> bool:
+    """True when ``path`` lies where the agent may not make changes."""
+    p = (path or "").lstrip("/")
+    return p.startswith(PROTECTED) and not p.startswith(ALLOWED_UNDER_PROTECTED)
 
 
 def clip(value: Any, limit: int = MAX_TEXT) -> str:
@@ -49,14 +61,22 @@ def clip(value: Any, limit: int = MAX_TEXT) -> str:
 
 
 def load(path: str | None, problems: list[str]) -> Any:
-    """Read a JSON file; on any failure note it in ``problems`` and return ``None``."""
+    """Read a JSON list (an API listing); on any failure note it in ``problems`` and return ``None``.
+
+    ``pip-audit`` reports are objects; an API error body (``{"message": ...}``, which
+    ``gh api`` writes before it fails) is reported as a problem, not read as "no alerts".
+    """
     if not path:
         return None
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         problems.append(f"{path}: {type(exc).__name__}")
         return None
+    if isinstance(doc, dict) and "message" in doc and "dependencies" not in doc:
+        problems.append(f"{path}: API error: {clip(doc.get('message'), 120)}")
+        return None
+    return doc
 
 
 def _pages(doc: Any) -> list[dict]:
@@ -163,6 +183,20 @@ def open_prs(doc: Any, repo: str = "") -> tuple[list[dict], str]:
     return dependabot_prs[:MAX_ITEMS], pending
 
 
+def split_manual(found: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Separate the findings the agent may fix from those in protected paths.
+
+    Workflow alerts (zizmor, Dependabot ``github-actions``), and alerts in tests, tools or
+    scanner configuration, need the maintainer: the patch job refuses changes there.
+    """
+    fixable, manual = [], []
+    for f in found:
+        where = f.get("path") or f.get("manifest")
+        needs_owner = f.get("ecosystem") == "actions" or f.get("tool") == "zizmor" or protected(where)
+        (manual if needs_owner else fixable).append(f)
+    return fixable, manual
+
+
 def summary(work: dict) -> str:
     """Counts per source only.
 
@@ -177,6 +211,8 @@ def summary(work: dict) -> str:
         lines += ["| source | findings |", "|---|---|"] + [f"| {k} | {v} |" for k, v in sorted(counts.items())]
     else:
         lines.append("No open finding above warning with a fix available.")
+    if work.get("manual"):
+        lines += ["", f"Findings in protected paths, left to the maintainer: {len(work['manual'])}"]
     if work["dependabot_prs"]:
         lines += ["", f"Open Dependabot pull requests: {len(work['dependabot_prs'])}"]
     if work["pending_pr"]:
@@ -199,15 +235,17 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     problems: list[str] = []
-    findings = dependabot(load(args.dependabot, problems)) + code_scanning(load(args.code_scanning, problems))
+    found = dependabot(load(args.dependabot, problems)) + code_scanning(load(args.code_scanning, problems))
     for item in args.pip_audit:
         label, _, path = item.partition("=")
         if not path:
             ap.error(f"--pip-audit expects LABEL=FILE, got {item!r}")
-        findings += pip_audit(label, load(path, problems))
+        found += pip_audit(label, load(path, problems))
+    findings, manual = split_manual(found)
     dependabot_prs, pending = open_prs(load(args.open_prs, problems), args.repo)
 
-    work = {"findings": findings, "dependabot_prs": dependabot_prs, "pending_pr": pending, "problems": problems}
+    work = {"findings": findings, "manual": manual, "dependabot_prs": dependabot_prs, "pending_pr": pending,
+            "problems": problems}
     Path(args.out).write_text(json.dumps(work, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     sys.stdout.write(summary(work))
     if args.github_output:

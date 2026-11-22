@@ -1,9 +1,9 @@
 # Weekly security patching with Claude
 
-[`security-patch.yml`](../../.github/workflows/security-patch.yml) runs every Tuesday at 05:23 UTC, after Dependabot's weekly run and the Monday scan in `security.yml`, and by hand (Actions > security-patch > Run workflow; tick *dry run* to only count the findings).
+[`security-patch.yml`](../../.github/workflows/security-patch.yml) runs every Tuesday at 05:23 UTC, after Dependabot's weekly run and the Monday scan in `security.yml`, and by hand from `main` (Actions > security-patch > Run workflow; tick *dry run* to only count the findings).
 
-1. **Collect and patch** gathers the open findings: Dependabot alerts (when a token may read them, see below), code-scanning alerts above warning (CodeQL, Semgrep, zizmor), and pip-audit of two resolutions of `pyproject.toml` with all extras: the **lowest** versions its ranges allow (what Dependabot flags for a library: a vulnerable lower bound) and the **newest** ones. [`security_findings.py`](../../.github/scripts/security_findings.py) keeps only identifiers, packages, versions and paths and cuts every text short. When there is a finding, no earlier `security-patch/` pull request of this repository is open, and a Claude credential is set, Claude ([claude-code-action](https://github.com/anthropics/claude-code-action)) makes the smallest fix (a raised version floor, a recompiled hash-pinned file, or the flagged lines), runs ruff, bandit, pip-audit and the unit tests, commits locally and writes the pull request text.
-2. **Publish** runs no agent. It applies Claude's commits to the same commit of `main`, refuses the patch if it touches workflows, `.github/scripts/`, scanner or agent configuration, `CODEOWNERS` or tests, then pushes a `security-patch/<date>-<run>` branch and opens **one draft pull request** that lists what was fixed, what was not and why, and the checks that ran.
+1. **Collect and patch** gathers the open findings: Dependabot alerts (when a token may read them, see below), code-scanning alerts above warning (CodeQL, Semgrep, zizmor), and pip-audit of two resolutions of `pyproject.toml` with all extras: the **lowest** versions its ranges allow (what Dependabot flags for a library: a vulnerable lower bound) and the **newest** ones. [`security_findings.py`](../../.github/scripts/security_findings.py) keeps only identifiers, packages, versions and paths and cuts every text short; findings in paths the agent may not change (workflows, tests, tools, scanner configuration) are counted separately for the maintainer and do not start Claude. When there is a finding, no earlier `security-patch/` pull request of this repository is open, and a Claude credential is set, Claude ([claude-code-action](https://github.com/anthropics/claude-code-action)) makes the smallest fix (a raised version floor, a recompiled hash-pinned file, or the flagged lines), runs ruff, bandit, pip-audit and the unit tests, commits locally and writes the pull request text.
+2. **Publish** runs no agent. It applies Claude's commits to the same commit of `main`, refuses the patch if it touches anything under `.github/` except the hash-pinned requirements, scanner or agent configuration, tests, the gate scripts in `tools/` or the `[tool.*]` settings in `pyproject.toml` (a moved file counts under its old path), then pushes a `security-patch/<date>-<run>` branch and opens **one draft pull request** that lists what was fixed, what was not and why, and the checks that ran.
 
 The pull request then follows [CLAUDE.md](../../CLAUDE.md) like any other: CI green, the pre-merge audit, mark ready, CodeRabbit, one `@claude address all critical and warning comments from coderabbit` comment, and a merge by the maintainer. The job never merges, never marks ready, and never pushes outside its own branch.
 
@@ -33,10 +33,9 @@ Also switch on **Settings > Code security > Dependabot security updates**, so De
 
 ## Claude credential
 
-Set one of these, as a repository secret or variables:
+Set one of these as a repository secret (workload identity federation is not offered: it would need `id-token: write` in the job where Claude runs):
 
 - `CLAUDE_CODE_OAUTH_TOKEN`: from `claude setup-token` on a machine signed in to your Claude plan; runs count against that plan.
 - `ANTHROPIC_API_KEY`: a Claude API key; runs are billed to the API account.
-- Workload identity federation (no stored secret): variables `ANTHROPIC_FEDERATION_RULE_ID` and `ANTHROPIC_ORGANIZATION_ID`, with a federation rule for this repository's GitHub OIDC tokens in the Claude Console.
 
 The Claude GitHub App must be installed on the repository (it already is, for `@claude`).
