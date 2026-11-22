@@ -559,14 +559,28 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
             if c.get("map") is not None and (c.get("type") != "lookup" or not isinstance(c["map"], dict)):
                 errs.append(f"{tname}.{cname}: map needs a lookup column and a mapping {{value: mapped value}}")
             if c.get("offset_from") is not None:
-                b = t["columns"].get(c["offset_from"])
-                if c.get("type") not in ("date", "datetime", "integer", "float"):
+                # the base is a column of the table, or a path through its foreign keys to a
+                # parent's column (an order line's ship date from its order's date); a base that
+                # is itself an offset chains (receipt = ship + gap, ship = order date + gap): the
+                # derive rules are applied in dependency order and a cycle is refused
+                of = str(c["offset_from"])
+                b, path_err = None, None
+                if "." in of:
+                    try:
+                        _, (bt, bc) = resolve_path(spec, tname, of)
+                        b = spec["tables"][bt]["columns"][bc]
+                    except SpecError as e:
+                        path_err = str(e)
+                else:
+                    b = t["columns"].get(of)
+                if path_err is not None:
+                    errs.append(f"{tname}.{cname}: offset_from: {path_err}")
+                elif c.get("type") not in ("date", "datetime", "integer", "float"):
                     errs.append(f"{tname}.{cname}: offset_from needs a date, datetime or number column")
-                elif b is None or b.get("type") not in ("date", "datetime", "integer", "float", "lookup"):
-                    errs.append(f"{tname}.{cname}: offset_from {c['offset_from']} must be a date or number column "
-                                f"of {tname}")
-                elif b.get("offset_from") is not None:
-                    errs.append(f"{tname}.{cname}: offset_from {c['offset_from']} is itself an offset; use its base")
+                elif of == cname or b is None or b.get("type") not in ("date", "datetime", "integer", "float",
+                                                                         "lookup"):
+                    errs.append(f"{tname}.{cname}: offset_from {of} must be another date or number column of "
+                                f"{tname} or a path 'fk.column' to one in a parent table")
             if c.get("ratio_of") is not None:
                 if c.get("type") not in ("float", "integer"):
                     errs.append(f"{tname}.{cname}: ratio_of needs a number column")

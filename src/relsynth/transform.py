@@ -38,7 +38,8 @@ on one table:
 
 * **Column offsets** (`offset_from` on a date or number column) and **ratio
   columns** (`ratio_of`): y = x + gap and y = x * factor, with the gap or the
-  factor modelled as an attribute (a categorical over the factors the source
+  factor modelled as an attribute (x may be a parent's column through foreign
+  keys, `fk.column`, and an offset may be the base of another) (a categorical over the factors the source
   uses, chosen at the coarsest precision that reproduces the stored values) and
   y derived.  The gap distribution (delivery 0 days in store, 1-7 online) and
   the price structure (unit price = list price x one of 16 factors) are kept
@@ -467,14 +468,19 @@ class Plan:
             df[r["offset_column"]] = off
             out[t] = df
         from .expr import _days
+        from .prepare import make_resolver
         for o in self.col_offsets:
             df = out[o["table"]].copy()
+            # a base through foreign keys (an order line's ship date from its order's date)
+            # is read from the parent's source row; a row without a parent has no gap
+            base = (make_resolver(self.spec, o["table"], df, out)(o["base"]) if "." in o["base"]
+                    else df[o["base"]])
             if o["unit"] == "day":
                 a = _days(np.asarray(df[o["column"]], dtype=object))
-                b = _days(np.asarray(df[o["base"]], dtype=object))
+                b = _days(np.asarray(base, dtype=object))
             else:
                 a = pd.to_numeric(df[o["column"]], errors="coerce").to_numpy(dtype=float)
-                b = pd.to_numeric(df[o["base"]], errors="coerce").to_numpy(dtype=float)
+                b = pd.to_numeric(pd.Series(np.asarray(base, dtype=object)), errors="coerce").to_numpy(dtype=float)
             off = a - b
             if o["unit"] == "day":
                 # the date stays within its source range: a + gap is capped at the latest
