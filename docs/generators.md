@@ -47,6 +47,50 @@ table is fitted from in-database statistics. Run `relsynth generators list` to s
 The fit log (`model.log["decisions"]["generators"]`) and the model summary record every non-default choice: the
 generator, its model version, its package and package version, its options and its device.
 
+### Let the engine choose
+
+`synthesis.generator_selection` asks the engine to choose the generator of every table whose spec names none.
+The default is `off`: the spec's choice is used, as above.
+
+```yaml
+synthesis:
+  generator_selection:
+    mode: trial            # off (default) | auto | trial
+    seeds: 1               # trial: seeds per candidate (1 to 10)
+    candidates: [copula, cart]   # optional; default: every installed generator
+```
+
+- **auto** applies rules to each table's traits, in this order, and skips a rule whose generator is not installed
+  or cannot model the table:
+  1. fewer than 1,000 rows: `copula`. A parametric Bayesian model is stable on small samples, where flexible
+     learners overfit and copy rare values.
+  2. 50,000 rows or more, a diffusion generator (`ddpm`) installed and a GPU: `ddpm` (Kotelnikov et al. 2023).
+  3. at least half the modelled columns categorical or boolean: `cart` (Reiter 2005; Nowok et al. 2016; best
+     utility across datasets in Dankar and Ibrahim 2021).
+  4. 10,000 rows or more and a variational autoencoder (`tvae`) installed: `tvae` (Xu et al. 2019).
+  5. otherwise `copula` (Patki et al. 2016): mostly numeric columns with monotone dependence.
+
+  The rules are a summary of published comparisons, not a guarantee for one dataset. They cost nothing to apply.
+- **trial** fits, samples and scores every candidate on the real data, with `seeds` seeds (the spec's seed and
+  the next ones), and keeps the best for every selectable table. "Best" is privacy first: the fewest failed
+  privacy items of the scorecard (distance to closest record, exact matches, rare-text copies), then the
+  highest mean share of passed scorecard items, then the spec's own generator, then the registry's order
+  (Prop. 1845). Each candidate costs one fit, one draw and one scorecard per seed. The privacy items are
+  computed for every candidate even when the run itself skips privacy evaluation (`--no-privacy`). A
+  candidate that cannot model some tables is tried on the others, which keep the spec's generator.
+
+Either way, a table that names its `generator` keeps it, and copied tables and views take no part. In auto
+mode, a table that no allowed generator can model keeps the spec's generator. Every path that fits a model
+applies the same selection: `relsynth run` and `verify`, `relsynth.fit` and `relsynth.sample` in Python, and
+the model export; the attacks of a governed `relsynth run --assess` fit the chosen generators too. The choice
+and its reasons go into the diagnostics bundle (`generator_selection`: the generator per table, why, and in
+trial mode every candidate's score, failed privacy items and time) and into the `--json` output of
+`relsynth run`. Selection reads the real data, so it is refused in differential privacy mode
+(`synthesis.privacy.dp`): name the generator there.
+
+The weekly bench runs trial mode in a job of its own (`generator-trial` in `.github/workflows/bench.yml`) and
+records the chosen generator of each dataset.
+
 ## Built-in generators
 
 | Name | Model | Conditions on | Posterior | Cost |
@@ -209,4 +253,10 @@ file. Pickles can run code when loaded, so only load files you wrote yourself.
 - P. D. Hoff (2007). Extending the rank likelihood for semiparametric copula estimation. *Annals of Applied
   Statistics* 1(1).
 - L. Breiman, J. Friedman, R. Olshen, C. Stone (1984). *Classification and Regression Trees*. Wadsworth.
+- F. K. Dankar, M. Ibrahim (2021). Fake it till you make it: Guidelines for effective synthetic data generation.
+  *Applied Sciences* 11(5), 2158.
+- L. Xu, M. Skoularidou, A. Cuesta-Infante, K. Veeramachaneni (2019). Modeling tabular data using conditional GAN.
+  *NeurIPS*. (TVAE is introduced there.)
+- A. Kotelnikov, D. Baranchuk, I. Rubachev, A. Babenko (2023). TabDDPM: Modelling tabular data with diffusion
+  models. *ICML*.
 - PyPA, *Entry points specification*, packaging.python.org/specifications/entry-points.

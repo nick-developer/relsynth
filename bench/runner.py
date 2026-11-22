@@ -248,6 +248,9 @@ def run_real(name: str, seed: int, pushdown: str = "auto", overrides: tuple[str,
             rec["error"] = f"relsynth exited with {rc}: " + _tail(stderr or "", 2000)
         sc = doc.get("scorecard") or {}
         rec["scorecard"] = {"passed": sc.get("passed"), "total": sc.get("total")}
+        if doc.get("generator_selection"):
+            # synthesis.generator_selection: the chosen generators and each candidate's trial result
+            rec["generator_selection"] = doc["generator_selection"]
         # every scorecard item is in the diagnostics bundle (aggregates only)
         bundle = Path(tmp) / "bundle.json"
         bdoc = json.loads(bundle.read_text()) if bundle.exists() else {}

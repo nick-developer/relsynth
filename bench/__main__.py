@@ -156,6 +156,27 @@ def cmd_all(a) -> int:
     return 1 if failed or rc else 0
 
 
+def selections_table(paths: list[Path]) -> tuple[str, list[str]]:
+    """Markdown table of the generator each run's trial chose, with every candidate's scorecard share and
+    failed privacy items; and the runs that have no selection record (or failed)."""
+    rows, missing = [], []
+    for p in paths:
+        for r in json.loads(p.read_text()).get("runs", []):
+            sel, run = r.get("generator_selection"), f"{r.get('dataset')} seed {r.get('seed')}"
+            if not sel or r.get("error"):
+                missing.append(run)
+                continue
+            chosen = ", ".join(sorted(set(sel["chosen"].values()))) or "-"
+            cands = "; ".join(f"{c['generator']} {c['score']:.3f} ({c['privacy_failed']} privacy, {c['seconds']} s)"
+                              if "error" not in c else f"{c['generator']}: {c['error'][:60]}"
+                              for c in sel.get("candidates", []))
+            sc = r.get("scorecard") or {}
+            rows.append(f"| {run} | {sel['mode']} | {chosen} | {sc.get('passed')}/{sc.get('total')} | {cands} |")
+    head = ["| run | mode | chosen | release scorecard | candidates (share, failed privacy items, time) |",
+            "|---|---|---|---|---|"]
+    return "\n".join(head + sorted(rows)), missing
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m bench", description="relsynth benchmark harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -197,6 +218,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--datasets", nargs="*", choices=sorted(DATASETS))
     p.add_argument("--tier", default=DEFAULT_TIERS)
     sub.add_parser("list")
+    p = sub.add_parser("selections", help="the generators trial mode chose, from run records (Markdown)")
+    p.add_argument("records", nargs="+")
+    p.add_argument("--require", action="store_true", help="exit 1 when a run has no selection record or an error")
     m = sub.add_parser("matrix")
     m.add_argument("--tier", required=True, choices=TIERS)
     m.add_argument("--only", default="", help="comma-separated datasets of the tier to keep (and fake)")
@@ -210,6 +234,16 @@ def main(argv: list[str] | None = None) -> int:
             ok, why = available(n)
             print(f"{n:16s} {d.tier:8s} {'available' if ok else 'unavailable: ' + why}  {d.note}")
         return 0
+    if a.cmd == "selections":
+        table, missing = selections_table([Path(r) for r in a.records])
+        print(table)
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(table + "\n")
+        if missing:
+            print("runs without a selection: " + ", ".join(missing), file=sys.stderr)
+        return 1 if a.require and missing else 0
     if a.cmd == "matrix":
         print(json.dumps(matrix(a.tier, [x for x in a.only.split(",") if x] or None, _seeds(a.seeds or None))))
         return 0

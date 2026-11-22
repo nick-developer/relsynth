@@ -73,8 +73,10 @@ dataset ran), and `baseline` writes its baseline to
 are present.
 
 Each 2.0 golden database runs with a frozen spec in `bench/specs/`: Chinook with the
-example spec, the others with the unedited 1.0 `introspect` draft (the G7
-datasets instead draft theirs at run time; bench/README.md says why). Freezing the
+example spec, the others with the unedited 1.0 `introspect` draft. A G7 dataset
+runs with a spec written from its publisher's documentation where that documentation
+describes its structure and rules, and drafts its spec at run time otherwise
+(bench/README.md lists which). Freezing the
 spec separates a change of the engine from a change of what `introspect`
 proposes (a fresh Chinook draft adds a dependency AlbumId → MediaTypeId that
 costs two checks); `introspect` itself is covered by the unit and end-to-end

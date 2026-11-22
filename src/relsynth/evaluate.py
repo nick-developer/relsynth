@@ -780,7 +780,9 @@ def time_metrics(spec, real, syn, fact):
     # seasonality conditional on the anchor's first categorical attribute
     rel = next((r for r in spec["relationships"] if r["child"] == fact), None)
     anchor = T["fact"].get("anchor") or rel["parent"]
-    fk = next(r["child_key"] for r in spec["relationships"] if r["child"] == fact and r["parent"] == anchor)
+    ak = T["fact"].get("anchor_key")             # a role of a role-playing dimension, named by its key column
+    fk = next(r["child_key"] for r in spec["relationships"]
+              if r["child"] == fact and r["parent"] == anchor and (ak is None or r["child_key"] == ak))
     # sampling limit: the rows of one anchor share its time profile, so the
     # effective size is Kish's over the anchors' row counts
     kr_all = _kish(real[fact], fk, len(real[fact])) if len(real[fact]) else 1
@@ -1405,8 +1407,12 @@ def grain_metrics(spec, real, syn, real_stats=None):
         fks = [r for r in spec["relationships"] if r["child"] == f and not r.get("composite")]
         anchor = ts["fact"].get("anchor")
         partner = ts["fact"].get("partner")
-        ra = next((r for r in fks if r["parent"] == anchor), None)
-        rp = next((r for r in fks if r["parent"] == partner), None)
+        # anchor and partner may be two roles of one dimension (pick-up and drop-off zone): the key columns
+        # the spec names (anchor_key, partner_key) pick the role, and the partner is never the anchor's link
+        ak, pk_ = ts["fact"].get("anchor_key"), ts["fact"].get("partner_key")
+        ra = next((r for r in fks if r["parent"] == anchor and (ak is None or r["child_key"] == ak)), None)
+        rp = next((r for r in fks if r["parent"] == partner and r is not ra
+                   and (pk_ is None or r["child_key"] == pk_)), None)
         nest = next((r for r in spec["relationships"] if r["child"] == f and r.get("composite")), None)
         acols = [ra["child_key"]] if ra is not None else \
             ([c for c in nest["child_key"] if "." not in c] if nest is not None else [])

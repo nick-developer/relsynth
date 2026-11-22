@@ -122,6 +122,9 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `pushdown.min_rows` | int | `1000000` | 0 … 1e+15 |  | Rows from which auto mode pushes a fact table down. |
 | `pushdown.sample_rows` | int | `500000` | 1 … 1e+12 | yes (log) | Rows of a pushed-down fact sampled (seeded, uniform) for its attribute models; the relational model always uses every row through the statistics. |
 | `generator` | str | `copula` |  |  | Default generator plug-in of every table's attribute columns (a table's own `generator` wins): copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in. |
+| `generator_selection.mode` | choice | `off` | off, auto, trial |  | off \| auto \| trial: how each table's generator is chosen when the table names none. off: synthesis.generator. auto: rules on the table's rows, column kinds and compute, from published comparisons. trial: fit, sample and score every candidate on the real data and keep the best (fewest failed privacy items, then the highest scorecard share). Not allowed in differential privacy mode. See docs/generators.md. |
+| `generator_selection.seeds` | int | `1` | 1 … 10 |  | Seeds per candidate in trial mode (1 to 10): synthesis.seed, then the next ones. |
+| `generator_selection.candidates` | any | `None` |  |  | Generators trial and auto may choose from (default: every installed one). |
 | `compute.preset` | str | `cpu` |  |  | cpu \| gpu-auto \| gpu-single \| gpu-multi, or a preset of compute.file: the devices generator plug-ins may use. The default engine is CPU-only; see docs/compute.md. |
 | `compute.file` | str | `None` |  |  | A compute.yaml with more presets (relative to the spec). |
 | `compute.overrides` | map | `{}` |  |  | Expert settings that replace the preset's fields: device, gpus, devices, backend, precision, batch_size, memory_limit, threads, fallback. |
