@@ -43,8 +43,8 @@ uncertainty lives. The acceptance rule below is unchanged and still compares wit
 (about 330 training invoices), while the latent-only prior kept Chinook and AdventureWorks. It
 keeps the latent route and adds, per categorical column, a correction to the decoder's logits from
 the family history (residual logits, a product of experts in probability). The correction starts
-at zero, so training starts from the latent-only model and the extra term only lowers the
-teacher-forced likelihood it is fitted on.
+at zero, so training starts from the latent-only model and fitting the extra term can only lower
+the teacher-forced negative log-likelihood from that starting point.
 
 ## Metrics
 
