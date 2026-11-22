@@ -285,13 +285,15 @@ jobs:
               https://api.anthropic.com/api/github/github-app-token-exchange | jq -r '.token // .app_token // empty')" || true
           fi
           if [ -n "$token" ]; then
-            echo "::add-mask::$token"
-            # revoke it however the step ends
+            # never printed (no add-mask needed: it never reaches the log); revoked however the step ends
             trap 'curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" "$GITHUB_API_URL/installation/token" || true' EXIT
           else
             echo "::warning::Claude GitHub App token not available; using the workflow token (needs 'Allow GitHub Actions to create pull requests'), so CI starts on the next push"
             token="$FALLBACK_TOKEN"
           fi
-          git push "https://x-access-token:${token}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
-          GH_TOKEN="$token" gh pr create --repo "$GITHUB_REPOSITORY" --draft --base main --head "$BRANCH" \
+          export GH_TOKEN="$token"
+          # the token reaches git through a credential helper reading the environment, never a URL or argv
+          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+            push "https://github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+          gh pr create --repo "$GITHUB_REPOSITORY" --draft --base main --head "$BRANCH" \
             --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
