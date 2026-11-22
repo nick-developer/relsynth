@@ -29,7 +29,10 @@ def _db(name: str, given: str | None) -> str:
     if given:
         return given
     import bench.datasets as bd
-    return str(getattr(bd, DATASETS[name].builder)())
+    loc = bd.DATASETS[DATASETS[name].builder].location()
+    if not str(loc).startswith("sqlite:"):
+        raise SystemExit(f"{name}: expected a SQLite bench source, got {loc}")
+    return str(loc)[len("sqlite:"):]
 
 
 def evaluate(real, syn_X, syn_C, syn_off, widths, ordered, ctx_C, hold, seed):
@@ -51,6 +54,11 @@ def evaluate(real, syn_X, syn_C, syn_off, widths, ordered, ctx_C, hold, seed):
     Fs = M.family_features(syn_X, syn_C, syn_off, widths, ctx_C)
     Fh = M.family_features(hold.X, hold.C, hold.off, widths, hold.ctx_C)
     out["c2st_agg"] = M.c2st(Fr, Fs, seed)
+    # row-level C2ST separates row fidelity (decoder, marginals) from family structure
+    rng = np.random.default_rng(seed)
+    pr = rng.choice(len(real.X), min(len(real.X), 20000), replace=False)
+    ps = rng.choice(len(syn_X), min(len(syn_X), 20000), replace=False)
+    out["c2st_row"] = M.c2st(M.row_matrix(real.X[pr], real.C[pr], widths), M.row_matrix(syn_X[ps], syn_C[ps], widths), seed)
     # the family's size and context come from the engine (copied from a training family here), so
     # they are left out of the distance: it measures what the model generated
     nctx = real.ctx_C.shape[1]
@@ -72,7 +80,7 @@ def main(argv=None):
     ap.add_argument("--variants", default=DEFAULT_VARIANTS)
     ap.add_argument("--vae-steps", type=int, default=3000)
     ap.add_argument("--prior-steps", type=int, default=3000)
-    ap.add_argument("--max-families", type=int, default=0, help="subsample families (0 = all)")
+    ap.add_argument("--max-families", type=int, default=-1, help="subsample families (0 = all, -1 = dataset default)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
 
@@ -84,6 +92,8 @@ def main(argv=None):
     df = load(d, _db(a.dataset, a.db))
     rng = np.random.default_rng(a.seed)
     keys = df["fam"].unique()
+    if a.max_families < 0:
+        a.max_families = d.max_families
     if a.max_families and len(keys) > a.max_families:
         keys = rng.choice(keys, a.max_families, replace=False)
         df = df[df["fam"].isin(keys)].reset_index(drop=True)
@@ -117,12 +127,15 @@ def main(argv=None):
                 info["order_gap"] = abs(model.prior_nll(hold, np.random.default_rng(1)) - info["prior_nll_hold"])
             info["config"] = asdict(cfg)
             sX, sC, soff = model.sample(train.sizes, train.ctx_X, train.ctx_C, gaps, a.seed + 1000)
+            sX = codec.snap(sX)                         # the engine decodes through the marginals
         res = evaluate(train, sX, sC, soff, widths, d.order is not None, train.ctx_C, hold, a.seed)
         res.update(info)
         res["seconds"] = round(time.time() - t0, 1)
         report["variants"][v] = res
         print(f"[{a.dataset} s{a.seed}] {v}: cat-share err {res['err_cat_share']}, num-within err {res['err_num_within']}, "
-              f"c2st {res['c2st_agg']:.3f}, dcr fam {res['dcr_family']:.3f} row {res['dcr_row']:.3f}, {res['seconds']} s",
+              f"c2st {res['c2st_agg']:.3f} row {res['c2st_row']:.3f}, ks {res['marginals']['ks_mean']}, "
+              f"tvd {res['marginals']['tvd_mean']}, lag1 {res.get('err_lag1')}, trans {res.get('trans_tvd')}, "
+              f"dcr fam {res['dcr_family']:.3f} row {res['dcr_row']:.3f}, {res['seconds']} s",
               flush=True)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(report, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))

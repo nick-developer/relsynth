@@ -12,7 +12,7 @@ from collections import defaultdict
 import numpy as np
 
 KEYS = [("err_cat_share", "cat share err"), ("err_num_within", "num within err"), ("err_lag1", "lag-1 err"),
-        ("trans_tvd", "transition TVD"), ("c2st_agg", "C2ST-Agg acc"), ("dcr_family", "DCR family"),
+        ("trans_tvd", "transition TVD"), ("c2st_agg", "C2ST-Agg acc"), ("c2st_row", "C2ST row acc"), ("dcr_family", "DCR family"),
         ("dcr_row", "DCR row"), ("active_units", "active units"), ("seconds", "seconds")]
 
 

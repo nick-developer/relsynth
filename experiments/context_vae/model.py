@@ -289,9 +289,23 @@ class ContextVAE:
 
     # ---------------------------------------------------------------- sampling
     @torch.no_grad()
-    def sample(self, sizes: np.ndarray, ctx_X, ctx_C, gaps: list[np.ndarray] | None, seed: int):
-        """Rows for families of the given sizes and contexts (the engine's counts); returns X, C, off."""
+    def sample(self, sizes: np.ndarray, ctx_X, ctx_C, gaps: list[np.ndarray] | None, seed: int, chunk: int = 512):
+        """Rows for families of the given sizes and contexts (the engine's counts); returns X, C, off.
+        Families are drawn in chunks of similar size, so a short family does not wait for the longest."""
         gen = torch.Generator().manual_seed(seed)
+        order = np.argsort(sizes, kind="stable")
+        Zs = [None] * len(sizes)
+        for s0 in range(0, len(order), chunk):
+            ix = order[s0:s0 + chunk]
+            Z = self._sample_latents(sizes[ix], ctx_X[ix], ctx_C[ix],
+                                     [gaps[i] for i in ix] if gaps is not None else None, gen)
+            for b, i in enumerate(ix):
+                Zs[i] = Z[b, :sizes[i]]
+        X, C = self.vae.sample_rows(torch.cat(Zs, 0), gen)
+        off = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        return X.numpy(), C.numpy(), off
+
+    def _sample_latents(self, sizes, ctx_X, ctx_C, gaps, gen):
         cfg, W, m = self.cfg, self.cfg.window, self.cfg.latent
         B, L = len(sizes), int(sizes.max())
         n = torch.as_tensor(sizes)
@@ -317,7 +331,4 @@ class ContextVAE:
                 h, _ = self.prior.hidden(torch.zeros(B, 1, m), G[:, i:i + 1], ctx)
                 h = h[:, -1]
             Z[:, i] = self.prior.mdn.sample(h, gen)
-        keep = torch.arange(L).unsqueeze(0) < n.unsqueeze(1)
-        X, C = self.vae.sample_rows(Z[keep], gen)
-        off = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
-        return X.numpy(), C.numpy(), off
+        return Z

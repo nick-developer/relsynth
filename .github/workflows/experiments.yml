@@ -12,7 +12,7 @@ on:
     inputs:
       datasets:
         description: "Comma-separated datasets (experiments/context_vae/data.py)"
-        default: "chinook,berka"
+        default: "chinook,berka,online_retail,adventureworks"
       seeds:
         description: "Comma-separated seeds"
         default: "1,2,3"
@@ -23,8 +23,8 @@ on:
         description: "Training steps per stage (row VAE, family prior)"
         default: "3000"
       max_families:
-        description: "Subsample families (0 = all)"
-        default: "0"
+        description: "Subsample families (0 = all, -1 = dataset default)"
+        default: "-1"
   push:
     branches-ignore: [main]
 
@@ -44,7 +44,7 @@ jobs:
     steps:
       - id: m
         env:
-          DATASETS: ${{ inputs.datasets || 'chinook,berka' }}
+          DATASETS: ${{ inputs.datasets || 'chinook,berka,online_retail,adventureworks' }}
           SEEDS: ${{ inputs.seeds || '1,2,3' }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
@@ -79,7 +79,7 @@ jobs:
           SEED: ${{ matrix.part.seed }}
           VARIANTS: ${{ inputs.variants || 'transformer:none,transformer:gru,transformer:transformer,mlp:transformer,shuffle' }}
           STEPS: ${{ inputs.steps || '3000' }}
-          MAXF: ${{ inputs.max_families || '0' }}
+          MAXF: ${{ inputs.max_families || '-1' }}
         run: |
           python -m experiments.context_vae.run --dataset "$DATASET" --seed "$SEED" --variants "$VARIANTS" \
             --vae-steps "$STEPS" --prior-steps "$STEPS" --max-families "$MAXF" --out "out/$DATASET-$SEED.json"

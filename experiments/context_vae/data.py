@@ -33,7 +33,8 @@ class DatasetDef:
     ctx_num: list[str] = field(default_factory=list)   # parent context, numeric
     ctx_cat: list[str] = field(default_factory=list)   # parent context, categorical
     order: str | None = None      # sequence order column (date); None = unordered siblings
-    builder: str = ""             # bench.datasets function that builds the SQLite file
+    builder: str = ""             # bench.datasets dataset whose location is the SQLite file
+    max_families: int = 0         # default subsample (0 = all), keeps the CPU budget on large sources
 
 
 DATASETS = {
@@ -45,7 +46,7 @@ DATASETS = {
         "i.BillingCountry AS BillingCountry "
         "FROM InvoiceLine il JOIN Track t ON t.TrackId = il.TrackId JOIN Invoice i ON i.InvoiceId = il.InvoiceId",
         "fam", ["UnitPrice", "Milliseconds"], ["GenreId", "MediaTypeId", "Quantity"],
-        ctx_cat=["BillingCountry"], builder="build_chinook"),
+        ctx_cat=["BillingCountry"], builder="chinook"),
     # Transactions of an account, in date order: the sequential case.
     "berka": DatasetDef(
         "berka",
@@ -53,7 +54,29 @@ DATASETS = {
         "t.k_symbol AS k_symbol, t.amount AS amount, t.balance AS balance, a.frequency AS frequency "
         "FROM trans t JOIN account a ON a.account_id = t.account_id",
         "fam", ["amount", "balance"], ["type", "operation", "k_symbol"],
-        ctx_cat=["frequency"], order="date", builder="build_berka"),
+        ctx_cat=["frequency"], order="date", builder="berka"),
+    # Lines of an online-retail invoice (UCI Online Retail II, real): which items are bought together
+    # and cancellations (negative quantities on every line of a "C" invoice).
+    "online_retail": DatasetDef(
+        "online_retail",
+        "SELECT l.invoice AS fam, l.quantity AS quantity, l.price AS price, l.stock_code AS stock_code, "
+        "CASE WHEN l.invoice LIKE 'C%' THEN 'cancel' ELSE 'sale' END AS kind, c.country AS country "
+        "FROM invoice_line l JOIN invoice i ON i.invoice = l.invoice LEFT JOIN customer c ON c.customer_id = i.customer_id",
+        "fam", ["quantity", "price"], ["stock_code", "kind"],
+        ctx_cat=["country"], builder="online_retail_ii", max_families=10000),
+    # Internet orders of a customer, in date order (AdventureWorks DW): the second sequential case.
+    "adventureworks": DatasetDef(
+        "adventureworks",
+        "SELECT f.CustomerKey AS fam, substr(CAST(f.OrderDateKey AS TEXT), 1, 4) || '-' || "
+        "substr(CAST(f.OrderDateKey AS TEXT), 5, 2) || '-' || substr(CAST(f.OrderDateKey AS TEXT), 7, 2) AS date, "
+        "f.SalesOrderNumber || '-' || printf('%03d', f.SalesOrderLineNumber) AS tid, f.SalesAmount AS SalesAmount, "
+        "f.OrderQuantity AS OrderQuantity, CAST(p.ProductSubcategoryKey AS TEXT) AS Subcategory, p.Color AS Color, "
+        "CAST(f.PromotionKey AS TEXT) AS PromotionKey, c.Gender AS Gender, c.EnglishEducation AS Education, "
+        "c.YearlyIncome AS YearlyIncome "
+        "FROM FactInternetSales f JOIN DimProduct p ON p.ProductKey = f.ProductKey "
+        "JOIN DimCustomer c ON c.CustomerKey = f.CustomerKey",
+        "fam", ["SalesAmount"], ["Subcategory", "Color", "PromotionKey", "OrderQuantity"],
+        ctx_num=["YearlyIncome"], ctx_cat=["Gender", "Education"], order="date", builder="adventureworks"),
 }
 
 
@@ -98,6 +121,20 @@ class Codec:
             other = ix.get("<other>", 0)
             C[:, j] = [ix.get(v, other) for v in s]
         return X, C
+
+    def snap(self, X: np.ndarray) -> np.ndarray:
+        """Decode numeric scores to training values and encode them again: the scores the engine's
+        output would have (ties and gaps of the real support), so metrics compare like with like."""
+        from scipy.special import ndtr
+        Y = np.array(X, np.float32, copy=True)
+        for j, c in enumerate(self.num):
+            ref = self.sorted[c]
+            if not len(ref):
+                continue
+            v = np.quantile(ref, np.clip(ndtr(X[:, j]), 0, 1), method="inverted_cdf")
+            lo, hi = np.searchsorted(ref, v, "left"), np.searchsorted(ref, v, "right")
+            Y[:, j] = ndtri(((lo + hi) / 2 + 0.5) / (len(ref) + 1))
+        return Y
 
     def decode(self, X: np.ndarray, C: np.ndarray, rng: np.random.Generator) -> pd.DataFrame:
         from scipy.special import ndtr
