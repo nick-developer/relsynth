@@ -22,7 +22,7 @@ import numpy as np
 from . import metrics as M
 from .data import DATASETS, Codec, families, load, split, subset
 
-DEFAULT_VARIANTS = "transformer:none,transformer:transformer,transformer:transformer+cat,transformer:gru+cat,shuffle"
+DEFAULT_VARIANTS = "transformer:none,transformer:transformer,transformer:transformer+res,transformer:gru+res,shuffle"
 
 
 def _db(name: str, given: str | None) -> str:
@@ -118,7 +118,7 @@ def main(argv=None):
         else:
             enc, pri = v.split(":")
             pri, _, extra = pri.partition("+")            # e.g. transformer+cat: categorical head in the prior
-            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None, cat_head=extra == "cat",
+            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None, cat_head=extra if extra in ("cat", "res") else "",
                          vae_steps=a.vae_steps, prior_steps=a.prior_steps)
             model = ContextVAE(train.X.shape[1], widths, train.ctx_X.shape[1], ctx.widths, cfg, a.seed)
             model.fit_vae(train, rng).fit_prior(train, rng)

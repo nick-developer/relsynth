@@ -27,6 +27,7 @@ summary table is in the run's summary.
 | `transformer:transformer` | column-token transformer | causal transformer over the family |
 | `mlp:transformer` | MLP | causal transformer |
 | `…:transformer+cat`, `…:gru+cat` | as above | the prior also draws each row's categorical levels: p(c_i given history) then p(z_i given history and c_i); the decoder gives only numerics |
+| `…:transformer+res`, `…:gru+res` | as above | latent route kept: p(z_i given history), then levels with logits = row decoder's logits for z_i plus a history correction (zero at start) |
 | `shuffle` | none | real rows permuted across families: exact marginals, no within-family dependence |
 
 `+cat` (run 3) follows the second run, where every latent-only prior matched numeric and sequence
@@ -37,6 +38,13 @@ only carries the numerics and their link to the row's levels. The factorisation 
 rule), so it does not change what the model can represent, only where the categorical
 uncertainty lives. The acceptance rule below is unchanged and still compares with
 `transformer:none`.
+
+`+res` (run 4) follows run 3, where `+cat` fixed Online Retail but fell to shuffle level on Chinook
+(about 330 training invoices), while the latent-only prior kept Chinook and AdventureWorks. It
+keeps the latent route and adds, per categorical column, a correction to the decoder's logits from
+the family history (residual logits, a product of experts in probability). The correction starts
+at zero, so training starts from the latent-only model and the extra term only lowers the
+teacher-forced likelihood it is fitted on.
 
 ## Metrics
 

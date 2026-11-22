@@ -53,7 +53,7 @@ class Config:
     batch_families: int = 64
     lr: float = 2e-3
     ordered: bool = False
-    cat_head: bool = False             # prior models categorical levels directly (HALO-style), see README
+    cat_head: str = ""                 # "" | cat (prior draws levels, HALO-style) | res (decoder logits + history correction)
 
 
 class Tokenizer(nn.Module):
@@ -158,11 +158,20 @@ class FamilyPrior(nn.Module):
         self.cfg = cfg
         d, m = cfg.d_prior, cfg.latent
         self.widths = list(widths or []) if cfg.cat_head else []
-        # categorical levels: embedded as input (previous row) and as conditioning (current row), one
-        # autoregressive head per column given the hidden state and the row's earlier columns
-        self.cat_in = nn.ModuleList(nn.Embedding(k, d) for k in self.widths)
+        self.mode = cfg.cat_head
+        # categorical levels: embedded as input (previous row; index k = no previous row) and as
+        # conditioning (current row), one autoregressive head per column given the hidden state and the
+        # row's earlier columns.  "res": the head is a correction to the row decoder's logits given the
+        # row's latent, zero at initialisation, so the model starts as the latent-only prior.
+        self.register_buffer("pad", torch.as_tensor(self.widths, dtype=torch.long), persistent=False)
+        self.cat_in = nn.ModuleList(nn.Embedding(k + 1, d) for k in self.widths)
         self.cat_cond = nn.ModuleList(nn.Embedding(k, d) for k in self.widths)
         self.cat_out = nn.ModuleList(nn.Linear(d, k) for k in self.widths)
+        self.z_in = nn.Linear(m, d) if self.mode == "res" else None
+        if self.mode == "res":
+            for lin in self.cat_out:
+                nn.init.zeros_(lin.weight)
+                nn.init.zeros_(lin.bias)
         self.ctx_tok = Tokenizer(ctx_num, ctx_widths, d) if (ctx_num or ctx_widths) else None
         self.ctx_n = nn.Linear(1, d)
         self.inp = nn.Linear(m + 1, d)
@@ -190,20 +199,30 @@ class FamilyPrior(nn.Module):
             out = out + e(C[..., j])
         return out
 
-    def cat_nll(self, h, C):
-        """Teacher-forced NLL of the row's levels, column by column given h; returns (nll, cond)."""
-        g, nll = h, 0
+    def _offsets(self):
+        return np.concatenate([[0], np.cumsum(self.widths)]).astype(int)
+
+    def cat_nll(self, h, C, z=None, dec_logits=None):
+        """Teacher-forced NLL of the row's levels, column by column given h (and, for "res", the row's
+        latent z and the decoder's logits for it); returns (nll, cond)."""
+        g, nll, o = h if z is None else h + self.z_in(z), 0, self._offsets()
         for j, k in enumerate(self.widths):
-            nll = nll + F.cross_entropy(self.cat_out[j](g).reshape(-1, k), C[..., j].reshape(-1),
+            lg = self.cat_out[j](g)
+            if dec_logits is not None:
+                lg = lg + dec_logits[..., o[j]:o[j + 1]]
+            nll = nll + F.cross_entropy(lg.reshape(-1, k), C[..., j].reshape(-1),
                                         reduction="none").reshape(C.shape[:-1])
             g = g + self.cat_cond[j](C[..., j])
         return nll, g
 
     @torch.no_grad()
-    def cat_sample(self, h, gen):
-        g, cols = h, []
+    def cat_sample(self, h, gen, z=None, dec_logits=None):
+        g, cols, o = h if z is None else h + self.z_in(z), [], self._offsets()
         for j in range(len(self.widths)):
-            c = torch.multinomial(F.softmax(self.cat_out[j](g), -1), 1, generator=gen)[:, 0]
+            lg = self.cat_out[j](g)
+            if dec_logits is not None:
+                lg = lg + dec_logits[:, o[j]:o[j + 1]]
+            c = torch.multinomial(F.softmax(lg, -1), 1, generator=gen)[:, 0]
             cols.append(c)
             g = g + self.cat_cond[j](c)
         return torch.stack(cols, 1), g
@@ -296,11 +315,17 @@ class ContextVAE:
     def _batch_nll(self, fam, idx, mu, rng):
         Z, G, M, CC = (torch.as_tensor(a) for a in _windows(fam, idx, mu, self.cfg, rng))
         zprev = torch.cat([torch.zeros_like(Z[:, :1]), Z[:, :-1]], 1)
-        cprev = torch.cat([torch.zeros_like(CC[:, :1]), CC[:, :-1]], 1)
+        first = self.prior.pad.expand(len(CC), 1, -1) if self.prior.widths else torch.zeros_like(CC[:, :1])
+        cprev = torch.cat([first, CC[:, :-1]], 1)
         n = torch.as_tensor(fam.sizes[idx])
         ctx = self.prior.context(torch.as_tensor(fam.ctx_X[idx]), torch.as_tensor(fam.ctx_C[idx]), n)
         h, _ = self.prior.hidden(zprev, G, ctx, mask=M, cprev=cprev)
-        if self.prior.widths:                 # p(c_i | h_i) p(z_i | h_i, c_i)
+        if self.prior.mode == "res":           # p(z_i | h_i) p(c_i | h_i, z_i), logits = decoder + correction
+            with torch.no_grad():
+                dec = self.vae.decode(Z.reshape(-1, Z.shape[-1]))[1].reshape(*Z.shape[:2], -1)
+            nll_c, _ = self.prior.cat_nll(h, CC, z=Z, dec_logits=dec)
+            nll = self.prior.mdn.nll(h, Z) + nll_c
+        elif self.prior.widths:               # p(c_i | h_i) p(z_i | h_i, c_i)
             nll_c, h = self.prior.cat_nll(h, CC)
             nll = nll_c + self.prior.mdn.nll(h, Z)
         else:
@@ -367,17 +392,21 @@ class ContextVAE:
             if cfg.prior == "transformer":
                 s = max(0, i - W + 1)
                 zprev = torch.cat([torch.zeros(B, 1, m), Z[:, :i]], 1)[:, s:i + 1]
-                cprev = torch.cat([torch.zeros(B, 1, nc, dtype=torch.long), CC[:, :i]], 1)[:, s:i + 1]
+                cprev = torch.cat([self.prior.pad.expand(B, 1, -1), CC[:, :i]], 1)[:, s:i + 1]
                 h, _ = self.prior.hidden(zprev, G[:, s:i + 1], ctx, cprev=cprev)
                 h = h[:, -1]
             elif cfg.prior == "gru":
                 zp = Z[:, i - 1:i] if i else torch.zeros(B, 1, m)
-                cp = CC[:, i - 1:i] if i else torch.zeros(B, 1, nc, dtype=torch.long)
+                cp = CC[:, i - 1:i] if i else self.prior.pad.expand(B, 1, -1)
                 h, state = self.prior.hidden(zp, G[:, i:i + 1], ctx, state=state, cprev=cp)
                 h = h[:, -1]
             else:
                 h, _ = self.prior.hidden(torch.zeros(B, 1, m), G[:, i:i + 1], ctx)
                 h = h[:, -1]
+            if self.prior.mode == "res":
+                Z[:, i] = self.prior.mdn.sample(h, gen)
+                CC[:, i], _ = self.prior.cat_sample(h, gen, z=Z[:, i], dec_logits=self.vae.decode(Z[:, i])[1])
+                continue
             if nc:
                 CC[:, i], h = self.prior.cat_sample(h, gen)
             Z[:, i] = self.prior.mdn.sample(h, gen)

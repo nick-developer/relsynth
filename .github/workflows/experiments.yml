@@ -18,7 +18,7 @@ on:
         default: "1,2,3"
       variants:
         description: "Comma-separated encoder:prior variants, plus shuffle"
-        default: "transformer:none,transformer:transformer,transformer:transformer+cat,transformer:gru+cat,shuffle"
+        default: "transformer:none,transformer:transformer,transformer:transformer+res,transformer:gru+res,shuffle"
       steps:
         description: "Training steps per stage (row VAE, family prior)"
         default: "3000"
@@ -77,7 +77,7 @@ jobs:
         env:
           DATASET: ${{ matrix.part.dataset }}
           SEED: ${{ matrix.part.seed }}
-          VARIANTS: ${{ inputs.variants || 'transformer:none,transformer:transformer,transformer:transformer+cat,transformer:gru+cat,shuffle' }}
+          VARIANTS: ${{ inputs.variants || 'transformer:none,transformer:transformer,transformer:transformer+res,transformer:gru+res,shuffle' }}
           STEPS: ${{ inputs.steps || '3000' }}
           MAXF: ${{ inputs.max_families || '-1' }}
         run: |
