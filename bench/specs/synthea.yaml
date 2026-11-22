@@ -11,6 +11,11 @@
 #  - claims.REFERRINGPROVIDERID is empty.
 # The dictionary states no date order; the date rules, roles and offsets are relsynth introspect's
 # draft, kept where the dictionary does not speak.
+# The draft's derives UNITAMOUNT = AMOUNT, TRANSFERS = AMOUNT and OUTSTANDING = AMOUNT held only where both
+# columns are set: on the full data each disagrees on whole transaction types (charges, payments or transfers; the
+# dictionary: OUTSTANDING is the balance after the transaction, TRANSFERS the amount moved), so they are
+# left out. claims.PATIENTDEPARTMENTID = DEPARTMENTID holds on every claim and is kept; the draft's min
+# aggregate over the transactions' departments wrote the same column and is dropped as redundant.
 version: 1
 name: synthea_1k
 source:
@@ -929,28 +934,10 @@ rules:
 - table: claims
   type: derive
   expr: PATIENTDEPARTMENTID = DEPARTMENTID
-- table: claims_transactions
-  type: derive
-  expr: UNITAMOUNT = AMOUNT
-  tolerance: 0.01
-- table: claims_transactions
-  type: derive
-  expr: TRANSFERS = AMOUNT
-  tolerance: 0.01
-- table: claims_transactions
-  type: derive
-  expr: OUTSTANDING = AMOUNT
-  tolerance: 0.01
 - table: medications
   type: derive
   expr: TOTALCOST = BASE_COST * DISPENSES
   tolerance: 0.01
-- table: claims
-  type: aggregate
-  column: PATIENTDEPARTMENTID
-  agg: min
-  from: claims_transactions
-  of: DEPARTMENTID
 - table: organizations
   type: aggregate
   column: UTILIZATION

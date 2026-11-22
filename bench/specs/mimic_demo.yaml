@@ -1465,7 +1465,7 @@ rules:
   expr: anchor_age <= 91
 - table: microbiologyevents
   type: check
-  expr: isnull(charttime) or floor(days(charttime)) == floor(days(chartdate))
+  expr: notnull(chartdate) and (isnull(charttime) or floor(days(charttime)) == floor(days(chartdate)))
 - table: diagnoses_icd
   type: check
   expr: seq_num >= 1

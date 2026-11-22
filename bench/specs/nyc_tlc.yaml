@@ -9,7 +9,8 @@
 # columns (a fee as another fee times a factor) are not kept. It gives no formula for total_amount and
 # tips are not only on card trips (cash trips have a few), so neither is a rule. The order of pick-up and
 # drop-off dates and the drop-off time as an offset are relsynth introspect's draft, kept where the
-# documentation does not speak (56 of 2,964,624 trips end before they start, at the second, not the day).
+# documentation does not speak (56 of 2,964,624 trips end before they start, at the second, not the day,
+# so the date rule compares calendar days).
 version: 1
 name: nyc_tlc_1m
 source:
@@ -110,7 +111,7 @@ relationships:
 rules:
 - table: trip
   type: check
-  expr: days(tpep_pickup_datetime) <= days(tpep_dropoff_datetime)
+  expr: floor(days(tpep_pickup_datetime)) <= floor(days(tpep_dropoff_datetime))
 synthesis:
   seed: 7
   scale:

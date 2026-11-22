@@ -226,6 +226,9 @@ def normalise(raw: dict) -> dict:
     if isinstance(pdm, dict) and isinstance(pdm.get("mode"), bool):
         # YAML 1.1 reads an unquoted on / off as true / false
         pdm["mode"] = "on" if pdm["mode"] else "off"
+    gsm = spec["synthesis"].get("generator_selection")
+    if isinstance(gsm, dict) and gsm.get("mode") is False:
+        gsm["mode"] = "off"                          # the same YAML 1.1 reading of an unquoted off
     if not isinstance(spec.get("tables") or {}, dict):
         raise SpecError("tables must be a mapping {table name: table}")
     if not isinstance(spec["relationships"], list) or not all(isinstance(r, dict) for r in spec["relationships"]):
@@ -935,9 +938,10 @@ def _validate_io(spec):
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
     from .generators.selection import config as selection_config, validate as validate_selection
-    errs += validate_selection(spec)
+    sel_errs = validate_selection(spec)
+    errs += sel_errs
     from .dp.config import section as dp_section
-    if selection_config(spec)["mode"] != "off" and dp_section(spec) is not None:
+    if not sel_errs and selection_config(spec)["mode"] != "off" and dp_section(spec) is not None:
         errs.append("synthesis.generator_selection: a choice made from the real data is not covered by the "
                     "privacy budget; set its mode to off in differential privacy mode and name the generator")
     errs += _validate_sequences(spec)

@@ -303,10 +303,11 @@ rules:
   expr: between(days(l_receiptdate) - days(l_shipdate), 1, 30)
 - table: lineitem
   type: check
-  expr: (l_linestatus == 'O') == (l_shipdate > '1995-06-17')
+  expr: (l_shipdate > '1995-06-17' and l_linestatus == 'O') or (l_shipdate <= '1995-06-17' and l_linestatus == 'F')
 - table: lineitem
   type: check
-  expr: (l_returnflag == 'N') == (l_receiptdate > '1995-06-17')
+  expr: (l_receiptdate > '1995-06-17' and l_returnflag == 'N') or (l_receiptdate <= '1995-06-17' and
+    l_returnflag in ['R', 'A'])
 - table: lineitem
   type: derive
   expr: l_extendedprice = l_quantity * l_partkey.p_retailprice

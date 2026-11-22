@@ -11,7 +11,7 @@ from relsynth.evaluate import grain_metrics, time_metrics
 from relsynth.spec import load_spec
 
 
-def _spec():
+def _spec(anchor="pu", partner="do"):
     return load_spec({
         "version": 1, "name": "trips",
         "source": {"kind": "csv", "path": "unused"}, "target": {"kind": "csv", "path": "unused"},
@@ -21,7 +21,7 @@ def _spec():
             "trip": {"role": "fact", "primary_key": "trip_id",
                      "columns": {"trip_id": {"type": "id"}, "pu": {"type": "id"}, "do": {"type": "id"},
                                  "at": {"type": "datetime"}, "fare": {"type": "float"}},
-                     "fact": {"anchor": "pu", "partner": "do", "time_column": "at", "time_bucket": "day"}}},
+                     "fact": {"anchor": anchor, "partner": partner, "time_column": "at", "time_bucket": "day"}}},
         "relationships": [
             {"child": "trip", "child_key": "pu", "parent": "zone", "parent_key": "zone_id"},
             {"child": "trip", "child_key": "do", "parent": "zone", "parent_key": "zone_id"}],
@@ -32,7 +32,8 @@ def _data(seed):
     rng = np.random.default_rng(seed)
     n = 400
     zone = pd.DataFrame({"zone_id": np.arange(1, 21), "borough": rng.choice(["A", "B"], 20)})
-    trip = pd.DataFrame({"trip_id": np.arange(n), "pu": rng.integers(1, 21, n), "do": rng.integers(1, 21, n),
+    # pick-ups crowd into two zones, drop-offs spread over all 20: the two roles have different weights
+    trip = pd.DataFrame({"trip_id": np.arange(n), "pu": rng.choice([1, 2], n), "do": rng.integers(1, 21, n),
                          "at": pd.Timestamp("2024-01-01") + pd.to_timedelta(rng.integers(0, 30, n), "D"),
                          "fare": rng.gamma(2.0, 5.0, n)})
     return {"zone": zone, "trip": trip}
@@ -59,6 +60,11 @@ def test_grain_pairs_use_both_roles_of_one_dimension():
 
 
 def test_time_metrics_use_the_anchor_role():
-    s = _spec()
+    """The anchor is the second link (drop-off): its effective size, not the pick-up's, is used."""
+    from relsynth.evaluate import _kish
+    s = _spec(anchor="do", partner="pu")
+    assert s["tables"]["trip"]["fact"].get("anchor_key") == "do"
     real, syn = _data(1), _data(2)
-    assert "bucket_tvd" in time_metrics(s, real, syn, "trip")
+    want, other = _kish(real["trip"], "do", len(real["trip"])), _kish(real["trip"], "pu", len(real["trip"]))
+    assert abs(want - other) > 1
+    assert time_metrics(s, real, syn, "trip")["n_eff"] == round(want, 1)

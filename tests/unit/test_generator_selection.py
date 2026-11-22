@@ -50,6 +50,18 @@ def test_bad_settings_are_refused(shop, raw, msg):
         load_spec(_sel(shop, **raw))
 
 
+def test_a_selection_block_that_is_not_a_mapping_is_a_spec_error(shop):
+    s = copy.deepcopy(shop)
+    s.setdefault("synthesis", {})["generator_selection"] = "trial"
+    with pytest.raises(SpecError, match="must be a mapping"):
+        load_spec(s)
+
+
+def test_an_unquoted_off_reads_as_off(shop):
+    s = load_spec(_sel(shop, mode=False))          # YAML 1.1: mode: off  ->  False
+    assert S.config(s)["mode"] == "off"
+
+
 def test_refused_in_differential_privacy_mode(shop):
     s = _sel(shop, mode="auto")
     s["synthesis"]["privacy"] = {"dp": {"epsilon": 1.0}}
