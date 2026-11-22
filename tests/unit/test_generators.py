@@ -50,7 +50,7 @@ def test_builtins_are_registered_with_capabilities():
     info = {g["name"]: g for g in reg.list()}
     assert info["copula"]["capabilities"]["conditioning"] == ["group", "parent"]
     assert info["independent"]["capabilities"]["conditioning"] == ["group"]
-    assert all(g["capabilities"]["gpu"] == "never" for g in info.values())
+    assert all(info[g]["capabilities"]["gpu"] == "never" for g in ("copula", "independent", "cart"))
     with pytest.raises(GeneratorError, match="did you mean 'copula'"):
         reg.entry("copulaa")
 

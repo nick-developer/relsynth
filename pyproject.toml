@@ -61,6 +61,8 @@ documents = ["pymongo>=4.18.3", "azure-cosmos>=4.5", "boto3>=1.34"]
 couchbase = ["couchbase>=4.6"]
 # synthetic text with local language models (docs/text.md); weights are never bundled
 text-lm = ["torch>=2.13", "transformers>=5.10", "peft>=0.12"]
+# neural generator plug-ins tvae and ddpm (docs/neural.md); CPU or GPU builds of PyTorch both work
+neural = ["torch>=2.13"]
 # PII recognizers beyond the built-in regex (Presidio and spaCy MIT, GLiNER Apache-2.0); models are local folders
 text-pii = ["presidio-analyzer>=2.2", "spacy>=3.7", "gliner>=0.2"]
 all = ["relsynth[postgres,mssql,oracle,mysql,databricks,fabric,snowflake,bigquery,parquet,iceberg,delta]"]

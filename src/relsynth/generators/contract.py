@@ -175,6 +175,13 @@ class TableGenerator:
     def __init__(self, options: dict | None = None):
         self.options = dict(options or {})
 
+    @classmethod
+    def unavailable(cls) -> str | None:
+        """Why this generator cannot run in this installation (a missing optional
+        dependency, with the install command), or None.  The registry reports it
+        before fitting (registry.check)."""
+        return None
+
     # ---- required
     def fit(self, data, context: FitContext, privacy_budget=None) -> TableGenerator:
         raise NotImplementedError
