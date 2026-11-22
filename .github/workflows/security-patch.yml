@@ -66,10 +66,10 @@ jobs:
       # Its token lives one hour and is revoked when the job ends.
       - name: Dependabot alerts token (GitHub App)
         id: app
-        if: vars.SECURITY_ALERTS_APP_ID != ''
+        if: vars.SECURITY_ALERTS_APP_CLIENT_ID != ''
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
-          app-id: ${{ vars.SECURITY_ALERTS_APP_ID }}
+          client-id: ${{ vars.SECURITY_ALERTS_APP_CLIENT_ID }}
           private-key: ${{ secrets.SECURITY_ALERTS_APP_KEY }}
           permission-vulnerability-alerts: read
           permission-metadata: read
