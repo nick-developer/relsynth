@@ -581,6 +581,16 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                                                                          "lookup"):
                     errs.append(f"{tname}.{cname}: offset_from {of} must be another date or number column of "
                                 f"{tname} or a path 'fk.column' to one in a parent table")
+                else:
+                    # a chain within the table must end at a column that is not an offset (a path
+                    # through a foreign key leaves the table, toward its parents, and ends the walk)
+                    seen, cur = {cname}, of
+                    while "." not in cur and cur in t["columns"] and t["columns"][cur].get("offset_from") is not None:
+                        if cur in seen:
+                            errs.append(f"{tname}.{cname}: offset_from columns form a cycle through {cur}")
+                            break
+                        seen.add(cur)
+                        cur = str(t["columns"][cur]["offset_from"])
             if c.get("ratio_of") is not None:
                 if c.get("type") not in ("float", "integer"):
                     errs.append(f"{tname}.{cname}: ratio_of needs a number column")

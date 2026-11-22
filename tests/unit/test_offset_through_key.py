@@ -92,6 +92,5 @@ def test_validation_of_offset_paths(tmp_path):
 
 def test_offset_cycle_is_refused(tmp_path):
     db = _db(tmp_path, n_orders=5)
-    s = _spec(db, ship_base="l_receipt")
-    with pytest.raises(Exception, match="cycle"):
-        rs.run(s, write=False, privacy=False, seed=1)
+    with pytest.raises(SpecError, match="cycle"):
+        load_spec(_spec(db, ship_base="l_receipt"))
