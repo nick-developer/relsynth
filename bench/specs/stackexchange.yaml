@@ -1,0 +1,354 @@
+# Stack Exchange data dump (coffee.stackexchange.com), written from its documentation.
+# Sources:
+#  - readme of the dump: https://archive.org/download/stackexchange/readme.txt (fields, code lists,
+#    when a field is present)
+#  - schema post it refers to: https://meta.stackexchange.com/questions/2677 (not readable from the
+#    build environment; the readme carries the same field notes)
+#  - keys and foreign keys: declared by bench/builders/stackexchange_sqlite.py from the readme.
+# Each documented rule was checked on the dump before it was written here; where the dump differs from
+# the readme (Votes.UserId is set for VoteTypeId 8, not 5), the dump's behaviour is kept and noted.
+# The remaining settings (column types, offsets, date order rules, fact roles) are relsynth introspect's
+# draft, kept where no documentation speaks to them.
+# Documented rules the engine cannot state yet: ParentId.PostTypeId (ParentId is a self-reference, and only
+# one per table is declared), rules on Title or UserDisplayName (text and pii columns are generated after the
+# checks run).
+version: 1
+name: stackexchange
+source:
+  kind: sqlite
+  path: bench/.cache/stackexchange/coffee.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  Badges:
+    role: entity
+    columns:
+      Id:
+        type: id
+      UserId:
+        type: id
+      Name:
+        type: categorical
+      Date:
+        type: datetime
+      Class:
+        type: categorical
+        description: 1 Gold, 2 Silver, 3 Bronze
+      TagBased:
+        type: boolean
+        description: true if the badge is for a tag
+    primary_key: Id
+    dimensions:
+    - key: Name
+      columns:
+      - Class
+      anchor: Name
+  Comments:
+    role: fact
+    columns:
+      Id:
+        type: id
+      PostId:
+        type: id
+      Score:
+        type: integer
+      Text:
+        type: text
+      CreationDate:
+        type: datetime
+      UserId:
+        type: id
+      UserDisplayName:
+        type: pii
+        pii:
+          generator: person_name
+        description: 'a person''s display name (the readme: kept for removed users)'
+    primary_key: Id
+    fact:
+      anchor: Posts
+      partner: Users
+      time_column: CreationDate
+      time_bucket: month
+  PostLinks:
+    role: fact
+    columns:
+      Id:
+        type: id
+      CreationDate:
+        type: datetime
+      PostId:
+        type: id
+      RelatedPostId:
+        type: id
+      LinkTypeId:
+        type: categorical
+        description: 1 Linked, 3 Duplicate
+    primary_key: Id
+    fact:
+      anchor: Posts
+      time_column: CreationDate
+      time_bucket: month
+  Posts:
+    role: entity
+    columns:
+      Id:
+        type: id
+      PostTypeId:
+        type: categorical
+        description: 1 Question, 2 Answer, 4 Tag wiki excerpt, 5 Tag wiki, 6 Moderator nomination, 7 Wiki placeholder
+          (readme; 4-7 from the dump)
+      AcceptedAnswerId:
+        type: integer
+        description: 'the accepted answer of a question; a second self-reference, kept as a plain column (one self-reference
+          per table: ParentId)'
+      CreationDate:
+        type: datetime
+      Score:
+        type: integer
+      ViewCount:
+        type: integer
+      Body:
+        type: text
+      OwnerUserId:
+        type: id
+      LastActivityDate:
+        type: datetime
+        offset_from: CreationDate
+      Title:
+        type: text
+      Tags:
+        type: categorical
+      AnswerCount:
+        type: integer
+      CommentCount:
+        type: integer
+      ContentLicense:
+        type: categorical
+      LastEditorUserId:
+        type: id
+      LastEditDate:
+        type: datetime
+        offset_from: CreationDate
+      ParentId:
+        type: id
+        description: the question of an answer (present only for answers)
+      OwnerDisplayName:
+        type: pii
+        pii:
+          generator: person_name
+        description: 'a person''s display name (the readme: kept for removed users)'
+      ClosedDate:
+        type: datetime
+        offset_from: CreationDate
+        description: present only if the post is closed
+      LastEditorDisplayName:
+        type: pii
+        pii:
+          generator: person_name
+        description: 'a person''s display name (the readme: kept for removed users)'
+      FavoriteCount:
+        type: integer
+      CommunityOwnedDate:
+        type: datetime
+        description: present only if the post is community wiki
+    primary_key: Id
+  Tags:
+    role: entity
+    columns:
+      Id:
+        type: id
+      TagName:
+        type: pii
+        pii:
+          generator: pattern
+      Count:
+        type: integer
+      ExcerptPostId:
+        type: id
+        description: present if an excerpt was created (a post of type 4)
+      WikiPostId:
+        type: id
+        description: present if a wiki was created (a post of type 5)
+    primary_key: Id
+  Users:
+    role: entity
+    columns:
+      Id:
+        type: id
+      Reputation:
+        type: integer
+      CreationDate:
+        type: datetime
+      DisplayName:
+        type: pii
+        pii:
+          generator: person_name
+        description: the user's display name
+      LastAccessDate:
+        type: datetime
+        offset_from: CreationDate
+      Location:
+        type: text
+      AboutMe:
+        type: text
+      Views:
+        type: integer
+      UpVotes:
+        type: integer
+      DownVotes:
+        type: integer
+      AccountId:
+        type: integer
+      WebsiteUrl:
+        type: pii
+        pii:
+          generator: pattern
+    primary_key: Id
+    unknown_members:
+    - -1
+    - 4248
+    key_order: CreationDate
+  Votes:
+    role: fact
+    columns:
+      Id:
+        type: id
+      PostId:
+        type: id
+      VoteTypeId:
+        type: categorical
+        description: 1 AcceptedByOriginator, 2 UpMod, 3 DownMod, 4 Offensive, 5 Favorite, 6 Close, 7 Reopen, 8 BountyStart,
+          9 BountyClose, 10 Deletion, 11 Undeletion, 12 Spam, 13 InformModerator, 15 ModeratorReview, 16 ApproveEditSuggestion
+      CreationDate:
+        type: date
+        description: 'a calendar date: the dump keeps the day of each vote only'
+      UserId:
+        type: id
+        description: present only for bounty votes in this dump (the readme says VoteTypeId 5)
+      BountyAmount:
+        type: integer
+        description: present only for bounty votes (VoteTypeId 8 and 9)
+    primary_key: Id
+    fact:
+      anchor: Posts
+      partner: Users
+      time_column: CreationDate
+      time_bucket: month
+relationships:
+- child: Badges
+  child_key: UserId
+  parent: Users
+  parent_key: Id
+- child: Comments
+  child_key: PostId
+  parent: Posts
+  parent_key: Id
+- child: Comments
+  child_key: UserId
+  parent: Users
+  parent_key: Id
+- child: PostLinks
+  child_key: PostId
+  parent: Posts
+  parent_key: Id
+- child: PostLinks
+  child_key: RelatedPostId
+  parent: Posts
+  parent_key: Id
+- child: Posts
+  child_key: OwnerUserId
+  parent: Users
+  parent_key: Id
+- child: Posts
+  child_key: LastEditorUserId
+  parent: Users
+  parent_key: Id
+- child: Posts
+  child_key: ParentId
+  parent: Posts
+  parent_key: Id
+  kind: self_reference
+- child: Tags
+  child_key: ExcerptPostId
+  parent: Posts
+  parent_key: Id
+- child: Tags
+  child_key: WikiPostId
+  parent: Posts
+  parent_key: Id
+- child: Votes
+  child_key: PostId
+  parent: Posts
+  parent_key: Id
+- child: Votes
+  child_key: UserId
+  parent: Users
+  parent_key: Id
+rules:
+- table: Posts
+  type: aggregate
+  column: CommentCount
+  agg: count
+  from: Comments
+- table: Badges
+  type: check
+  expr: days(UserId.CreationDate) <= days(Date)
+- table: Comments
+  type: check
+  expr: days(PostId.CreationDate) < days(CreationDate)
+- table: PostLinks
+  type: check
+  expr: days(PostId.CreationDate) <= days(CreationDate)
+- table: PostLinks
+  type: check
+  expr: days(RelatedPostId.CreationDate) < days(CreationDate)
+- table: Posts
+  type: check
+  expr: days(CreationDate) <= days(LastActivityDate)
+- table: Posts
+  type: check
+  expr: days(CreationDate) <= days(LastEditDate)
+- table: Posts
+  type: check
+  expr: days(OwnerUserId.CreationDate) < days(ClosedDate)
+- table: Users
+  type: check
+  expr: days(CreationDate) <= days(LastAccessDate)
+- table: Posts
+  type: check
+  expr: isnull(ParentId) or PostTypeId == 2
+- table: Posts
+  type: check
+  expr: PostTypeId != 2 or notnull(ParentId)
+- table: Posts
+  type: check
+  expr: isnull(AcceptedAnswerId) or PostTypeId == 1
+- table: Posts
+  type: check
+  expr: (PostTypeId == 1) == notnull(Tags)
+- table: Posts
+  type: check
+  expr: (PostTypeId == 1) == notnull(AnswerCount)
+- table: Posts
+  type: check
+  expr: isnull(ClosedDate) or PostTypeId == 1
+- table: Votes
+  type: check
+  expr: isnull(UserId) or VoteTypeId == 8
+- table: Votes
+  type: check
+  expr: isnull(BountyAmount) or VoteTypeId == 8 or VoteTypeId == 9
+- table: Votes
+  type: check
+  expr: VoteTypeId != 1 or PostId.PostTypeId == 2
+- table: Tags
+  type: check
+  expr: isnull(ExcerptPostId) or ExcerptPostId.PostTypeId == 4
+- table: Tags
+  type: check
+  expr: isnull(WikiPostId) or WikiPostId.PostTypeId == 5
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

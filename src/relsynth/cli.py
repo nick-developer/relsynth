@@ -286,7 +286,9 @@ def _record_governed(a, out, gv, res, s, privacy=None, dp_statement=None, public
             stated = (pu or privacy)["stated"]
             cfg["release"] = {"dp": {"epsilon": float(stated["epsilon"]), "delta": float(stated["delta"]),
                                      "unit": cfg.get("unit") if pu else privacy["unit"]}}
-        rep = P.assess(s, cfg, generator=generator, progress=lambda m: out.line(m))
+        # outside DP mode the attacks fit the spec the release applied (the generators the selection chose)
+        target = s if privacy is not None or generator is not None else res.data.spec
+        rep = P.assess(target, cfg, generator=generator, progress=lambda m: out.line(m))
     report = report if privacy is not None else res.report
     sc = None
     if report is not None:
@@ -448,6 +450,11 @@ def cmd_run(a, out):
             rows={t: len(d) for t, d in (res.data or {}).items()},
             pushdown=res.bundle.get("pushdown"), errors=[{"step": e["step"], "error": e["error"]} for e in res.errors],
             written=[_mask(w) for w in res.written])
+    sel = res.bundle.get("generator_selection")
+    if sel:
+        out.put(generator_selection=sel)
+        picked = sorted(set(sel["chosen"].values()))
+        out.line(f"generator selection ({sel['mode']}): {', '.join(picked) or 'no table to choose for'}")
     if res.report is not None:
         out.put(scorecard={"passed": res.report.passed, "total": res.report.total, "score": res.report.score,
                            "failed": res.report.failed})

@@ -165,6 +165,7 @@ def verify(spec, *, draws: int = 5, stability: bool = True, out=None, privacy: b
     if seed is not None:
         s["synthesis"]["seed"] = int(seed)
     run = execute(s, out=out if out else False, write=bool(out), privacy=privacy, pushdown=pushdown)
+    s = run.spec if run.spec is not None else s     # with the generators synthesis.generator_selection chose
     rep = VerifyReport(name=str(s.get("name") or "spec"), bundle=run.bundle)
     rep.errors = list(run.errors)
 

@@ -1,0 +1,88 @@
+# UCI Online Retail II as a four-table star, written from its documentation.
+# Sources:
+#  - https://archive.ics.uci.edu/dataset/502/online+retail+ii (variables: invoice number with a leading
+#    'C' for a cancellation, stock code, description, quantity, invoice date, unit price in sterling,
+#    customer id, country)
+#  - tables and keys: bench/builders/online_retail_sqlite.py, which splits the sheet as an order system would.
+# The documentation states no rule the engine can express: the cancellation mark lives in the invoice
+# key, which is generated anew (quantity < 0 on 19,493 of 19,494 lines of cancelled invoices and on 3,457
+# other lines), so it is described, not enforced. Column types and roles are relsynth introspect's draft.
+version: 1
+name: online_retail_ii
+source:
+  kind: sqlite
+  path: bench/.cache/online_retail_ii/retail.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  customer:
+    role: entity
+    columns:
+      customer_id:
+        type: id
+      country:
+        type: categorical
+        description: name of the country where the customer resides
+    primary_key: customer_id
+  invoice:
+    role: entity
+    columns:
+      invoice:
+        type: id
+        description: invoice number, 6 digits; a leading 'C' marks a cancellation
+      invoice_date:
+        type: datetime
+        description: day and time when the transaction was generated
+      customer_id:
+        type: id
+        description: customer number, 5 digits; missing on some invoices
+    primary_key: invoice
+  invoice_line:
+    role: fact
+    columns:
+      line_id:
+        type: id
+        description: row number added by the bench builder
+      invoice:
+        type: id
+      stock_code:
+        type: id
+      quantity:
+        type: integer
+        description: quantity of the product per transaction (negative on cancellations)
+      price:
+        type: float
+        description: product price per unit in sterling
+    primary_key: line_id
+    fact:
+      anchor: invoice
+      partner: product
+  product:
+    role: entity
+    columns:
+      stock_code:
+        type: id
+        description: product code (5 digits for most products)
+      description:
+        type: text
+        description: product name
+    primary_key: stock_code
+relationships:
+- child: invoice
+  child_key: customer_id
+  parent: customer
+  parent_key: customer_id
+- child: invoice_line
+  child_key: invoice
+  parent: invoice
+  parent_key: invoice
+- child: invoice_line
+  child_key: stock_code
+  parent: product
+  parent_key: stock_code
+rules: []
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

@@ -100,6 +100,10 @@ DEFAULT_SYNTHESIS = {
     # generator plug-in of the attribute columns (relsynth.generators) and the
     # devices plug-ins may use (relsynth.compute); the default engine is CPU-only
     "generator": "copula",
+    # generator selection (relsynth.generators.selection): off keeps the spec's choice (the
+    # default, chosen by Cod3r 2026-11-21); auto picks per table by documented rules; trial fits,
+    # samples and scores every candidate with `seeds` seeds and keeps the best (privacy first)
+    "generator_selection": {"mode": "off", "seeds": 1, "candidates": None},
     "compute": {"preset": "cpu", "file": None, "overrides": {}},
     # where the facts of a dataset are generated (relsynth.runtime): none keeps the
     # single-process sampler of 1.0; local, process and spark generate them in
@@ -222,6 +226,9 @@ def normalise(raw: dict) -> dict:
     if isinstance(pdm, dict) and isinstance(pdm.get("mode"), bool):
         # YAML 1.1 reads an unquoted on / off as true / false
         pdm["mode"] = "on" if pdm["mode"] else "off"
+    gsm = spec["synthesis"].get("generator_selection")
+    if isinstance(gsm, dict) and gsm.get("mode") is False:
+        gsm["mode"] = "off"                          # the same YAML 1.1 reading of an unquoted off
     if not isinstance(spec.get("tables") or {}, dict):
         raise SpecError("tables must be a mapping {table name: table}")
     if not isinstance(spec["relationships"], list) or not all(isinstance(r, dict) for r in spec["relationships"]):
@@ -930,6 +937,13 @@ def _validate_io(spec):
         else:
             errs.append("synthesis.compute must be a mapping {preset, file, overrides} with overrides a mapping")
     errs += _validate_generators(spec)
+    from .generators.selection import config as selection_config, validate as validate_selection
+    sel_errs = validate_selection(spec)
+    errs += sel_errs
+    from .dp.config import section as dp_section
+    if not sel_errs and selection_config(spec)["mode"] != "off" and dp_section(spec) is not None:
+        errs.append("synthesis.generator_selection: a choice made from the real data is not covered by the "
+                    "privacy budget; set its mode to off in differential privacy mode and name the generator")
     errs += _validate_sequences(spec)
     from .scenarios import validate as validate_scenarios
     errs += validate_scenarios(spec)

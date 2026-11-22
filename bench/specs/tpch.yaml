@@ -1,0 +1,317 @@
+# TPC-H test database (DuckDB's dbgen), written from the TPC-H specification.
+# Sources:
+#  - TPC Benchmark H Standard Specification, Revision 3.0.1
+#    (https://www.tpc.org/TPC_Documents_Current_Versions/doc/tpc-h_v3.0.1.docx):
+#    clause 1.4.1 (tables, columns, datatypes, keys and foreign keys), clause 1.4.2.4 (check
+#    constraints), clause 4.2.3 (how each column is generated: ranges, the date gaps, the line and return
+#    status rules with CURRENTDATE = 1995-06-17, L_EXTENDEDPRICE = L_QUANTITY * P_RETAILPRICE, 1 to 7
+#    lines per order, brand within manufacturer, O_SHIPPRIORITY = 0).
+# Every rule below was checked on the SF1 data first (0 violations in 6,001,215 lines).
+# One spec serves every scale factor: tpch_sf1, tpch_sf10 and tpch_sf100 differ only in row counts.
+# Datatypes map as: identifier -> id; integer -> integer; decimal -> float with 2 decimals;
+# date -> date; fixed text of a short coded value -> categorical; variable text -> text.
+# Not written as rules, with the reason:
+#  - O_TOTALPRICE: the clause's sum differs from dbgen's stored value by up to 0.11 on 96% of orders
+#    (dbgen rounds per line), so an exact aggregate would be false;
+#  - O_ORDERSTATUS from the status of all its lines, O_CUSTKEY modulo 3 != 0, P_RETAILPRICE and
+#    PS_SUPPKEY from key arithmetic: they depend on key values, which are generated anew;
+#  - the composite foreign key (L_PARTKEY, L_SUPPKEY) -> PARTSUPP holds on every line but cannot be
+#    declared on a fact beside its anchor, so lineitem links to part and supplier separately.
+# Model settings no clause speaks to (fact anchors and partners, the seasonal time column) are
+# relsynth's usual choices for an order-and-lines schema.
+# Results from this data are scale and integrity tests of relsynth, not TPC-H results.
+version: 1
+name: tpch
+source:
+  kind: parquet
+  path: bench/.cache/tpch_sf1/parquet
+target:
+  kind: csv
+  path: synthetic
+tables:
+  region:
+    role: entity
+    mode: copy
+    description: 5 regions (Clause 1.4.1)
+    columns:
+      r_regionkey:
+        type: id
+      r_name:
+        type: categorical
+      r_comment:
+        type: text
+    primary_key: r_regionkey
+  nation:
+    role: entity
+    mode: copy
+    description: 25 nations (Clause 1.4.1)
+    columns:
+      n_nationkey:
+        type: id
+      n_name:
+        type: categorical
+      n_regionkey:
+        type: id
+      n_comment:
+        type: text
+    primary_key: n_nationkey
+  part:
+    role: entity
+    description: SF*200,000 parts
+    columns:
+      p_partkey:
+        type: id
+      p_name:
+        type: text
+      p_mfgr:
+        type: categorical
+      p_brand:
+        type: categorical
+      p_type:
+        type: categorical
+      p_size:
+        type: integer
+        min: 1
+        max: 50
+      p_container:
+        type: categorical
+      p_retailprice:
+        type: float
+        min: 0
+        decimals: 2
+      p_comment:
+        type: text
+    primary_key: p_partkey
+    dimensions:
+    - key: p_brand
+      columns: [p_mfgr]
+      description: Brand#MN takes M from Manufacturer#M (clause 4.2.3)
+  supplier:
+    role: entity
+    description: SF*10,000 suppliers
+    columns:
+      s_suppkey:
+        type: id
+      s_name:
+        type: pii
+        pii:
+          generator: pattern
+      s_address:
+        type: pii
+        pii:
+          generator: pattern
+      s_nationkey:
+        type: id
+      s_phone:
+        type: pii
+        pii:
+          generator: phone
+      s_acctbal:
+        type: float
+        min: -999.99
+        max: 9999.99
+        decimals: 2
+      s_comment:
+        type: text
+    primary_key: s_suppkey
+  partsupp:
+    role: fact
+    description: the suppliers of each part; primary key (ps_partkey, ps_suppkey)
+    columns:
+      ps_partkey:
+        type: id
+      ps_suppkey:
+        type: id
+      ps_availqty:
+        type: integer
+        min: 1
+        max: 9999
+      ps_supplycost:
+        type: float
+        min: 1
+        max: 1000
+        decimals: 2
+      ps_comment:
+        type: text
+    unique:
+    - [ps_partkey, ps_suppkey]
+    fact:
+      anchor: part
+      partner: supplier
+  customer:
+    role: entity
+    description: SF*150,000 customers
+    columns:
+      c_custkey:
+        type: id
+      c_name:
+        type: pii
+        pii:
+          generator: pattern
+      c_address:
+        type: pii
+        pii:
+          generator: pattern
+      c_nationkey:
+        type: id
+      c_phone:
+        type: pii
+        pii:
+          generator: phone
+      c_acctbal:
+        type: float
+        min: -999.99
+        max: 9999.99
+        decimals: 2
+      c_mktsegment:
+        type: categorical
+      c_comment:
+        type: text
+    primary_key: c_custkey
+  orders:
+    role: entity
+    description: SF*1,500,000 orders, the header of lineitem; one third of customers have none
+    columns:
+      o_orderkey:
+        type: id
+      o_custkey:
+        type: id
+      o_orderstatus:
+        type: categorical
+      o_totalprice:
+        type: float
+        min: 0
+        decimals: 2
+      o_orderdate:
+        type: date
+      o_orderpriority:
+        type: categorical
+      o_clerk:
+        type: categorical
+      o_shippriority:
+        type: constant
+        description: always 0 (clause 4.2.3)
+      o_comment:
+        type: text
+    primary_key: o_orderkey
+  lineitem:
+    role: fact
+    description: order lines; primary key (l_orderkey, l_linenumber)
+    columns:
+      l_orderkey:
+        type: id
+      l_partkey:
+        type: id
+      l_suppkey:
+        type: id
+      l_linenumber:
+        description: 1 to 7 lines per order (clause 4.2.3)
+        type: sequence
+        within: l_orderkey
+        start: 1
+      l_quantity:
+        type: float
+        min: 1
+        max: 50
+        decimals: 2
+      l_extendedprice:
+        type: float
+        min: 0
+        decimals: 2
+      l_discount:
+        type: float
+        min: 0
+        max: 0.1
+        decimals: 2
+      l_tax:
+        type: float
+        min: 0
+        max: 0.08
+        decimals: 2
+      l_returnflag:
+        type: categorical
+      l_linestatus:
+        type: categorical
+      l_shipdate:
+        type: date
+      l_commitdate:
+        type: date
+      l_receiptdate:
+        type: date
+        offset_from: l_shipdate
+        description: L_SHIPDATE <= L_RECEIPTDATE (Clause 1.4.2.4), so a non-negative gap after the ship date
+      l_shipinstruct:
+        type: categorical
+      l_shipmode:
+        type: categorical
+      l_comment:
+        type: text
+    unique:
+    - [l_orderkey, l_linenumber]
+    fact:
+      anchor: orders
+      partner: part
+      time_column: l_shipdate
+      time_bucket: month
+relationships:
+- child: nation
+  child_key: n_regionkey
+  parent: region
+  parent_key: r_regionkey
+- child: supplier
+  child_key: s_nationkey
+  parent: nation
+  parent_key: n_nationkey
+- child: customer
+  child_key: c_nationkey
+  parent: nation
+  parent_key: n_nationkey
+- child: partsupp
+  child_key: ps_partkey
+  parent: part
+  parent_key: p_partkey
+- child: partsupp
+  child_key: ps_suppkey
+  parent: supplier
+  parent_key: s_suppkey
+- child: orders
+  child_key: o_custkey
+  parent: customer
+  parent_key: c_custkey
+- child: lineitem
+  child_key: l_orderkey
+  parent: orders
+  parent_key: o_orderkey
+- child: lineitem
+  child_key: l_partkey
+  parent: part
+  parent_key: p_partkey
+- child: lineitem
+  child_key: l_suppkey
+  parent: supplier
+  parent_key: s_suppkey
+rules:
+# clause 1.4.2.4 (bounds above) and clause 4.2.3
+- table: lineitem
+  type: check
+  expr: between(days(l_shipdate) - days(l_orderkey.o_orderdate), 1, 121)
+- table: lineitem
+  type: check
+  expr: between(days(l_commitdate) - days(l_orderkey.o_orderdate), 30, 90)
+- table: lineitem
+  type: check
+  expr: between(days(l_receiptdate) - days(l_shipdate), 1, 30)
+- table: lineitem
+  type: check
+  expr: (l_shipdate > '1995-06-17' and l_linestatus == 'O') or (l_shipdate <= '1995-06-17' and l_linestatus == 'F')
+- table: lineitem
+  type: check
+  expr: (l_receiptdate > '1995-06-17' and l_returnflag == 'N') or (l_receiptdate <= '1995-06-17' and
+    l_returnflag in ['R', 'A'])
+- table: lineitem
+  type: derive
+  expr: l_extendedprice = l_quantity * l_partkey.p_retailprice
+  tolerance: 0.001
+- table: orders
+  type: check
+  expr: o_orderdate >= '1992-01-01' and o_orderdate <= '1998-08-02'

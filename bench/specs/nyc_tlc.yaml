@@ -1,0 +1,118 @@
+# NYC TLC yellow taxi trips (one month) and the taxi zone lookup, written from the TLC documentation.
+# Sources:
+#  - https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_yellow.pdf (fields and
+#    code lists: VendorID, RatecodeID, store_and_fwd_flag, payment_type; what each charge holds)
+#  - https://www.nyc.gov/assets/tlc/downloads/pdf/trip_record_user_guide.pdf (one row per trip; pick-up
+#    and drop-off zones are TLC Taxi Zones, the zone lookup table)
+# Each documented link was checked on the data first: every PULocationID and DOLocationID is a zone.
+# The dictionary defines each fee as a charge of its own, so the ratios the draft found between fee
+# columns (a fee as another fee times a factor) are not kept. It gives no formula for total_amount and
+# tips are not only on card trips (cash trips have a few), so neither is a rule. The order of pick-up and
+# drop-off dates and the drop-off time as an offset are relsynth introspect's draft, kept where the
+# documentation does not speak (56 of 2,964,624 trips end before they start, at the second, not the day,
+# so the date rule compares calendar days).
+version: 1
+name: nyc_tlc_1m
+source:
+  kind: parquet
+  path: bench/.cache/nyc_tlc_1m/parquet
+target:
+  kind: csv
+  path: synthetic
+tables:
+  trip:
+    role: fact
+    columns:
+      trip_id:
+        type: id
+        description: row number added by the bench builder (file order, then row order)
+      VendorID:
+        type: categorical
+        description: 1 Creative Mobile Technologies, 2 Curb Mobility, 6 Myle Technologies, 7 Helix
+      tpep_pickup_datetime:
+        type: datetime
+      tpep_dropoff_datetime:
+        type: datetime
+        offset_from: tpep_pickup_datetime
+      passenger_count:
+        type: integer
+      trip_distance:
+        type: float
+        description: elapsed trip distance in miles reported by the taximeter
+      RatecodeID:
+        type: categorical
+        description: 1 Standard, 2 JFK, 3 Newark, 4 Nassau or Westchester, 5 Negotiated fare, 6 Group ride, 99 Null/unknown
+      store_and_fwd_flag:
+        type: categorical
+        description: Y store and forward trip, N not a store and forward trip
+      PULocationID:
+        type: id
+        description: TLC Taxi Zone in which the taximeter was engaged
+      DOLocationID:
+        type: id
+        description: TLC Taxi Zone in which the taximeter was disengaged
+      payment_type:
+        type: categorical
+        description: 0 Flex Fare trip, 1 Credit card, 2 Cash, 3 No charge, 4 Dispute, 5 Unknown, 6 Voided trip
+      fare_amount:
+        type: float
+      extra:
+        type: float
+        description: miscellaneous extras and surcharges
+      mta_tax:
+        type: float
+        description: MTA tax triggered by the metered rate in use
+      tip_amount:
+        type: float
+        description: automatically populated for credit card tips; cash tips are not included
+      tolls_amount:
+        type: float
+        description: total amount of all tolls paid in trip
+      improvement_surcharge:
+        type: float
+        description: improvement surcharge assessed on trips at the flag drop
+      total_amount:
+        type: float
+        description: total amount charged to passengers; does not include cash tips
+      congestion_surcharge:
+        type: float
+        description: total amount collected in trip for NYS congestion surcharge
+      Airport_fee:
+        type: float
+        description: for pick up only at LaGuardia and John F. Kennedy airports
+    primary_key: trip_id
+    fact:
+      anchor: PULocationID
+      partner: DOLocationID
+      time_column: tpep_pickup_datetime
+      time_bucket: day
+  zone:
+    role: entity
+    columns:
+      LocationID:
+        type: id
+      Borough:
+        type: categorical
+      Zone:
+        type: text
+      service_zone:
+        type: categorical
+    primary_key: LocationID
+    description: 'taxi zone lookup: 265 zones (264 and 265 stand for unknown zones)'
+relationships:
+- child: trip
+  child_key: PULocationID
+  parent: zone
+  parent_key: LocationID
+- child: trip
+  child_key: DOLocationID
+  parent: zone
+  parent_key: LocationID
+rules:
+- table: trip
+  type: check
+  expr: floor(days(tpep_pickup_datetime)) <= floor(days(tpep_dropoff_datetime))
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
