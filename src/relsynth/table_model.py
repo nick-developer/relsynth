@@ -324,7 +324,8 @@ class TableModel:
     def fitted_groups(self):
         return self.generator.fitted_groups()
 
-    def sample(self, groups, rng, given: pd.DataFrame | None = None, family=None, order=None) -> pd.DataFrame:
+    def sample(self, groups, rng, given: pd.DataFrame | None = None, family=None, order=None,
+               siblings: pd.DataFrame | None = None) -> pd.DataFrame:
         from .generators.contract import Conditioning
         groups = np.asarray(groups)
         if given is not None and "parent" not in self.generator.capabilities.conditioning:
@@ -333,6 +334,7 @@ class TableModel:
         if self.uses_family and family is not None:
             cond.family = np.asarray(family, np.int64)
             cond.order = None if order is None else np.asarray(order, float)
+            cond.siblings = siblings
         df = self.generator.sample(len(groups), cond, rng)
         if list(df.columns) != self.out_cols or (self.out_cols and len(df) != len(groups)):
             from .generators.contract import GeneratorError

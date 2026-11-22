@@ -178,3 +178,22 @@ def test_non_fact_table_warns(enterprise):
     spec = load_spec(copy.deepcopy(enterprise))
     errs, warns = check(default_registry().entry("ctvae").cls, spec, "customer")
     assert any("families of one row" in w for w in warns)
+
+
+def test_redraw_is_given_the_kept_siblings(families_csv):
+    """Contract 1.1 redraw: rows drawn given kept siblings follow them (teacher forcing)."""
+    m = rs.fit(_with(families_csv, vae_steps=400, prior_steps=400), seed=2)
+    gen = m.synthesizer.tm["tx"].generator
+    rng = np.random.default_rng(0)
+    groups = np.array(sorted(gen.group_ix))[:1]
+    k, n_fam = 6, 60
+    # every family: 6 kept siblings all of one kind, 1 row to redraw
+    kinds = np.array(["w", "x", "y", "z"])[np.arange(n_fam) % 4]
+    sib = pd.DataFrame({"kind": np.repeat(kinds, k), "amount": 20.0,
+                        "__family__": np.repeat(np.arange(n_fam), k), "__order__": np.nan,
+                        "__group__": groups[0]})
+    cond = Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam), siblings=sib)
+    out = gen.sample(n_fam, cond, rng)
+    match = (out["kind"].to_numpy() == kinds).mean()
+    free = gen.sample(n_fam, Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam)), rng)
+    assert match > 0.6 and match > (free["kind"].to_numpy() == kinds).mean() + 0.2, match

@@ -4398,7 +4398,26 @@ class Synthesizer:
             cache[(p, c)] = hit
         return hit[1]
 
-    def _fact_rows(self, f, st, u, v, blk, ents):
+    def _family_redraw(self, t, df, anchors, idx, tm, groups=None):
+        """Contract 1.1 redraw of rows idx of a family generator's table: their anchor rows and order
+        keys, and the kept rows of the same families (attribute columns plus __family__ and __order__),
+        so the generator draws the redrawn rows given their kept siblings."""
+        tcol = (self.spec["tables"][t].get("fact") or {}).get("time_column")
+        timed = bool(tcol) and tcol in df
+        anchors = np.asarray(anchors, np.int64)
+        fam_r = anchors[idx]
+        ord_r = _order_key(df[tcol].iloc[idx]) if timed else None
+        keep = np.isin(anchors, fam_r) & (anchors >= 0)
+        keep[idx] = False
+        cols = [c for c in tm.out_cols if c in df]
+        sib = df.iloc[np.flatnonzero(keep)][cols].reset_index(drop=True)
+        sib["__family__"] = anchors[keep]
+        sib["__order__"] = _order_key(df[tcol].iloc[np.flatnonzero(keep)]) if timed else np.nan
+        if groups is not None:
+            sib["__group__"] = np.asarray(groups)[keep]
+        return fam_r, ord_r, sib
+
+    def _fact_rows(self, f, st, u, v, blk, ents, siblings=None):
         """Rows of fact f for anchor rows u (and partner rows v, blocks blk): extra
         dimension keys given the block, attributes given the group, the time column
         and the sequence numbers.  Rows are independent given (u, v, blk)."""
@@ -4461,7 +4480,8 @@ class Synthesizer:
         # original stream order, so their output is unchanged
         ts = self._fact_times(info, z1, u, rng) if fam_gen and "time" in info else None
         df = self.tm[f].sample(groups, rng, given, family=u if fam_gen else None,
-                               order=None if ts is None else _order_key(pd.Series(ts))) if len(groups) else \
+                               order=None if ts is None else _order_key(pd.Series(ts)),
+                               siblings=siblings if fam_gen else None) if len(groups) else \
             pd.DataFrame(columns=self.tm[f].out_cols)
         for c, vals in cols.items():
             df[c] = vals
@@ -4622,7 +4642,11 @@ class Synthesizer:
                     isn = b0 >= rel.e1.K * rel.e2.K
                     v = np.where(isn, -1, np.asarray(v, np.int64))
                     blk = np.where(isn, b0, np.asarray(blk, np.int64))
-            new = self._fact_rows(f, st, u, v, blk, ents)
+            sib = None
+            if self.tm[f].uses_family:
+                sib = self._family_redraw(f, df, u_all, idx, self.tm[f],
+                                          df["__group__"].to_numpy() if "__group__" in df else None)[2]
+            new = self._fact_rows(f, st, u, v, blk, ents, siblings=sib)
             new.index = df.index[idx]
             _mark_fresh(df, idx)
             for c in new.columns:
@@ -4963,9 +4987,9 @@ class Synthesizer:
         n = len(df)
         groups = df.pop("__group__").to_numpy() if "__group__" in df else (z if z is not None else np.zeros(n, int))
         seg = df.pop("__seg__").to_numpy() if "__seg__" in df else (z if z is not None else np.zeros(n, int))
-        for c in ("__anchor_row__", "__blk__"):
-            if c in df:
-                df.pop(c)
+        anchors = df.pop("__anchor_row__").to_numpy() if "__anchor_row__" in df else None
+        if "__blk__" in df:
+            df.pop("__blk__")
         if t in self.copied:
             self.sample_log["rule_violations"][t] = {}
             return df[[c for c in T["columns"]]]
@@ -5041,14 +5065,12 @@ class Synthesizer:
                     has_fb[ok_rule] = True
                 redrawn[idx] = True
                 gv = getattr(self, "_given", {}).get(t)
-                fam_r = ord_r = None
-                if tm.uses_family and "__anchor_row__" in df:
-                    # contract 1.1: redrawn rows keep their family; rows of one family redrawn together
-                    # are drawn jointly (rejection touches a small share of rows)
-                    fam_r = df["__anchor_row__"].to_numpy()[idx]
-                    tcol = (self.spec["tables"][t].get("fact") or {}).get("time_column")
-                    ord_r = _order_key(df[tcol].iloc[idx]) if tcol and tcol in df else None
-                new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None, family=fam_r, order=ord_r)
+                fam_r = ord_r = sib = None
+                if tm.uses_family and anchors is not None:
+                    # contract 1.1: redrawn rows keep their family and are drawn given its kept rows
+                    fam_r, ord_r, sib = self._family_redraw(t, df, anchors, idx, tm, groups)
+                new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None, family=fam_r,
+                                order=ord_r, siblings=sib)
                 for c in tm.out_cols:
                     col = df[c].astype(object).to_numpy(copy=True)
                     col[idx] = new[c].to_numpy(dtype=object)
@@ -6186,7 +6208,7 @@ class Synthesizer:
 
 def _order_key(values) -> np.ndarray:
     """Order key of a time column (contract 1.1 family order): seconds since the epoch, NaN for nulls."""
-    t = pd.to_datetime(pd.Series(values).reset_index(drop=True), errors="coerce")
+    t = pd.to_datetime(pd.Series(values).reset_index(drop=True), errors="coerce", utc=True).dt.tz_localize(None)
     out = np.full(len(t), np.nan)
     ok = t.notna().to_numpy()
     out[ok] = t[ok].astype("datetime64[ns]").astype("int64").to_numpy() / 1e9

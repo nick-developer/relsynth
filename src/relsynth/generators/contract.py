@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The conditional generator contract (generator plug-in API, contract 1.0).
+"""The conditional generator contract (generator plug-in API, contract 1.1).
 
 relsynth's engine owns the relational skeleton of a dataset: which rows exist,
 their keys, the links between them, the latent segment of every row, the hard
@@ -145,11 +145,15 @@ class Conditioning:
     generator declares ``parent`` conditioning and the table has parent
     attributes, a frame of those values (columns TableData.aux, one row per row).
     With ``family`` conditioning (contract 1.1): the synthetic anchor row of each
-    row (``family``, -1 none) and its order key (``order``), as in FitContext."""
+    row (``family``, -1 none) and its order key (``order``), as in FitContext; and,
+    when the engine redraws some rows of families (rejection, row validity), the
+    kept rows of those families (``siblings``: the table's attribute columns plus
+    ``__family__`` and ``__order__``), so the redrawn rows are drawn given them."""
     groups: np.ndarray
     given: pd.DataFrame | None = None
     family: np.ndarray | None = None
     order: np.ndarray | None = None
+    siblings: pd.DataFrame | None = None
 
     def __len__(self):
         return len(self.groups)

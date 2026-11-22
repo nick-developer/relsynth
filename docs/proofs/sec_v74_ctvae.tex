@@ -29,7 +29,7 @@ Let the logits of categorical column $j$ be $\ell_j=d_j(z)+r_j(h+Uz+\textstyle\s
 \begin{proof}
 (a) The generator returns only the table's attribute columns; the engine adds keys, dates and the post-processing afterwards, as for row-wise generators (\texttt{Synthesizer.\_fact\_rows}). (b) The dates are $t=\tau(z_1[u],\omega)$ for an independent randomness $\omega$, and the attributes are $x=g(\text{context},t,\omega')$. The joint law of $(t,x)$ is that of $t$ followed by $x\mid t$, whichever order the draws are made in, because $\tau$ does not read $x$. (c) The reordering is taken only when \texttt{TableModel.uses\_family} is true. Otherwise the call sequence is the one of contract 1.0: attributes, then dates, from the same generator.
 \end{proof}
-\noindent Rows that the engine rejects (attribute rules, unique keys, near copies) are redrawn with their family ids, jointly with the other redrawn rows of their family but not given the accepted siblings; rejection touches a small share of rows. Test \texttt{test\_keys\_links\_and\_rules\_hold}; the byte identity of the other generators is checked by the bench's identity rule.
+\noindent Rows that the engine rejects (attribute rules, unique keys, near copies, row validity) are redrawn with their family ids, given the family's kept rows: the kept rows' latents and levels are fed to the prior in their order (teacher forcing) and only the redrawn rows are drawn, so the family size and history are the full family's. Test \texttt{test\_keys\_links\_and\_rules\_hold}; the byte identity of the other generators is checked by the bench's identity rule.
 
 \setcounter{proposition}{1862}
 \begin{proposition}[Entity-level DP-SGD]\label{prop:ctvaedp}

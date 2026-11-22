@@ -194,8 +194,8 @@ What to know:
 - `ctvae` cannot fit from in-database statistics and a sample, because a row sample would cut families. Pushdown
   facts need another generator, and the spec check says so.
 - On a table that is not a fact with an anchor, every row is a family of one row, and the spec check warns.
-- Rows that the engine rejects and redraws are drawn again with their family, jointly with the other redrawn rows
-  of that family.
+- Rows that the engine rejects and redraws are drawn again given the kept rows of their family, which the prior reads
+  as history.
 - With `dp`, DP-SGD runs on families: families are Poisson-sampled, and each family's gradient over at most
   `window` of its rows is clipped as one unit. The bound covers one anchor row's whole history in this table
   (Prop. 1863), but is conditional on the preprocessing, as for `tvae`.

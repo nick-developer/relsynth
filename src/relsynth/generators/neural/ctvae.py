@@ -337,8 +337,8 @@ class CTVAEGenerator(NeuralGenerator):
 
             def cat_logits(self, h, zl, s_prev_cols, j):
                 """Logits of categorical column j given the history h, the row latent and earlier columns."""
-                _, dec_logits = self.decode(zl)
-                lg = dec_logits[..., offs[j]:offs[j] + widths[j]]
+                # the decoder is fitted in stage 1 and fixed in stage 2: its logits enter as a constant
+                lg = self.decode(zl)[1].detach()[..., offs[j]:offs[j] + widths[j]]
                 if residual:
                     gq = h + self.z_in(zl)
                     for i in range(j):
@@ -351,26 +351,31 @@ class CTVAEGenerator(NeuralGenerator):
         return net
 
     # ---------------------------------------------------------------- batches of families
-    def _windows(self, idx, gen, rand_rows=None):
-        """Padded windows of the families idx: rows (B, W) as row positions (-1: padding)."""
+    def _windows(self, idx, gen, rand_rows):
+        """Padded windows of the families idx: rows (B, W) as row positions (-1: padding), and the row
+        just before each window (-1 at the family's start).  A family longer than the window gives a
+        random contiguous window of its order (time order, or a random permutation of siblings), with
+        the previous row as the first slot's history: the layout the sampler's sliding window sees."""
         W = self.opts["window"]
         out = np.full((len(idx), W), -1, np.int64)
-        u = rand_rows if rand_rows is not None else np.random.default_rng(int(
-            T.torch_module().randint(0, 2 ** 62, (1,), generator=gen)))
+        prev = np.full(len(idx), -1, np.int64)
+        u = rand_rows
         for b, f in enumerate(idx):
             r = np.arange(self.off[f], self.off[f + 1])
-            if self.ordered:
-                if len(r) > W:
-                    s0 = int(u.integers(0, len(r) - W + 1))
-                    r = r[s0:s0 + W]
-            else:
-                r = u.permutation(r)[:W]
+            if not self.ordered:
+                r = u.permutation(r)
+            if len(r) > W:
+                s0 = int(u.integers(0, len(r) - W + 1))
+                if s0:
+                    prev[b] = r[s0 - 1]
+                r = r[s0:s0 + W]
             out[b, :len(r)] = r
-        return out
+        return out, prev
 
-    def _window_tensors(self, pos, mu=None):
+    def _window_tensors(self, win, mu=None):
         torch = T.torch_module()
         tz, dev = self.tensors, self.device
+        pos, prev = win
         P = torch.as_tensor(pos, device=dev)
         M = P >= 0
         Pc = P.clamp(min=0)
@@ -380,6 +385,13 @@ class CTVAEGenerator(NeuralGenerator):
              "gap": tz["gap"][Pc] * M, "logn": torch.log(sizes[fam_of]).unsqueeze(-1)}
         if mu is not None:
             b["mu"] = mu[Pc]
+            pv = torch.as_tensor(prev, device=dev)
+            has = (pv >= 0).unsqueeze(-1)
+            pc = pv.clamp(min=0)
+            b["zp0"] = mu[pc] * has
+            pad = torch.as_tensor(self.space.cat_widths, device=dev, dtype=torch.long)
+            b["cp0"] = torch.where(has, tz["s"][pc], pad.expand(len(pv), -1)) if self.space.cats \
+                else tz["s"][pc]
         return b
 
     def _prior_loss(self, net, b):
@@ -388,10 +400,9 @@ class CTVAEGenerator(NeuralGenerator):
         F = torch.nn.functional
         B, Wl = b["m"].shape
         zt = b["mu"]
-        zprev = torch.cat([torch.zeros_like(zt[:, :1]), zt[:, :-1]], 1)
-        pad = torch.as_tensor(net.widths, device=zt.device, dtype=torch.long)
+        zprev = torch.cat([b["zp0"].unsqueeze(1), zt[:, :-1]], 1)
         s = b["s"]
-        cprev = torch.cat([pad.expand(B, 1, -1), s[:, :-1]], 1) if net.widths else s
+        cprev = torch.cat([b["cp0"].unsqueeze(1), s[:, :-1]], 1) if net.widths else s
         rowc = net.cond(b["g"].reshape(-1), b["c"].reshape(-1), b["a"].reshape(B * Wl, -1)).reshape(B, Wl, -1)
         h, _ = net.hidden(zprev, b["gap"], cprev, rowc, b["logn"])
         nll = net.mdn_nll(h, zt)
@@ -418,7 +429,8 @@ class CTVAEGenerator(NeuralGenerator):
         o, net, tz = self.opts, self.model, self.tensors
         n = int(tz["z"].shape[0])
         rep = T.TrainReport()
-        opt = torch.optim.AdamW(net.parameters(), lr=o["lr"], weight_decay=o["weight_decay"])
+        vae_p, prior_p = self._stage_params()
+        opt = torch.optim.AdamW(vae_p.values(), lr=o["lr"], weight_decay=o["weight_decay"])
         warm = max(1, o["vae_steps"] // 5)
         net.train()
         for step in range(o["vae_steps"]):
@@ -428,13 +440,13 @@ class CTVAEGenerator(NeuralGenerator):
             loss = rec.mean() + kl
             opt.zero_grad(set_to_none=True)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 5.0)
+            torch.nn.utils.clip_grad_norm_(vae_p.values(), 5.0)
             opt.step()
             rep.steps += 1
             if step % 100 == 0:
                 rep.train_loss.append(float(loss.detach()))
         mu = self._posterior_means()
-        opt = torch.optim.AdamW(net.parameters(), lr=o["lr"], weight_decay=o["weight_decay"])
+        opt = torch.optim.AdamW(prior_p.values(), lr=o["lr"], weight_decay=o["weight_decay"])
         rows = np.random.default_rng(int(torch.randint(0, 2 ** 62, (1,), generator=gen)))
         nf = len(self.off) - 1
         for step in range(o["prior_steps"]):
@@ -443,7 +455,7 @@ class CTVAEGenerator(NeuralGenerator):
             loss = self._prior_loss(net, b).mean()
             opt.zero_grad(set_to_none=True)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 5.0)
+            torch.nn.utils.clip_grad_norm_(prior_p.values(), 5.0)
             opt.step()
             rep.steps += 1
             if step % 100 == 0:
@@ -451,6 +463,16 @@ class CTVAEGenerator(NeuralGenerator):
         net.eval()
         self._active_units(mu)
         return rep
+
+    VAE_PARAMS = ("w", "b", "cls", "log_s", "emb.", "enc.", "enc_head.", "dec.")
+
+    def _stage_params(self):
+        """The row VAE's parameters (stage 1) and the family prior's (stage 2): each stage updates its
+        own, so the decoder fitted in stage 1 is not moved by the prior's loss."""
+        vae, prior = {}, {}
+        for k, v in self.model.named_parameters():
+            (vae if k in self.VAE_PARAMS or k.startswith(self.VAE_PARAMS[4:]) else prior)[k] = v
+        return vae, prior
 
     def _posterior_means(self):
         torch = T.torch_module()
@@ -476,8 +498,7 @@ class CTVAEGenerator(NeuralGenerator):
         secure = torch.Generator(device=gen.device)
         secure.manual_seed(secrets.randbits(63))            # never seeded from the run seed (train.py)
         rand_rows = np.random.default_rng(secrets.randbits(63))
-        params = dict(net.named_parameters())
-        opt = torch.optim.AdamW(params.values(), lr=o["lr"], weight_decay=o["weight_decay"])
+        stages = self._stage_params()
         warm = max(1, steps1 // 5)
         rep = T.TrainReport()
 
@@ -489,14 +510,20 @@ class CTVAEGenerator(NeuralGenerator):
         def prior_fam(mod, b):
             return self._prior_loss(mod, {k: v.unsqueeze(0) for k, v in b.items()}).sum()
 
+        frozen: dict = {}
+
         def vae_one(p, b, e, beta):
-            return functional_call(net, p, (vae_fam, b["z"], b["s"], e, beta, b["m"]))
+            return functional_call(net, {**frozen, **p}, (vae_fam, b["z"], b["s"], e, beta, b["m"]))
 
         def prior_one(p, b):
-            return functional_call(net, p, (prior_fam, b))
+            return functional_call(net, {**frozen, **p}, (prior_fam, b))
 
         net.train()
         for stage, steps in ((1, steps1), (2, steps2)):
+            # noise and updates touch only this stage's parameters (the other stage's are constants)
+            params = stages[stage - 1]
+            frozen = {k: v.detach() for k, v in stages[2 - stage].items()}
+            opt = torch.optim.AdamW(params.values(), lr=o["lr"], weight_decay=o["weight_decay"])
             mu = self._posterior_means() if stage == 2 else None
             per = vmap(grad(vae_one), in_dims=(None, 0, 0, None)) if stage == 1 else \
                 vmap(grad(prior_one), in_dims=(None, 0))
@@ -525,7 +552,7 @@ class CTVAEGenerator(NeuralGenerator):
                 opt.step()
                 rep.steps += 1
         net.eval()
-        self._active_units(self._posterior_means())
+        self.active_units = None             # a statistic of the raw rows, outside the DP-SGD accounting
         rep.epochs_run = rep.steps * q
         rep.dp = {"mechanism": "DP-SGD on families (Poisson-subsampled Gaussian, RDP accountant, entity level)",
                   "epsilon": eps, "delta": delta, "noise_multiplier": sigma, "clip": dp.clip, "sampling_rate": q,
@@ -533,8 +560,10 @@ class CTVAEGenerator(NeuralGenerator):
         return rep
 
     # ---------------------------------------------------------------- sampling
-    def _sample_families(self, fams, g, c, A, gaps, gen):
-        """Latents and slots of the rows of families (lists of positions into g, c, A, gaps)."""
+    def _sample_families(self, fams, g, c, A, gaps, gen, fixed=None, Zfix=None, Sfix=None):
+        """Latents and slots of the rows of families (lists of positions into g, c, A, gaps).  Rows with
+        fixed[pos] are given (kept siblings of a redraw): their latents and slots are read, not drawn,
+        and the other rows are drawn given them (teacher forcing)."""
         torch = T.torch_module()
         net, o, dev = self.model, self.opts, self.device
         L, W, prior = o["latent"], o["window"], o["prior"]
@@ -559,6 +588,10 @@ class CTVAEGenerator(NeuralGenerator):
             logn = torch.log(torch.as_tensor([len(f) for f in ch], device=dev, dtype=torch.float32)).unsqueeze(-1)
             Z = torch.zeros(B, Lmax, L, device=dev)
             S = torch.zeros(B, Lmax, nc, dtype=torch.long, device=dev)
+            if fixed is not None:
+                F_ = torch.as_tensor(fixed[Pc] & (P >= 0), device=dev)
+                Zf = torch.as_tensor(Zfix[Pc], device=dev, dtype=torch.float32)
+                Sf = torch.as_tensor(Sfix[Pc], device=dev, dtype=torch.long)
             state = None
             for i in range(Lmax):
                 if prior == "transformer":
@@ -578,11 +611,15 @@ class CTVAEGenerator(NeuralGenerator):
                 k = torch.multinomial(logit.softmax(-1), 1, generator=gen)[:, 0]
                 ar = torch.arange(B, device=dev)
                 Z[:, i] = mu[ar, k] + ls[ar, k].exp() * torch.randn(B, L, generator=gen, device=dev)
+                if fixed is not None:
+                    Z[:, i] = torch.where(F_[:, i:i + 1], Zf[:, i], Z[:, i])
                 for j, w in enumerate(net.widths):
                     lg = net.cat_logits(h, Z[:, i], S[:, i], j)
                     if bias is not None:
                         lg = lg + bias[self.space.cat_offsets[j]:self.space.cat_offsets[j] + w]
                     S[:, i, j] = torch.multinomial(lg.softmax(-1), 1, generator=gen)[:, 0]
+                    if fixed is not None:
+                        S[:, i, j] = torch.where(F_[:, i], Sf[:, i, j], S[:, i, j])
             keep = P >= 0
             Zout[P[keep]] = Z.cpu().numpy()[keep]
             Sout[P[keep]] = S.cpu().numpy()[keep]
@@ -614,20 +651,68 @@ class CTVAEGenerator(NeuralGenerator):
         g, c, A = self._cond_inputs(M, conditioning, rng)
         fam = getattr(conditioning, "family", None)
         order = getattr(conditioning, "order", None) if self.ordered else None
-        fams = _families(fam, order, M)
-        gaps = np.zeros(M, np.float32)
-        if order is not None:
+        self._ensure_model()
+        sib = getattr(conditioning, "siblings", None)
+        fixed = Zfix = Sfix = None
+        if fam is not None and sib is not None and len(sib):
+            fam, order, g, c, A, fixed, Zfix, Sfix = self._with_siblings(sib, fam, order, g, c, A, rng)
+        N = len(g)
+        fams = _families(fam, order if self.ordered else (None if fixed is None else (~fixed).astype(float)), N)
+        gaps = np.zeros(N, np.float32)
+        if self.ordered and order is not None:
             for f in fams:
                 gaps[f] = _gaps(order, f)
-        self._ensure_model()
         with T.seeded(rng, device=self.device) as gen, torch.no_grad():
-            Zl, S = self._sample_families(fams, g, c, A, gaps, gen)
+            Zl, S = self._sample_families(fams, g, c, A, gaps, gen, fixed, Zfix, Sfix)
+            Zl, S = Zl[:M], S[:M]
             Z = self._numeric(Zl, gen)
         Z = self._apply_num_maps(Z) if self.space.n_num else Z
         self.space.decode_into(out, Z, S, self.dec_m, rng)
         for j in getattr(self, "indep", []):
             out[:, j] = self.dec_m[j].sample(M, rng)
         return d.decode(out, rng)
+
+    def _with_siblings(self, sib, fam, order, g, c, A, rng):
+        """Append the kept siblings of a redraw after the M requested rows: their family ids, order keys,
+        contexts (their own group when given, else their family's requested row's; parent attributes
+        when given, else neutral) and their encoded latents and slots."""
+        torch = T.torch_module()
+        d, M = self.data, len(g)
+        fam = np.asarray(fam, np.int64)
+        sf = np.asarray(sib["__family__"], np.int64)
+        Ms = len(sib)
+        X = {}
+        for j in set(self.space.num) | {cc.col for cc in self.space.cats} | set(self.auxj):
+            col = d.cols[j]
+            if col in sib:
+                X[j] = np.asarray(d.codecs[j].encode(sib[col].reset_index(drop=True)))
+            else:
+                X[j] = np.full(Ms, -1 if d.codecs[j].kind == "discrete" else np.nan)
+        Zs, Ss = self.space.encode(X, np.arange(Ms), rng)
+        As = self.cond_space.dense(X, np.arange(Ms), rng) if self.auxj else np.zeros((Ms, 0), np.float32)
+        first = {}
+        for i, f in enumerate(fam.tolist()):
+            first.setdefault(f, i)
+        ref = np.array([first.get(int(f), 0) for f in sf], np.int64)
+        if "__group__" in sib:
+            gs_raw = np.asarray(sib["__group__"], np.int64)
+            gs = np.array([self.group_ix.get(int(x), 0) for x in gs_raw], np.int64)
+            cs = np.array([self.coarse_ix.get(int(x), 0) for x in self._coarse(gs_raw)], np.int64)
+            gs = np.where(gs > 0, gs, g[ref])
+            cs = np.where(cs > 0, cs, c[ref])
+        else:
+            gs, cs = g[ref], c[ref]
+        with torch.no_grad():
+            mu = self.model.encode(torch.as_tensor(Zs, device=self.device),
+                                   torch.as_tensor(Ss, device=self.device))[0].cpu().numpy()
+        L = self.opts["latent"]
+        fixed = np.r_[np.zeros(M, bool), np.ones(Ms, bool)]
+        Zfix = np.r_[np.zeros((M, L), np.float32), mu.astype(np.float32)]
+        Sfix = np.r_[np.zeros((M, Ss.shape[1]), np.int64), Ss]
+        so = np.asarray(sib["__order__"], float) if "__order__" in sib else np.full(Ms, np.nan)
+        order = None if order is None else np.r_[np.asarray(order, float), so]
+        A2 = np.concatenate([A, As.astype(A.dtype)], 0) if A.shape[1] else np.zeros((M + Ms, 0), np.float32)
+        return np.r_[fam, sf], order, np.r_[g, gs], np.r_[c, cs], A2, fixed, Zfix, Sfix
 
     # ---------------------------------------------------------------- calibration (Prop. 1805 on families)
     def _calibrate_families(self, gen):
