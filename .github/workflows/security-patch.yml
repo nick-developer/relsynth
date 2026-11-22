@@ -250,20 +250,28 @@ jobs:
           git -c user.name="security-patch" -c user.email="security-patch@users.noreply.github.com" \
             am --keep-cr "$RUNNER_TEMP/patch.mbox"
           # paths the agent may not change: everything under .github/ but the hash-pinned
-          # requirements, scanner and agent configuration, tests and the gate scripts in tools/
-          denied='^(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$|CLAUDE\.md$|CONTRIBUTING\.md$|tests/|tools/)'
-          # --no-renames: a moved file is listed under its old path too
-          if git diff --no-renames --name-only "$GITHUB_SHA..HEAD" | grep -Ev '^\.github/requirements/' | grep -E "$denied"; then
-            echo "::error::The patch changes protected paths (listed above); nothing is published"
-            exit 1
-          fi
-          # pyproject.toml may change its dependencies, never the tool settings
-          # (ruff, bandit, mypy, pytest): a fix must not weaken a check
+          # requirements, scanner and agent configuration, tests and the gate scripts in tools/;
+          # and pyproject.toml may change its dependencies, never the tool settings (ruff,
+          # bandit, mypy, pytest), since a fix must not weaken a check.  Paths are read
+          # NUL-separated (-z), so git never quotes an unusual name past the check, and
+          # --no-renames lists a moved file under its old path too.
           python3 - "$GITHUB_SHA" <<'PY'
-          import subprocess, sys, tomllib
-          old = tomllib.loads(subprocess.run(["git", "show", f"{sys.argv[1]}:pyproject.toml"],
+          import re, subprocess, sys, tomllib
+          base = sys.argv[1]
+          denied = re.compile(r"(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$"
+                              r"|CLAUDE\.md$|CONTRIBUTING\.md$|tests/|tools/)")
+          allowed = re.compile(r"\.github/requirements/[^/]+\.txt$")
+          out = subprocess.run(["git", "diff", "-z", "--no-renames", "--name-only", f"{base}..HEAD"],
+                               check=True, capture_output=True).stdout
+          paths = [p.decode("utf-8", "surrogateescape") for p in out.split(b"\0") if p]
+          bad = [p for p in paths if denied.match(p) and not allowed.fullmatch(p)]
+          if bad:
+              print("\n".join(repr(p) for p in bad))
+              sys.exit("::error::The patch changes protected paths (listed above); nothing is published")
+          old = tomllib.loads(subprocess.run(["git", "show", f"{base}:pyproject.toml"],
                                              check=True, capture_output=True, text=True).stdout)
-          new = tomllib.loads(open("pyproject.toml", encoding="utf-8").read())
+          with open("pyproject.toml", encoding="utf-8") as fh:
+              new = tomllib.loads(fh.read())
           if old.get("tool") != new.get("tool"):
               sys.exit("::error::The patch changes [tool.*] settings in pyproject.toml; nothing is published")
           PY
