@@ -9,13 +9,16 @@
 #              * the open pull requests of this repository, so nothing is duplicated.
 #            Only identifiers, packages, versions and paths reach Claude
 #            (.github/scripts/security_findings.py), and only counts reach the public
-#            log.  Claude runs with read-only GitHub permissions and no GitHub write
-#            token: it commits locally, and the job hands its commits on as a patch.
-#   publish  runs no agent.  It applies the patch to the same commit, refuses changes
-#            to workflows, scanner configuration, agent instructions and tests, then
-#            pushes a security-patch/<date> branch and opens ONE draft pull request.
-#            The maintainer (or @claude) then follows CLAUDE.md: CI green, audit,
-#            CodeRabbit, merge by hand.
+#            log.  Claude runs with the read-only workflow token and may only edit,
+#            commit locally and run static checks (ruff, bandit): nothing it writes is
+#            executed in the job that holds the Claude credential.
+#   verify   holds no secret.  It applies the patch, refuses it when it reaches outside
+#            what a security fix may change (.github/scripts/patch_gate.py), then
+#            installs it and runs the unit tests, pip-audit and the repository checks.
+#   publish  runs no agent and no code of the patch.  It applies the verified patch,
+#            pushes a security-patch/<date>-<run> branch and opens ONE draft pull
+#            request.  The maintainer (or @claude) then follows CLAUDE.md: CI green,
+#            audit, CodeRabbit, merge by hand.
 name: security-patch
 
 on:
@@ -56,7 +59,11 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
-        with: { enable-cache: false }
+        with: { enable-cache: false, version: "0.11.32" }
+      - name: pip-audit (hash-locked)
+        run: |
+          python -m venv "$RUNNER_TEMP/pip-audit"
+          "$RUNNER_TEMP/pip-audit/bin/pip" install -q --require-hashes --no-deps -r .github/requirements/pip-audit.txt
 
       # Option A (recommended): a GitHub App of your own with only "Dependabot alerts: read".
       - name: Dependabot alerts token (GitHub App)
@@ -102,7 +109,7 @@ jobs:
           for res in lowest-direct highest; do
             uv pip compile pyproject.toml --all-extras --resolution "$res" \
               --python-version 3.12 --python-platform x86_64-manylinux_2_28 -q -o "$RUNNER_TEMP/req-$res.txt" \
-              && uvx --from 'pip-audit==2.10.1' pip-audit --no-deps --disable-pip --progress-spinner off \
+              && "$RUNNER_TEMP/pip-audit/bin/pip-audit" --no-deps --disable-pip --progress-spinner off \
                    -r "$RUNNER_TEMP/req-$res.txt" -f json -o "$RUNNER_TEMP/audit-$res.json" >/dev/null 2>&1 \
               || echo "::notice::pip-audit ($res) found vulnerabilities or could not run; counted below"
           done
@@ -134,13 +141,13 @@ jobs:
           echo "ready=$HAS_CRED" >> "$GITHUB_OUTPUT"
           [ "$HAS_CRED" = true ] || echo "::notice::No Claude credential is set; findings counted, nothing patched"
 
-      - name: Development environment (the checks Claude runs)
+      - name: Static checkers for Claude (main's code; nothing Claude writes is run)
         id: env
         if: >-
           steps.work.outputs.count != '0' && steps.work.outputs.pending_pr == '' &&
           steps.cred.outputs.ready == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
         run: |
-          pip install -e ".[dev]" "pip-audit==2.10.1"
+          pip install -e ".[dev]"
           echo "go=true" >> "$GITHUB_OUTPUT"
 
       - uses: anthropics/claude-code-action@402b5b79551e3ce6614c179fbccbfdb79291cead # v1.0.269
@@ -180,28 +187,30 @@ jobs:
                positive and carries its reason. Keep the fix as fast as the code it replaces.
             3. If a fix would need a breaking upgrade (a new major version, a removed API) or a design
                change, do not make it: list it in the pull request text under "Not fixed" with the reason.
-            4. Check before you finish, and fix what you broke:
-               ruff check src tests tools bench; bandit -q -c pyproject.toml -r src;
-               pip install -e .[dev] (exactly this; it installs the new floors), then pip-audit --skip-editable;
-               pytest -q -x tests/unit (and the tests of every module you touched);
-               python tools/check_licenses.py and python tools/release.py check when pyproject.toml changed.
+            4. You cannot run tests or install packages here. Run ruff check src bench and
+               bandit -q -c pyproject.toml -r src, and fix what they report. After you finish, a
+               separate job installs your patch and runs the unit tests, pip-audit and the
+               repository checks; a patch that fails them is not published, so keep every change
+               small enough to be right by reading the code. For a version floor, choose the first
+               fixed version within the same major version.
             5. When there is nothing to fix safely, stop without a commit.
 
             Deliver commits and the pull request text; the workflow publishes them:
               * commit on the current branch with Conventional Commits ("fix(deps): ..." for
                 dependencies, "fix(security): ..." for code), signed off (git commit -s), one commit
                 per topic. Do not create branches and do not push.
+              * do not change .github/requirements/ (hash-locked files are updated by hand) or symbolic links.
               * write the pull request title (one line, at most 72 characters) to
                 .security-patch/pr-title.txt and its body to .security-patch/pr-body.md, following
                 .github/pull_request_template.md: every finding fixed (alert number or advisory id,
                 package, old floor -> new floor, or path:line), every finding not fixed and why, and
-                the checks you ran with their results. For a code-scanning alert, describe the fix
+                the static checks you ran (the verify job adds its own results). For a code-scanning alert, describe the fix
                 without steps to exploit the weakness.
               * add a CHANGELOG.md entry under Unreleased for dependency floors users will notice.
           claude_args: >-
             --max-turns 80
             --disallowedTools "WebFetch,WebSearch"
-            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit -s:*),Bash(pip install -e .[dev]),Bash(pip install -e \".[dev]\"),Bash(pip index versions:*),Bash(pip show:*),Bash(pip-audit:*),Bash(uv pip compile:*),Bash(ruff:*),Bash(mypy:*),Bash(bandit:*),Bash(pytest:*),Bash(python -m pytest:*),Bash(python tools/check_licenses.py:*),Bash(python tools/release.py check:*),Bash(python tools/check_spdx.py:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit -s:*),Bash(ruff check:*),Bash(bandit -q -c pyproject.toml -r src)"
 
       - name: Export the commits
         id: export
@@ -226,10 +235,44 @@ jobs:
             echo; echo "$delim"
           } >> "$GITHUB_OUTPUT"
 
-  publish:
-    name: Publish draft pull request
+  verify:
+    name: Verify the patch (no secrets)
     needs: patch
     if: needs.patch.outputs.patch != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false, ref: "${{ github.sha }}" }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - name: Apply the patch and check what it changes (before any of it runs)
+        env:
+          PATCH: ${{ needs.patch.outputs.patch }}
+        run: |
+          # the gate script is main's copy: the patch may not change .github/
+          cp .github/scripts/patch_gate.py "$RUNNER_TEMP/patch_gate.py"
+          printf '%s\n' "$PATCH" > "$RUNNER_TEMP/patch.mbox"
+          git -c user.name="security-patch" -c user.email="security-patch@users.noreply.github.com" \
+            am --keep-cr "$RUNNER_TEMP/patch.mbox"
+          python "$RUNNER_TEMP/patch_gate.py" "$GITHUB_SHA"
+      - name: Install and test
+        run: |
+          # the same dev environment and checks as ci.yml's lint job (this job holds no secret)
+          pip install -e ".[dev]"
+          ruff check src tests tools bench
+          bandit -q -c pyproject.toml -r src
+          pip-audit --skip-editable
+          python tools/check_licenses.py
+          python tools/release.py check
+          pytest -q -x tests/unit
+
+  publish:
+    name: Publish draft pull request
+    needs: [patch, verify]
+    if: needs.patch.outputs.patch != '' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -239,42 +282,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false, ref: "${{ github.sha }}" }
-      - name: Apply and check the patch
+      - name: Apply the verified patch
         id: apply
         env:
           PATCH: ${{ needs.patch.outputs.patch }}
           BODY: ${{ needs.patch.outputs.body }}
         run: |
+          cp .github/scripts/patch_gate.py "$RUNNER_TEMP/patch_gate.py"
           printf '%s\n' "$PATCH" > "$RUNNER_TEMP/patch.mbox"
           printf '%s\n' "$BODY" > "$RUNNER_TEMP/body.md"
           git -c user.name="security-patch" -c user.email="security-patch@users.noreply.github.com" \
             am --keep-cr "$RUNNER_TEMP/patch.mbox"
-          # paths the agent may not change: everything under .github/ but the hash-pinned
-          # requirements, scanner and agent configuration, tests and the gate scripts in tools/;
-          # and pyproject.toml may change its dependencies, never the tool settings (ruff,
-          # bandit, mypy, pytest), since a fix must not weaken a check.  Paths are read
-          # NUL-separated (-z), so git never quotes an unusual name past the check, and
-          # --no-renames lists a moved file under its old path too.
-          python3 - "$GITHUB_SHA" <<'PY'
-          import re, subprocess, sys, tomllib
-          base = sys.argv[1]
-          denied = re.compile(r"(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$"
-                              r"|CLAUDE\.md$|CONTRIBUTING\.md$|tests/|tools/)")
-          allowed = re.compile(r"\.github/requirements/[^/]+\.txt$")
-          out = subprocess.run(["git", "diff", "-z", "--no-renames", "--name-only", f"{base}..HEAD"],
-                               check=True, capture_output=True).stdout
-          paths = [p.decode("utf-8", "surrogateescape") for p in out.split(b"\0") if p]
-          bad = [p for p in paths if denied.match(p) and not allowed.fullmatch(p)]
-          if bad:
-              print("\n".join(repr(p) for p in bad))
-              sys.exit("::error::The patch changes protected paths (listed above); nothing is published")
-          old = tomllib.loads(subprocess.run(["git", "show", f"{base}:pyproject.toml"],
-                                             check=True, capture_output=True, text=True).stdout)
-          with open("pyproject.toml", encoding="utf-8") as fh:
-              new = tomllib.loads(fh.read())
-          if old.get("tool") != new.get("tool"):
-              sys.exit("::error::The patch changes [tool.*] settings in pyproject.toml; nothing is published")
-          PY
+          python3 "$RUNNER_TEMP/patch_gate.py" "$GITHUB_SHA"   # the same gate again, cheap
           echo "branch=security-patch/$(date -u +%Y-%m-%d)-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: Push the branch and open a draft pull request
         env:

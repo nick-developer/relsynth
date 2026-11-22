@@ -42,14 +42,14 @@ MAX_TEXT = 300             # characters kept from any free-text field
 _SECURITY_LEVELS = {"high", "critical"}
 # paths the patch job may not change (security-patch.yml refuses such a patch); findings
 # there are listed for the maintainer instead of being handed to the agent
+# (the same list as .github/scripts/patch_gate.py; hash-locked .github/requirements/
+# files are recompiled by hand)
 PROTECTED = (".github/", "tests/", "tools/", ".semgrep/", ".claude/")
-ALLOWED_UNDER_PROTECTED = (".github/requirements/",)
 
 
 def protected(path: str | None) -> bool:
     """True when ``path`` lies where the agent may not make changes."""
-    p = (path or "").lstrip("/")
-    return p.startswith(PROTECTED) and not p.startswith(ALLOWED_UNDER_PROTECTED)
+    return (path or "").lstrip("/").startswith(PROTECTED)
 
 
 def clip(value: Any, limit: int = MAX_TEXT) -> str:

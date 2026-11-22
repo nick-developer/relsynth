@@ -118,8 +118,8 @@ def test_protected_findings_go_to_the_maintainer(tmp_path):
     out = tmp_path / "f.json"
     sf.main(["--code-scanning", str(cs), "--out", str(out)])
     work = json.loads(out.read_text())
-    assert [f["alert"] for f in work["findings"]] == [1, 5]
-    assert [f["alert"] for f in work["manual"]] == [2, 3, 4]
+    assert [f["alert"] for f in work["findings"]] == [1]
+    assert [f["alert"] for f in work["manual"]] == [2, 3, 4, 5]
 
 
 def test_api_error_body_is_a_problem(tmp_path):
@@ -129,3 +129,72 @@ def test_api_error_body_is_a_problem(tmp_path):
     out = tmp_path / "f.json"
     sf.main(["--code-scanning", str(cs), "--out", str(out)])
     assert "API error: no analysis found" in json.loads(out.read_text())["problems"][0]
+
+
+# --- .github/scripts/patch_gate.py ---------------------------------------------------
+
+def _gate():
+    pytest.importorskip("tomllib")   # Python 3.11+, as on the runner
+    p = Path(__file__).parents[2] / ".github" / "scripts" / "patch_gate.py"
+    spec = importlib.util.spec_from_file_location("patch_gate", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    """A small git repository with a pyproject.toml, a source file and a test."""
+    import subprocess
+    def git(*a):
+        subprocess.run(["git", *a], cwd=tmp_path, check=True, capture_output=True)
+    git("init", "-q")
+    git("config", "user.email", "t@example.org")
+    git("config", "user.name", "t")
+    (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["a>=1"]\n[tool.ruff]\nline-length = 100\n')
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "m.py").write_text("x = 1\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_m.py").write_text("def test(): pass\n")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    monkeypatch.chdir(tmp_path)
+    return git
+
+
+def _commit(git, msg="patch"):
+    git("add", "-A")
+    git("commit", "-qm", msg)
+
+
+def test_gate_accepts_a_dependency_floor_and_a_code_fix(repo, tmp_path):
+    """Dependencies and source code may change."""
+    gate = _gate()
+    (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["a>=2"]\n[tool.ruff]\nline-length = 100\n')
+    (tmp_path / "src" / "m.py").write_text("x = 2\n")
+    _commit(repo)
+    assert gate.problems("HEAD~1") == []
+    assert gate.main(["HEAD~1"]) == 0
+
+
+@pytest.mark.parametrize("change", ["tool", "test", "moved_test", "quoted", "workflow", "symlink"])
+def test_gate_refuses(repo, tmp_path, change):
+    """Tool settings, tests (also moved or oddly named), .github/ and symbolic links are refused."""
+    import os
+    gate = _gate()
+    if change == "tool":
+        (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["a>=1"]\n[tool.ruff]\nline-length = 300\n')
+    elif change == "test":
+        (tmp_path / "tests" / "test_m.py").write_text("")
+    elif change == "moved_test":
+        repo("mv", "tests/test_m.py", "src/moved.py")
+    elif change == "quoted":
+        (tmp_path / "tests" / "t\u00e9 x.py").write_text("")
+    elif change == "workflow":
+        (tmp_path / ".github" / "workflows").mkdir(parents=True)
+        (tmp_path / ".github" / "workflows" / "ci.yml").write_text("on: push\n")
+    elif change == "symlink":
+        os.symlink("../tests", tmp_path / "src" / "linked")
+    _commit(repo)
+    assert gate.problems("HEAD~1")
+    assert gate.main(["HEAD~1"]) == 1
