@@ -1,17 +1,29 @@
 version: 2
+# Version updates wait a week after a release (cooldown), so a hijacked or broken release
+# is usually yanked before it is proposed; security updates are not delayed.  Security
+# updates for Python packages come as one grouped pull request.  What Dependabot cannot
+# fix by a version bump (lower bounds in pyproject.toml, hash-pinned scanner files,
+# code-scanning alerts) is handled by security-patch.yml (docs/development/security-patching.md).
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
     groups:
       actions: { patterns: ["*"] }
     commit-message: { prefix: "ci" }
   - package-ecosystem: pip
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      pip-security:
+        applies-to: security-updates
+        patterns: ["*"]
     commit-message: { prefix: "build" }
   # base images are pinned by digest; these updates move the digests
   - package-ecosystem: docker
     directories: ["/", "/deploy/docker"]
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
     commit-message: { prefix: "build" }
