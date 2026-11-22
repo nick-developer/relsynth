@@ -22,7 +22,7 @@ import numpy as np
 from . import metrics as M
 from .data import DATASETS, Codec, families, load, split, subset
 
-DEFAULT_VARIANTS = "transformer:none,transformer:gru,transformer:transformer,mlp:transformer,shuffle"
+DEFAULT_VARIANTS = "transformer:none,transformer:transformer,transformer:transformer+cat,transformer:gru+cat,shuffle"
 
 
 def _db(name: str, given: str | None) -> str:
@@ -43,6 +43,7 @@ def evaluate(real, syn_X, syn_C, syn_off, widths, ordered, ctx_C, hold, seed):
     cat = [abs(ws[k] - wr[k]) for k in wr if k.endswith("_share")]
     num = [abs(ws[k] - wr[k]) for k in wr if k.endswith("_within")]
     out["err_cat_share"] = float(np.mean(cat)) if cat else None
+    out["bias_cat_share"] = float(np.mean([ws[k] - wr[k] for k in wr if k.endswith("_share")])) if cat else None
     out["err_num_within"] = float(np.mean(num)) if num else None
     if ordered:
         sr, ss = M.sequence(real.X, real.C, r_off, widths), M.sequence(syn_X, syn_C, syn_off, widths)
@@ -116,7 +117,8 @@ def main(argv=None):
             info = {}
         else:
             enc, pri = v.split(":")
-            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None,
+            pri, _, extra = pri.partition("+")            # e.g. transformer+cat: categorical head in the prior
+            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None, cat_head=extra == "cat",
                          vae_steps=a.vae_steps, prior_steps=a.prior_steps)
             model = ContextVAE(train.X.shape[1], widths, train.ctx_X.shape[1], ctx.widths, cfg, a.seed)
             model.fit_vae(train, rng).fit_prior(train, rng)
@@ -132,7 +134,8 @@ def main(argv=None):
         res.update(info)
         res["seconds"] = round(time.time() - t0, 1)
         report["variants"][v] = res
-        print(f"[{a.dataset} s{a.seed}] {v}: cat-share err {res['err_cat_share']}, num-within err {res['err_num_within']}, "
+        print(f"[{a.dataset} s{a.seed}] {v}: cat-share err {res['err_cat_share']} (bias {res['bias_cat_share']}), "
+              f"num-within err {res['err_num_within']}, "
               f"c2st {res['c2st_agg']:.3f} row {res['c2st_row']:.3f}, ks {res['marginals']['ks_mean']}, "
               f"tvd {res['marginals']['tvd_mean']}, lag1 {res.get('err_lag1')}, trans {res.get('trans_tvd')}, "
               f"dcr fam {res['dcr_family']:.3f} row {res['dcr_row']:.3f}, {res['seconds']} s",

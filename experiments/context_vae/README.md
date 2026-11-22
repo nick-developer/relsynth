@@ -26,7 +26,17 @@ summary table is in the run's summary.
 | `transformer:gru` | column-token transformer | GRU over the family |
 | `transformer:transformer` | column-token transformer | causal transformer over the family |
 | `mlp:transformer` | MLP | causal transformer |
+| `…:transformer+cat`, `…:gru+cat` | as above | the prior also draws each row's categorical levels: p(c_i given history) then p(z_i given history and c_i); the decoder gives only numerics |
 | `shuffle` | none | real rows permuted across families: exact marginals, no within-family dependence |
+
+`+cat` (run 3) follows the second run, where every latent-only prior matched numeric and sequence
+structure but lost categorical sharing on Berka and Online Retail: levels decoded independently
+from noisy latents break ties that siblings share. Autoregressing discrete codes directly is what
+HALO (Theodorou et al. 2023) and REaLTabFormer (Solatorio and Dupriez 2023) do; the latent then
+only carries the numerics and their link to the row's levels. The factorisation is exact (chain
+rule), so it does not change what the model can represent, only where the categorical
+uncertainty lives. The acceptance rule below is unchanged and still compares with
+`transformer:none`.
 
 ## Metrics
 

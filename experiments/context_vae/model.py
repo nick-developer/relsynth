@@ -53,6 +53,7 @@ class Config:
     batch_families: int = 64
     lr: float = 2e-3
     ordered: bool = False
+    cat_head: bool = False             # prior models categorical levels directly (HALO-style), see README
 
 
 class Tokenizer(nn.Module):
@@ -152,10 +153,16 @@ class MDN(nn.Module):
 
 
 class FamilyPrior(nn.Module):
-    def __init__(self, ctx_num: int, ctx_widths: list[int], cfg: Config):
+    def __init__(self, ctx_num: int, ctx_widths: list[int], cfg: Config, widths: list[int] | None = None):
         super().__init__()
         self.cfg = cfg
         d, m = cfg.d_prior, cfg.latent
+        self.widths = list(widths or []) if cfg.cat_head else []
+        # categorical levels: embedded as input (previous row) and as conditioning (current row), one
+        # autoregressive head per column given the hidden state and the row's earlier columns
+        self.cat_in = nn.ModuleList(nn.Embedding(k, d) for k in self.widths)
+        self.cat_cond = nn.ModuleList(nn.Embedding(k, d) for k in self.widths)
+        self.cat_out = nn.ModuleList(nn.Linear(d, k) for k in self.widths)
         self.ctx_tok = Tokenizer(ctx_num, ctx_widths, d) if (ctx_num or ctx_widths) else None
         self.ctx_n = nn.Linear(1, d)
         self.inp = nn.Linear(m + 1, d)
@@ -176,9 +183,36 @@ class FamilyPrior(nn.Module):
             c = c + self.ctx_tok(cX, cC).mean(1)
         return c                                               # (B, d)
 
-    def hidden(self, zprev, gap, ctx, mask=None, state=None, pos0=0):
-        """zprev, gap: (B, L, m), (B, L); ctx (B, d) -> hidden (B, L, d)."""
+    def cat_embed(self, table, C):
+        """Sum of level embeddings of C (..., n_cat) -> (..., d); zeros without a categorical head."""
+        out = 0
+        for j, e in enumerate(table):
+            out = out + e(C[..., j])
+        return out
+
+    def cat_nll(self, h, C):
+        """Teacher-forced NLL of the row's levels, column by column given h; returns (nll, cond)."""
+        g, nll = h, 0
+        for j, k in enumerate(self.widths):
+            nll = nll + F.cross_entropy(self.cat_out[j](g).reshape(-1, k), C[..., j].reshape(-1),
+                                        reduction="none").reshape(C.shape[:-1])
+            g = g + self.cat_cond[j](C[..., j])
+        return nll, g
+
+    @torch.no_grad()
+    def cat_sample(self, h, gen):
+        g, cols = h, []
+        for j in range(len(self.widths)):
+            c = torch.multinomial(F.softmax(self.cat_out[j](g), -1), 1, generator=gen)[:, 0]
+            cols.append(c)
+            g = g + self.cat_cond[j](c)
+        return torch.stack(cols, 1), g
+
+    def hidden(self, zprev, gap, ctx, mask=None, state=None, pos0=0, cprev=None):
+        """zprev, gap: (B, L, m), (B, L); ctx (B, d); cprev (B, L, n_cat) -> hidden (B, L, d)."""
         u = self.inp(torch.cat([zprev, gap.unsqueeze(-1)], -1)) + ctx.unsqueeze(1)
+        if self.widths and cprev is not None and self.cfg.prior != "none":
+            u = u + self.cat_embed(self.cat_in, cprev)
         if self.cfg.prior == "none":
             u = ctx.unsqueeze(1) + self.inp(torch.cat([torch.zeros_like(zprev), gap.unsqueeze(-1)], -1))
             return self.norm(self.body(u)), None
@@ -197,6 +231,7 @@ def _windows(fam: Families, idx, mu: np.ndarray, cfg: Config, rng: np.random.Gen
     W = cfg.window
     B, m = len(idx), mu.shape[1]
     Z = np.zeros((B, W, m), np.float32)
+    CC = np.zeros((B, W, fam.C.shape[1]), np.int64)
     G = np.zeros((B, W), np.float32)
     M = np.zeros((B, W), bool)
     for b, f in enumerate(idx):
@@ -208,9 +243,10 @@ def _windows(fam: Families, idx, mu: np.ndarray, cfg: Config, rng: np.random.Gen
         else:
             r = rng.permutation(r)[:W]
         Z[b, :len(r)] = mu[r]
+        CC[b, :len(r)] = fam.C[r]
         G[b, :len(r)] = fam.gap[r] if cfg.ordered else 0.0
         M[b, :len(r)] = True
-    return Z, G, M
+    return Z, G, M, CC
 
 
 class ContextVAE:
@@ -218,7 +254,7 @@ class ContextVAE:
         torch.manual_seed(seed)
         self.cfg = cfg
         self.vae = RowVAE(n_num, widths, cfg)
-        self.prior = FamilyPrior(ctx_num, ctx_widths, cfg)
+        self.prior = FamilyPrior(ctx_num, ctx_widths, cfg, widths)
         self.log = {}
 
     # ---------------------------------------------------------------- stage 1
@@ -258,13 +294,17 @@ class ContextVAE:
 
     # ---------------------------------------------------------------- stage 2
     def _batch_nll(self, fam, idx, mu, rng):
-        Z, G, M = _windows(fam, idx, mu, self.cfg, rng)
-        Z, G, M = torch.as_tensor(Z), torch.as_tensor(G), torch.as_tensor(M)
+        Z, G, M, CC = (torch.as_tensor(a) for a in _windows(fam, idx, mu, self.cfg, rng))
         zprev = torch.cat([torch.zeros_like(Z[:, :1]), Z[:, :-1]], 1)
+        cprev = torch.cat([torch.zeros_like(CC[:, :1]), CC[:, :-1]], 1)
         n = torch.as_tensor(fam.sizes[idx])
         ctx = self.prior.context(torch.as_tensor(fam.ctx_X[idx]), torch.as_tensor(fam.ctx_C[idx]), n)
-        h, _ = self.prior.hidden(zprev, G, ctx, mask=M)
-        nll = self.prior.mdn.nll(h, Z)
+        h, _ = self.prior.hidden(zprev, G, ctx, mask=M, cprev=cprev)
+        if self.prior.widths:                 # p(c_i | h_i) p(z_i | h_i, c_i)
+            nll_c, h = self.prior.cat_nll(h, CC)
+            nll = nll_c + self.prior.mdn.nll(h, Z)
+        else:
+            nll = self.prior.mdn.nll(h, Z)
         return (nll * M).sum() / M.sum()
 
     def fit_prior(self, fam: Families, rng):
@@ -294,14 +334,18 @@ class ContextVAE:
         Families are drawn in chunks of similar size, so a short family does not wait for the longest."""
         gen = torch.Generator().manual_seed(seed)
         order = np.argsort(sizes, kind="stable")
-        Zs = [None] * len(sizes)
+        Zs, Cs = [None] * len(sizes), [None] * len(sizes)
         for s0 in range(0, len(order), chunk):
             ix = order[s0:s0 + chunk]
-            Z = self._sample_latents(sizes[ix], ctx_X[ix], ctx_C[ix],
+            Z, Cp = self._sample_latents(sizes[ix], ctx_X[ix], ctx_C[ix],
                                      [gaps[i] for i in ix] if gaps is not None else None, gen)
             for b, i in enumerate(ix):
                 Zs[i] = Z[b, :sizes[i]]
+                if Cp is not None:
+                    Cs[i] = Cp[b, :sizes[i]]
         X, C = self.vae.sample_rows(torch.cat(Zs, 0), gen)
+        if self.prior.widths:                 # levels come from the prior's head, numerics from the decoder
+            C = torch.cat(Cs, 0)
         off = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
         return X.numpy(), C.numpy(), off
 
@@ -315,20 +359,26 @@ class ContextVAE:
             for b, g in enumerate(gaps):
                 G[b, :len(g)] = g
         G = torch.as_tensor(G)
+        nc = len(self.prior.widths)
         Z = torch.zeros(B, L, m)
+        CC = torch.zeros(B, L, nc, dtype=torch.long)
         state = None
         for i in range(L):
             if cfg.prior == "transformer":
                 s = max(0, i - W + 1)
                 zprev = torch.cat([torch.zeros(B, 1, m), Z[:, :i]], 1)[:, s:i + 1]
-                h, _ = self.prior.hidden(zprev, G[:, s:i + 1], ctx)
+                cprev = torch.cat([torch.zeros(B, 1, nc, dtype=torch.long), CC[:, :i]], 1)[:, s:i + 1]
+                h, _ = self.prior.hidden(zprev, G[:, s:i + 1], ctx, cprev=cprev)
                 h = h[:, -1]
             elif cfg.prior == "gru":
                 zp = Z[:, i - 1:i] if i else torch.zeros(B, 1, m)
-                h, state = self.prior.hidden(zp, G[:, i:i + 1], ctx, state=state)
+                cp = CC[:, i - 1:i] if i else torch.zeros(B, 1, nc, dtype=torch.long)
+                h, state = self.prior.hidden(zp, G[:, i:i + 1], ctx, state=state, cprev=cp)
                 h = h[:, -1]
             else:
                 h, _ = self.prior.hidden(torch.zeros(B, 1, m), G[:, i:i + 1], ctx)
                 h = h[:, -1]
+            if nc:
+                CC[:, i], h = self.prior.cat_sample(h, gen)
             Z[:, i] = self.prior.mdn.sample(h, gen)
-        return Z
+        return Z, (CC if nc else None)
