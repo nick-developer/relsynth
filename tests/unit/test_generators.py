@@ -18,7 +18,7 @@ import relsynth as rs
 from relsynth.cli import main as cli_main
 from relsynth.compute import ComputeError, presets, resolve
 from relsynth.compute import validate as validate_compute
-from relsynth.generators import (Capabilities, Conditioning, GeneratorError, Registry, TableGenerator, check,
+from relsynth.generators import (CONTRACT_VERSION, Capabilities, Conditioning, GeneratorError, Registry, TableGenerator, check,
                                  default_registry, table_choice, version_matches)
 from relsynth.spec import SpecError, load_spec
 
@@ -224,7 +224,7 @@ def test_serialize_and_load(shop, gen):
     tm = model.synthesizer.tm["invoice"]
     blob = tm.generator.serialize()
     head = json.loads(blob.split(b"\n", 1)[0])
-    assert head["generator"] == gen and head["contract"] == "1.0" and len(head["sha256"]) == 64
+    assert head["generator"] == gen and head["contract"] == CONTRACT_VERSION and len(head["sha256"]) == 64
     cls = type(tm.generator)
     with pytest.raises(GeneratorError, match="trusted"):
         cls.load(blob)

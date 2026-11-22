@@ -11,7 +11,12 @@ for attribute values given the row's conditioning context:
 * the row's latent **group** (an entity row's segment, a fact row's segment
   block, see Prop. 700), with the coarser group the engine falls back to;
 * optionally the **parent attributes** joined onto the row (the synthetic
-  parent's values, columns named in ``TableData.aux``).
+  parent's values, columns named in ``TableData.aux``);
+* optionally (contract 1.1) the row's **family**: the rows of a fact that share
+  its anchor (parent) row, with an order key along the family when the fact has
+  a time column.  A generator that declares ``family`` conditioning models the
+  rows of a family jointly (the lines of an invoice, the history of an account);
+  the engine still sets which rows exist, their keys, counts and dates.
 
 Everything a generator returns is post-processed by the engine (computed
 columns, derive rules, rejection on check rules, unique attribute keys), so a
@@ -36,10 +41,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "1.1"
 # column kinds a generator can declare (the modelled column types of the spec)
 COLUMN_KINDS = ("integer", "float", "categorical", "boolean", "date", "datetime")
-CONDITIONING = ("group", "parent")
+CONDITIONING = ("group", "parent", "family")
 DP_SUPPORT = ("none", "input", "output")
 GPU_NEED = ("never", "optional", "required")
 
@@ -57,8 +62,9 @@ class Capabilities:
     modalities: entity shapes of the IR the generator models (``record`` for a
         table row; ``document``, ``node``, ``event`` for later releases).
     column_kinds: modelled column types it accepts.
-    conditioning: ``group`` (latent segment of the row; required) and
-        ``parent`` (values of the row's synthetic parent attributes).
+    conditioning: ``group`` (latent segment of the row; required),
+        ``parent`` (values of the row's synthetic parent attributes) and
+        ``family`` (rows sharing an anchor row are modelled jointly; contract 1.1).
     dp: ``none``; ``input`` (it can fit from privatised sufficient statistics);
         ``output`` (it spends a privacy budget itself and reports it in
         privacy_cost).  T07 owns the semantics.
@@ -114,6 +120,11 @@ class FitContext:
     options: the table's ``generator.options`` from the spec.
     compute: the resolved compute plan (relsynth.compute.ComputePlan).
     privacy_budget: a budget handed down by the DP engine (T07); None today.
+    family: (contract 1.1, only for generators declaring ``family``) int id per
+        row of the anchor row it belongs to (-1: no anchor), or None when the
+        table has no anchor relationship.
+    order: float order key per row along its family (the time column as
+        seconds; NaN: unknown), or None for unordered families.
     """
     groups: np.ndarray | None
     parent: dict
@@ -124,15 +135,21 @@ class FitContext:
     compute: Any = None
     privacy_budget: Any = None
     table: str = ""
+    family: np.ndarray | None = None
+    order: np.ndarray | None = None
 
 
 @dataclass
 class Conditioning:
     """The context of the rows to sample: one group label per row and, when the
     generator declares ``parent`` conditioning and the table has parent
-    attributes, a frame of those values (columns TableData.aux, one row per row)."""
+    attributes, a frame of those values (columns TableData.aux, one row per row).
+    With ``family`` conditioning (contract 1.1): the synthetic anchor row of each
+    row (``family``, -1 none) and its order key (``order``), as in FitContext."""
     groups: np.ndarray
     given: pd.DataFrame | None = None
+    family: np.ndarray | None = None
+    order: np.ndarray | None = None
 
     def __len__(self):
         return len(self.groups)

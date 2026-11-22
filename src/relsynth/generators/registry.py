@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Registry of generator plug-ins: discovery, version pinning, compatibility.
 
-Built-in generators (copula, independent, cart, and the neural tvae and ddpm,
+Built-in generators (copula, independent, cart, and the neural tvae, ddpm and ctvae,
 which need the optional extra relsynth[neural]) are always registered.
 Third-party generators are found through the ``relsynth.generators``
 entry-point group (PyPA entry-points specification), so installing a package
@@ -107,8 +107,8 @@ def _builtins():
     from .cart import CartGenerator
     from .copula import CopulaGenerator
     from .independent import IndependentGenerator
-    from .neural import DDPMGenerator, TVAEGenerator      # torch is imported only when they fit
-    return [CopulaGenerator, IndependentGenerator, CartGenerator, TVAEGenerator, DDPMGenerator]
+    from .neural import CTVAEGenerator, DDPMGenerator, TVAEGenerator   # torch is imported only when they fit
+    return [CopulaGenerator, IndependentGenerator, CartGenerator, TVAEGenerator, DDPMGenerator, CTVAEGenerator]
 
 
 def _validate_class(cls, name):
@@ -231,6 +231,9 @@ def check(cls, spec, t, aux=False, pushed=False, ir_version="1.0") -> tuple[list
     if aux and "parent" not in cap.conditioning:
         warns.append(f"{t}: generator {cls.name} does not condition on parent attributes; the fact's columns "
                      "depend on its parents only through the latent segments")
+    if "family" in cap.conditioning and not T.get("fact"):
+        warns.append(f"{t}: generator {cls.name} models the rows sharing an anchor row jointly, but {t} is not a "
+                     "fact with an anchor relationship; its rows are drawn as families of one row")
     if pushed and not cap.pushdown:
         errs.append(f"{t}: generator {cls.name} cannot fit from in-database statistics and a sample; "
                     "set synthesis.pushdown.mode: off or choose another generator")

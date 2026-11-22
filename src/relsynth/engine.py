@@ -2128,7 +2128,14 @@ class Synthesizer:
         sub = groups.copy()
         keep = ok | info["null2"]["rows"] if info.get("null2") else ok
         sub[~keep] = -1
-        tm.fit(groups=sub, parent=parent, rng=rng, per_group_copula=False)
+        fam = order = None
+        if tm.uses_family:
+            # contract 1.1: the anchor row of every fitted row, ordered by the time column
+            fam = np.where(keep, a_idx, -1).astype(np.int64)
+            tcol = T["fact"].get("time_column")
+            if tcol:
+                order = _order_key(df[tcol])
+        tm.fit(groups=sub, parent=parent, rng=rng, per_group_copula=False, family=fam, order=order)
         info["fitted_groups"] = tm.fitted_groups()
         # this fact is a parent of a nested fact: its rows become a fixed entity
         if f in self.fact_key_index:
@@ -4448,32 +4455,44 @@ class Synthesizer:
         for c, vals in st["acols"].items():
             cols[c] = np.asarray(vals, dtype=object)[u] if len(u) else np.array([], dtype=object)
         given = self._given_frame(f, pd.DataFrame(cols), ents) if len(groups) else None
-        df = self.tm[f].sample(groups, rng, given) if len(groups) else \
+        fam_gen = self.tm[f].uses_family
+        # a family generator (contract 1.1) orders a family's rows by their dates, so the dates are
+        # drawn first (their law does not depend on the attributes); other generators keep the
+        # original stream order, so their output is unchanged
+        ts = self._fact_times(info, z1, u, rng) if fam_gen and "time" in info else None
+        df = self.tm[f].sample(groups, rng, given, family=u if fam_gen else None,
+                               order=None if ts is None else _order_key(pd.Series(ts))) if len(groups) else \
             pd.DataFrame(columns=self.tm[f].out_cols)
         for c, vals in cols.items():
             df[c] = vals
         if "time" in info:
-            ti = info["time"]
-            P = ti["P"]
-            zrow = z1[u]
-            b = _choice_rows(rng, P, zrow)
-            starts = ti["buckets"].start_time.to_numpy()
-            ends = ti["buckets"].end_time.to_numpy()
-            span = (ends[b] - starts[b]).astype("timedelta64[s]").astype(np.int64)
-            off = (rng.random(len(b)) * span).astype(np.int64)
-            ts = starts[b] + off.astype("timedelta64[s]")
-            ts = pd.Series(ts)
-            if not ti["is_dt"]:
-                ts = ts.dt.normalize()
-            ts = ts.clip(ti["tmin"], ti["tmax"])
-            ts[rng.random(len(ts)) < ti["null_rate"]] = pd.NaT
-            df[ti["col"]] = ts.to_numpy()
+            df[info["time"]["col"]] = ts if ts is not None else self._fact_times(info, z1, u, rng)
         df["__group__"] = groups
         df["__seg__"] = z1[u] if len(u) else np.zeros(0, np.int64)
         df["__anchor_row__"] = u
         df["__blk__"] = blk
         self._sequences(f, df)
         return df
+
+    @staticmethod
+    def _fact_times(info, z1, u, rng):
+        """The time column of fact rows with anchor rows u: a bucket from the anchor segment's
+        profile, a uniform instant inside it, clipped to the observed range, nulls at their rate."""
+        ti = info["time"]
+        P = ti["P"]
+        zrow = z1[u]
+        b = _choice_rows(rng, P, zrow)
+        starts = ti["buckets"].start_time.to_numpy()
+        ends = ti["buckets"].end_time.to_numpy()
+        span = (ends[b] - starts[b]).astype("timedelta64[s]").astype(np.int64)
+        off = (rng.random(len(b)) * span).astype(np.int64)
+        ts = starts[b] + off.astype("timedelta64[s]")
+        ts = pd.Series(ts)
+        if not ti["is_dt"]:
+            ts = ts.dt.normalize()
+        ts = ts.clip(ti["tmin"], ti["tmax"])
+        ts[rng.random(len(ts)) < ti["null_rate"]] = pd.NaT
+        return ts.to_numpy()
 
     def _sequences(self, t, df):
         """Sequence columns (line numbers): start..start+n-1 within their key (start 1
@@ -5022,7 +5041,14 @@ class Synthesizer:
                     has_fb[ok_rule] = True
                 redrawn[idx] = True
                 gv = getattr(self, "_given", {}).get(t)
-                new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None)
+                fam_r = ord_r = None
+                if tm.uses_family and "__anchor_row__" in df:
+                    # contract 1.1: redrawn rows keep their family; rows of one family redrawn together
+                    # are drawn jointly (rejection touches a small share of rows)
+                    fam_r = df["__anchor_row__"].to_numpy()[idx]
+                    tcol = (self.spec["tables"][t].get("fact") or {}).get("time_column")
+                    ord_r = _order_key(df[tcol].iloc[idx]) if tcol and tcol in df else None
+                new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None, family=fam_r, order=ord_r)
                 for c in tm.out_cols:
                     col = df[c].astype(object).to_numpy(copy=True)
                     col[idx] = new[c].to_numpy(dtype=object)
@@ -6156,6 +6182,15 @@ class Synthesizer:
         if gens:
             out["generators"] = gens
         return out
+
+
+def _order_key(values) -> np.ndarray:
+    """Order key of a time column (contract 1.1 family order): seconds since the epoch, NaN for nulls."""
+    t = pd.to_datetime(pd.Series(values).reset_index(drop=True), errors="coerce")
+    out = np.full(len(t), np.nan)
+    ok = t.notna().to_numpy()
+    out[ok] = t[ok].astype("datetime64[ns]").astype("int64").to_numpy() / 1e9
+    return out
 
 
 def _choice_rows(rng, P, k):
