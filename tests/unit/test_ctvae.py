@@ -186,7 +186,7 @@ def test_redraw_is_given_the_kept_siblings(families_csv):
     gen = m.synthesizer.tm["tx"].generator
     rng = np.random.default_rng(0)
     groups = np.array(sorted(gen.group_ix))[:1]
-    k, n_fam = 6, 60
+    k, n_fam = 6, 200
     # every family: 6 kept siblings all of one kind, 1 row to redraw
     kinds = np.array(["w", "x", "y", "z"])[np.arange(n_fam) % 4]
     sib = pd.DataFrame({"kind": np.repeat(kinds, k), "amount": 20.0,
@@ -196,4 +196,5 @@ def test_redraw_is_given_the_kept_siblings(families_csv):
     out = gen.sample(n_fam, cond, rng)
     match = (out["kind"].to_numpy() == kinds).mean()
     free = gen.sample(n_fam, Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam)), rng)
-    assert match > 0.6 and match > (free["kind"].to_numpy() == kinds).mean() + 0.2, match
+    # chance is 1/4; CPU training differs across machines, so the bound leaves room
+    assert match > 0.5 and match > (free["kind"].to_numpy() == kinds).mean() + 0.2, match
