@@ -50,7 +50,7 @@ from . import train as T
 from .base import NeuralGenerator, _number, _pos_int
 from .features import FeatureSpace, table_marginals
 
-DEFAULTS = {"prior": "transformer", "categorical_head": "residual", "latent": 16, "d_token": 32, "layers": 2,
+DEFAULTS = {"prior": "transformer", "categorical_head": "residual", "latent": 16, "d_column": 32, "layers": 2,
             "heads": 4, "d_prior": 96, "prior_layers": 2, "mixtures": 5, "window": 64, "beta": 0.5,
             "free_bits": 0.05, "vae_steps": 3000, "prior_steps": 3000, "batch_size": 512, "batch_families": 64,
             "lr": 2e-3, "weight_decay": 1e-5, "max_rows": 200000, "max_levels": 30, "cond_dim": 16,
@@ -107,13 +107,13 @@ class CTVAEGenerator(NeuralGenerator):
             raise GeneratorError(f"{t}: ctvae option prior must be transformer, gru or none")
         if o["categorical_head"] not in ("residual", "decoder"):
             raise GeneratorError(f"{t}: ctvae option categorical_head must be residual or decoder")
-        for k in ("latent", "d_token", "layers", "heads", "d_prior", "prior_layers", "mixtures", "window",
+        for k in ("latent", "d_column", "layers", "heads", "d_prior", "prior_layers", "mixtures", "window",
                   "vae_steps", "prior_steps", "batch_size", "batch_families", "max_rows", "max_levels", "cond_dim",
                   "sample_chunk", "calib_families"):
             if not _pos_int(o[k]):
                 raise GeneratorError(f"{t}: ctvae option {k} must be a positive integer")
-        if o["d_token"] % o["heads"] or o["d_prior"] % o["heads"]:
-            raise GeneratorError(f"{t}: ctvae options d_token and d_prior must be multiples of heads")
+        if o["d_column"] % o["heads"] or o["d_prior"] % o["heads"]:
+            raise GeneratorError(f"{t}: ctvae options d_column and d_prior must be multiples of heads")
         for k in ("beta", "free_bits", "lr", "weight_decay"):
             if not _number(o[k]) or o[k] < 0:
                 raise GeneratorError(f"{t}: ctvae option {k} must be a number >= 0")
@@ -212,7 +212,7 @@ class CTVAEGenerator(NeuralGenerator):
         nn, F = torch.nn, torch.nn.functional
         sp, o = self.space, self.opts
         n_num, widths = sp.n_num, list(sp.cat_widths)
-        L, d, dp_, H = o["latent"], o["d_token"], o["d_prior"], o["heads"]
+        L, d, dp_, H = o["latent"], o["d_column"], o["d_prior"], o["heads"]
         K, W, prior = o["mixtures"], o["window"], o["prior"]
         residual = o["categorical_head"] == "residual"
         cond = self._cond_module()

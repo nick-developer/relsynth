@@ -166,7 +166,7 @@ def test_entity_level_dp_sgd(enterprise):
 
 
 @pytest.mark.parametrize("bad", [{"prior": "lstm"}, {"categorical_head": "x"}, {"window": 0},
-                                 {"d_token": 30, "heads": 4}, {"nope": 1}])
+                                 {"d_column": 30, "heads": 4}, {"nope": 1}])
 def test_options_are_validated(enterprise, bad):
     with pytest.raises((GeneratorError, rs.errors.EngineError, ValueError)):
         rs.fit(_with(enterprise, tables={"sales"}, **bad), seed=1)

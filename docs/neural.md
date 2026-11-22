@@ -148,6 +148,61 @@ What this covers, and what it does not:
 
 Use DP-SGD as defence in depth for releases inside the organisation, and DP mode for anything that leaves it.
 
+## Families: `ctvae`
+
+`tvae` and `ddpm` draw each row given its own context, so the rows that share an anchor row are independent given
+their segments: the genres of one invoice, or the balances of one account over time, do not go together the way
+they do in the data. `ctvae` (context transformer VAE) draws the rows of a **family** jointly. A
+family is the rows of a fact that share an anchor row. When the fact has a time column, the family is ordered by it.
+
+```yaml
+tables:
+  trans:
+    role: fact
+    fact: {anchor: account, time_column: date}
+    generator:
+      name: ctvae
+      options: {prior: transformer}      # transformer (default), gru (cheaper) or none
+```
+
+How it works (Props. 1860-1863, `docs/proofs/sec_v74_ctvae.tex`):
+
+- A row VAE maps each row to a latent: column tokens and a PreNorm transformer over them (FT-Transformer, TabSyn's
+  VAE), with free bits and a KL warm-up.
+- A family prior draws the latents of a family one row after the other. A causal transformer reads the earlier rows
+  (latents and levels), each row's own segment and parent attributes, the family size and the time gaps. A mixture
+  density network gives the next latent.
+- A residual categorical head draws each row's levels from the decoder's logits for its latent, plus a correction
+  from the family history. The correction starts at zero, so the model starts as the latent-only one (Prop. 1861).
+- The columns go through relsynth's Bayesian marginals and the calibration, as in `tvae` (Props. 1800-1805).
+- The engine keeps keys, counts and dates. For a family generator it draws a fact's dates before its attributes,
+  which leaves the law unchanged because the date law does not read the attributes (Prop. 1862).
+
+The model was chosen by an ablation before any engine code: four real datasets (Chinook, Berka, Online Retail II,
+AdventureWorks), three seeds each, and an acceptance rule fixed before the runs. It cut within-family numeric
+errors by a third to nine tenths, and kept or improved categorical sharing on three of the four datasets, without a
+privacy cost. The design record is [research/context-transformer-vae.md](research/context-transformer-vae.md);
+the harness is `experiments/context_vae/`.
+
+Options (defaults are the ones of the ablation): `prior`, `categorical_head` (`residual` or `decoder`), `latent`,
+`d_column`, `layers`, `heads`, `d_prior`, `prior_layers`, `mixtures`, `window` (rows of history the prior reads),
+`beta`, `free_bits`, `vae_steps`, `prior_steps`, `batch_size`, `batch_families`, `lr`, `weight_decay`,
+`max_rows`, `max_levels`, `cond_dim`, `sample_chunk`, `calibrate`, `calib_families` and `dp`.
+
+What to know:
+
+- `ctvae` cannot fit from in-database statistics and a sample, because a row sample would cut families. Pushdown
+  facts need another generator, and the spec check says so.
+- On a table that is not a fact with an anchor, every row is a family of one row, and the spec check warns.
+- Rows that the engine rejects and redraws are drawn again with their family, jointly with the other redrawn rows
+  of that family.
+- With `dp`, DP-SGD runs on families: families are Poisson-sampled, and each family's gradient over at most
+  `window` of its rows is clipped as one unit. The bound covers one anchor row's whole history in this table
+  (Prop. 1863), but is conditional on the preprocessing, as for `tvae`.
+- On a CPU, a fit with the default steps takes a few minutes on 100k rows. Sampling is one step per row of the
+  longest family in a chunk, so very long families are the slow case. `prior: gru` is about twice as fast on long
+  sequences.
+
 ## Reproducibility and devices
 
 On the CPU a seed gives the same model and data (Prop. 701): every random number comes from torch generators seeded
