@@ -21,8 +21,8 @@ Sources (each optional; a missing or unreadable file is reported, not fatal):
   Dependabot pull requests (so the agent does not duplicate them) and to tell
   whether an earlier ``security-patch/`` pull request is still open.
 
-Writes the work list to ``--out`` and a Markdown summary (no advisory text, only
-identifiers, packages and paths) to stdout; with ``--github-output`` it also
+Writes the work list to ``--out`` and a Markdown summary (counts per source only,
+since run logs of a public repository are public) to stdout; with ``--github-output`` it also
 appends ``count=<n>`` and ``pending_pr=<url or empty>`` to that file.
 """
 from __future__ import annotations
@@ -144,37 +144,39 @@ def pip_audit(label: str, doc: Any) -> list[dict]:
     return out[:MAX_ITEMS]
 
 
-def open_prs(doc: Any) -> tuple[list[dict], str]:
-    """Open Dependabot pull requests, and the URL of an open security-patch pull request."""
+def open_prs(doc: Any, repo: str = "") -> tuple[list[dict], str]:
+    """Open Dependabot pull requests, and the URL of an open security-patch pull request.
+
+    Only a ``security-patch/`` branch of ``repo`` itself counts as pending: anyone can
+    open a pull request from a fork branch with that name, and it must not stop the job.
+    """
     dependabot_prs, pending = [], ""
     for pr in _pages(doc):
-        head = (pr.get("head") or {}).get("ref") or ""
+        head = pr.get("head") or {}
+        ref = head.get("ref") or ""
+        same_repo = not repo or ((head.get("repo") or {}).get("full_name") == repo)
         login = (pr.get("user") or {}).get("login") or ""
-        if head.startswith(BRANCH_PREFIX) and not pending:
-            pending = clip(pr.get("html_url"), 200)
-        elif login == "dependabot[bot]":
-            dependabot_prs.append({"number": pr.get("number"), "title": clip(pr.get("title"), 160), "branch": clip(head, 160)})
+        if ref.startswith(BRANCH_PREFIX) and same_repo:
+            pending = pending or clip(pr.get("html_url"), 200)
+        elif login == "dependabot[bot]" and same_repo:
+            dependabot_prs.append({"number": pr.get("number"), "title": clip(pr.get("title"), 160), "branch": clip(ref, 160)})
     return dependabot_prs[:MAX_ITEMS], pending
 
 
 def summary(work: dict) -> str:
-    """Markdown table of the work list: identifiers, packages and paths only."""
+    """Counts per source only.
+
+    The job summary and log of a public repository are public, while code-scanning and
+    Dependabot alerts are visible only to maintainers, so no alert detail is printed.
+    """
+    counts: dict[str, int] = {}
+    for f in work["findings"]:
+        counts[f["source"]] = counts.get(f["source"], 0) + 1
     lines = ["## Security findings", ""]
-    rows = work["findings"]
-    if not rows:
-        lines.append("No open finding above warning with a fix available.")
+    if counts:
+        lines += ["| source | findings |", "|---|---|"] + [f"| {k} | {v} |" for k, v in sorted(counts.items())]
     else:
-        lines += ["| source | what | severity | fix |", "|---|---|---|---|"]
-        for f in rows:
-            what = f.get("package") or f"{f.get('path')}:{f.get('line')} ({f.get('rule')})"
-            if "advisories" in f:
-                ids = ", ".join(f["advisories"])
-                fix = ", ".join(sorted({v for fixes in f["advisories"].values() for v in fixes}))
-                what = f"{what} {f['version']} ({ids})"
-            else:
-                fix = f.get("fixed_in") or "code change"
-                what = f"{what} {f.get('advisory') or ''}".strip()
-            lines.append(f"| {f['source']} | {what} | {f.get('severity', '')} | {fix} |")
+        lines.append("No open finding above warning with a fix available.")
     if work["dependabot_prs"]:
         lines += ["", f"Open Dependabot pull requests: {len(work['dependabot_prs'])}"]
     if work["pending_pr"]:
@@ -191,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--code-scanning")
     ap.add_argument("--pip-audit", action="append", default=[], metavar="LABEL=FILE")
     ap.add_argument("--open-prs")
+    ap.add_argument("--repo", default="", help="owner/name; only its own branches count as pending pull requests")
     ap.add_argument("--out", required=True)
     ap.add_argument("--github-output")
     args = ap.parse_args(argv)
@@ -202,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
         if not path:
             ap.error(f"--pip-audit expects LABEL=FILE, got {item!r}")
         findings += pip_audit(label, load(path, problems))
-    dependabot_prs, pending = open_prs(load(args.open_prs, problems))
+    dependabot_prs, pending = open_prs(load(args.open_prs, problems), args.repo)
 
     work = {"findings": findings, "dependabot_prs": dependabot_prs, "pending_pr": pending, "problems": problems}
     Path(args.out).write_text(json.dumps(work, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

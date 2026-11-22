@@ -60,12 +60,30 @@ def test_pip_audit_groups_by_package_and_needs_a_fix():
 
 def test_open_prs_finds_pending_patch_and_dependabot():
     """An open security-patch/ pull request blocks a new run; Dependabot pull requests are listed."""
-    prs = [[{"number": 1, "head": {"ref": "security-patch/2026-11-24"}, "user": {"login": "claude[bot]"}, "html_url": "u1"},
-            {"number": 2, "head": {"ref": "dependabot/pip/x"}, "user": {"login": "dependabot[bot]"}, "title": "t"},
-            {"number": 3, "head": {"ref": "feature"}, "user": {"login": "someone"}}]]
-    dep, pending = sf.open_prs(prs)
+    own, fork = {"full_name": "o/r"}, {"full_name": "evil/r"}
+    prs = [[{"number": 0, "head": {"ref": "security-patch/x", "repo": fork}, "user": {"login": "evil"}, "html_url": "u0"},
+            {"number": 1, "head": {"ref": "security-patch/2026-11-24", "repo": own}, "user": {"login": "claude[bot]"},
+             "html_url": "u1"},
+            {"number": 2, "head": {"ref": "dependabot/pip/x", "repo": own}, "user": {"login": "dependabot[bot]"}, "title": "t"},
+            {"number": 3, "head": {"ref": "feature", "repo": own}, "user": {"login": "someone"}}]]
+    dep, pending = sf.open_prs(prs, "o/r")
     assert pending == "u1"
     assert [p["number"] for p in dep] == [2]
+
+
+def test_fork_branch_named_security_patch_does_not_block():
+    """A fork pull request from a security-patch/ branch is not this job's pull request."""
+    prs = [{"number": 9, "head": {"ref": "security-patch/x", "repo": {"full_name": "evil/r"}}, "html_url": "u"}]
+    assert sf.open_prs(prs, "o/r") == ([], "")
+
+
+def test_summary_prints_counts_only():
+    """Alert details never reach the public job summary."""
+    work = {"findings": [{"source": "code-scanning", "path": "src/secret_place.py", "rule": "py/sql-injection"}],
+            "dependabot_prs": [], "pending_pr": "", "problems": []}
+    out = sf.summary(work)
+    assert "| code-scanning | 1 |" in out
+    assert "secret_place" not in out and "sql-injection" not in out
 
 
 def test_main_end_to_end(tmp_path):
