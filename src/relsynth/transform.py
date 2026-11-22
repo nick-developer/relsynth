@@ -186,6 +186,12 @@ class Plan:
         for r in rels:
             if r["child"] == f and not r.get("composite") and r["child_key"] in hset:
                 r["child"] = H
+        for c, cs in T["columns"].items():
+            # a line column offset from a parent through a key that moves to the header
+            # (ship date from order_id.orderdate) now reaches it through the header key
+            of = cs.get("offset_from")
+            if c not in hset and isinstance(of, str) and "." in of and of.split(".")[0] in hset:
+                cs["offset_from"] = f"{key}.{of}"
         for c in hc:
             T["columns"][c] = {"type": "lookup", "lookup": f"{key}.{c}", "nullable": True}
         T["columns"][key] = {"type": "id", "nullable": False}

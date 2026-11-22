@@ -94,3 +94,59 @@ def test_offset_cycle_is_refused(tmp_path):
     db = _db(tmp_path, n_orders=5)
     with pytest.raises(SpecError, match="cycle"):
         load_spec(_spec(db, ship_base="l_receipt"))
+
+
+def test_mixed_offset_and_derive_cycle_is_refused(tmp_path):
+    db = _db(tmp_path, n_orders=5)
+    s = _spec(db, ship_base="l_receipt", receipt_base="l_commit")
+    s["tables"]["lines"]["columns"]["l_commit"].pop("offset_from")
+    s["rules"].append({"table": "lines", "type": "derive", "expr": "l_commit = add_days(l_ship, 1)"})
+    with pytest.raises(SpecError, match="cycle"):
+        load_spec(s)
+
+
+def test_path_through_an_undeclared_table_is_a_validation_error(tmp_path):
+    db = _db(tmp_path, n_orders=5)
+    s = _spec(db)
+    s["relationships"][0]["parent"] = "missing_orders"
+    with pytest.raises(SpecError, match="missing_orders"):
+        load_spec(s)
+
+
+def test_offset_through_a_key_that_moves_to_the_order_header(tmp_path):
+    """The customer key is an order-header column carried on the lines (fact.header): the
+    line date offset from customer.c_since reaches it through the virtual header."""
+    rng = np.random.default_rng(9)
+    nc, rows = 60, []
+    since = pd.Timestamp("2019-01-01") + pd.to_timedelta(rng.integers(0, 300, nc), unit="D")
+    cust = pd.DataFrame({"c_id": np.arange(1, nc + 1), "c_since": since.strftime("%Y-%m-%d"),
+                         "c_seg": rng.choice(["A", "B"], nc)})
+    lid = 1
+    for order_no in range(1, 301):
+        c = int(rng.integers(1, nc + 1))
+        for ln in range(1, int(rng.integers(1, 4)) + 1):
+            d = since[c - 1] + pd.Timedelta(days=int(rng.integers(1, 31)))
+            rows.append((lid, order_no, ln, c, d.strftime("%Y-%m-%d"), float(rng.gamma(2.0, 20.0))))
+            lid += 1
+    lines = pd.DataFrame(rows, columns=["l_id", "order_no", "line_no", "c_id", "l_date", "amount"])
+    db = tmp_path / "hdr.db"
+    with sqlite3.connect(db) as con:
+        cust.to_sql("customer", con, index=False)
+        lines.to_sql("sales", con, index=False)
+    spec = {"version": 1, "name": "hdr", "source": {"kind": "sqlite", "path": str(db)},
+            "tables": {
+                "customer": {"role": "entity", "primary_key": "c_id",
+                             "columns": {"c_id": {"type": "id"}, "c_since": {"type": "date"},
+                                         "c_seg": {"type": "categorical"}}},
+                "sales": {"role": "fact", "primary_key": "l_id",
+                          "fact": {"header": {"key": "order_no", "columns": ["c_id"], "line_number": "line_no"}},
+                          "columns": {"l_id": {"type": "id"}, "order_no": {"type": "id"},
+                                      "line_no": {"type": "integer"}, "c_id": {"type": "id"},
+                                      "l_date": {"type": "date", "offset_from": "c_id.c_since"},
+                                      "amount": {"type": "float"}}}},
+            "relationships": [{"child": "sales", "child_key": "c_id", "parent": "customer", "parent_key": "c_id"}]}
+    out = rs.run(spec, write=False, privacy=False, seed=2).data
+    s = out["sales"]
+    gap = (pd.to_datetime(s["l_date"]) - pd.to_datetime(s["c_id"].map(out["customer"].set_index("c_id")["c_since"]))).dt.days
+    assert len(s) > 0 and gap.between(1, 30).all()
+

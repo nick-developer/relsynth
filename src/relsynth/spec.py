@@ -571,6 +571,10 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                         b = spec["tables"][bt]["columns"][bc]
                     except SpecError as e:
                         path_err = str(e)
+                    except KeyError as e:
+                        # a relationship on the path names a table the spec does not declare
+                        # (reported again by the relationship checks)
+                        path_err = f"'{of}' passes through undeclared table {e.args[0]}"
                 else:
                     b = t["columns"].get(of)
                 if path_err is not None:
@@ -581,16 +585,6 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                                                                          "lookup"):
                     errs.append(f"{tname}.{cname}: offset_from {of} must be another date or number column of "
                                 f"{tname} or a path 'fk.column' to one in a parent table")
-                else:
-                    # a chain within the table must end at a column that is not an offset (a path
-                    # through a foreign key leaves the table, toward its parents, and ends the walk)
-                    seen, cur = {cname}, of
-                    while "." not in cur and cur in t["columns"] and t["columns"][cur].get("offset_from") is not None:
-                        if cur in seen:
-                            errs.append(f"{tname}.{cname}: offset_from columns form a cycle through {cur}")
-                            break
-                        seen.add(cur)
-                        cur = str(t["columns"][cur]["offset_from"])
             if c.get("ratio_of") is not None:
                 if c.get("type") not in ("float", "integer"):
                     errs.append(f"{tname}.{cname}: ratio_of needs a number column")
@@ -760,7 +754,10 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                     used = names_in(expr)
                 for nme in used:
                     if "." in nme:
-                        resolve_path(spec, t, nme)
+                        try:
+                            resolve_path(spec, t, nme)
+                        except KeyError as e:
+                            raise SpecError(f"'{nme}' passes through undeclared table {e.args[0]}") from None
                     elif nme not in tables[t]["columns"]:
                         errs.append(f"rule {i}: {nme} is not a column of {t}")
             except (SpecError, ValueError, SyntaxError) as e:
@@ -1148,8 +1145,8 @@ def _validate_keyed(spec, tname, cname, lk):
 
 
 def computed_inputs(spec) -> dict:
-    """{'t.c': {'t2.c2', ...}}: the columns each computed column (lookup, derive,
-    aggregate) reads, following paths through foreign keys."""
+    """{'t.c': {'t2.c2', ...}}: the columns each computed column (lookup, offset,
+    derive, aggregate) reads, following paths through foreign keys."""
     from .expr import names_in, split_assignment
     T = spec["tables"]
     deps = {}
@@ -1184,10 +1181,14 @@ def computed_inputs(spec) -> dict:
                         if isinstance(v, str) and not v.startswith("'"):
                             d |= path_cols(t, v) if "." in v else {f"{t}.{v}"}
                     deps[f"{t}.{c}"] = d
+            of = cs.get("offset_from")
+            if of is not None:
+                # an offset reads its base (a column of the table or a parent's, through keys)
+                deps[f"{t}.{c}"] = path_cols(t, str(of)) if "." in str(of) else {f"{t}.{of}"}
     for r in spec.get("rules", []):
         if r.get("type") == "derive":
             lhs, rhs = split_assignment(r["expr"])
-            deps[f"{r['table']}.{lhs}"] = expr_cols(r["table"], rhs)
+            deps[f"{r['table']}.{lhs}"] = deps.get(f"{r['table']}.{lhs}", set()) | expr_cols(r["table"], rhs)
         elif r.get("type") == "aggregate" and r.get("from") in T:
             deps[f"{r['table']}.{r['column']}"] = expr_cols(r["from"], r["of"]) if r.get("of") else set()
     return deps
