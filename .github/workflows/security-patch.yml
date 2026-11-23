@@ -78,7 +78,9 @@ jobs:
           for pair in lowest:lowest-direct newest:highest; do
             name="${pair%%:*}"; file="$RUNNER_TEMP/audit-${pair#*:}.json"
             if [ -s "$file" ]; then
-              echo "$name=$(jq -c '{dependencies: [.dependencies[] | select((.vulns // []) | length > 0)]}' "$file")" >> "$GITHUB_OUTPUT"
+              report=$(jq -c '{dependencies: [.dependencies[] | select((.vulns // []) | length > 0)]}' "$file") \
+                || { echo "::warning::pip-audit ($name) report could not be read as JSON"; continue; }
+              echo "$name=$report" >> "$GITHUB_OUTPUT"
             fi
           done
 
@@ -138,7 +140,9 @@ jobs:
         run: |
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" \
             > "$RUNNER_TEMP/code-scanning.json" || echo "::warning::code-scanning alerts could not be read (reported below)"
-          # a failed read leaves no file: the work list then reports it and Claude does not start
+          # a failed alert read is reported in the step summary and the run goes on with the
+          # sources that were read; a failed pull request read removes the file, and the work
+          # list then marks the run as blocked (an earlier security-patch PR may be open)
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
             > "$RUNNER_TEMP/prs.json" || { rm -f "$RUNNER_TEMP/prs.json"; echo "::warning::open pull requests could not be read"; }
 
@@ -303,11 +307,16 @@ jobs:
           python "$RUNNER_TEMP/patch_gate.py" "$GITHUB_SHA"
       - name: Install and test
         run: |
-          # the same dev environment and checks as ci.yml's lint job (this job holds no secret)
+          # the checkers come hash-locked in their own environment; the package and its test
+          # dependencies are installed as in ci.yml's lint job (this job holds no secret)
+          python -m venv "$RUNNER_TEMP/checks"
+          "$RUNNER_TEMP/checks/bin/pip" install -q --require-hashes --no-deps \
+            -r .github/requirements/static-checks.txt -r .github/requirements/pip-audit.txt
           pip install -e ".[dev]"
-          ruff check src tests tools bench
-          bandit -q -c pyproject.toml -r src
-          pip-audit --skip-editable
+          "$RUNNER_TEMP/checks/bin/ruff" check src tests tools bench
+          "$RUNNER_TEMP/checks/bin/bandit" -q -c pyproject.toml -r src
+          # pip-audit audits the environment named here (pip-api), not its own
+          PIPAPI_PYTHON_LOCATION="$(command -v python)" "$RUNNER_TEMP/checks/bin/pip-audit" --skip-editable
           python tools/check_licenses.py
           python tools/release.py check
           pytest -q -x tests/unit

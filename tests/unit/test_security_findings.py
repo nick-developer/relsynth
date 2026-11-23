@@ -122,9 +122,11 @@ def test_protected_findings_go_to_the_maintainer(tmp_path):
     assert [f["alert"] for f in work["manual"]] == [2, 3, 4, 5]
 
 
-@pytest.mark.parametrize("path", [".gitleaks.toml", ".coderabbit.yaml", "CLAUDE.md", "CONTRIBUTING.md"])
+@pytest.mark.parametrize("path", [".gitleaks.toml", ".coderabbit.yaml", "CLAUDE.md", "CONTRIBUTING.md",
+                                  "src/conftest.py", "pytest.toml", "setup.cfg", "src/pkg/setup.py",
+                                  "ruff.toml", ".coveragerc", "src/x.pth", "sitecustomize.py"])
 def test_protected_files_route_to_manual(path):
-    """Findings in the scanner, review and agent configuration files are the maintainer's."""
+    """Findings in files the gate refuses (configuration, build code) are the maintainer's."""
     finding = {"source": "code-scanning", "tool": "Semgrep", "path": path}
     assert sf.split_manual([finding]) == ([], [finding])
 
@@ -183,9 +185,10 @@ def _commit(git, msg="patch"):
 
 
 def test_gate_accepts_a_dependency_floor_and_a_code_fix(repo, tmp_path):
-    """Dependencies and source code may change."""
+    """Version ranges (also with an environment marker) and source code may change."""
     gate = _gate()
-    (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["a>=2"]\n[tool.ruff]\nline-length = 100\n')
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["a>=2,!=2.1", "c>=1; sys_platform == \'linux\'"]\n[tool.ruff]\nline-length = 100\n')
     (tmp_path / "src" / "m.py").write_text("x = 2\n")
     _commit(repo)
     assert gate.problems("HEAD~1") == []
@@ -193,9 +196,11 @@ def test_gate_accepts_a_dependency_floor_and_a_code_fix(repo, tmp_path):
 
 
 @pytest.mark.parametrize("change", ["tool", "test", "moved_test", "quoted", "workflow", "symlink",
-                                    "pytest_toml", "conftest", "setup_cfg", "ruff_toml"])
+                                    "pytest_toml", "conftest", "setup_cfg", "ruff_toml",
+                                    "setup_py", "build_system", "direct_url", "vcs_extra"])
 def test_gate_refuses(repo, tmp_path, change):
-    """Tool settings, tests (also moved or oddly named), .github/ and symbolic links are refused."""
+    """Tool and build settings, direct dependency sources, tests (also moved or oddly named),
+    .github/ and symbolic links are refused."""
     import os
     gate = _gate()
     if change == "tool":
@@ -219,6 +224,19 @@ def test_gate_refuses(repo, tmp_path, change):
         (tmp_path / "setup.cfg").write_text("[tool:pytest]\naddopts = --collect-only\n")
     elif change == "ruff_toml":
         (tmp_path / "ruff.toml").write_text("exclude = ['*']\n")
+    elif change == "setup_py":       # run by the setuptools backend at install time
+        (tmp_path / "setup.py").write_text("import setuptools\nsetuptools.setup()\n")
+    elif change == "build_system":
+        (tmp_path / "pyproject.toml").write_text(
+            '[build-system]\nrequires = ["evil"]\n[project]\ndependencies = ["a>=1"]\n'
+            '[tool.ruff]\nline-length = 100\n')
+    elif change == "direct_url":
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["a @ https://example.org/a.tar.gz"]\n[tool.ruff]\nline-length = 100\n')
+    elif change == "vcs_extra":
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["a>=1"]\n[project.optional-dependencies]\n'
+            'dev = ["b @ git+https://example.org/b ; python_version >= \'3.10\'"]\n[tool.ruff]\nline-length = 100\n')
     _commit(repo)
     assert gate.problems("HEAD~1")
     assert gate.main(["HEAD~1"]) == 1

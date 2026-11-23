@@ -12,8 +12,14 @@ listing every reason, when the patch
   (a fix must pass the existing tests), the gate scripts in ``tools/``, or any file
   that test, lint or type-check tools read as configuration in place of
   ``pyproject.toml`` (``conftest.py``, ``pytest.toml``, ``setup.cfg``, ``ruff.toml`` ...);
-* changes the ``[tool.*]`` settings of ``pyproject.toml`` (ruff, bandit, mypy, pytest):
-  a fix may raise dependency floors, never weaken a check.
+* changes the ``[tool.*]`` settings of ``pyproject.toml`` (ruff, bandit, mypy, pytest)
+  or its ``[build-system]`` table, or adds a ``setup.py`` anywhere: build code runs at
+  install time in the verify job;
+* gives a dependency a direct source (``name @ URL``, a path or a VCS reference) in
+  ``[project]`` dependencies, optional dependencies or ``[dependency-groups]``.
+
+Ordinary version changes (raising a floor, excluding a version) stay allowed: they are
+what a security fix needs, and pip then installs only published releases.
 
 Paths are read NUL-separated (``-z``), so git never quotes an unusual name past the
 check, and ``--no-renames`` lists a moved file under its old path too.
@@ -35,10 +41,23 @@ DENIED = re.compile(
     r"|tests/|tools/"
     # configuration that pytest, ruff, bandit, mypy or coverage would read in place of
     # (or next to) the settings in pyproject.toml, wherever it is placed
-    r"|(.*/)?(conftest\.py|pytest\.ini|\.?pytest\.toml|tox\.ini|setup\.cfg|\.?ruff\.toml|\.bandit"
+    r"|(.*/)?(conftest\.py|pytest\.ini|\.?pytest\.toml|tox\.ini|setup\.py|setup\.cfg|\.?ruff\.toml|\.bandit"
     r"|mypy\.ini|\.mypy\.ini|\.coveragerc|sitecustomize\.py|usercustomize\.py)$"
     r"|.*\.pth$)")
 REGULAR = {"100644", "100755", "000000"}   # 000000: the side of an added or deleted file
+# PEP 508 direct reference: "name @ url" (the "@" comes before any ";" environment marker)
+_DIRECT = re.compile(r"^[^;]*@")
+
+
+def _requirements(doc: dict) -> list[str]:
+    """Every dependency string of a parsed ``pyproject.toml``."""
+    project = doc.get("project") or {}
+    found = list(project.get("dependencies") or [])
+    for group in (project.get("optional-dependencies") or {}).values():
+        found += group
+    for group in (doc.get("dependency-groups") or {}).values():
+        found += [r for r in group if isinstance(r, str)]   # tables are {include-group = ...}
+    return [r for r in found if isinstance(r, str)]
 
 
 def _git(*args: str) -> bytes:
@@ -74,6 +93,10 @@ def problems(base: str) -> list[str]:
     new = tomllib.loads(_git("show", "HEAD:pyproject.toml").decode("utf-8"))
     if old.get("tool") != new.get("tool"):
         out.append("pyproject.toml: [tool.*] settings changed")
+    if old.get("build-system") != new.get("build-system"):
+        out.append("pyproject.toml: [build-system] changed")
+    direct = sorted(r for r in set(_requirements(new)) - set(_requirements(old)) if _DIRECT.match(r))
+    out += [f"pyproject.toml: dependency with a direct source: {r!r}" for r in direct]
     return out
 
 

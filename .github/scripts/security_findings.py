@@ -40,18 +40,16 @@ BRANCH_PREFIX = "security-patch/"
 MAX_ITEMS = 200            # per source; keeps the job output far below GitHub's 1 MB limit
 MAX_TEXT = 300             # characters kept from any free-text field
 _SECURITY_LEVELS = {"high", "critical"}
-# paths the patch job may not change (security-patch.yml refuses such a patch); findings
-# there are listed for the maintainer instead of being handed to the agent
-# (the same list as .github/scripts/patch_gate.py; hash-locked .github/requirements/
-# files are recompiled by hand)
-PROTECTED = (".github/", "tests/", "tools/", ".semgrep/", ".claude/")
-PROTECTED_FILES = {".gitleaks.toml", ".coderabbit.yaml", "CLAUDE.md", "CONTRIBUTING.md"}
+# paths the patch job may not change: findings there are listed for the maintainer
+# instead of being handed to the agent.  The pattern is patch_gate.py's own (one source),
+# so whatever the gate would refuse is never put on the agent's work list.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from patch_gate import DENIED  # noqa: E402 - needs the script directory on sys.path
 
 
 def protected(path: str | None) -> bool:
     """True when ``path`` lies where the agent may not make changes."""
-    p = (path or "").lstrip("/")
-    return p.startswith(PROTECTED) or p in PROTECTED_FILES
+    return bool(DENIED.match((path or "").lstrip("/")))
 
 
 def clip(value: Any, limit: int = MAX_TEXT) -> str:
