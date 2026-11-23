@@ -1,17 +1,20 @@
 # Weekly security patching by Claude (claude-code-action).
 #
+#   audit    holds no secret: pip-audit of the lowest versions the pyproject.toml ranges
+#            allow (what Dependabot flags for a library) and of the newest ones.  Dependency
+#            resolution can build source packages, so it never runs where Claude runs.
 #   patch    collects the open findings and, when there is one, lets Claude fix them:
 #              * Dependabot alerts, when a token that may read them is configured
 #                (the workflow token cannot: see docs/development/security-patching.md);
 #              * code-scanning alerts above warning (CodeQL, Semgrep, zizmor);
-#              * pip-audit of the lowest versions the pyproject.toml ranges allow
-#                (what Dependabot flags for a library) and of the newest ones;
+#              * the audit job's pip-audit reports;
 #              * the open pull requests of this repository, so nothing is duplicated.
 #            Only identifiers, packages, versions and paths reach Claude
 #            (.github/scripts/security_findings.py), and only counts reach the public
-#            log.  Claude runs with the read-only workflow token and may only edit,
-#            commit locally and run static checks (ruff, bandit): nothing it writes is
-#            executed in the job that holds the Claude credential.
+#            log.  Claude runs with the read-only workflow token and may only edit, commit
+#            locally (git hooks are switched off) and run the hash-locked ruff and bandit.
+#            The Anthropic credential is in this job; its scrub from Claude's commands is
+#            best-effort (docs/development/security-patching.md, "What keeps it safe").
 #   verify   holds no secret.  It applies the patch, refuses it when it reaches outside
 #            what a security fix may change (.github/scripts/patch_gate.py), then
 #            installs it and runs the unit tests, pip-audit and the repository checks.
@@ -39,8 +42,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  audit:
+    name: pip-audit of the allowed version ranges (no secrets)
+    # dependency resolution can build source distributions from PyPI: it runs here,
+    # in a job that holds no credential, never in the job where Claude runs
+    if: vars.SECURITY_PATCH_ENABLED != 'false' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      lowest: ${{ steps.audit.outputs.lowest }}
+      newest: ${{ steps.audit.outputs.newest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with: { enable-cache: false, version: "0.11.32" }
+      - name: pip-audit of the lowest and the newest allowed versions
+        id: audit
+        run: |
+          python -m venv "$RUNNER_TEMP/pip-audit"
+          "$RUNNER_TEMP/pip-audit/bin/pip" install -q --require-hashes --no-deps -r .github/requirements/pip-audit.txt
+          # resolve without installing anything; Linux x86_64 and Python 3.12, as in ci.yml
+          for res in lowest-direct highest; do
+            uv pip compile pyproject.toml --all-extras --resolution "$res" \
+              --python-version 3.12 --python-platform x86_64-manylinux_2_28 -q -o "$RUNNER_TEMP/req-$res.txt" \
+              && "$RUNNER_TEMP/pip-audit/bin/pip-audit" --no-deps --disable-pip --progress-spinner off \
+                   -r "$RUNNER_TEMP/req-$res.txt" -f json -o "$RUNNER_TEMP/audit-$res.json" >/dev/null 2>&1 \
+              || echo "::notice::pip-audit ($res) found vulnerabilities or could not run"
+          done
+          # only the vulnerable packages travel on (public data: public ranges, public advisories)
+          for pair in lowest:lowest-direct newest:highest; do
+            name="${pair%%:*}"; file="$RUNNER_TEMP/audit-${pair#*:}.json"
+            if [ -s "$file" ]; then
+              echo "$name=$(jq -c '{dependencies: [.dependencies[] | select((.vulns // []) | length > 0)]}' "$file")" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
   patch:
     name: Collect and patch
+    needs: audit
     # only from main: the draft pull request targets main
     if: vars.SECURITY_PATCH_ENABLED != 'false' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -58,12 +102,6 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
-        with: { enable-cache: false, version: "0.11.32" }
-      - name: pip-audit (hash-locked)
-        run: |
-          python -m venv "$RUNNER_TEMP/pip-audit"
-          "$RUNNER_TEMP/pip-audit/bin/pip" install -q --require-hashes --no-deps -r .github/requirements/pip-audit.txt
 
       # Option A (recommended): a GitHub App of your own with only "Dependabot alerts: read".
       - name: Dependabot alerts token (GitHub App)
@@ -100,19 +138,17 @@ jobs:
         run: |
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" \
             > "$RUNNER_TEMP/code-scanning.json" || echo "::warning::code-scanning alerts could not be read (reported below)"
+          # a failed read leaves no file: the work list then reports it and Claude does not start
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
-            > "$RUNNER_TEMP/prs.json" || echo "::warning::open pull requests could not be read"
+            > "$RUNNER_TEMP/prs.json" || { rm -f "$RUNNER_TEMP/prs.json"; echo "::warning::open pull requests could not be read"; }
 
-      - name: pip-audit of the allowed version ranges
+      - name: pip-audit reports from the audit job
+        env:
+          LOWEST: ${{ needs.audit.outputs.lowest }}
+          NEWEST: ${{ needs.audit.outputs.newest }}
         run: |
-          # resolve without installing anything; Linux x86_64 and Python 3.12, as in ci.yml
-          for res in lowest-direct highest; do
-            uv pip compile pyproject.toml --all-extras --resolution "$res" \
-              --python-version 3.12 --python-platform x86_64-manylinux_2_28 -q -o "$RUNNER_TEMP/req-$res.txt" \
-              && "$RUNNER_TEMP/pip-audit/bin/pip-audit" --no-deps --disable-pip --progress-spinner off \
-                   -r "$RUNNER_TEMP/req-$res.txt" -f json -o "$RUNNER_TEMP/audit-$res.json" >/dev/null 2>&1 \
-              || echo "::notice::pip-audit ($res) found vulnerabilities or could not run; counted below"
-          done
+          [ -z "$LOWEST" ] || printf '%s\n' "$LOWEST" > "$RUNNER_TEMP/audit-lowest-direct.json"
+          [ -z "$NEWEST" ] || printf '%s\n' "$NEWEST" > "$RUNNER_TEMP/audit-highest.json"
 
       - name: Work list (counts only in the public log)
         id: work
@@ -141,20 +177,28 @@ jobs:
           echo "ready=$HAS_CRED" >> "$GITHUB_OUTPUT"
           [ "$HAS_CRED" = true ] || echo "::notice::No Claude credential is set; findings counted, nothing patched"
 
-      - name: Static checkers for Claude (main's code; nothing Claude writes is run)
+      - name: Static checkers for Claude (hash-locked ruff and bandit; nothing Claude writes is run)
         id: env
         if: >-
           steps.work.outputs.count != '0' && steps.work.outputs.pending_pr == '' &&
           steps.cred.outputs.ready == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
         run: |
-          pip install -e ".[dev]"
+          pip install -q --require-hashes --no-deps -r .github/requirements/static-checks.txt
           echo "go=true" >> "$GITHUB_OUTPUT"
 
-      - uses: anthropics/claude-code-action@402b5b79551e3ce6614c179fbccbfdb79291cead # v1.0.269
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         if: steps.env.outputs.go == 'true'
         env:
           # best-effort scrub of the Anthropic credential from the commands Claude runs
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+          # git ignores hooks and fsmonitor whatever .git/config says (these settings
+          # rank above every config file), so a commit runs no agent-written code;
+          # Claude may not write under .git/ either (--disallowedTools below)
+          GIT_CONFIG_COUNT: "2"
+          GIT_CONFIG_KEY_0: core.hooksPath
+          GIT_CONFIG_VALUE_0: /dev/null
+          GIT_CONFIG_KEY_1: core.fsmonitor
+          GIT_CONFIG_VALUE_1: "false"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -171,9 +215,7 @@ jobs:
               * dependabot / pip-audit:* entries: a dependency version with a known vulnerability.
                 "pip-audit:lowest-allowed" means the lowest version a pyproject.toml range allows is
                 vulnerable: raise that lower bound (or add a floor for the transitive package) to the
-                first fixed version, nothing more. A Dependabot alert on .github/requirements/*.txt
-                is fixed by recompiling that file the way its header says (uv pip compile
-                --generate-hashes, with semgrep-overrides.txt for semgrep).
+                first fixed version, nothing more.
               * code-scanning entries: a CodeQL, Semgrep or zizmor alert above warning in our code.
             "dependabot_prs" are open Dependabot pull requests: do not duplicate what they already do.
 
@@ -209,7 +251,7 @@ jobs:
               * add a CHANGELOG.md entry under Unreleased for dependency floors users will notice.
           claude_args: >-
             --max-turns 80
-            --disallowedTools "WebFetch,WebSearch"
+            --disallowedTools "WebFetch,WebSearch,Edit(.git/**),Write(.git/**),Edit(**/.git/**),Write(**/.git/**)"
             --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit -s:*),Bash(ruff check:*),Bash(bandit -q -c pyproject.toml -r src)"
 
       - name: Export the commits
@@ -221,8 +263,9 @@ jobs:
             echo "Claude made no commit: nothing to publish." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          if [ "$(wc -c < "$RUNNER_TEMP/patch.mbox")" -gt 700000 ]; then
-            echo "::error::The patch is larger than a job output can carry; run the job by hand and review"
+          # the patch travels in one environment variable, and Linux limits each to 128 KiB
+          if [ "$(wc -c < "$RUNNER_TEMP/patch.mbox")" -gt 100000 ]; then
+            echo "::error::The patch is larger than 100 kB; a security fix should be smaller: nothing is published"
             exit 1
           fi
           title="$(head -n1 .security-patch/pr-title.txt 2>/dev/null | tr -cd '[:print:]' | cut -c1-72)"

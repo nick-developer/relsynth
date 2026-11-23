@@ -36,7 +36,7 @@ CodeQL, Semgrep and zizmor findings go to Security > Code scanning (SARIF) and a
 | `security / dependency-review` | dependencies the pull request adds or changes | a known vulnerability of high or critical severity |
 | `lint` (ci.yml) | ruff `S` rules, bandit, pip-audit | any finding |
 
-Every Tuesday, [`security-patch.yml`](../../.github/workflows/security-patch.yml) collects the open Dependabot, code-scanning and pip-audit findings and has Claude open one draft pull request with the smallest fixes ([security patching](security-patching.md)).
+Every Tuesday, [`security-patch.yml`](../../.github/workflows/security-patch.yml) collects the open Dependabot, code-scanning and pip-audit findings and counts them in the job summary. When a finding is one the agent may fix, a Claude credential is set and no earlier `security-patch/` pull request is open, Claude prepares the smallest fixes and, once they pass a verification job, one draft pull request is opened; findings in workflows, tests, tools and scanner configuration are only counted, for the maintainer ([security patching](security-patching.md)).
 
 CodeQL's `py/cyclic-import` note is filtered out in the config: its cycles run through imports deferred into functions (optional drivers, heavy modules, callbacks into the engine), which cannot fail at import time. `tests/unit/test_import_graph.py` fails instead when the module-level imports form a cycle, and `py/unsafe-cyclic-import` stays on.
 

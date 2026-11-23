@@ -122,6 +122,21 @@ def test_protected_findings_go_to_the_maintainer(tmp_path):
     assert [f["alert"] for f in work["manual"]] == [2, 3, 4, 5]
 
 
+@pytest.mark.parametrize("path", [".gitleaks.toml", ".coderabbit.yaml", "CLAUDE.md", "CONTRIBUTING.md"])
+def test_protected_files_route_to_manual(path):
+    """Findings in the scanner, review and agent configuration files are the maintainer's."""
+    finding = {"source": "code-scanning", "tool": "Semgrep", "path": path}
+    assert sf.split_manual([finding]) == ([], [finding])
+
+
+def test_unreadable_pull_request_list_blocks_the_agent(tmp_path):
+    """If the open pull requests cannot be read, an earlier patch may be open: do not start."""
+    gho = tmp_path / "gho"
+    sf.main(["--open-prs", str(tmp_path / "missing.json"), "--out", str(tmp_path / "f.json"),
+             "--github-output", str(gho)])
+    assert "pending_pr=(open pull requests could not be read)" in gho.read_text()
+
+
 def test_api_error_body_is_a_problem(tmp_path):
     """gh api writes the error body before failing; it must not read as "no alerts"."""
     cs = tmp_path / "cs.json"
@@ -134,7 +149,7 @@ def test_api_error_body_is_a_problem(tmp_path):
 # --- .github/scripts/patch_gate.py ---------------------------------------------------
 
 def _gate():
-    pytest.importorskip("tomllib")   # Python 3.11+, as on the runner
+    # tomllib on Python 3.11+, tomli (a pytest dependency) on 3.10: never skipped
     p = Path(__file__).parents[2] / ".github" / "scripts" / "patch_gate.py"
     spec = importlib.util.spec_from_file_location("patch_gate", p)
     mod = importlib.util.module_from_spec(spec)
@@ -177,7 +192,8 @@ def test_gate_accepts_a_dependency_floor_and_a_code_fix(repo, tmp_path):
     assert gate.main(["HEAD~1"]) == 0
 
 
-@pytest.mark.parametrize("change", ["tool", "test", "moved_test", "quoted", "workflow", "symlink"])
+@pytest.mark.parametrize("change", ["tool", "test", "moved_test", "quoted", "workflow", "symlink",
+                                    "pytest_toml", "conftest", "setup_cfg", "ruff_toml"])
 def test_gate_refuses(repo, tmp_path, change):
     """Tool settings, tests (also moved or oddly named), .github/ and symbolic links are refused."""
     import os
@@ -195,6 +211,14 @@ def test_gate_refuses(repo, tmp_path, change):
         (tmp_path / ".github" / "workflows" / "ci.yml").write_text("on: push\n")
     elif change == "symlink":
         os.symlink("../tests", tmp_path / "src" / "linked")
+    elif change == "pytest_toml":   # pytest 9 reads it before pyproject.toml
+        (tmp_path / "pytest.toml").write_text('[pytest]\naddopts = ["--collect-only"]\n')
+    elif change == "conftest":
+        (tmp_path / "src" / "conftest.py").write_text("collect_ignore_glob = ['*']\n")
+    elif change == "setup_cfg":
+        (tmp_path / "setup.cfg").write_text("[tool:pytest]\naddopts = --collect-only\n")
+    elif change == "ruff_toml":
+        (tmp_path / "ruff.toml").write_text("exclude = ['*']\n")
     _commit(repo)
     assert gate.problems("HEAD~1")
     assert gate.main(["HEAD~1"]) == 1

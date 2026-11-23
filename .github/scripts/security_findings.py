@@ -45,11 +45,13 @@ _SECURITY_LEVELS = {"high", "critical"}
 # (the same list as .github/scripts/patch_gate.py; hash-locked .github/requirements/
 # files are recompiled by hand)
 PROTECTED = (".github/", "tests/", "tools/", ".semgrep/", ".claude/")
+PROTECTED_FILES = {".gitleaks.toml", ".coderabbit.yaml", "CLAUDE.md", "CONTRIBUTING.md"}
 
 
 def protected(path: str | None) -> bool:
     """True when ``path`` lies where the agent may not make changes."""
-    return (path or "").lstrip("/").startswith(PROTECTED)
+    p = (path or "").lstrip("/")
+    return p.startswith(PROTECTED) or p in PROTECTED_FILES
 
 
 def clip(value: Any, limit: int = MAX_TEXT) -> str:
@@ -242,7 +244,11 @@ def main(argv: list[str] | None = None) -> int:
             ap.error(f"--pip-audit expects LABEL=FILE, got {item!r}")
         found += pip_audit(label, load(path, problems))
     findings, manual = split_manual(found)
-    dependabot_prs, pending = open_prs(load(args.open_prs, problems), args.repo)
+    prs_doc = load(args.open_prs, problems)
+    dependabot_prs, pending = open_prs(prs_doc, args.repo)
+    if args.open_prs and prs_doc is None:
+        # unknown is not "none": an earlier security-patch pull request may be open
+        pending = "(open pull requests could not be read)"
 
     work = {"findings": findings, "manual": manual, "dependabot_prs": dependabot_prs, "pending_pr": pending,
             "problems": problems}

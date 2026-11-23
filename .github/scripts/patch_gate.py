@@ -9,7 +9,9 @@ listing every reason, when the patch
   could point into a protected tree while its own name looks harmless;
 * touches a protected path: anything under ``.github/``, ``.semgrep/`` or ``.claude/``,
   the review and secret-scanning configuration, the agent instructions, ``tests/``
-  (a fix must pass the existing tests) or the gate scripts in ``tools/``;
+  (a fix must pass the existing tests), the gate scripts in ``tools/``, or any file
+  that test, lint or type-check tools read as configuration in place of
+  ``pyproject.toml`` (``conftest.py``, ``pytest.toml``, ``setup.cfg``, ``ruff.toml`` ...);
 * changes the ``[tool.*]`` settings of ``pyproject.toml`` (ruff, bandit, mypy, pytest):
   a fix may raise dependency floors, never weaken a check.
 
@@ -22,10 +24,20 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 
-DENIED = re.compile(r"(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$"
-                    r"|CLAUDE\.md$|CONTRIBUTING\.md$|tests/|tools/)")
+try:
+    import tomllib
+except ModuleNotFoundError:   # Python 3.10 (the unit tests run there too); pytest brings tomli
+    import tomli as tomllib
+
+DENIED = re.compile(
+    r"(\.github/|\.semgrep/|\.claude/|\.coderabbit\.yaml$|\.gitleaks\.toml$|CLAUDE\.md$|CONTRIBUTING\.md$"
+    r"|tests/|tools/"
+    # configuration that pytest, ruff, bandit, mypy or coverage would read in place of
+    # (or next to) the settings in pyproject.toml, wherever it is placed
+    r"|(.*/)?(conftest\.py|pytest\.ini|\.?pytest\.toml|tox\.ini|setup\.cfg|\.?ruff\.toml|\.bandit"
+    r"|mypy\.ini|\.mypy\.ini|\.coveragerc|sitecustomize\.py|usercustomize\.py)$"
+    r"|.*\.pth$)")
 REGULAR = {"100644", "100755", "000000"}   # 000000: the side of an added or deleted file
 
 
