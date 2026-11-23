@@ -10,6 +10,9 @@
 # One spec serves every scale factor: tpch_sf1, tpch_sf10 and tpch_sf100 differ only in row counts.
 # Datatypes map as: identifier -> id; integer -> integer; decimal -> float with 2 decimals;
 # date -> date; fixed text of a short coded value -> categorical; variable text -> text.
+# L_QUANTITY is DECIMAL but always a whole number (clause 4.2.3), so it keeps 0 decimals. The line dates
+# are offsets as clause 4.2.3 generates them (ship and commit from the order's date, receipt from the ship
+# date), so the date-gap rules hold by construction rather than by rejecting lines.
 # Not written as rules, with the reason:
 #  - O_TOTALPRICE: the clause's sum differs from dbgen's stored value by up to 0.11 on 96% of orders
 #    (dbgen rounds per line), so an exact aggregate would be false;
@@ -28,6 +31,11 @@ source:
 target:
   kind: csv
   path: synthetic
+synthesis:
+  rules:
+    # the return flag is random R or A once the receipt date passes 1995-06-17 (clause 4.2.3); lines of
+    # orders near that date need more redraws than the default 25 to meet it (0 violations at 100 on SF0.05)
+    max_rejection_rounds: 100
 tables:
   region:
     role: entity
@@ -213,7 +221,9 @@ tables:
         type: float
         min: 1
         max: 50
-        decimals: 2
+        decimals: 0
+        description: random value [1 .. 50] (Clause 4.2.3), whole numbers stored as DECIMAL; with 2 decimals the
+          price derive (rounded to the stored 2 decimals) could not hold
       l_extendedprice:
         type: float
         min: 0
@@ -234,12 +244,16 @@ tables:
         type: categorical
       l_shipdate:
         type: date
+        offset_from: l_orderkey.o_orderdate
+        description: O_ORDERDATE + random value [1 .. 121] (Clause 4.2.3)
       l_commitdate:
         type: date
+        offset_from: l_orderkey.o_orderdate
+        description: O_ORDERDATE + random value [30 .. 90] (Clause 4.2.3)
       l_receiptdate:
         type: date
         offset_from: l_shipdate
-        description: L_SHIPDATE <= L_RECEIPTDATE (Clause 1.4.2.4), so a non-negative gap after the ship date
+        description: L_SHIPDATE + random value [1 .. 30] (Clause 4.2.3)
       l_shipinstruct:
         type: categorical
       l_shipmode:
@@ -302,8 +316,8 @@ rules:
   type: check
   expr: between(days(l_receiptdate) - days(l_shipdate), 1, 30)
 - table: lineitem
-  type: check
-  expr: (l_shipdate > '1995-06-17' and l_linestatus == 'O') or (l_shipdate <= '1995-06-17' and l_linestatus == 'F')
+  type: derive
+  expr: l_linestatus = where(l_shipdate > '1995-06-17', 'O', 'F')
 - table: lineitem
   type: check
   expr: (l_receiptdate > '1995-06-17' and l_returnflag == 'N') or (l_receiptdate <= '1995-06-17' and

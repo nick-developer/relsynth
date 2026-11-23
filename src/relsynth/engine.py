@@ -3011,7 +3011,7 @@ class Synthesizer:
                 out[t] = self._finish(t, out[t], zs.get(t), out)
                 if t in getattr(self, "scd", {}):
                     # columns computed from the version dates (a status, a current flag)
-                    out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t)), out)
+                    out[t] = self._computed(t, self._apply_scd(t, out[t], zs.get(t), out), out)
                 if scen is not None:
                     # marginal maps of the finished rows: after the rule redraws and the
                     # SCD recomputation, so no redrawn value escapes the map; derives
@@ -5666,7 +5666,7 @@ class Synthesizer:
                 f"{int(sizes.size)} natural keys, {len(df)} versions (up to {M} per key); stable columns: "
                 f"{', '.join(stable) or 'none'}; current flag: {cur['column'] if cur else 'none'}")
 
-    def _apply_scd(self, t, df, seg):
+    def _apply_scd(self, t, df, seg, out=None):
         """Groups the synthetic rows into natural keys: group sizes from the drawn
         version law; rows of one segment grouped together (similar versions).  A
         row whose modelled valid_to is null (an open version, drawn by the row model
@@ -5792,10 +5792,21 @@ class Synthesizer:
         # gap): the hidden offset is set so that recomputing gives the new date
         from .expr import _days
         for o in self.plan.col_offsets:
-            if o["table"] == t and o["column"] in (vf, vt) and o["base"] in df.columns and o["unit"] == "day":
-                off = _days(df[o["column"]].to_numpy(dtype=object)) - _days(df[o["base"]].to_numpy(dtype=object))
-                df[o["offset"]] = pd.array(np.where(np.isnan(off), np.nan, np.round(off)), dtype="Float64") \
-                    .astype("Int64") if o["type"] == "integer" else off
+            if o["table"] != t or o["column"] not in (vf, vt) or o["unit"] != "day":
+                continue
+            if "." in o["base"]:
+                # a base through foreign keys (start = the employer's founding date + gap):
+                # read from the parent rows, as the derive pass will
+                if out is None:
+                    continue
+                base = self._resolver(t, df, out)(o["base"])
+            elif o["base"] in df.columns:
+                base = df[o["base"]]
+            else:
+                continue
+            off = _days(df[o["column"]].to_numpy(dtype=object)) - _days(np.asarray(base, dtype=object))
+            df[o["offset"]] = pd.array(np.where(np.isnan(off), np.nan, np.round(off)), dtype="Float64") \
+                .astype("Int64") if o["type"] == "integer" else off
         return df
 
     def _apply_distributions(self, t, df):
