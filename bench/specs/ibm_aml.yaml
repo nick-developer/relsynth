@@ -1,0 +1,131 @@
+# IBM Transactions for Anti-Money Laundering (IT-AML; Altman et al., "Realistic Synthetic Financial
+# Transactions for Anti-Money Laundering Models", NeurIPS 2023 Datasets and Benchmarks; data
+# CDLA-Sharing-1.0), variant HI-Small: 5,078,345 transfers between 515,088 accounts at 30,528 banks,
+# 2022-09-01 to 2022-09-18. Written from the dataset specification supplied by the owner on
+# 2026-11-27 (it-aml-dataset-specification.md: columns, composite account identity, self-loops, FX
+# coupling, entity model); every rule was checked on the data first.
+# Tables (bench/builders/aml_parquet.py): bank, account (surrogate account_key for the pair bank_id +
+# account_id: an account id is unique only within its bank, and 8 ids occur at two banks), currency
+# (with usd_rate, the rate the simulator converts at) and trans (one row per CSV row; trans_id is the
+# file row; 9 rows occur twice, as published).
+# Data facts beyond the specification, each on every row: a Reinvestment is always a self-loop (the
+# specification says "predominantly"; self-loops also occur in other formats); cross-currency payments
+# are ACH or Wire only; one rate per currency for the whole period, consistent through the US Dollar
+# (amount_received = amount_paid x usd_rate(received) / usd_rate(paid) within max(0.01, 0.2 %) on all
+# but 19 rows; the specification's "rate applied at Timestamp" is constant here).
+# Not a rule yet (question to the owner): the specification says Bitcoin payments use Bitcoin
+# currencies; 78 of 146,091 Bitcoin-format rows use other currencies.
+# The *_Patterns.txt ground truth (laundering topologies) is not part of this source.
+version: 1
+name: ibm_aml
+source:
+  kind: parquet
+  path: bench/.cache/ibm_aml/parquet
+target:
+  kind: csv
+  path: synthetic
+tables:
+  bank:
+    role: entity
+    primary_key: bank_id
+    columns:
+      bank_id:
+        type: id
+        description: financial institution code (text; leading zeros are part of the code)
+  account:
+    role: entity
+    primary_key: account_key
+    unique:
+    - [bank_id, account_id]
+    columns:
+      account_key:
+        type: id
+        description: surrogate key of the pair (bank_id, account_id), added by the bench builder
+      bank_id:
+        type: id
+      account_id:
+        type: id
+        description: account identifier, unique only within its bank
+  currency:
+    role: entity
+    mode: copy
+    primary_key: currency
+    columns:
+      currency:
+        type: id
+      usd_rate:
+        type: float
+        description: units per US Dollar at which the simulator converts
+  trans:
+    role: fact
+    primary_key: trans_id
+    fact:
+      anchor: from_account_key
+      partner: to_account_key
+      time_column: ts
+      time_bucket: day
+    link_affinity:
+    - match: [from_account_key.bank_id, to_account_key.bank_id]
+    - match: [from_account_key.account_key, to_account_key.account_key]
+    columns:
+      trans_id:
+        type: id
+        description: CSV row number (the published file has no key)
+      ts:
+        type: datetime
+        description: event time, to the minute
+      from_bank:
+        type: lookup
+        lookup: from_account_key.bank_id
+      from_account_key:
+        type: id
+        description: originating (sender) account
+      to_bank:
+        type: lookup
+        lookup: to_account_key.bank_id
+      to_account_key:
+        type: id
+        description: beneficiary (receiver) account
+      amount_received:
+        type: float
+        description: amount credited to the beneficiary, in receiving_currency
+      receiving_currency:
+        type: id
+      amount_paid:
+        type: float
+        description: amount debited from the originator, in payment_currency
+      payment_currency:
+        type: id
+      payment_format:
+        type: categorical
+        description: ACH, Cheque, Credit Card, Reinvestment, Wire, Cash or Bitcoin
+      is_laundering:
+        type: categorical
+        description: 1 illicit (laundering) transaction, 0 legitimate
+relationships:
+- {child: account, child_key: bank_id, parent: bank, parent_key: bank_id}
+- {child: trans, child_key: from_account_key, parent: account, parent_key: account_key}
+- {child: trans, child_key: to_account_key, parent: account, parent_key: account_key}
+- {child: trans, child_key: payment_currency, parent: currency, parent_key: currency}
+- {child: trans, child_key: receiving_currency, parent: currency, parent_key: currency}
+rules:
+# same currency: no fee, Amount Paid == Amount Received (specification 6.3); other pairs at the fixed rate
+- table: trans
+  type: derive
+  expr: amount_received = amount_paid * receiving_currency.usd_rate / payment_currency.usd_rate
+  tolerance: 0.01
+# a reinvestment is an account's own event: a self-loop (specification 6.2; every source row)
+- table: trans
+  type: check
+  expr: payment_format != 'Reinvestment' or from_account_key == to_account_key
+# cross-currency payments are ACH or Wire (every source row)
+- table: trans
+  type: check
+  expr: payment_currency == receiving_currency or payment_format in ('ACH', 'Wire')
+- table: trans
+  type: check
+  expr: amount_paid > 0
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0

@@ -133,6 +133,13 @@ DOWNLOADS = {
         "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/"
         "8673ac5e7af06427071fb435c7c8f95d7e51c4a7/food.parquet",
         "e70c5043101cfcf2f7c7c451c80b327384fe073a2738e4ee1febfeb4a0bde474"),
+    # IBM Transactions for Anti-Money Laundering (Altman et al. 2023; CDLA-Sharing-1.0), variant HI-Small. The
+    # official copies are on Kaggle (login) and IBM Box; this is a third-party Hugging Face copy at a pinned
+    # commit, whose row count (5,078,345) matches the paper; its card's licence line (apache-2.0) is not the
+    # data's. SHA-256 checked on download
+    "ibm-aml-HI-Small_Trans.csv": ("https://huggingface.co/datasets/bbfizp/AMLSim-HI-Small/resolve/"
+                                   "8342c1343ae6c869e0cf76c0188edb2a54e0eb81/HI-Small_Trans.csv",
+                                   "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040"),
     # the T12 mirror of UCI ElectricityLoadDiagrams20112014 (CC BY 4.0), as benchmarks/timeseries pins it
     "electricity.txt.gz": ("https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/"
                            "master/electricity/electricity.txt.gz",
@@ -374,6 +381,22 @@ def _sqlite_checks(module: str):
         import importlib
         m = importlib.import_module(f".checks.{module}", __package__)
         real = sqlite_tables(Path(location.split(":", 1)[1]))
+        syn = m.load(syn_dir)
+        rr, ss = m.checks(real, real), m.checks(syn, real)
+        return {k: (rr.get(k), ss.get(k)) for k in rr}
+    return run
+
+
+def _parquet_checks(module: str):
+    """Domain checks of a Parquet source whose check module reads one CSV per table of the synthetic
+    data (load) and computes each value given the real tables (checks(tables, ref))."""
+    def run(location: str, syn_dir: Path) -> dict:
+        import importlib
+
+        import pandas as pd
+        m = importlib.import_module(f".checks.{module}", __package__)
+        real = {p.stem: pd.read_parquet(p) for p in Path(location.split(":", 1)[1]).glob("*.parquet")
+                if p.stem in m.TABLES}
         syn = m.load(syn_dir)
         rr, ss = m.checks(real, real), m.checks(syn, real)
         return {k: (rr.get(k), ss.get(k)) for k in rr}
@@ -697,6 +720,14 @@ DATASETS = {
                            note="NYC TLC yellow taxi trips 2024 (12 months, about 41M trips)", tier="monthly",
                            runner="maintainer", overrides=PARTITIONED,
                            seeds=(1,), generic=True, coverage=("events", "messy_values", "skew", "size_gb")),
+    "ibm_aml": Dataset("ibm_aml",
+                       lambda: "parquet:" + str(_built("ibm_aml/parquet", "aml_parquet.py",
+                                                       lambda: download("ibm-aml-HI-Small_Trans.csv"), OUT,
+                                                       dir_out=True)),
+                       _spec("ibm_aml"), _parquet_checks("ibm_aml"),
+                       note="IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, "
+                            "30.5k banks); checks M1-M11", tier="monthly", seeds=(1,), generic=True,
+                       coverage=("events", "skew", "high_cardinality", "size_100mb")),
     "open_food_facts": Dataset("open_food_facts",
                                lambda: "parquet:" + str(_built("open_food_facts/parquet", "openfoodfacts_extract.py",
                                                                 lambda: download("openfoodfacts-food.parquet"), OUT,
