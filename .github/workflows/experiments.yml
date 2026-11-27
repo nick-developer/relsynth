@@ -67,7 +67,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install -e ".[bench]" xgboost
+      - run: pip install -e ".[bench]" "xgboost==3.4.1"
       - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -96,7 +96,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      - run: pip install numpy
+      - run: pip install "numpy==2.5.5"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { pattern: context-vae-*, path: out, merge-multiple: true }
       - run: python -m experiments.context_vae.summarize out/*.json >> "$GITHUB_STEP_SUMMARY"
