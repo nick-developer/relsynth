@@ -57,15 +57,16 @@ DEFAULTS = {"prior": "transformer", "categorical_head": "residual", "latent": 16
             "sample_chunk": 512, "calibrate": True, "calib_families": 2000, "dp": None}
 
 
-def _families(fam, order, n):
-    """Index arrays of the rows of every family, each sorted by its order key (NaN last, ties in
-    row order); rows without a family (-1, or no family ids at all) are families of one row."""
+def _families(fam, order, n, tie=None):
+    """Index arrays of the rows of every family, each sorted by its order key (NaN last, ties by
+    ``tie``, else in row order); rows without a family (-1, or no family ids at all) are families of
+    one row."""
     if fam is None:
         return [np.array([i]) for i in range(n)]
     fam = np.asarray(fam, np.int64)
     key = np.where(fam >= 0, fam, -1 - np.arange(n))          # singletons get distinct negative ids
     o = np.zeros(n) if order is None else np.where(np.isnan(order), np.inf, order)
-    idx = np.lexsort((np.arange(n), o, key))
+    idx = np.lexsort((np.arange(n), np.arange(n) if tie is None else np.asarray(tie), o, key))
     ks = key[idx]
     cuts = np.flatnonzero(np.diff(ks)) + 1
     return np.split(idx, cuts)
@@ -494,9 +495,10 @@ class CTVAEGenerator(NeuralGenerator):
         from torch.func import functional_call, grad, vmap
         o, net, dp = self.opts, self.model, self.opts["dp"]
         nf = len(self.off) - 1
-        q = min(1.0, o["batch_families"] / nf)
+        npub = dp.public_count(nf)          # q, delta, sigma and the divisor come from this public count
+        q = min(1.0, o["batch_families"] / npub)
         steps1, steps2 = o["vae_steps"], o["prior_steps"]
-        delta = dp.resolve_delta(nf)
+        delta = dp.resolve_delta(npub)
         sigma = accountant.calibrate_sigma(dp.epsilon, delta, q, steps1 + steps2)
         eps, order = accountant.epsilon(q, sigma, steps1 + steps2, delta)
         secure = torch.Generator(device=gen.device)
@@ -552,7 +554,7 @@ class CTVAEGenerator(NeuralGenerator):
                 for k, p in params.items():
                     noise = torch.as_tensor(T.os_normal(p.numel()), dtype=p.dtype, device=gen.device) \
                         .reshape(p.shape) * (sigma * dp.clip)
-                    p.grad = (summed[k] + noise) / (q * nf)
+                    p.grad = (summed[k] + noise) / (q * npub)
                 opt.step()
                 rep.steps += 1
         net.eval()
@@ -661,11 +663,17 @@ class CTVAEGenerator(NeuralGenerator):
         order = getattr(conditioning, "order", None) if self.ordered else None
         self._ensure_model()
         sib = getattr(conditioning, "siblings", None)
-        fixed = Zfix = Sfix = None
+        fixed = Zfix = Sfix = tie = None
         if fam is not None and sib is not None and len(sib):
             fam, order, g, c, A, fixed, Zfix, Sfix = self._with_siblings(sib, fam, order, g, c, A, rng)
+            pos = getattr(conditioning, "position", None)
+            if pos is not None and "__pos__" in sib and len(pos) == M:
+                # equal order keys keep the original table order, so a kept sibling that preceded a
+                # redrawn row still conditions it
+                tie = np.r_[np.asarray(pos, np.int64), np.asarray(sib["__pos__"], np.int64)]
         N = len(g)
-        fams = _families(fam, order if self.ordered else (None if fixed is None else (~fixed).astype(float)), N)
+        fams = _families(fam, order if self.ordered else (None if fixed is None else (~fixed).astype(float)), N,
+                         tie if self.ordered else None)
         gaps = np.zeros(N, np.float32)
         if self.ordered and order is not None:
             for f in fams:

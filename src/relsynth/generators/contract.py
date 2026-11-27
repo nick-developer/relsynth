@@ -148,12 +148,15 @@ class Conditioning:
     row (``family``, -1 none) and its order key (``order``), as in FitContext; and,
     when the engine redraws some rows of families (rejection, row validity), the
     kept rows of those families (``siblings``: the table's attribute columns plus
-    ``__family__`` and ``__order__``), so the redrawn rows are drawn given them."""
+    ``__family__`` and ``__order__``, and ``__pos__``, their table positions), so the
+    redrawn rows are drawn given them; ``position`` then holds the redrawn rows' table
+    positions, which break ties in the order key as in the original table."""
     groups: np.ndarray
     given: pd.DataFrame | None = None
     family: np.ndarray | None = None
     order: np.ndarray | None = None
     siblings: pd.DataFrame | None = None
+    position: np.ndarray | None = None
 
     def __len__(self):
         return len(self.groups)

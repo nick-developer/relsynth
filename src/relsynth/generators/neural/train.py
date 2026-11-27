@@ -119,18 +119,19 @@ def seeded(rng: np.random.Generator, plan=None, device: str | None = None):
 @dataclass
 class DPOptions:
     epsilon: float
-    delta: float | None = None     # None: 1 / (n log n) is used... see resolve()
+    delta: float | None = None     # None: 1 / (10 n), at most 1e-5, see resolve_delta()
     clip: float = 1.0
+    population: int | None = None  # public number of protected units (rows, or families for ctvae)
 
     @classmethod
     def parse(cls, raw, table: str):
         if raw in (None, False):
             return None
         if not isinstance(raw, dict):
-            raise GeneratorError(f"{table}: generator option dp must be a mapping {{epsilon, delta, clip}}")
-        bad = set(raw) - {"epsilon", "delta", "clip"}
+            raise GeneratorError(f"{table}: generator option dp must be a mapping {{epsilon, delta, clip, population}}")
+        bad = set(raw) - {"epsilon", "delta", "clip", "population"}
         if bad:
-            raise GeneratorError(f"{table}: unknown dp options {sorted(bad)} (allowed: epsilon, delta, clip)")
+            raise GeneratorError(f"{table}: unknown dp options {sorted(bad)} (allowed: epsilon, delta, clip, population)")
         try:
             eps = float(raw["epsilon"])
         except (KeyError, TypeError, ValueError) as e:
@@ -144,7 +145,17 @@ class DPOptions:
         if not (eps > 0 and math.isfinite(eps)) or not (clip > 0 and math.isfinite(clip)) \
                 or (delta_f is not None and not 0 < delta_f < 1):
             raise GeneratorError(f"{table}: dp needs a finite epsilon > 0, a finite clip > 0 and 0 < delta < 1")
-        return cls(eps, delta_f, clip)
+        population = raw.get("population")
+        if population is not None and (isinstance(population, bool) or not isinstance(population, int) or population < 1):
+            raise GeneratorError(f"{table}: dp.population must be a positive integer (the public number of rows "
+                                 "or families the sampling rate is computed from)")
+        return cls(eps, delta_f, clip, population)
+
+    def public_count(self, n: int) -> int:
+        """The unit count that sets the sampling rate, delta and the gradient divisor. With dp.population it is
+        fixed public input, the same for neighbouring tables; without it the actual count n is used and
+        is treated as public, the usual assumption of DP-SGD (Abadi et al. 2016; Opacus)."""
+        return int(self.population) if self.population is not None else max(int(n), 1)
 
     def resolve_delta(self, n: int) -> float:
         # the usual choice delta << 1/n (Dwork and Roth 2014, sec. 2.3): 1 / (10 n), at most 1e-5
@@ -231,10 +242,11 @@ def train(model, loss_rows, tensors: dict, noise_fn, *, epochs: int, batch_size:
         return rep
 
     # ---- DP-SGD
-    delta = dp.resolve_delta(n)
-    bs = max(1, min(batch_size, n))
-    q = bs / n
-    steps = max(1, int(math.ceil(epochs * n / bs)))
+    npub = dp.public_count(n)          # every mechanism parameter comes from this public count
+    delta = dp.resolve_delta(npub)
+    bs = max(1, min(batch_size, npub))
+    q = bs / npub
+    steps = max(1, int(math.ceil(epochs * npub / bs)))
     if max_steps:
         steps = min(steps, int(max_steps))
     sigma = accountant.calibrate_sigma(dp.epsilon, delta, q, steps)
@@ -271,7 +283,7 @@ def train(model, loss_rows, tensors: dict, noise_fn, *, epochs: int, batch_size:
         for k, p in params.items():
             noise = torch.as_tensor(os_normal(p.numel()), dtype=p.dtype, device=gen.device).reshape(p.shape) \
                 * (sigma * dp.clip)
-            p.grad = (summed[k] + noise) / (q * n)
+            p.grad = (summed[k] + noise) / (q * npub)
         opt.step()
         rep.steps += 1
     rep.epochs_run = steps * q

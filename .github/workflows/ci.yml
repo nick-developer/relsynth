@@ -504,6 +504,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
       # Exact pin, from PyTorch's CPU index only (no fallback to PyPI); bump it with the extra.
+      - name: CPU torch wheel digest (temporary, for the hash lock)
+        run: pip download --no-deps "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu -d /tmp/tw -q && sha256sum /tmp/tw/*
       - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,neural,bench]"
       - name: Neural unit tests

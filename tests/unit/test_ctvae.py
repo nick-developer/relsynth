@@ -166,6 +166,24 @@ def test_entity_level_dp_sgd(enterprise):
     assert pc.dp is False and "family" in pc.note
 
 
+def test_dp_population_fixes_the_mechanism(enterprise):
+    """With dp.population the sampling rate and delta come from the public count, not the family count."""
+    m = rs.fit(_with(enterprise, tables={"sales"}, vae_steps=5, prior_steps=5, batch_families=8,
+                     dp={"epsilon": 2.0, "population": 1000}), seed=5)
+    dp = m.summary()["generators"]["sales"]["dp_sgd"]
+    assert dp["sampling_rate"] == pytest.approx(8 / 1000) and dp["delta"] == pytest.approx(1e-5)
+
+
+def test_equal_order_keys_keep_table_order():
+    """Ties in the order key follow the tie array (table positions of a redraw), else row order."""
+    from relsynth.generators.neural.ctvae import _families
+    fam = np.array([7, 7, 7])
+    order = np.array([1.0, 1.0, 0.0])
+    assert _families(fam, order, 3)[0].tolist() == [2, 0, 1]
+    # row 0 is the redrawn row (table position 9), row 1 a kept sibling that preceded it (position 4)
+    assert _families(fam, order, 3, tie=np.array([9, 4, 2]))[0].tolist() == [2, 1, 0]
+
+
 @pytest.mark.parametrize("bad", [{"prior": "lstm"}, {"categorical_head": "x"}, {"window": 0},
                                  {"d_column": 30, "heads": 4}, {"nope": 1}])
 def test_options_are_validated(enterprise, bad):

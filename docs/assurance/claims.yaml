@@ -2523,6 +2523,17 @@ claims:
       - test: tests/unit/test_ctvae.py::test_calibration_is_off_under_dp_unless_asked
       - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
 
+  - id: NN-26
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "To remove that assumption, set population to a public figure (for example a published number of customers): every mechanism parameter is then computed from it instead of the actual count."
+    status: supported
+    evidence:
+      - prop: prop:ctvaedp
+      - test: tests/unit/test_ctvae.py::test_dp_population_fixes_the_mechanism
+      - test: tests/unit/test_neural_accountant.py::test_dp_options_reject_non_finite_values
+      - code: src/relsynth/generators/neural/train.py::DPOptions
+
   - id: NN-13
     doc: docs/neural.md
     area: structure

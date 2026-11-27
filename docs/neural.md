@@ -97,7 +97,7 @@ Shared by both:
 | `sample_batch` | 65536 | Rows generated per batch. |
 | `calibrate` | true | Marginal calibration after training (Prop. 1805). |
 | `calib_rows` | 20000 | Rows drawn for the calibration. |
-| `dp` | none | DP-SGD, see below: `{epsilon, delta, clip}`. |
+| `dp` | none | DP-SGD, see below: `{epsilon, delta, clip, population}`. |
 
 `tvae` only: `hidden` (`[128, 128]`), `latent` (64), `loss_factor` (2.0, TVAE's weight of the reconstruction term).
 
@@ -121,6 +121,9 @@ at rate `batch_size / rows`, each row's gradient is clipped to L2 norm `clip`, t
 Gaussian noise is added. The noise multiplier is chosen so that the Rényi accountant (Mironov, Talwar and Zhang
 2019, converted by Canonne, Kamath and Steinke 2020) gives `epsilon` at `delta` after all steps (default delta:
 1/(10 rows), at most 1e-5). The accountant agrees with Opacus to 1e-11 (Prop. 1803).
+The row count that sets the rate, delta and the gradient scale is treated as public, as in Abadi et al. (2016) and
+Opacus. To remove that assumption, set `population` to a public figure (for example a published number of
+customers): every mechanism parameter is then computed from it instead of the actual count.
 
 ```yaml
 generator:
@@ -200,7 +203,8 @@ What to know:
   as history.
 - With `dp`, DP-SGD runs on families: families are Poisson-sampled, and each family's gradient over at most
   `window` of its rows is clipped as one unit. The bound covers one anchor row's whole history in this table
-  (Prop. 1863), but is conditional on the preprocessing, as for `tvae`. The family calibration reads the training
+  (Prop. 1863), but is conditional on the preprocessing, as for `tvae`. The family count sets the sampling rate
+  and is treated as public unless `dp.population` gives a public number of families. The family calibration reads the training
   families' sizes and contexts, which the accountant does not cover, so with `dp` it is off unless the spec sets
   `calibrate: true`; it then joins the preprocessing outside the bound.
 - On a CPU, a fit with the default steps takes a few minutes on 100k rows. Sampling is one step per row of the

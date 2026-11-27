@@ -1,7 +1,8 @@
-# The experiments workflow's Python dependencies, with SHA-256 hashes: relsynth's runtime, the bench extra, xgboost
-# and the dependencies of torch, which itself comes from the PyTorch CPU index, pinned in the workflow (as in ci.yml).
+# The experiments workflow's Python dependencies, with SHA-256 hashes: relsynth's runtime, the bench extra, xgboost,
+# the build requirements of relsynth (setuptools, wheel; the editable install runs without build isolation) and the
+# dependencies of torch. torch itself comes from the PyTorch CPU index, hash-locked in torch-cpu.txt.
 # Regenerate: uv pip compile --generate-hashes --python-platform x86_64-manylinux_2_28 --python-version 3.12 --no-header experiments.in -o .github/requirements/experiments.txt
-# where experiments.in lists: numpy==2.5.5 pandas==3.1.1 scipy==1.18.1 SQLAlchemy==2.1.9 PyYAML==6.0.4 duckdb==2.0.1 duckdb-engine==0.17.0 py7zr==1.1.4 defusedxml==0.7.1 openpyxl==3.1.5 xgboost==3.4.1 filelock typing-extensions setuptools sympy networkx jinja2 fsspec 
+# where experiments.in lists: numpy==2.5.5 pandas==3.1.1 scipy==1.18.1 SQLAlchemy==2.1.9 PyYAML==6.0.4 duckdb==2.0.1 duckdb-engine==0.17.0 py7zr==1.1.4 defusedxml==0.7.1 openpyxl==3.1.5 xgboost==3.4.1 filelock typing-extensions setuptools>=77 wheel sympy networkx jinja2 fsspec
 backports-zstd==1.8.1 \
     --hash=sha256:00c73c9a60cc4e75d515b38afa516b9c6de5945f0ba8579d23959bebd311321f \
     --hash=sha256:04b2f99a3e03a8d2a431f668d681fc111c89bff859e3bc834230cabde4b8824b \
@@ -605,7 +606,9 @@ openpyxl==3.1.5 \
 packaging==26.4 \
     --hash=sha256:81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2 \
     --hash=sha256:c4b671c41ddb9bf26e543c37723610d28fb6bf7affc4da17cf048d419d2c062a
-    # via duckdb-engine
+    # via
+    #   duckdb-engine
+    #   wheel
 pandas==3.1.1 \
     --hash=sha256:01bd1d4c5fc999324382d55499cef0f9cc7c1b09d91ae6dabe82f0237e43b3a0 \
     --hash=sha256:028490c8ac2e03e18c9b08b7f3612e149b03570209bcf741d23833a7a5377ab2 \
@@ -1106,6 +1109,10 @@ tzdata==2026.6 \
     --hash=sha256:0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec \
     --hash=sha256:85d2cd9c09f81f0bb29db27759fc83af4f1e620efb814f8c5bf8b4cc4feece6d
     # via python-dateutil
+wheel==0.48.0 \
+    --hash=sha256:3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab \
+    --hash=sha256:94800765601e9171bf5d58d066e640662842bcedcbab982b2c90787a2c987322
+    # via -r experiments.in
 xgboost==3.4.1 \
     --hash=sha256:1ea15f15f661825b6a67d87674fb9604a1abb38dd0d4c5cf0486fc85f5203e83 \
     --hash=sha256:2d30fa513673101f542fdcbd18f30c8f96c064046f798635ac08663e9969f81b \
