@@ -461,7 +461,7 @@ def _ukey(values):
     distinct under a unique key)."""
     out = []
     for v in values:
-        if v is None or (isinstance(v, float) and v != v) or v is pd.NA or v is pd.NaT:
+        if v is None or (isinstance(v, (float, np.floating)) and math.isnan(v)) or v is pd.NA or v is pd.NaT:
             return None
         out.append(str(int(v)) if isinstance(v, (float, np.floating)) and float(v).is_integer() else str(v))
     return tuple(out)
