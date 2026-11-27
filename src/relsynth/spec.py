@@ -48,7 +48,7 @@ DEFAULT_SYNTHESIS = {
                "burn_in": 60, "lkj_eta": 2.0, "grid": 64, "min_rows": 80, "pooled_cells": 1e6,
                "mh_steps": 15, "mcse_z": 0.01},
     "marginals": {"bayesian_bootstrap": True, "dirichlet_prior": 0.25,
-                  "max_levels": 200, "tail_trim": 0.0, "min_dependence_rows": 5, "fd_bf": 100.0,
+                  "max_levels": 200, "tail_trim": 0.0, "point_mass_knots": False, "min_dependence_rows": 5, "fd_bf": 100.0,
                   "joint_max_levels": 64, "joint_min_cramers_v": 0.3, "discrete_int_max": 30, "max_obs": 20000,
                   "fd_sample_rows": 50000, "segment_prior_rows": SEGMENT_PRIOR_ROWS,
                   "segment_floor_rows": SEGMENT_FLOOR_ROWS, "segment_prior_mode": "shape"},

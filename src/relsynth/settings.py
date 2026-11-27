@@ -175,6 +175,8 @@ META: dict[str, dict] = dict([
        affects=_FID_MARG + _NOVEL + _PRIV, direction={f: -1 for f in _FID_MARG} | {f: +1 for f in _NOVEL + _PRIV}),
     _p("marginals.max_levels", type="int", low=1, high=1e7, tunable=True, scale="log", affects=_FID_MARG + _PRIV,
        direction={f: +1 for f in _FID_MARG} | {f: -1 for f in _PRIV}),
+    _p("marginals.point_mass_knots", type="bool", tunable=True, affects=_FID_MARG + _PRIV,
+       direction={f: +1 for f in _FID_MARG} | {f: -1 for f in _PRIV}),
     _p("marginals.tail_trim", type="float", low=0, high=0.5, tunable=True, affects=_FID_MARG + _PRIV,
        direction={f: -1 for f in _FID_MARG} | {f: +1 for f in _PRIV}),
     _p("marginals.min_dependence_rows", type="int", low=0, high=1e7, tunable=True, affects=_FID_ASSOC + _PRIV,

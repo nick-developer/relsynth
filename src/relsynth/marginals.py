@@ -209,7 +209,7 @@ class Marginal:
     @classmethod
     def fit(cls, codec, x, rng, prior: Marginal | None = None, dirichlet_a=2.0,
             grid=48, bootstrap=True, min_rows=0, tail_trim=0.0, max_obs=20000, structural=0.0,
-            shift_prior=False):
+            shift_prior=False, point_mass_knots=False):
         """structural: prior probability pi_s that the null rate is structurally 0 or
         1 (pi_s/2 each) and that an unobserved category level is structurally absent;
         the rest of the prior is the usual Beta / Dirichlet slab."""
@@ -271,7 +271,8 @@ class Marginal:
         cw = np.cumsum(w)
         cw = (cw - w / 2) / cw[-1]
         tau = np.linspace(tail_trim, 1 - tail_trim, grid + 1)
-        tau = np.union1d(tau, _atom_knots(obs, w, cw, grid, tail_trim))
+        if point_mass_knots:   # marginals.point_mass_knots
+            tau = np.union1d(tau, _atom_knots(obs, w, cw, grid, tail_trim))
         # end knots at 1/(2 n_eff) from each end, so that prior pseudo-points with
         # negligible weight never become the support's endpoints
         eps = 0.5 * float((w ** 2).sum() / w.sum() ** 2)

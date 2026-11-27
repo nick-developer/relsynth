@@ -31,7 +31,8 @@ class SegmentMarginals(TableGenerator):
         mcfg, ccfg = d.cfg["marginals"], d.cfg["copula"]
         groups, parent, n = self._groups, self.parent, d.n_rows
         kw = dict(dirichlet_a=mcfg["dirichlet_prior"], grid=ccfg["grid"], bootstrap=bootstrap,
-                  tail_trim=mcfg["tail_trim"], structural=self._pi_s, max_obs=int(mcfg.get("max_obs", 20000)))
+                  tail_trim=mcfg["tail_trim"], structural=self._pi_s, max_obs=int(mcfg.get("max_obs", 20000)),
+                  point_mass_knots=bool(mcfg.get("point_mass_knots", False)))
         self.global_m = [Marginal.fit(cd, x, rng, **kw) for cd, x in zip(d.codecs, d.X)]
         self.group_m, self.group_n = {}, {}
         self.coarse_m = {}

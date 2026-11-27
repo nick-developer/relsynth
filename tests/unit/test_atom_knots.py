@@ -6,10 +6,10 @@ import pandas as pd
 from relsynth.marginals import Codec, Marginal, _atom_knots
 
 
-def _fit_sample(x, grid=64, seed=0, tail_trim=0.0):
+def _fit_sample(x, grid=64, seed=0, tail_trim=0.0, on=True):
     c = Codec("x", {"type": "float"}, x)
     rng = np.random.default_rng(seed)
-    m = Marginal.fit(c, c.encode(x), rng, grid=grid, tail_trim=tail_trim)
+    m = Marginal.fit(c, c.encode(x), rng, grid=grid, tail_trim=tail_trim, point_mass_knots=on)
     return m, c.decode(m.sample(len(x), rng)).astype(float)
 
 
@@ -54,3 +54,12 @@ def test_extra_knots_stay_inside_the_trimmed_range():
     assert m.knots_c[0] == 0.0 and m.knots_c[-1] == 1.0
     assert np.all(np.diff(m.knots_c) >= 0) and np.all(np.diff(m.knots_v) >= 0)
     assert len(m.knots_c) > 65
+
+
+def test_off_by_default_keeps_the_uniform_grid():
+    x = _zero_inflated(20_000, 0.9, 5)
+    c = Codec("x", {"type": "float"}, x)
+    m = Marginal.fit(c, c.encode(x), np.random.default_rng(0), grid=64)
+    assert len(m.knots_c) == 65
+    from relsynth.spec import DEFAULT_SYNTHESIS
+    assert DEFAULT_SYNTHESIS["marginals"]["point_mass_knots"] is False

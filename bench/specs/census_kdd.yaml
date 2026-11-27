@@ -164,3 +164,8 @@ synthesis:
   seed: 7
   scale:
     default: 1.0
+  # wage per hour (94 % zeros), capital gains and losses, dividends: most rows hold one value, so the
+  # rest of each column gets its own quantile knots (marginals.point_mass_knots; without it the upper
+  # tail of wage per hour is spread evenly up to 9999)
+  marginals:
+    point_mass_knots: true

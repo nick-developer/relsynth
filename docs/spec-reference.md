@@ -699,6 +699,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.dirichlet_prior` | `0.25` | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | `200` | Levels kept per categorical (rarer ones pooled). |
 | `marginals.tail_trim` | `0.0` | Share trimmed from continuous tails. |
+| `marginals.point_mass_knots` | `False` | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. Off by default (each knot is a quantile of the data); turn it on in the spec, or per table, where such a column's tail matters. |
 | `marginals.min_dependence_rows` | `5` | Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample. |
 | `marginals.fd_bf` | `100.0` | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | `64` | Largest joint of dependent categoricals. |
