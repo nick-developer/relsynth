@@ -38,6 +38,7 @@ docs/development/benchmarks.md explains the choice.
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -161,10 +162,19 @@ def drift(b: dict, rs: list[dict]) -> tuple[list[str], list[str]]:
     return regs, notes
 
 
+def accepted_reason(accepted: dict | None, ds: str, check_id: str) -> str | None:
+    """The reason the owner gave for accepting drift on this check of dataset ds, if any."""
+    for pat, why in (accepted or {}).get(ds, ()):
+        if re.search(pat, check_id):
+            return why
+    return None
+
+
 def compare(baseline: dict, record: dict, full: bool = False,
-            expected: set | None = None) -> tuple[list[str], list[str], dict]:
+            expected: set | None = None, accepted: dict | None = None) -> tuple[list[str], list[str], dict]:
     """(regressions, notes, per-dataset summary) of a record against a baseline; with `full`, every dataset of
-    the baseline (or of `expected`, the datasets of the tiers that ran) must have run."""
+    the baseline (or of `expected`, the datasets of the tiers that ran) must have run.  `accepted`
+    ({dataset: [(check id pattern, reason)]}) turns matching R1/R4 items into notes that give the reason."""
     regressions, notes, summary = [], [], {}
     runs: dict = defaultdict(list)
     for r in record.get("runs", []):
@@ -194,7 +204,12 @@ def compare(baseline: dict, record: dict, full: bool = False,
         if rates and b["mean"] is not None and mean < b["mean"] - b["spread"] - 1e-12:
             regressions.append(f"R2 {ds}: mean pass rate {mean:.4f} < baseline {b['mean']:.4f} - spread {b['spread']:.4f}")
         reg4, note4 = drift(b, rs)
-        regressions += [x.replace("R4 ", f"R4 {ds} ", 1) for x in reg4]
+        for x in reg4:
+            why = accepted_reason(accepted, ds, x[3:x.index(": mean ")])
+            if why:
+                notes.append(f"{ds} accepted drift ({why}): {x[3:]}")
+            else:
+                regressions.append(x.replace("R4 ", f"R4 {ds} ", 1))
         notes += [f"{ds} {x}" for x in note4]
         n_seeds = sum(1 for r in rs if r.get("checks"))
         failed_on: dict = defaultdict(int)
@@ -208,7 +223,11 @@ def compare(baseline: dict, record: dict, full: bool = False,
                 bc = b["checks"].get(c["id"])
                 if bc and bc["calibrated"] and not c["pass"] and (exact(c) or 2 * failed_on[c["id"]] > n_seeds):
                     v = f" (value {c.get('value')}, limit {c.get('limit')}, real {c.get('real')})"
-                    regressions.append(f"R1 {ds} seed {r.get('seed')}: calibrated check failed: {c['id']}{v}")
+                    why = accepted_reason(accepted, ds, c["id"])
+                    if why:
+                        notes.append(f"{ds} seed {r.get('seed')}: accepted drift ({why}): {c['id']}{v}")
+                    else:
+                        regressions.append(f"R1 {ds} seed {r.get('seed')}: calibrated check failed: {c['id']}{v}")
                 elif bc and bc["calibrated"] and not c["pass"]:
                     notes.append(f"{ds} seed {r.get('seed')}: statistical check {c['id']} failed on "
                                  f"{failed_on[c['id']]} of {n_seeds} seeds (value {c.get('value')}, limit {c.get('limit')})")

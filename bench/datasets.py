@@ -312,6 +312,10 @@ class Dataset:
     generic: bool = False
     coverage: tuple = ()
     kind: str = "relational"                        # "documents": benchmarks/documents (MongoDB samples)
+    # drift the owner accepted: (regular expression over check ids, reason). A failed check that matches is
+    # logged with the reason during the run, and the comparison reports it as a note instead of an R1/R4
+    # regression, until a baseline that holds it is built
+    accepted: tuple = ()
     requires: callable | None = None                # -> (available, why not)
     minutes: float = 0.0                            # a seed's usual minutes on a runner: --jobs starts long runs first
 
@@ -605,6 +609,10 @@ DATASETS = {
     "adventureworks": Dataset("adventureworks", lambda: f"sqlite:{build_adventureworks()}", _spec("adventureworks"),
                               _aw_checks, note="AdventureWorks DW 2022 as SQLite (27 tables, 1.05M rows); checks G1-G14",
                               quality=AW_QUALITY, seeds=(1, 2, 3), jobs=((1, 2), (3,)), generic=True,
+                              accepted=((r"DimProduct(?![A-Za-z])|ProductKey\.Weight|, ProductKey\)",
+                                         "DimProduct segment shrinkage (spec synthesis.per_table, #67) trades fidelity "
+                                         "of DimProduct and of the facts' product links for privacy; accepted by the "
+                                         "owner on 2026-11-27"),),
                               coverage=("tables_10_plus", "snowflake_depth_3", "self_reference", "scd", "events")),
     "contoso_sqlite": Dataset("contoso_sqlite", lambda: f"sqlite:{build_contoso_sqlite()}", _spec("contoso_sqlite"),
                               _contoso_checks, note="Contoso V2 100k as SQLite with the generator's keys; checks T1-T17",
