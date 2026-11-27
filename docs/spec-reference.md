@@ -222,8 +222,6 @@ A calendar referenced as order date and ship date is two relationships to one ta
 
 An order header carried on its lines (a degenerate dimension) is `fact.header: {key, columns, line_number}`. A separate orders table that the lines reference is an entity; the model report calls it the order header. Every order then has one customer and one set of dates, and its lines are numbered 1..n.
 
-A line key can be offset from a header key (`offset_from: cs_sold_date_sk` on the ship date's relationship, with the sold date a header column): the ship date then follows each order's date by a modelled gap on every line. Line rules may read parents through header keys (`days(ship_date_sk.d_date) - days(sold_date_sk.d_date)`); the engine reads them through the order header.
-
 ### Unknown members
 
 `unknown_members: [-1]` on the dimension:
@@ -247,13 +245,14 @@ On a fact, the rows that point at the unknown member are restored by drawing tha
 ### Periodic and accumulating snapshots, factless facts
 
 - **Periodic snapshot** (one row per account and month): declare the grain as `unique: [[account_id, month_key]]`. The fact is then generated as the occupancy of the pairs.
-- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates). A line's date can start from its header's date through the foreign key (`offset_from: l_orderkey.o_orderdate`), and an offset can be the base of another (receipt from ship, ship from the order's date), so the gaps between them hold on every row.
+- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates).
 - **Factless fact** (attendance, coverage): it needs nothing special. Rows per parent and the pairs are modelled as for any fact.
 
 ### A value shared by a group, co-location, rules that mostly hold
 
 - `group_effects: [{column, by}]`: one value per group (a daily price factor per category). Introspect finds it when the value is constant in at least 99.9 % of rows in groups of 2+ rows, beyond chance.
-- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`.
+- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`. On a fact whose moved link is the partner or an extra link, whether a row matches is a hidden attribute drawn with the row's other attributes (`model: rows`, the default; a reinvestment is always a self-loop, a truck runs only within a region), and the link is chosen to agree with it; `model: share` moves links after the rows are drawn until the share is reached.
+- Two or more extra links of a fact to the same parent table (a role-playing dimension: payment and receiving currency, origin and destination airport) are drawn jointly over their observed combinations when the joint table beats independence (`fact.joint_links`, default `auto`). Combinations held by fewer than `privacy.suppress_small_counts` source rows are never reproduced.
 - `holds: 0.99` on a derive rule: the rule holds on that share of rows, and the other rows take the source's offsets from it (`violation: offset`) or their modelled value (`violation: model`).
 
 ### Writing into a database with the original structure
@@ -435,6 +434,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `count_model` | auto \| poisson \| dp | `auto` | Rows per anchor: Poisson/negative binomial or a Dirichlet-process count law. |
 | `group_fallback` | auto \| anchor \| partner | `auto` | Which dimension's marginals a sparse block borrows. |
 | `link_degree` | auto \| segment \| dp | `auto` | Degree law of the two keys of a link table (bonds per atom as the second atom, actors per movie). auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it, with the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on every modelled key. |
+| `joint_links` | auto \| off | `auto` | Extra links of the fact to the same parent table (a role-playing dimension: payment and receiving currency, origin and destination) drawn jointly over their observed combinations; combinations held by fewer than privacy.suppress_small_counts rows are left out. auto: when the joint table beats independence by facts.joint_links_bf. off: each link drawn on its own. |
 | `time_column` | column |  | Date column with a seasonal profile per segment. |
 | `time_bucket` | day \| week \| month \| quarter \| year | `month` | Bucket of the seasonal profile. |
 | `condition_on_parents` | bool \| list of fk.col | `True` | Condition measures on parents' continuous attributes (unit price follows list price). |
@@ -468,7 +468,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `lookup` | fk.col path \| keyed lookup |  | For type lookup: the value of a parent's column, or {table, match, value} into a reference table. |
 | `map` | map |  | Lookup values mapped through a fixed table (country -> currency). |
 | `default` | any |  | Value for codes outside `map`. |
-| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). The column may be in a parent table, as a path through foreign keys (`fk.column`), and may itself be an offset; a cycle is refused. |
+| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). |
 | `ratio_of` | column \| fk.col |  | This number = that number x a modelled factor (unit price = list price x one of 16 factors). |
 | `ratio_same_as` | column |  | Use the factor of another ratio column (unit cost moves with unit price). |
 | `text` | text |  | Options of a text column. |
@@ -613,7 +613,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `match` | [path, path] |  | Two paths whose values match more often than chance; the link of the second is moved (CustomerKey.GeoAreaKey, StoreKey.GeoAreaKey). |
-| `share` | number | `learned` | Matching share to reach (default: the source's, drawn from its posterior). |
+| `share` | number | `learned` | Matching share to reach (default: the source's, drawn from its posterior). A fixed share uses the share model. |
+| `model` | rows \| share | `structure.link_affinity` | rows: whether a row matches is a hidden attribute drawn with the row's other attributes, and the link is chosen to agree with it (facts whose moved link is the partner or an extra link). share: links are moved after the rows are drawn until the matching share is reached. |
 
 ### `unique[]` (filtered key)
 
@@ -699,7 +700,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.dirichlet_prior` | `0.25` | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | `200` | Levels kept per categorical (rarer ones pooled). |
 | `marginals.tail_trim` | `0.0` | Share trimmed from continuous tails. |
-| `marginals.point_mass_knots` | `False` | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. Off by default (each knot is a quantile of the data); turn it on in the spec, or per table, where such a column's tail matters. |
+| `marginals.point_mass_knots` | `False` | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. |
 | `marginals.min_dependence_rows` | `5` | Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample. |
 | `marginals.fd_bf` | `100.0` | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | `64` | Largest joint of dependent categoricals. |
@@ -728,6 +729,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.segment_total_sweeps` | `4` | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
 | `facts.dp_count_start` | `draw` | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `facts.null_partner` | `auto` | auto \| model \| drop: rows whose partner key is NULL (an optional second link) are modelled as rows without a partner, a null level given the anchor segment (model), or left out of the model as in 2.2 (drop). auto is model, except in stage 2 of DP mode, where a NULL key is stage 1's noise and is left out. Not modelled (left out, as in drop): a fact whose partner is virtual, a fact that is the parent of a nested fact, and, with push-down, rows absent from the push-down sample. |
+| `facts.joint_links` | `auto` | Default of fact.joint_links. |
+| `facts.joint_links_bf` | `100.0` | Bayes factor the joint table of role-playing links must reach against independent links to be drawn jointly (fact.joint_links: auto). |
+| `facts.joint_links_max_levels` | `4096` | Most joint levels (product of the links' segment counts) a group of role-playing links is drawn over; larger groups stay independent. |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
@@ -737,6 +741,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure.inclusion_max_levels` | `50` | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
 | `structure.inclusion_multiplicity` | `bonferroni` | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
 | `structure.participation` | `auto` | auto \| none: hurdle on the share of parents without children. |
+| `structure.link_affinity` | `rows` | Default of link_affinity model (rows or share). |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.rake_rounds` | `3` | Rounds of raking for rule cells. |

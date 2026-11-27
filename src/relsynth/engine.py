@@ -511,6 +511,29 @@ def _cind_name(c: str) -> str:
     return c
 
 
+def _log_dm(n, a):
+    """log Dirichlet-multinomial marginal likelihood of counts n under Dirichlet(a)
+    (the multinomial coefficient left out: it cancels in a Bayes factor)."""
+    n, a = np.asarray(n, float), np.asarray(a, float)
+    return float(gammaln(a.sum()) - gammaln(a.sum() + n.sum()) + (gammaln(a + n) - gammaln(a)).sum())
+
+
+def _log_bf_joint(cnt, dims):
+    """log Bayes factor of a saturated joint table against independent margins
+    (Gunel and Dickey 1974): cell counts cnt (raveled over dims) under a uniform
+    Dirichlet(1) joint, against the product of the margins under Dirichlet priors
+    with the joint prior's margins (L / d_j per level), so both models give the
+    same prior mean."""
+    dims = tuple(int(d) for d in dims)
+    L = int(np.prod(dims))
+    t = np.asarray(cnt, float).reshape(dims)
+    lbf = _log_dm(t.ravel(), np.ones(L))
+    for j, d in enumerate(dims):
+        m = t.sum(axis=tuple(i for i in range(len(dims)) if i != j))
+        lbf -= _log_dm(m, np.full(d, L / d))
+    return lbf
+
+
 def _setting(obj, group, key, default):
     """A setting of the synthesis block (relsynth.settings), default when absent.
     A function, not a method: the science checks call engine methods on bare
@@ -665,14 +688,18 @@ class Synthesizer:
                             self.balance_auto[(r["table"], r["column"])] = float((yv < 0).mean())
         # ---- attribute models (unfitted; give features for segmentation)
         say("fit: encoding columns")
+        self.match_flags = self._match_flag_layout(tables)
         self.tm = {}
         for t in T:
             excl = self._excluded(t)
             aux = self._aux_columns(t, tables) if T[t]["role"] == "fact" else None
             # own columns a check rule constrains together (paths through keys excluded)
-            groups = [{c for c in names_in(r["expr"]) if "." not in c} for r in self.spec.get("rules", [])
-                      if r.get("table") == t and r.get("type") == "check"]
-            self.tm[t] = TableModel(t, T[t], tables[t], table_config(cfg, t), exclude=excl, aux=aux,
+            rules_t = [r for r in self.spec.get("rules", []) if r.get("table") == t and r.get("type") == "check"]
+            groups = [{c for c in names_in(r["expr"]) if "." not in c} for r in rules_t]
+            src, tspec = tables[t], T[t]
+            if self.match_flags.get(t):
+                src, tspec, groups = self._with_match_flags(t, tables, rules_t, groups)
+            self.tm[t] = TableModel(t, tspec, src, table_config(cfg, t), exclude=excl, aux=aux,
                                     rule_groups=groups)
             if self.tm[t].rule_groups:
                 self.log["decisions"].setdefault(t, {})["rule-linked joints"] = self.tm[t].rule_groups
@@ -2166,6 +2193,7 @@ class Synthesizer:
                 d["frailty"] = ax if self._frailty_on(mode, Dx) else np.full(ex.K, np.inf)
                 d["obs"] = fan
                 info["extra_p"].append(d)
+            self._fit_joint_extras(f, info, z1, z2, e1.K, e2.K)
             if info.get("null2"):
                 self._post_null_partner(f, info, df, a_idx, groups, parent)
         if parent is None:
@@ -2306,12 +2334,92 @@ class Synthesizer:
             s2 += _bias_corrected_mi(lab, z2)
         return "partner" if s2 > s1 else "anchor"
 
+    def _joint_extra_groups(self, f, info):
+        """Extra dimension keys of fact f that point at the same parent table (a
+        role-playing dimension: payment and receiving currency, origin and
+        destination airport, ship-from and ship-to warehouse).  Keys set by an offset
+        from another key (ship date = order date + gap) and virtual dimensions are
+        left out.  Returns lists of indexes into info["extra"], two or more each."""
+        T = self.spec["tables"][f]
+        mode = (T.get("fact") or {}).get("joint_links", _setting(self, "facts", "joint_links", "auto"))
+        if mode == "off" or len(info.get("extra") or []) < 2:
+            return []
+        dimcols = info["fks"] if info["nested"] else info["fks"][1:]
+        offset = {r["child_key"] for r in self._offset_rels(f)}
+        by_parent: dict = {}
+        for xj, r in enumerate(dimcols[1:1 + len(info["extra"])]):
+            if r.get("virtual") or r["child_key"] in offset:
+                continue
+            by_parent.setdefault(r["parent"], []).append(xj)
+        return [g for g in by_parent.values() if len(g) >= 2]
+
+    def _fit_joint_extras(self, f, info, z1, z2, K1, K2):
+        """Role-playing extra keys drawn jointly (Prop. 1870).  Drawn one by one given
+        the block, two keys to the same parent are independent given the block, so a
+        fact whose two currencies agree on 98.6 % of its rows gets them agreeing on
+        sum_c p_c^2 of its rows (29 % for 15 currencies).  Each group of such keys
+        (_joint_extra_groups) gets one law over the joint level (s_1, ..., s_m) of
+        their segments (rows, for small copied parents with a segment per row) given
+        the block, P(s | block), with the sparse-Dirichlet back-off of _extra_dist.
+        Privacy: a combination held by fewer than privacy.suppress_small_counts
+        source rows is left out of the counts, so it is never reproduced from the
+        source, as a rare level of a single column is not (the floor of the
+        rule-linked joints).  The joint law is used only when the joint table beats
+        independence by facts.joint_links_bf (Bayes factor of a Dirichlet-multinomial
+        joint against the product of Dirichlet-multinomial margins; Good 1976, Gunel
+        and Dickey 1974) and has at most facts.joint_links_max_levels levels;
+        otherwise the keys stay independent given the block, as before."""
+        info["extra_joint"] = []
+        groups = self._joint_extra_groups(f, info)
+        if not groups:
+            return
+        dec = self.log["decisions"].setdefault(f, {})
+        kmin = int((self.cfg.get("privacy") or {}).get("suppress_small_counts", 5))
+        max_lv = int(_setting(self, "facts", "joint_links_max_levels", 4096))
+        lbf_min = math.log(max(float(_setting(self, "facts", "joint_links_bf", 100.0)), 1.0))
+        dimcols = info["fks"] if info["nested"] else info["fks"][1:]
+        for g in groups:
+            names = [dimcols[1 + xj]["child_key"] for xj in g]
+            label = " + ".join(names)
+            labs, dims = [], []
+            for xj in g:
+                ex, xi = info["extra"][xj].e2, info["extra"][xj].row_idx
+                sx = np.where(xi >= 0, ex.z[np.maximum(xi, 0)], ex.K)
+                labs.append(sx)
+                dims.append(ex.K + 1 if (sx == ex.K).any() else ex.K)
+            L = int(np.prod(dims, dtype=float)) if np.prod(dims, dtype=float) <= max_lv else None
+            if L is None:
+                dec[f"joint links {label}"] = (f"independent given the block: {' x '.join(map(str, dims))} joint "
+                                               f"levels > facts.joint_links_max_levels {max_lv}")
+                continue
+            s = np.ravel_multi_index(tuple(labs), tuple(dims))
+            cnt = np.bincount(s, minlength=L)
+            keep = cnt[s] >= kmin
+            floored = int((cnt > 0).sum() - (cnt >= kmin).sum())
+            lbf = _log_bf_joint(np.where(cnt >= kmin, cnt, 0), dims)
+            if not keep.any() or lbf < lbf_min:
+                dec[f"joint links {label}"] = (f"independent given the block: log Bayes factor of the joint "
+                                               f"table {lbf:.1f} < {lbf_min:.1f}")
+                continue
+            d = self._level_dist(z1[keep], z2[keep], s[keep], K1, K2, L)
+            d.update({"members": list(g), "dims": list(dims)})
+            self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
+            info["extra_joint"].append(d)
+            dec[f"joint links {label}"] = (
+                f"drawn jointly over {int((cnt >= kmin).sum())} observed combinations (log Bayes factor {lbf:.0f}); "
+                f"{floored} combinations held by fewer than {kmin} rows ({int((~keep).sum())} rows) left out")
+
     def _extra_dist(self, z1, z2, s, K1, K2, ex):
         """P(extra-dimension segment | block): sparse Dirichlet with a back-off
         prior towards P(segment | the more informative block dimension).  Level
         ex.K stands for a null key (only present when the source has nulls)."""
-        pi_s, rng = self.pi_s, self.rng
         Kx = ex.K + 1 if (s == ex.K).any() else ex.K
+        return {**self._level_dist(z1, z2, s, K1, K2, Kx), "null": Kx > ex.K}
+
+    def _level_dist(self, z1, z2, s, K1, K2, Kx):
+        """_extra_dist over any labels s in 0..Kx-1 (a segment of one dimension, or
+        the joint level of several, _fit_joint_extras)."""
+        pi_s, rng = self.pi_s, self.rng
         glob = np.bincount(s, minlength=Kx).astype(float)
         glob = glob / max(glob.sum(), 1)
         mi1, mi2 = _bias_corrected_mi(s, z1), _bias_corrected_mi(s, z2)
@@ -2329,7 +2437,7 @@ class Synthesizer:
                 base = Pc[b_ % K2] if by2 else Pc[b_ // K2]
                 P[b_] = sparse_dirichlet_draw(cnt[b_], base + 1e-9, pi_s, rng) if cnt[b_].sum() else base
             return {"P": P}
-        return {**draw(rng), "backoff": "partner" if by2 else "anchor", "null": Kx > ex.K, "redraw": draw}
+        return {**draw(rng), "backoff": "partner" if by2 else "anchor", "redraw": draw}
 
     def _count_model(self, f, counts, e, setting=None, key="count_model"):
         """Rows per anchor row: DP posterior of each segment's count distribution
@@ -4499,7 +4607,11 @@ class Synthesizer:
                 isn = blk >= st_nb
                 g0 = self.NULL_GROUP + (blk - st_nb)
                 groups = np.where(isn, np.where(np.isin(g0, list(fitted)), g0, nz["fallback"]), groups)
+            joint = info.get("extra_joint") or []
+            in_joint = {xj for d in joint for xj in d["members"]}
             for xj, (r, xp, kx, wx, memx, availx) in enumerate(st["extras"]):
+                if xj in in_joint:
+                    continue
                 Kx = len(memx)
                 res = np.empty(len(u), dtype=object)
                 for b in np.unique(blk):
@@ -4518,14 +4630,10 @@ class Synthesizer:
                         p = xp["P"][b] * availx
                         p = p / p.sum() if p.sum() > 0 else availx / availx.sum()
                     seg = rng.choice(kb, size=len(rows), p=p)
-                    for s_ in np.unique(seg):
-                        rr = rows[seg == s_]
-                        m = memx[s_] if s_ < len(memx) else np.zeros(0, np.int64)
-                        if len(m) == 0 or wx[m].sum() <= 0:              # null key
-                            res[rr] = None
-                            continue
-                        res[rr] = np.asarray(kx, dtype=object)[m[rng.choice(len(m), size=len(rr), p=wx[m] / wx[m].sum())]]
+                    self._rows_of_segments(rng, rows, seg, memx, wx, kx, res)
                 cols[r["child_key"]] = res
+            for d in joint:
+                cols.update(self._joint_extra_rows(f, st, d, blk, st_nb, nz))
         for c, vals in st["acols"].items():
             cols[c] = np.asarray(vals, dtype=object)[u] if len(u) else np.array([], dtype=object)
         given = self._given_frame(f, pd.DataFrame(cols), ents) if len(groups) else None
@@ -4541,6 +4649,8 @@ class Synthesizer:
             pd.DataFrame(columns=self.tm[f].out_cols)
         for c, vals in cols.items():
             df[c] = vals
+        if v is not None and getattr(self, "match_flags", {}).get(f) and len(df):
+            df = self._match_links(f, st, df, ents, blk, st_nb, nz)
         if "time" in info:
             df[info["time"]["col"]] = ts if ts is not None else self._fact_times(info, z1, u, rng)
         df["__group__"] = groups
@@ -4549,6 +4659,54 @@ class Synthesizer:
         df["__blk__"] = blk
         self._sequences(f, df)
         return df
+
+    @staticmethod
+    def _rows_of_segments(rng, rows, seg, memx, wx, kx, res):
+        """res[rows]: a row of each drawn segment by its degree weight (None for the
+        null level or a segment without synthetic rows)."""
+        for s_ in np.unique(seg):
+            rr = rows[seg == s_]
+            m = memx[s_] if s_ < len(memx) else np.zeros(0, np.int64)
+            if len(m) == 0 or wx[m].sum() <= 0:              # null key
+                res[rr] = None
+                continue
+            res[rr] = np.asarray(kx, dtype=object)[m[rng.choice(len(m), size=len(rr), p=wx[m] / wx[m].sum())]]
+
+    def _joint_extra_rows(self, f, st, d, blk, st_nb, nz):
+        """Keys of a group of role-playing extra links (_fit_joint_extras): the joint
+        level of their segments from P(level | block), restricted to levels whose
+        every part has synthetic rows, then a row of each part's segment by its
+        weight.  Rows without a partner draw each key from its own law given no
+        partner (_post_null_partner), as before."""
+        rng = self.rng
+        mem = d["members"]
+        dims = tuple(d["dims"])
+        ext = [st["extras"][xj] for xj in mem]
+        res = [np.empty(len(blk), dtype=object) for _ in mem]
+        avail = np.ones(1)
+        for e_ in ext:
+            avail = np.multiply.outer(avail, np.asarray(e_[5], float)).ravel()
+        L = len(avail)
+        for b in np.unique(blk):
+            rows = np.flatnonzero(blk == b)
+            if st_nb is not None and b >= st_nb:
+                for j, xj in enumerate(mem):
+                    r, xp, kx, wx, memx, availx = ext[j]
+                    P0 = np.asarray(nz["extra_p"][xj]["P"][b - st_nb], dtype=float)
+                    kb = len(P0)
+                    exk = len(memx) - int(bool(xp.get("null")))
+                    av0 = np.r_[np.asarray(availx, float)[:exk], np.ones(max(kb - exk, 0))][:kb]
+                    p = P0 * av0
+                    p = p / p.sum() if p.sum() > 0 else av0 / av0.sum()
+                    self._rows_of_segments(rng, rows, rng.choice(kb, size=len(rows), p=p), memx, wx, kx, res[j])
+                continue
+            p = np.asarray(d["P"][b], float) * avail
+            p = p / p.sum() if p.sum() > 0 else avail / max(avail.sum(), 1e-300)
+            segs = np.unravel_index(rng.choice(L, size=len(rows), p=p), dims)
+            for j in range(len(mem)):
+                r, xp, kx, wx, memx, availx = ext[j]
+                self._rows_of_segments(rng, rows, segs[j], memx, wx, kx, res[j])
+        return {ext[j][0]["child_key"]: res[j] for j in range(len(mem))}
 
     @staticmethod
     def _fact_times(info, z1, u, rng):
@@ -5457,6 +5615,322 @@ class Synthesizer:
                     self.log["warnings"].append(f"{t}: group effect on {g['column']} holds on only {share:.1%} of source groups; "
                          "the synthetic data will make it hold on all groups")
 
+    MATCH_PREFIX = "__match_"
+    MATCH_REDRAWS = 20             # joint redraws of role-playing links per row before a direct move
+
+    def _match_flag_layout(self, tables):
+        """Link-affinity matches modelled per row (Prop. 1871): for each declared
+        `link_affinity` match of a fact whose moved link is its partner or an extra
+        link, the indicator "this row's two paths match" is computed on the source
+        rows and enters the fact's attribute model as a hidden binary column
+        (__match_<i>), so it is drawn jointly with the other attributes (a
+        reinvestment always matches, a card payment rarely does); the link is then
+        chosen to agree with it (_match_links).  Matches with a fixed share, under a
+        unique key over the moved link, on the anchor link or in nested facts, and
+        every match under structure.link_affinity: share, keep the share model of
+        _apply_affinity."""
+        out: dict = {}
+        default = _setting(self, "structure", "link_affinity", "rows")
+        for t, T in self.spec["tables"].items():
+            info = getattr(self, "fact_info", {}).get(t)
+            las = T.get("link_affinity") or []
+            if not las or T.get("role") != "fact" or not info or info.get("nested") or len(info["fks"]) < 2:
+                continue
+            keys = {r["child_key"]: j for j, r in enumerate(info["fks"])}
+            dec = self.log["decisions"].setdefault(t, {})
+            for i, la in enumerate(las):
+                a, b = la["match"]
+                fk = b.split(".")[0]
+                mode = la.get("model", default)
+                why = None
+                if mode != "rows" or la.get("share") is not None:
+                    why = "share model (a fixed share or link_affinity model: share)"
+                elif keys.get(fk, 0) == 0:
+                    why = "share model: the moved link is the anchor"
+                elif any(fk in u for u in T.get("unique", [])):
+                    why = "share model: a unique key covers the moved link"
+                if why:
+                    if mode == "rows" and la.get("share") is None:
+                        dec[f"link affinity {a} = {b} model"] = why
+                    continue
+                df = tables.get(t)
+                try:
+                    res = self._resolver(t, df, tables)
+                    av = _keystr(pd.Series(np.asarray(res(a) if "." in a else df[a], dtype=object)))
+                    bv = _keystr(pd.Series(np.asarray(res(b), dtype=object)))
+                except (KeyError, SpecError):
+                    continue
+                flag = ((av.to_numpy(dtype=object) == bv.to_numpy(dtype=object)) & av.notna().to_numpy())
+                j = keys[fk]
+                out.setdefault(t, []).append({
+                    "name": f"{self.MATCH_PREFIX}{i}", "a": a, "b": b, "fk": fk, "col": b.split(".", 1)[1],
+                    "slot": j, "parent": info["fks"][j]["parent"], "src": flag, "share": float(flag.mean()) if len(flag) else 0.0,
+                    "heads": {self._path_head(t, a), fk}})
+        return out
+
+    def _path_head(self, t, path):
+        """The link a path or column of table t reads through: its first part, or
+        the link of a lookup column (from_bank: from_account_key.bank_id)."""
+        head = str(path).split(".")[0]
+        cs = self.spec["tables"][t]["columns"].get(head) or {}
+        if cs.get("type") == "lookup" and cs.get("lookup"):
+            return str(cs["lookup"]).split(".")[0]
+        return head
+
+    def _with_match_flags(self, t, tables, rules_t, groups):
+        """The source rows, column specs and rule groups of table t with its hidden
+        match columns: each joins the rule-linked joint of every check rule that reads
+        both of its links, so the rule's categoricals and the match are drawn
+        together over their observed combinations (a reinvestment with no match is
+        never drawn)."""
+        src = tables[t].copy()
+        tspec = {**self.spec["tables"][t], "columns": dict(self.spec["tables"][t]["columns"])}
+        groups = [set(g) for g in groups]
+        for m in self.match_flags[t]:
+            src[m["name"]] = np.where(m["src"], "1", "0")
+            tspec["columns"][m["name"]] = {"type": "categorical"}
+            for g, r in zip(groups, rules_t):
+                if m["heads"] <= {self._path_head(t, c) for c in names_in(r["expr"])}:
+                    g.add(m["name"])
+        return src, tspec, groups
+
+    def _match_values(self, t, df, ents, m):
+        res = self._resolver(t, df, ents)
+        a = m["a"]
+        av = _keystr(pd.Series(np.asarray(res(a) if "." in a else df[a], dtype=object))).to_numpy(dtype=object)
+        bv = _keystr(pd.Series(np.asarray(res(m["b"]), dtype=object))).to_numpy(dtype=object)
+        return av, bv
+
+    def _match_links(self, f, st, df, ents, blk, st_nb, nz):
+        """Moves the matched links of fact rows to agree with their drawn match
+        columns (_match_flag_layout), entry by entry in the declared order:
+          * a row whose match column says yes and whose paths differ gets a parent
+            with its value of the first path; a row that says no and matches by
+            chance gets a parent without it;
+          * a link of a group of role-playing links (_fit_joint_extras) is first
+            redrawn with its group from the joint law, up to MATCH_REDRAWS times,
+            which samples the joint law given the match exactly; rows still not
+            agreeing are moved as above;
+          * a parent is chosen by its degree weight among the eligible rows;
+          * a move that would break an earlier entry's agreement is not made.
+        Rows without a partner keep none."""
+        rng = self.rng
+        info = self.fact_info[f]
+        done = []
+        for m in self.match_flags[f]:
+            if m["name"] not in df.columns:
+                continue
+            want = df[m["name"]].astype(str).to_numpy() == "1"
+            av, bv = self._match_values(f, df, ents, m)
+            same = np.array([x is not None and x == y for x, y in zip(av, bv)], dtype=bool)
+            live = df[m["fk"]].notna().to_numpy() | (m["slot"] != 1)
+            bad = np.flatnonzero((want != same) & live)
+            if not len(bad):
+                done.append(m)
+                continue
+            if m["slot"] == 1:
+                kx, wx = np.asarray(st["k2"], dtype=object), np.asarray(st["w2"], float)
+                group = None
+            else:
+                xj = m["slot"] - 2
+                ext = st["extras"][xj]
+                kx, wx = np.asarray(ext[2], dtype=object), np.asarray(ext[3], float)
+                group = next((d for d in (info.get("extra_joint") or []) if xj in d["members"]), None)
+            if group is not None and len(bad):
+                exact = self._joint_rows_given_match(f, st, group, m, np.asarray(blk)[bad], want[bad], ents)
+                if exact is not None:
+                    sub = df.iloc[bad].copy()
+                    for c, vals in exact.items():
+                        sub[c] = vals
+                    ok = self._keeps_done(f, df, sub, ents, done, bad)
+                    for c, vals in exact.items():
+                        ok &= pd.notna(pd.Series(vals, dtype=object)).to_numpy() | df[c].iloc[bad].isna().to_numpy()
+                    for c, vals in exact.items():
+                        col = df[c].to_numpy(dtype=object).copy()
+                        col[bad[ok]] = np.asarray(vals, dtype=object)[ok]
+                        df[c] = col
+                    ok2 = self._match_agrees(f, df.iloc[bad], ents, m, want[bad])
+                    bad = bad[~ok2]
+            if group is not None and len(bad):
+                for _ in range(self.MATCH_REDRAWS):
+                    if not len(bad):
+                        break
+                    new = self._joint_extra_rows(f, st, group, np.asarray(blk)[bad], st_nb, nz)
+                    sub = df.iloc[bad].copy()
+                    for c, vals in new.items():
+                        sub[c] = vals
+                    ok = self._match_agrees(f, sub, ents, m, want[bad]) & self._keeps_done(f, df, sub, ents, done, bad)
+                    acc = bad[ok]
+                    for c, vals in new.items():
+                        col = df[c].to_numpy(dtype=object).copy()
+                        col[acc] = np.asarray(vals, dtype=object)[ok]
+                        df[c] = col
+                    bad = bad[~ok]
+            if len(bad):
+                df = self._move_matched(f, df, ents, m, bad, want, av, kx, wx, done, rng)
+            done.append(m)
+        return df
+
+    def _joint_rows_given_match(self, f, st, d, m, blk, want, ents):
+        """Keys of a group of role-playing links given whether the match m holds,
+        when both of m's paths read through links of the group (payment and receiving
+        currency): the exact conditional of the joint law.  With w the degree weights
+        and v(i) the matched value of parent row i, a joint level (s_1, s_2) matches
+        with probability pm = sum_{i in s_1, j in s_2} w_i w_j [v_a(i) = v_b(j)] /
+        (W_1 W_2); the level is drawn from P(level | block) pm (or 1 - pm), the first
+        row by its weight, the second among its segment's rows that match (or do
+        not).  None when the paths are not both in the group."""
+        info = self.fact_info[f]
+        mem = d["members"]
+        dimcols = info["fks"][1:]
+        keys = [dimcols[1 + xj]["child_key"] for xj in mem]
+        ha, hb = self._path_head(f, m["a"]), m["fk"]
+        if ha not in keys or hb not in keys or ha == hb or len(mem) != 2:
+            return None
+        ia, ib = keys.index(ha), keys.index(hb)
+        P = ents[m["parent"]]
+        pk = self.spec["tables"][m["parent"]]["primary_key"]
+        col_a = m["a"].split(".", 1)[1] if "." in m["a"] else pk
+        if col_a not in P.columns or m["col"] not in P.columns:
+            return None
+        ext = [st["extras"][xj] for xj in mem]
+        kx = np.asarray(ext[0][2], dtype=object)
+        idx = _keystr(pd.Series(kx)).to_numpy(dtype=object)
+        pkey = _keystr(P[pk]).to_numpy(dtype=object)
+        pos = pd.Series(np.arange(len(P)), index=pkey)
+        pos = pos[~pos.index.duplicated()].reindex(idx).to_numpy()
+        if np.isnan(pos.astype(float)).any():
+            return None
+        pos = pos.astype(np.int64)
+        va = _keystr(P[col_a]).to_numpy(dtype=object)[pos]
+        vb = _keystr(P[m["col"]]).to_numpy(dtype=object)[pos]
+        codes, uniq = pd.factorize(pd.Series(np.r_[va, vb], dtype=object), use_na_sentinel=True)
+        ca, cb = codes[:len(va)], codes[len(va):]
+        V = max(len(uniq), 1)
+        dims = tuple(d["dims"])
+
+        def mass(e_, c_):
+            memx, wx = e_[4], np.where(np.isfinite(e_[3]) & (e_[3] > 0), e_[3], 0.0)
+            A = np.zeros((len(memx), V))
+            for s_, mm in enumerate(memx):
+                ok_ = c_[mm] >= 0
+                np.add.at(A[s_], c_[mm][ok_], wx[mm][ok_])
+            W = np.array([wx[mm].sum() for mm in memx])
+            return A, W, wx
+        A, WA, wa = mass(ext[ia], ca)
+        B, WB, wb = mass(ext[ib], cb)
+        pm2 = (A @ B.T) / np.maximum(np.outer(WA, WB), 1e-300)          # (segments of a) x (segments of b)
+        pad_a, pad_b = dims[ia] - pm2.shape[0], dims[ib] - pm2.shape[1]
+        pm2 = np.pad(pm2, ((0, max(pad_a, 0)), (0, max(pad_b, 0))))       # null levels never match
+        pm = pm2 if ia == 0 else pm2.T
+        pm = np.clip(pm.ravel(), 0.0, 1.0)
+        avail = np.ones(1)
+        for e_ in ext:
+            avail = np.multiply.outer(avail, np.asarray(e_[5], float)).ravel()
+        rng = self.rng
+        arow = pd.Series(np.arange(len(kx)), index=idx)
+        arow = arow[~arow.index.duplicated()]
+        res = [np.empty(len(blk), dtype=object) for _ in mem]
+        for b in np.unique(blk):
+            for wv in (True, False):
+                rows = np.flatnonzero((blk == b) & (want == wv))
+                if not len(rows):
+                    continue
+                if b >= len(d["P"]):
+                    return None                                   # rows without a partner
+                p = np.asarray(d["P"][b], float) * avail * (pm if wv else 1.0 - pm)
+                if p.sum() <= 0:
+                    p = avail * (pm if wv else 1.0 - pm)
+                if p.sum() <= 0:
+                    for j in range(len(mem)):
+                        res[j][rows] = None
+                    continue
+                segs = np.unravel_index(rng.choice(len(p), size=len(rows), p=p / p.sum()), dims)
+                ra = np.empty(len(rows), dtype=object)
+                self._rows_of_segments(rng, np.arange(len(rows)), segs[ia], ext[ia][4], wa, kx, ra)
+                res[ia][rows] = ra
+                # the second link among its segment's rows that match the first (or do not)
+                vrow = ca[arow.reindex(_keystr(pd.Series(ra)).to_numpy(dtype=object)).fillna(-1).astype(np.int64).to_numpy()]
+                sb = np.asarray(segs[ib])
+                for (sg, vv), ii in pd.DataFrame({"s": sb, "v": vrow}).groupby(["s", "v"]).indices.items():
+                    mm = ext[ib][4][sg] if sg < len(ext[ib][4]) else np.zeros(0, np.int64)
+                    hit = (cb[mm] == vv) & (vv >= 0)
+                    mm = mm[hit] if wv else mm[~hit]
+                    ww = wb[mm]
+                    if not len(mm) or ww.sum() <= 0:
+                        res[ib][rows[ii]] = None
+                        continue
+                    res[ib][rows[ii]] = kx[mm[rng.choice(len(mm), size=len(ii), p=ww / ww.sum())]]
+        return {keys[j]: res[j] for j in range(len(mem))}
+
+    def _match_agrees(self, f, sub, ents, m, want):
+        av, bv = self._match_values(f, sub, ents, m)
+        same = np.array([x is not None and x == y for x, y in zip(av, bv)], dtype=bool)
+        return same == np.asarray(want, bool)
+
+    def _keeps_done(self, f, df, sub, ents, done, rows):
+        """Rows (positions rows of df, new values in sub) whose earlier match entries
+        that agreed before still agree."""
+        ok = np.ones(len(rows), bool)
+        if not done:
+            return ok
+        old = df.iloc[rows]
+        for m in done:
+            w = old[m["name"]].astype(str).to_numpy() == "1"
+            ok &= ~self._match_agrees(f, old, ents, m, w) | self._match_agrees(f, sub, ents, m, w)
+        return ok
+
+    def _move_matched(self, f, df, ents, m, bad, want, av, kx, wx, done, rng):
+        """Direct moves of _match_links: each row of bad to a parent row with (want)
+        or without (not want) its value of the first path, by degree weight."""
+        P = ents[m["parent"]]
+        pk = self.spec["tables"][m["parent"]]["primary_key"]
+        if m["col"] not in P.columns or not len(kx):
+            return df
+        val_of = pd.Series(P[m["col"]].to_numpy(dtype=object), index=_keystr(P[pk]).to_numpy(dtype=object))
+        val_of = val_of[~val_of.index.duplicated()]
+        pv = _keystr(pd.Series(val_of.reindex(_keystr(pd.Series(kx)).to_numpy(dtype=object)).to_numpy(dtype=object)))
+        pv = pv.to_numpy(dtype=object)
+        w = np.where(np.isfinite(wx) & (wx > 0), wx, 0.0)
+        byval = pd.Series(np.arange(len(kx))).groupby(pv).indices
+        newk = df[m["fk"]].to_numpy(dtype=object).copy()
+        changed = []
+        tot = w.sum()
+        bad = np.asarray(bad, np.int64)
+        yes = bad[np.asarray(want, bool)[bad]]
+        no = bad[~np.asarray(want, bool)[bad]]
+        # rows that should match: a parent with the row's value, by weight (one draw per value)
+        if len(yes):
+            avy = np.asarray(av, dtype=object)[yes]
+            for a, ii in pd.Series(np.arange(len(yes))).groupby(pd.Series(avy, dtype=object), dropna=True).indices.items():
+                cand = byval.get(a)
+                if cand is None or not len(cand) or w[cand].sum() <= 0:
+                    continue
+                q = cand[rng.choice(len(cand), size=len(ii), p=w[cand] / w[cand].sum())]
+                newk[yes[ii]] = kx[q]
+                changed.append(yes[ii])
+        # rows that should not match: a parent by weight, redrawn while it has the row's value
+        if len(no) and tot > 0:
+            left = no
+            for _ in range(8):
+                if not len(left):
+                    break
+                q = rng.choice(len(w), size=len(left), p=w / tot)
+                hit = np.array([pv[q_] == a for q_, a in zip(q, np.asarray(av, dtype=object)[left])], dtype=bool)
+                newk[left[~hit]] = kx[q[~hit]]
+                changed.append(left[~hit])
+                left = left[hit]
+        changed = np.concatenate(changed) if changed else np.zeros(0, np.int64)
+        if not len(changed):
+            return df
+        sub = df.iloc[changed].copy()
+        sub[m["fk"]] = newk[changed]
+        ok = self._keeps_done(f, df, sub, ents, done, changed)
+        col = df[m["fk"]].to_numpy(dtype=object).copy()
+        col[changed[ok]] = newk[changed[ok]]
+        df[m["fk"]] = col
+        return df
+
     def _fit_affinity(self, tables):
         """Link affinity (`link_affinity`): two links of a row point more often than
         their link models imply at parents that share a value (the customer's and the
@@ -5471,6 +5945,15 @@ class Synthesizer:
             for la in T.get("link_affinity") or []:
                 a, b = la["match"]
                 st = {"a": a, "b": b, "fk": b.split(".")[0], "col": b.split(".", 1)[1]}
+                mf = next((m for m in getattr(self, "match_flags", {}).get(t, []) if m["a"] == a and m["b"] == b), None)
+                if mf is not None:
+                    # drawn per row with the attributes (_match_links): no share to reach afterwards
+                    st["rows"] = True
+                    self.affinity.setdefault(t, []).append(st)
+                    self.log["decisions"].setdefault(t, {})[f"link affinity {a} = {b}"] = (
+                        f"matching on {mf['share']:.2%} of source rows; whether a row matches is a hidden attribute "
+                        f"drawn with the row's other attributes, and {st['fk']} is chosen to agree with it")
+                    continue
                 if la.get("share") is not None:
                     st["h"], st["n"] = float(la["share"]) * 1e6, 1e6
                 else:
@@ -5498,7 +5981,7 @@ class Synthesizer:
         still holds."""
         for st in getattr(self, "affinity", {}).get(t, []):
             r = next((x for x in self.fk[t] if x["child_key"] == st["fk"]), None)
-            if r is None or not len(df):
+            if r is None or not len(df) or st.get("rows"):
                 continue
             # unique keys over the moved link (one owner per account): a move is kept only when the
             # row's new key is not already held, so the moves keep every key unique

@@ -68,9 +68,13 @@ tables:
       partner: to_account_key
       time_column: ts
       time_bucket: day
+    # matches drawn with the row's attributes (Prop. 1871): self-loops (every Reinvestment), transfers
+    # inside one bank, and one currency on both sides (cross-currency payments are ACH or Wire). The
+    # account match comes first: a self-loop is also a same-bank transfer
     link_affinity:
-    - match: [from_account_key.bank_id, to_account_key.bank_id]
     - match: [from_account_key.account_key, to_account_key.account_key]
+    - match: [from_account_key.bank_id, to_account_key.bank_id]
+    - match: [payment_currency, receiving_currency.currency]
     columns:
       trans_id:
         type: id
@@ -117,6 +121,13 @@ rules:
 - table: trans
   type: derive
   expr: payment_currency = where(payment_format == 'Bitcoin', 'Bitcoin', payment_currency)
+  holds: 0.99998
+  violation: model
+# ... and received in Bitcoin: a Bitcoin payment is neither ACH nor Wire, so both currencies agree (rule
+# below, every source row) and the receiving currency is Bitcoin on the same rows as the payment currency
+- table: trans
+  type: derive
+  expr: receiving_currency = where(payment_format == 'Bitcoin', 'Bitcoin', receiving_currency)
   holds: 0.99998
   violation: model
 # same currency: no fee, Amount Paid == Amount Received (specification 6.3); other pairs at the fixed rate
