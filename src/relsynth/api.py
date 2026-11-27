@@ -619,7 +619,7 @@ def assess_quality(spec, synthetic: SyntheticData | Mapping, *, real: Mapping | 
     config = dict(config or {})
     if config.get("scale") is None:
         config["scale"] = s["synthesis"]["scale"]       # the size the synthetic data was drawn at
-    raw = assess(s, real, syn, holdout=hold, base=base, config=config)
+    raw = assess(s, real, syn, holdout=hold, base=base, config=config, real_stats=stats)
     return QualityReport(raw, EvaluationReport(base))
 
 
