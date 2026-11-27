@@ -96,8 +96,11 @@ def _canon_counts(a):
 
 
 def tvd(a, b):
-    pa = _canon_counts(a)
-    pb = _canon_counts(b)
+    return _tvd_shares(_canon_counts(a), _canon_counts(b))
+
+
+def _tvd_shares(pa, pb):
+    """Total variation distance between two level-share series (_canon_counts)."""
     idx = pa.index.union(pb.index)
     return float(0.5 * (pa.reindex(idx, fill_value=0) - pb.reindex(idx, fill_value=0)).abs().sum())
 
@@ -660,9 +663,14 @@ def join_metrics(spec, real, syn, fact):
         anc_rows, syn_rows = _kish(rv, kc, len(real[tbl])), _kish(sv, kc, len(syn[tbl]))
         nr_ = int(rv[c].notna().sum())
         if _is_cat(cs, rv[c]):
-            pr = rv[c].dropna().astype(str).value_counts(normalize=True).to_numpy()
+            # the level shares are counted once per distinct value (_canon_counts), not by spelling
+            # every row (astype(str) of a joined column of a fact with millions of rows held a
+            # second copy of it as text); the same shares in the same order for text and integer
+            # levels, and they also give the TVD
+            pa = _canon_counts(rv[c].dropna())
+            pr = pa.to_numpy()
             mu, sd = tvd_null(pr, anc_rows, syn_rows)
-            out[c] = {"tvd": tvd(rv[c].dropna(), sv[c].dropna()),
+            out[c] = {"tvd": _tvd_shares(pa, _canon_counts(sv[c].dropna())),
                       "crit": tvd_crit(pr, anc_rows, syn_rows, pp=True), "n_eff": round(anc_rows, 1),
                       "n_eff_syn": round(syn_rows, 1), "tvd_mu": mu, "tvd_sd": sd, "n_real": nr_}
         else:
