@@ -68,9 +68,15 @@ tables:
       partner: to_account_key
       time_column: ts
       time_bucket: day
+      # 91 % of the rows repeat an (originator, beneficiary) pair (about 5 rows per pair); the default
+      # Poisson pair model keeps 13 %. pairs: occupancy with multiplicity: anchor keeps 80 % but draws
+      # only 2.3 rows per pair on the full set (1.8M of 5.08M rows), so it is not set here (engine
+      # follow-up)
+    # the account match first: a self-loop is also a same-bank pair, so the bank match counts the
+    # self-loops already placed (11.6 % self-loops, 2.0 % other same-bank pairs)
     link_affinity:
-    - match: [from_account_key.bank_id, to_account_key.bank_id]
     - match: [from_account_key.account_key, to_account_key.account_key]
+    - match: [from_account_key.bank_id, to_account_key.bank_id]
     columns:
       trans_id:
         type: id

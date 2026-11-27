@@ -5428,7 +5428,39 @@ class Synthesizer:
                 df = self._cumulative(t, df, r, out)
         if strict:
             df = self._apply_soft(t, df, out)
+            df = self._after_soft(t, df, out)
             df[HIDDEN_SET] = True               # every row's stated draws are now made
+        return df
+
+    def _after_soft(self, t, df, out):
+        """Lookups and exact derives of t that read a soft rule's column, directly or through it as a key,
+        recomputed after the soft rules.  Class: a rule that holds on most rows (Bitcoin payments in
+        Bitcoin, a standard discount) feeding an exact one (an amount converted at the payment currency's
+        rate, a net price): soft rules are applied last, so the exact rule had read the value before the
+        soft rule changed it, and the two disagreed on the rows the soft rule changed."""
+        soft = {st["lhs"] for st in getattr(self, "soft", {}).get(t, [])}
+        stale = set(soft)
+        if not stale or not len(df):
+            return df
+
+        def reads(names):
+            return any(n in stale or n.split(".")[0] in stale for n in names)
+
+        cols = [c for c, path in self.lookups[t].items() if isinstance(path, str) and path.split(".")[0] in stale]
+        if cols:
+            res = self._resolver(t, df, out)
+            for c in cols:
+                df[c] = lookup_column(self.spec, t, c, df, out, res)
+            stale |= set(cols)
+        for r in self.spec["rules"]:
+            if r["table"] != t or r["type"] != "derive":
+                continue
+            lhs = split_assignment(r["expr"])[0]
+            if lhs in self.late[t] or lhs in soft:
+                continue
+            if reads(names_in(split_assignment(r["expr"])[1])):
+                df = self._apply_derive(t, df, r, out)
+                stale.add(lhs)
         return df
 
     def _fit_group_effects(self, tables):
