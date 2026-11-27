@@ -176,12 +176,13 @@ How it works (Props. 1860-1863, `docs/proofs/sec_v74_ctvae.tex`):
   from the family history. The correction starts at zero, so the model starts as the latent-only one (Prop. 1861).
 - The columns go through relsynth's Bayesian marginals and the calibration, as in `tvae` (Props. 1800-1805).
 - The engine keeps keys, counts and dates. For a family generator it draws a fact's dates before its attributes,
-  which leaves the law unchanged because the date law does not read the attributes (Prop. 1862).
+  which leaves the law of the dates unchanged because the date law does not read the attributes (Prop. 1862).
 
 The model was chosen by an ablation before any engine code: four real datasets (Chinook, Berka, Online Retail II,
-AdventureWorks), three seeds each, and an acceptance rule fixed before the runs. It cut within-family numeric
-errors by a third to nine tenths, and kept or improved categorical sharing on three of the four datasets, without a
-privacy cost. The design record is [research/context-transformer-vae.md](research/context-transformer-vae.md);
+AdventureWorks), three seeds each, and an acceptance rule fixed before the runs. With `transformer+res`,
+within-family numeric errors fell by 11% to 68% across the four datasets and lag-1 errors on the two ordered ones by
+58% to 92%, and categorical sharing was kept or improved on three of the four. Every variant met the rule's family
+and row DCR limits on these runs; DCR is a measurement, not a privacy guarantee. The design record is [research/context-transformer-vae.md](research/context-transformer-vae.md);
 the harness is `experiments/context_vae/`.
 
 Options (defaults are the ones of the ablation): `prior`, `categorical_head` (`residual` or `decoder`), `latent`,
@@ -198,7 +199,9 @@ What to know:
   as history.
 - With `dp`, DP-SGD runs on families: families are Poisson-sampled, and each family's gradient over at most
   `window` of its rows is clipped as one unit. The bound covers one anchor row's whole history in this table
-  (Prop. 1863), but is conditional on the preprocessing, as for `tvae`.
+  (Prop. 1863), but is conditional on the preprocessing, as for `tvae`. The family calibration reads the training
+  families' sizes and contexts, which the accountant does not cover, so with `dp` it is off unless the spec sets
+  `calibrate: true`; it then joins the preprocessing outside the bound.
 - On a CPU, a fit with the default steps takes a few minutes on 100k rows. Sampling is one step per row of the
   longest family in a chunk, so very long families are the slow case. `prior: gru` is about twice as fast on long
   sequences.

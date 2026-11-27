@@ -246,18 +246,25 @@ class FamilyPrior(nn.Module):
 
 
 def _windows(fam: Families, idx, mu: np.ndarray, cfg: Config, rng: np.random.Generator):
-    """A batch of padded windows (one per family in idx) of posterior means and gaps."""
+    """A batch of padded windows (one per family in idx) of posterior means and gaps, plus the row before
+    each window (its latent and levels, and whether there is one): a window that starts inside an ordered
+    family reads that row as its first history slot, as the sampler's sliding window does."""
     W = cfg.window
     B, m = len(idx), mu.shape[1]
     Z = np.zeros((B, W, m), np.float32)
     CC = np.zeros((B, W, fam.C.shape[1]), np.int64)
     G = np.zeros((B, W), np.float32)
     M = np.zeros((B, W), bool)
+    Zp = np.zeros((B, m), np.float32)
+    Cp = np.zeros((B, fam.C.shape[1]), np.int64)
+    has = np.zeros(B, bool)
     for b, f in enumerate(idx):
         r = np.arange(fam.off[f], fam.off[f + 1])
         if cfg.ordered:
             if len(r) > W:
                 s = rng.integers(0, len(r) - W + 1)
+                if s > 0:
+                    Zp[b], Cp[b], has[b] = mu[r[s - 1]], fam.C[r[s - 1]], True
                 r = r[s:s + W]
         else:
             r = rng.permutation(r)[:W]
@@ -265,7 +272,7 @@ def _windows(fam: Families, idx, mu: np.ndarray, cfg: Config, rng: np.random.Gen
         CC[b, :len(r)] = fam.C[r]
         G[b, :len(r)] = fam.gap[r] if cfg.ordered else 0.0
         M[b, :len(r)] = True
-    return Z, G, M, CC
+    return Z, G, M, CC, Zp, Cp, has
 
 
 class ContextVAE:
@@ -313,10 +320,12 @@ class ContextVAE:
 
     # ---------------------------------------------------------------- stage 2
     def _batch_nll(self, fam, idx, mu, rng):
-        Z, G, M, CC = (torch.as_tensor(a) for a in _windows(fam, idx, mu, self.cfg, rng))
-        zprev = torch.cat([torch.zeros_like(Z[:, :1]), Z[:, :-1]], 1)
+        Z, G, M, CC, Zp, Cp, has = (torch.as_tensor(a) for a in _windows(fam, idx, mu, self.cfg, rng))
+        z0 = torch.where(has[:, None], Zp, torch.zeros_like(Zp)).unsqueeze(1)
+        zprev = torch.cat([z0, Z[:, :-1]], 1)
         first = self.prior.pad.expand(len(CC), 1, -1) if self.prior.widths else torch.zeros_like(CC[:, :1])
-        cprev = torch.cat([first, CC[:, :-1]], 1)
+        c0 = torch.where(has[:, None, None], Cp.unsqueeze(1), first)
+        cprev = torch.cat([c0, CC[:, :-1]], 1)
         n = torch.as_tensor(fam.sizes[idx])
         ctx = self.prior.context(torch.as_tensor(fam.ctx_X[idx]), torch.as_tensor(fam.ctx_C[idx]), n)
         h, _ = self.prior.hidden(zprev, G, ctx, mask=M, cprev=cprev)

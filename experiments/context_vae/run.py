@@ -20,7 +20,21 @@ from pathlib import Path
 import numpy as np
 
 from . import metrics as M
-from .data import DATASETS, Codec, families, load, split, subset
+from .data import DATASETS, Codec, families, load, split
+
+ENCODERS, PRIORS, HEADS = ("transformer", "mlp"), ("none", "gru", "transformer"), ("", "cat", "res")
+
+
+def _check_variants(variants: str) -> None:
+    """Reject unknown variant components before any training (no silent fallback branch)."""
+    for v in variants.split(","):
+        if v == "shuffle":
+            continue
+        enc, _, pri = v.partition(":")
+        pri, _, extra = pri.partition("+")
+        if enc not in ENCODERS or pri not in PRIORS or extra not in HEADS:
+            raise SystemExit(f"unknown variant {v!r}: encoder in {ENCODERS}, prior in {PRIORS}, "
+                             f"head in {HEADS[1:]} after '+', or shuffle")
 
 DEFAULT_VARIANTS = "transformer:none,transformer:transformer,transformer:transformer+res,transformer:gru+res,shuffle"
 
@@ -84,6 +98,7 @@ def main(argv=None):
     ap.add_argument("--max-families", type=int, default=-1, help="subsample families (0 = all, -1 = dataset default)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
+    _check_variants(a.variants)
 
     import torch
     torch.set_num_threads(max(1, torch.get_num_threads()))
@@ -98,11 +113,15 @@ def main(argv=None):
     if a.max_families and len(keys) > a.max_families:
         keys = rng.choice(keys, a.max_families, replace=False)
         df = df[df["fam"].isin(keys)].reset_index(drop=True)
-    codec = Codec(df, d.num, d.cat)
-    ctx = Codec(df, d.ctx_num, d.ctx_cat)
-    fam = families(df, d, codec, ctx)
-    tr, ho = split(len(fam), rng)
-    train, hold = subset(fam, tr), subset(fam, ho)
+    # split the families first, then fit both codecs on training rows only: held-out levels and values
+    # stay out of the vocabularies, donor pools and the quantile reference of Codec.snap
+    ukeys = df["fam"].unique()
+    tr, ho = split(len(ukeys), rng)
+    dtr = df[df["fam"].isin(ukeys[tr])].reset_index(drop=True)
+    dho = df[df["fam"].isin(ukeys[ho])].reset_index(drop=True)
+    codec = Codec(dtr, d.num, d.cat)
+    ctx = Codec(dtr, d.ctx_num, d.ctx_cat)
+    train, hold = families(dtr, d, codec, ctx), families(dho, d, codec, ctx)
     widths = codec.widths
     report = {"dataset": a.dataset, "seed": a.seed, "families_train": len(train), "families_hold": len(hold),
               "rows_train": int(len(train.X)), "mean_size": float(train.sizes.mean()), "max_size": int(train.sizes.max()),
@@ -118,7 +137,7 @@ def main(argv=None):
         else:
             enc, pri = v.split(":")
             pri, _, extra = pri.partition("+")            # e.g. transformer+cat: categorical head in the prior
-            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None, cat_head=extra if extra in ("cat", "res") else "",
+            cfg = Config(encoder=enc, prior=pri, ordered=d.order is not None, cat_head=extra,
                          vae_steps=a.vae_steps, prior_steps=a.prior_steps)
             model = ContextVAE(train.X.shape[1], widths, train.ctx_X.shape[1], ctx.widths, cfg, a.seed)
             model.fit_vae(train, rng).fit_prior(train, rng)

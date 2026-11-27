@@ -5,6 +5,7 @@ option checks.  Props. 1860-1863.  Torch tests run in the CI job `neural`."""
 from __future__ import annotations
 
 import copy
+import pathlib
 
 import numpy as np
 import pandas as pd
@@ -198,3 +199,48 @@ def test_redraw_is_given_the_kept_siblings(families_csv):
     free = gen.sample(n_fam, Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam)), rng)
     # chance is 1/4; CPU training differs across machines, so the bound leaves room
     assert match > 0.5 and match > (free["kind"].to_numpy() == kinds).mean() + 0.2, match
+
+
+def test_redraw_reads_joint_categoricals_of_kept_siblings(families_csv, tmp_path):
+    """A kept sibling's joint categorical (TableModel's JointCodec, here kind|grp with grp a function of
+    kind) is encoded from its part columns, not read as unknown."""
+    from relsynth.table_model import JointCodec
+    spec = copy.deepcopy(families_csv)
+    src = tmp_path / "src"
+    src.mkdir()
+    old = pathlib.Path(spec["source"]["path"])
+    pd.read_csv(old / "account.csv").to_csv(src / "account.csv", index=False)
+    tx = pd.read_csv(old / "tx.csv")
+    tx["grp"] = tx["kind"].map({"w": "g1", "x": "g1", "y": "g2", "z": "g2"})
+    tx.to_csv(src / "tx.csv", index=False)
+    spec["source"]["path"], spec["target"]["path"] = str(src), str(tmp_path / "out")
+    spec["tables"]["tx"]["columns"]["grp"] = "categorical"
+    m = rs.fit(_with(spec, vae_steps=400, prior_steps=400), seed=2)
+    gen = m.synthesizer.tm["tx"].generator
+    assert any(isinstance(cd, JointCodec) for cd in gen.data.codecs), "kind and grp were not joined"
+    rng = np.random.default_rng(0)
+    groups = np.array(sorted(gen.group_ix))[:1]
+    k, n_fam = 6, 200
+    kinds = np.array(["w", "x", "y", "z"])[np.arange(n_fam) % 4]
+    grp = np.where(np.isin(kinds, ["w", "x"]), "g1", "g2")
+    sib = pd.DataFrame({"kind": np.repeat(kinds, k), "grp": np.repeat(grp, k), "amount": 20.0,
+                        "__family__": np.repeat(np.arange(n_fam), k), "__order__": np.nan,
+                        "__group__": groups[0]})
+    out = gen.sample(n_fam, Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam), siblings=sib), rng)
+    match = (out["kind"].to_numpy() == kinds).mean()
+    free = gen.sample(n_fam, Conditioning(np.repeat(groups, n_fam), family=np.arange(n_fam)), rng)
+    assert match > 0.5 and match > (free["kind"].to_numpy() == kinds).mean() + 0.2, match
+
+
+def test_calibration_is_off_under_dp_unless_asked():
+    from relsynth.generators.contract import FitContext
+    from relsynth.generators.neural.ctvae import CTVAEGenerator
+    gen = CTVAEGenerator()
+
+    def ctx(opts):
+        return FitContext(groups=None, parent={}, per_group=False, rng=np.random.default_rng(0), config={},
+                          options=opts, table="sales")
+
+    assert gen._options(ctx({"dp": {"epsilon": 2.0}}))["calibrate"] is False
+    assert gen._options(ctx({"dp": {"epsilon": 2.0}, "calibrate": True}))["calibrate"] is True
+    assert gen._options(ctx({}))["calibrate"] is True

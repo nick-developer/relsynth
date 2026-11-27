@@ -44,7 +44,8 @@ def within(X, C, off, widths):
         s = np.bincount(fi, x, len(n))
         s2 = np.bincount(fi, x * x, len(n))
         within_ss = (s2 - s * s / np.maximum(n, 1))[multi].sum()
-        total_ss = ((x - x.mean()) ** 2)[multi[fi]].sum()
+        xm = x[multi[fi]]                     # rows of families with at least two rows only
+        total_ss = ((xm - xm.mean()) ** 2).sum() if len(xm) else 0.0
         out[f"num{j}_within"] = float(within_ss / max(total_ss, 1e-12))
     return out
 

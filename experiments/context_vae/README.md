@@ -43,8 +43,9 @@ uncertainty lives. The acceptance rule below is unchanged and still compares wit
 (about 330 training invoices), while the latent-only prior kept Chinook and AdventureWorks. It
 keeps the latent route and adds, per categorical column, a correction to the decoder's logits from
 the family history (residual logits, a product of experts in probability). The correction starts
-at zero, so training starts from the latent-only model and fitting the extra term can only lower
-the teacher-forced negative log-likelihood from that starting point.
+at zero, so training starts from the latent-only model, and the latent-only model stays inside the
+family (correction zero). `fit_prior` returns the final optimiser state; it does not compare it with
+the starting model.
 
 ## Metrics
 
@@ -54,7 +55,8 @@ the teacher-forced negative log-likelihood from that starting point.
 - Sequences: lag-1 autocorrelation of each numeric along the history, and the TVD between
   real and synthetic transition matrices of each categorical.
 - C2ST-Agg: accuracy of xgboost separating real from synthetic family summaries (size, mean
-  and std, distinct-level share, modal share, parent context). 0.5 means indistinguishable.
+  and std, distinct-level share, modal share, parent context). 0.5 means the classifier did not separate these summaries; it does not show that
+  the data are indistinguishable in other respects.
 - Privacy: DCR share of families (within size buckets; the engine-set size and context are
   excluded) and of rows. This is the share of synthetic items closer to a training item than
   to a held-out item, with equal-size reference sets; 0.5 means no closer to training data.
@@ -70,3 +72,19 @@ A variant moves into the engine only if all three hold:
 3. Its CPU time fits the CI budget.
 
 Otherwise the negative result is recorded and no generator is added.
+
+## Protocol changes after run 4
+
+Review of the harness (pull request 74) changed three things, so later runs are not directly comparable
+with runs 1-4:
+
+- The families are split before the codecs are fitted, and both codecs are fitted on training rows only.
+  Every categorical has an `<other>` level, which takes rare training levels and levels seen only in
+  held-out families. Earlier runs fitted the codecs on all rows, so held-out values could enter the
+  vocabularies, donor pools and the quantile reference of `Codec.snap`.
+- A training window that starts inside a long ordered family reads the row before it as its first
+  history slot, as the sliding window of the sampler does. Earlier runs gave it the start token
+  (families longer than `window`, 64 rows, such as many Berka accounts).
+- The within-family numeric share uses the mean of rows of families with at least two rows only.
+
+Unknown variant names are rejected before training, and a dataset needs at least two families.

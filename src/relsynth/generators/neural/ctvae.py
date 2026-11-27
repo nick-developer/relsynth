@@ -120,6 +120,10 @@ class CTVAEGenerator(NeuralGenerator):
         if not isinstance(o["calibrate"], bool):
             raise GeneratorError(f"{t}: ctvae option calibrate must be true or false")
         o["dp"] = T.DPOptions.parse(o["dp"], t)
+        if o["dp"] is not None and "calibrate" not in raw:
+            # calibration reads the training families' sizes and contexts, which the DP-SGD accountant
+            # does not cover (Prop. 1863); under dp it runs only when the spec asks for it
+            o["calibrate"] = False
         return o
 
     # ---------------------------------------------------------------- fit
@@ -447,7 +451,7 @@ class CTVAEGenerator(NeuralGenerator):
                 rep.train_loss.append(float(loss.detach()))
         mu = self._posterior_means()
         opt = torch.optim.AdamW(prior_p.values(), lr=o["lr"], weight_decay=o["weight_decay"])
-        rows = np.random.default_rng(int(torch.randint(0, 2 ** 62, (1,), generator=gen)))
+        rows = np.random.default_rng(int(torch.randint(0, 2 ** 62, (1,), generator=gen, device=gen.device)))
         nf = len(self.off) - 1
         for step in range(o["prior_steps"]):
             idx = rows.integers(0, nf, o["batch_families"])
@@ -596,8 +600,12 @@ class CTVAEGenerator(NeuralGenerator):
             for i in range(Lmax):
                 if prior == "transformer":
                     a0 = max(0, i - W + 1)
-                    zp = torch.cat([torch.zeros(B, 1, L, device=dev), Z[:, :i]], 1)[:, a0:i + 1]
-                    cp = torch.cat([pad.expand(B, 1, -1), S[:, :i]], 1)[:, a0:i + 1]
+                    # history slots a0..i hold the rows before them (slot 0: the start token); slice first
+                    if a0 == 0:
+                        zp = torch.cat([torch.zeros(B, 1, L, device=dev), Z[:, :i]], 1)
+                        cp = torch.cat([pad.expand(B, 1, -1), S[:, :i]], 1)
+                    else:
+                        zp, cp = Z[:, a0 - 1:i], S[:, a0 - 1:i]
                     h, _ = net.hidden(zp, gp[:, a0:i + 1], cp, rowc[:, a0:i + 1], logn)
                 elif prior == "gru":
                     zp = Z[:, i - 1:i] if i else torch.zeros(B, 1, L, device=dev)
@@ -683,9 +691,14 @@ class CTVAEGenerator(NeuralGenerator):
         Ms = len(sib)
         X = {}
         for j in set(self.space.num) | {cc.col for cc in self.space.cats} | set(self.auxj):
-            col = d.cols[j]
-            if col in sib:
-                X[j] = np.asarray(d.codecs[j].encode(sib[col].reset_index(drop=True)))
+            col, cd = d.cols[j], d.codecs[j]
+            parts = getattr(cd, "parts", None)
+            if parts is not None and all(pc.name in sib for pc in parts):
+                # joint categorical (TableModel's JointCodec): encode each part, then the combination
+                X[j] = cd.encode_parts([np.asarray(pc.encode(sib[pc.name].reset_index(drop=True)))
+                                        for pc in parts])
+            elif col in sib:
+                X[j] = np.asarray(cd.encode(sib[col].reset_index(drop=True)))
             else:
                 X[j] = np.full(Ms, -1 if d.codecs[j].kind == "discrete" else np.nan)
         Zs, Ss = self.space.encode(X, np.arange(Ms), rng)

@@ -2506,6 +2506,22 @@ claims:
       - prop: prop:ctvaedp
       - test: tests/unit/test_ctvae.py::test_entity_level_dp_sgd
       - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
+  - id: NN-24
+    doc: docs/neural.md
+    area: privacy-measured
+    quote: "Every variant met the rule's family and row DCR limits on these runs; DCR is a measurement, not a privacy guarantee."
+    status: supported
+    evidence:
+      - report: docs/research/context-transformer-vae.md
+  - id: NN-25
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The family calibration reads the training families' sizes and contexts, which the accountant does not cover, so with dp it is off unless the spec sets calibrate: true; it then joins the preprocessing outside the bound."
+    status: supported
+    evidence:
+      - prop: prop:ctvaedp
+      - test: tests/unit/test_ctvae.py::test_calibration_is_off_under_dp_unless_asked
+      - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
 
   - id: NN-13
     doc: docs/neural.md

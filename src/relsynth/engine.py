@@ -5460,15 +5460,22 @@ class Synthesizer:
             krules = self.cons.get(t, {}).get("key_rules", []) + self.cons.get(t, {}).get("attr_rules", [])
             moved = 0
             col = df[st["fk"]].to_numpy(dtype=object).copy()
+            # a family generator's redraws read the anchor row of each row: keep it on the moved link
+            fi = getattr(self, "fact_info", {}).get(t) or {}
+            track = "__anchor_row__" in df and not fi.get("nested") and fi.get("fks") \
+                and st["fk"] == fi["fks"][0]["child_key"] and r["parent"] == fi.get("anchor")
+            arow = df["__anchor_row__"].to_numpy().copy() if track else None
             start = 0
             while moved < need and start < len(cand):
                 # consecutive, non-overlapping windows: each candidate row is tried once
                 rows = cand[start:start + 2 * (need - moved)]
                 start += len(rows)
                 newk = np.empty(len(rows), dtype=object)
+                newp = np.empty(len(rows), dtype=np.int64)
                 for v, ii in pd.Series(np.arange(len(rows))).groupby(av[rows]).indices.items():
                     m = byval[v]
-                    newk[ii] = pkeys[m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]]
+                    newp[ii] = m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]
+                    newk[ii] = pkeys[newp[ii]]
                 sub = df.iloc[rows].copy()
                 sub[st["fk"]] = newk
                 ok = np.ones(len(rows), bool)
@@ -5479,8 +5486,12 @@ class Synthesizer:
                         ok &= check_mask(sub, kr["expr"], rs)
                 acc = np.flatnonzero(ok)[:need - moved]
                 col[rows[acc]] = newk[acc]
+                if track:
+                    arow[rows[acc]] = newp[acc]
                 moved += len(acc)
             df[st["fk"]] = col
+            if track:
+                df["__anchor_row__"] = arow
             self.sample_log.setdefault("affinity_moves", {})[f"{t}.{st['fk']}"] = moved
         return df
 

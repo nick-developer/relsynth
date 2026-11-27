@@ -98,7 +98,9 @@ class Codec:
             s = df[c].astype(str).where(df[c].notna(), "<null>")
             vc = s.value_counts()
             keep = list(vc.index[:max_levels])
-            self.levels[c] = keep + (["<other>"] if len(vc) > max_levels else [])
+            # "<other>" is always a level: rare training levels and levels never seen in training
+            # (held-out families) map to it, so the vocabulary is the training rows' only
+            self.levels[c] = keep + ["<other>"]
             self.donors[c] = s[~s.isin(keep)].to_numpy() if len(vc) > max_levels else np.array([])
 
     @property
@@ -118,8 +120,7 @@ class Codec:
         for j, c in enumerate(self.cat):
             s = df[c].astype(str).where(df[c].notna(), "<null>").to_numpy()
             ix = {v: i for i, v in enumerate(self.levels[c])}
-            other = ix.get("<other>", 0)
-            C[:, j] = [ix.get(v, other) for v in s]
+            C[:, j] = [ix.get(v, ix["<other>"]) for v in s]
         return X, C
 
     def snap(self, X: np.ndarray) -> np.ndarray:
@@ -191,8 +192,10 @@ def families(df: pd.DataFrame, d: DatasetDef, codec: Codec, ctx_codec: Codec) ->
 
 def split(n: int, rng: np.random.Generator, holdout: float = 0.2) -> tuple[np.ndarray, np.ndarray]:
     """Family-level train / holdout split (privacy checks compare against held-out families)."""
+    if n < 2:
+        raise ValueError(f"need at least two families for a train / holdout split, got {n}")
     p = rng.permutation(n)
-    k = int(round(n * holdout))
+    k = min(max(int(round(n * holdout)), 1), n - 1)
     return np.sort(p[k:]), np.sort(p[:k])
 
 
