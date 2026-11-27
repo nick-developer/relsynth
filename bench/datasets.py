@@ -178,7 +178,8 @@ def download(name: str) -> Path:
 # {name: (owner/dataset, file, SHA-256)}. IBM Transactions for Anti-Money Laundering (Altman et al. 2023;
 # CDLA-Sharing-1.0) is published there by its authors
 KAGGLE_AML = "ealtman2019/ibm-transactions-for-anti-money-laundering-aml"
-KAGGLE = {"ibm-aml-HI-Small_Trans.csv": (KAGGLE_AML, "HI-Small_Trans.csv", "")}
+KAGGLE = {"ibm-aml-HI-Small_Trans.csv": (KAGGLE_AML, "HI-Small_Trans.csv",
+                                         "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040")}
 
 
 def _kaggle_auth() -> str | None:
