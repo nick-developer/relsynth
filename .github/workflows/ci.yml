@@ -503,10 +503,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.12" }
-      # Exact pin, from PyTorch's CPU index only (no fallback to PyPI); bump it with the extra.
-      - name: CPU torch wheel digest (temporary, for the hash lock)
-        run: pip download --no-deps "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu -d /tmp/tw -q && sha256sum /tmp/tw/*
-      - run: pip install "torch==2.15.0" --index-url https://download.pytorch.org/whl/cpu
+      # Exact pin with its SHA-256, from PyTorch's CPU index only (no fallback to PyPI); bump it with the extra.
+      - run: pip install --require-hashes --no-deps -r .github/requirements/torch-cpu.txt --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -e ".[dev,neural,bench]"
       - name: Neural unit tests
         run: pytest -q tests/unit/test_neural.py tests/unit/test_neural_accountant.py tests/unit/test_generators.py tests/unit/test_ctvae.py
