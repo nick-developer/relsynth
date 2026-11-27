@@ -725,6 +725,11 @@ DATASETS = {
     "acs": Dataset("acs", lambda: f"sqlite:{build_acs()}", _spec("acs"), _sqlite_checks("acs"),
                    note="ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns); checks A1-A14",
                    privacy={"shadow": SHADOW_SMALL, "generators": ALL_GENERATORS}, repro=True,
+                   accepted=((r"^metric:privacy_(guard_dcr_|check_closest_distance)",
+                              "spec from the SDNist data dictionary (#79): nominal codes typed categorical and the "
+                              "documented INDP and PUMA dimensions move every generator's rows closer to real rows "
+                              "(independent reference: DCR ratio 1.62 to 1.42 on the same engine); all privacy checks "
+                              "still pass; accepted by the owner on 2026-11-27"),),
                    coverage=("single_table", "messy_values", "high_cardinality")),
     "bi_corep_lr": Dataset("bi_corep_lr", lambda: f"csv:{_bi_dir() / 'data'}", lambda: _bi_dir() / "spec.yaml",
                            _bi_checks, public=False, tier="local",
@@ -742,6 +747,10 @@ DATASETS = {
     "census_kdd": Dataset("census_kdd", lambda: f"sqlite:{_sdv('census')()}", _spec("census_kdd"),
                           note="UCI Census-Income KDD (299,285 people, 42 columns; SDV copy, CC BY 4.0)",
                           seeds=(1, 2, 3), generic=True,
+                          accepted=((r"^quality:(js_distance|w1_rank_normal|w1_raw_sd):census:age$",
+                                     "the documented rule age < 15 <=> education 'Children' (#79) is enforced by "
+                                     "rejection, and the copula cannot express a hard age threshold, so the age "
+                                     "marginal moves slightly; engine follow-up; accepted by the owner on 2026-11-27"),),
                           coverage=("single_table", "high_cardinality", "messy_values", "skew", "size_100mb")),
     "synthea_1k": Dataset("synthea_1k", lambda: f"sqlite:{_sdv('synthea')()}", _spec("synthea"),
                           note="Synthea 1K sample (18 tables, 1.84M rows, 1,163 patients; SDV copy, Apache-2.0)",
