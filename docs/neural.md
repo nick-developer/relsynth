@@ -179,9 +179,10 @@ How it works (Props. 1860-1863, `docs/proofs/sec_v74_ctvae.tex`):
   which leaves the law of the dates unchanged because the date law does not read the attributes (Prop. 1862).
 
 The model was chosen by an ablation before any engine code: four real datasets (Chinook, Berka, Online Retail II,
-AdventureWorks), three seeds each, and an acceptance rule fixed before the runs. With `transformer+res`,
-within-family numeric errors fell by 11% to 68% across the four datasets and lag-1 errors on the two ordered ones by
-58% to 92%, and categorical sharing was kept or improved on three of the four. Every variant met the rule's family
+AdventureWorks), three seeds each, and an acceptance rule fixed before the runs. With `transformer+res`
+under the corrected harness (run 5), within-family numeric errors fell by 8% to 55% across the four datasets and
+lag-1 errors on the two ordered ones by 53% to 96%, and categorical sharing was kept or improved on three of the four,
+as in run 4. Every variant met the rule's family
 and row DCR limits on these runs; DCR is a measurement, not a privacy guarantee. The design record is [research/context-transformer-vae.md](research/context-transformer-vae.md);
 the harness is `experiments/context_vae/`.
 

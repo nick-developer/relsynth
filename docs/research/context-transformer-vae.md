@@ -67,6 +67,7 @@ AdventureWorks (a customer's orders, ordered).
 | 2 | Scores snapped to the real support; 4 datasets | Numeric and lag-1 errors fall on all 4; categorical sharing worse on Berka and Online Retail: 2 of 4, rule not met. |
 | 3 | Categorical head that replaces the decoder (`+cat`) | Fixes Online Retail (0.025 against 0.077) but falls to shuffle level on Chinook (330 training invoices): 1 of 4. |
 | 4 | Residual head over the latent route (`+res`) | **3 of 4** (Chinook, Online Retail, AdventureWorks); Berka misses on categorical share only (0.028 against 0.017). DCR and CPU pass. |
+| 5 | Same variants after the harness review (codecs fitted on training families only, matching training windows, multi-row numeric share) | **3 of 4** again for `transformer+res` and `gru+res` (same three datasets); Berka misses on categorical share only (0.033 against 0.018). DCR and CPU pass (slowest 410 s per seed). |
 
 Run 4, within-family errors (mean over 3 seeds; lower is better):
 
@@ -83,13 +84,31 @@ Run 4, within-family errors (mean over 3 seeds; lower is better):
 | AdventureWorks, numeric within | 0.096 | 0.041 | 0.069 |
 | AdventureWorks, lag-1 | 0.331 | 0.138 | 0.162 |
 
-Family DCR stayed between 0.48 and 0.56 on average (the highest single seed was 0.62), and row DCR between 0.50 and
-0.53. The slowest variant took 578 s per seed on a hosted runner.
+Run 5, within-family errors under the corrected harness (mean over 3 seeds; lower is better; GitHub Actions run
+45923141764):
+
+| Dataset, error | none | transformer+res | gru+res |
+|---|---|---|---|
+| Chinook, categorical share | 0.067 | 0.042 | 0.028 |
+| Chinook, numeric within | 0.283 | 0.259 | 0.167 |
+| Berka, categorical share | 0.018 | 0.033 | 0.027 |
+| Berka, numeric within | 0.280 | 0.155 | 0.160 |
+| Berka, lag-1 | 0.518 | 0.023 | 0.029 |
+| Online Retail, categorical share | 0.052 | 0.045 | 0.032 |
+| Online Retail, numeric within | 0.270 | 0.122 | 0.126 |
+| AdventureWorks, categorical share | 0.020 | 0.019 | 0.010 |
+| AdventureWorks, numeric within | 0.094 | 0.042 | 0.061 |
+| AdventureWorks, lag-1 | 0.327 | 0.155 | 0.153 |
+
+In run 4, family DCR stayed between 0.48 and 0.56 on average (the highest single seed was 0.62), and row DCR between 0.50 and
+0.53. The slowest variant took 578 s per seed on a hosted runner. In run 5 the variants' family DCR averaged 0.46 to 0.55 and row DCR 0.50 to 0.54, all within none + 0.02.
 
 ## Limits
 
 - **Online Retail is a narrow pass.** CPU training is not bit-for-bit reproducible across runs: the baseline's
   categorical error moved between 0.056 and 0.077 with the same code and seeds.
+- **AdventureWorks categorical sharing (run 5).** `transformer+res` beat the baseline by 0.001 only (0.019 against
+  0.020); `gru+res` has the clearer margin (0.010).
 - **Berka categorical sharing.** When an account's context already fixes the transaction type, the context-only
   model is hard to beat, and the prior adds a little noise.
 - **Row-level detail.** Row-level C2ST is 0.64 to 0.79 on three datasets for every variant, so the shared row
