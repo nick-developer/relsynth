@@ -200,14 +200,17 @@ def _utility_checks(b, spec, t, r, s, hold, target, cols, m_tstr, m_trts, scope,
     b.add(m_trts, sc, u["trts_gap"], d_trts if R else None, (h, m), (h, half[1]) if R else None, note)
 
 
-def _relationship_checks(b, spec, real, syn, rng):
+def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
+    # real_stats: exact statistics of the facts that `real` holds only as a sample (pushdown);
+    # per-parent counts of a sample would be about the sampling rate times the source's
+    real_stats = real_stats or {}
     cfg = b.cfg
     R = cfg["multi_splits"] if cfg["calibrate"] else 0
     bench = {}
     for name, p, pk, c, fk in mt.relations(spec):
         if not len(real[p]) or not len(syn[p]):
             continue
-        cr = mt.counts_per_parent(real[p], pk, real[c], fk)
+        cr = mt.counts_per_parent(real[p], pk, real[c], fk, real_stats.get(c))
         f = fanout_factor(spec, cfg, p, c)
         cs = mt.counts_per_parent(syn[p], pk, syn[c], fk) / f
         law = mt.fanout_law(cr, cs)
@@ -235,7 +238,7 @@ def _relationship_checks(b, spec, real, syn, rng):
     for name, gp, gpk, p, ppk, fk1, c, fk2 in mt.two_hop_chains(spec):
         if not len(real[gp]) or not len(syn[gp]):
             continue
-        cr = mt.grandchild_counts(real, gp, gpk, p, ppk, fk1, c, fk2)
+        cr = mt.grandchild_counts(real, gp, gpk, p, ppk, fk1, c, fk2, real_stats.get(c))
         f = fanout_factor(spec, cfg, gp, c)
         cs = mt.grandchild_counts(syn, gp, gpk, p, ppk, fk1, c, fk2) / f
         law = mt.fanout_law(cr, cs)
@@ -433,14 +436,16 @@ def fanout_factor(spec, cfg, parent, child):
     return table_scale(spec, cfg, child) / table_scale(spec, cfg, parent)
 
 
-def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True, privacy=None):
+def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=True, privacy=None,
+           real_stats=None):
     """The 2.0 quality report of synthetic tables against real ones.
 
     spec: a resolved spec dict; real, syn: {table: DataFrame}; holdout: real
     tables the generator did not see (for TSTR/TRTS), optional; base: the 1.0
     report from relsynth.evaluate (computed when None and scorecard=True);
     config: overrides of DEFAULTS; privacy: the reference to (or the whole of)
-    the privacy report of the same data, copied as is (RFC T06-02)."""
+    the privacy report of the same data, copied as is (RFC T06-02); real_stats: exact statistics
+    of the tables `real` holds as samples (pushdown), for the per-parent counts."""
     cfg = resolve_config(config)
     rng = np.random.default_rng(cfg["seed"])
     spec_1 = spec                                   # the 1.0 evaluator keeps its own rules
@@ -449,7 +454,7 @@ def assess(spec, real, syn, *, holdout=None, base=None, config=None, scorecard=T
     for t in spec["tables"]:
         if t in real and t in syn:
             _table_checks(b, spec, real, syn, holdout, t, rng)
-    card = _relationship_checks(b, spec, real, syn, rng)
+    card = _relationship_checks(b, spec, real, syn, rng, real_stats)
     hops = _path_checks(b, spec, real, syn, rng)
     dda = _detection_checks(b, spec, real, syn, holdout, rng)
     if base is None and scorecard:

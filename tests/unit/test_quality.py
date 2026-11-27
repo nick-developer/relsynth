@@ -230,3 +230,25 @@ def test_column_kinds_are_decided_on_the_whole_real_table():
     rep = assess(spec, real, syn, scorecard=False, config={"null_splits": 6, "multi_splits": 3})
     n_checks = {c["metric"] for c in rep["checks"] if c["scope"].get("column") == "n"}
     assert {"w1_raw_sd", "w1_rank_normal", "js_distance"} <= n_checks
+
+
+def test_fanout_of_a_sampled_fact_uses_exact_counts():
+    """A pushed-down fact is held as a sample; per-parent counts come from its exact statistics."""
+    import numpy as np
+    import pandas as pd
+
+    from relsynth.pushdown.stats import FrameStats
+    from relsynth.quality import multi as mt
+
+    rng = np.random.default_rng(0)
+    gp = pd.DataFrame({"g": np.arange(20)})
+    par = pd.DataFrame({"k": np.arange(500), "g": rng.integers(0, 20, 500)})
+    child = pd.DataFrame({"fk": rng.choice(500, 20_000, p=rng.dirichlet(np.ones(500)))})
+    sample = child.sample(frac=0.1, random_state=1)
+    full = mt.counts_per_parent(par, "k", child, "fk")
+    exact = FrameStats(child, table="c")
+    assert np.array_equal(mt.counts_per_parent(par, "k", sample, "fk", exact), full)
+    assert mt.counts_per_parent(par, "k", sample, "fk").sum() < 0.2 * full.sum()
+    tabs = {"gp": gp, "p": par, "c": sample}
+    g_full = mt.grandchild_counts({"gp": gp, "p": par, "c": child}, "gp", "g", "p", "k", "g", "c", "fk")
+    assert np.array_equal(mt.grandchild_counts(tabs, "gp", "g", "p", "k", "g", "c", "fk", exact), g_full)
