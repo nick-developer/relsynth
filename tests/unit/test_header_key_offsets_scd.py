@@ -147,3 +147,42 @@ def test_scd2_versions_keep_increasing_starts_and_positive_lengths(tmp_path, sha
         assert s.dt.strftime("%Y-%m-%d").isin(rel).mean() > 0.95 and s.max() <= pd.Timestamp("2021-10-27")
     ln = (e - s).dt.days.dropna()
     assert (ln <= 1).mean() < 0.05                               # not collapsed to one-day versions
+
+
+def test_scd2_first_starts_after_the_last_reversioning_are_kept(tmp_path):
+    """Entities that appear after the source's last later-version start (new customers, new products) keep
+    their first start; only later versions move onto the source's later-version starts."""
+    rng = np.random.default_rng(5)
+    rows, sk = [], 1
+    for k in range(400):
+        if k < 250:     # older keys, re-versioned up to 2019
+            starts = pd.Timestamp("2015-01-01") + pd.to_timedelta(np.sort(rng.choice(1500, 2, replace=False)), unit="D")
+        else:           # new keys, one version, arriving 2020-2021
+            starts = [pd.Timestamp("2020-01-01") + pd.Timedelta(days=int(rng.integers(0, 700)))]
+        for i, s in enumerate(starts):
+            end = starts[i + 1] - pd.Timedelta(days=1) if i + 1 < len(starts) else pd.NaT
+            rows.append((sk, f"K{k:05d}", s.strftime("%Y-%m-%d"), None if pd.isna(end) else end.strftime("%Y-%m-%d"),
+                         float(rng.gamma(3.0, 10.0))))
+            sk += 1
+    df = pd.DataFrame(rows, columns=["sk", "nk", "start_date", "end_date", "price"])
+    db = tmp_path / "scd_new.db"
+    with sqlite3.connect(db) as con:
+        df.to_sql("customer", con, index=False)
+    spec = {"version": 1, "name": "scd", "source": {"kind": "sqlite", "path": str(db)},
+            "tables": {"customer": {"role": "entity", "primary_key": "sk",
+                                    "scd": {"type": 2, "natural_key": "nk", "valid_from": "start_date",
+                                            "valid_to": "end_date"},
+                                    "columns": {"sk": {"type": "id"}, "nk": {"type": "id"},
+                                                "start_date": {"type": "date"}, "end_date": {"type": "date"},
+                                                "price": {"type": "float"}}}},
+            "relationships": []}
+    c = rs.run(spec, write=False, privacy=False, seed=3).data["customer"]
+    first = pd.to_datetime(c["start_date"]).groupby(c["nk"]).min()
+    real_first = pd.to_datetime(df["start_date"]).groupby(df["nk"]).min()
+    top = pd.Timestamp("2019-02-09")    # after every later-version start of the source
+    assert (real_first > top).mean() > 0.3
+    # before the fix every first start moved onto a source start (0 % past top); rows are grouped into
+    # keys independently of their start, so late rows that land in two-version keys still move (the
+    # share stays below the source's 37 %)
+    assert (first > top).mean() > 0.1
+    assert first.nunique() > 50          # first starts not collapsed onto one date

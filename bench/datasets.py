@@ -240,7 +240,11 @@ def download_kaggle(name: str) -> Path:
         zipped = f.read(4) == b"PK\x03\x04"
     if zipped:                          # a large file comes zipped
         with zipfile.ZipFile(tmp) as z:
-            member = next(m for m in z.namelist() if m.endswith(file))
+            member = next((m for m in z.namelist() if m.endswith(file)), None)
+            if member is None:
+                z.close()
+                tmp.unlink()
+                raise RuntimeError(f"{name}: the Kaggle archive holds no {file}")
             with z.open(member) as src, open(path.with_suffix(path.suffix + ".unz"), "wb") as dst:
                 shutil.copyfileobj(src, dst)
         tmp.unlink()

@@ -63,3 +63,11 @@ def test_off_by_default_keeps_the_uniform_grid():
     assert len(m.knots_c) == 65
     from relsynth.spec import DEFAULT_SYNTHESIS
     assert DEFAULT_SYNTHESIS["marginals"]["point_mass_knots"] is False
+
+
+def test_tail_trim_at_its_upper_bound_does_not_divide_by_zero():
+    """marginals.tail_trim accepts 0.5: every knot is the median, and the knot levels stay finite."""
+    x = pd.Series(np.random.default_rng(2).gamma(2.0, 3.0, 2000))
+    for pmk in (False, True):
+        m, _ = _fit_sample(x, tail_trim=0.5, on=pmk)
+        assert np.isfinite(m.knots_c).all() and np.isfinite(m.knots_v).all()

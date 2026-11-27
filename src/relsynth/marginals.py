@@ -271,7 +271,7 @@ class Marginal:
         cw = np.cumsum(w)
         cw = (cw - w / 2) / cw[-1]
         tau = np.linspace(tail_trim, 1 - tail_trim, grid + 1)
-        if point_mass_knots:   # marginals.point_mass_knots
+        if point_mass_knots and tail_trim < 0.5:   # marginals.point_mass_knots (no room at the 0.5 bound)
             tau = np.union1d(tau, _atom_knots(obs, w, cw, grid, tail_trim))
         # end knots at 1/(2 n_eff) from each end, so that prior pseudo-points with
         # negligible weight never become the support's endpoints
@@ -281,7 +281,8 @@ class Marginal:
         if tail_trim > 0:   # extrapolate the trimmed tails linearly instead of exposing min/max
             v[0] -= (v[1] - v[0]) * 0.5
             v[-1] += (v[-1] - v[-2]) * 0.5
-            tau = (tau - tail_trim) / (1 - 2 * tail_trim)
+            span = 1 - 2 * tail_trim     # 0 at the setting's upper bound 0.5: every knot is the median
+            tau = (tau - tail_trim) / span if span > 0 else np.linspace(0, 1, len(tau))
         m.knots_v, m.knots_c = v, tau
         m.p_null = 0.0 if nnull == 0 else _null_rate(nnull, n, 1.0, 1.0, structural, rng, bootstrap)
         return m
