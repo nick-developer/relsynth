@@ -1,3 +1,16 @@
+# Berka / PKDD'99 Discovery Challenge financial data (Czech bank, 1993-1998), as published in the
+# SDV public demo copy of the CTU "Financial" database (bench/datasets.py). Tables, keys and the
+# meaning of the codes follow the PKDD'99 data description (berka.htm) and the SDV metadata.json.
+# berka.htm could not be re-read on 2026-11-27 (lisp.vse.cz and its mirror were unreachable); the
+# code meanings in these comments come from that description and are unchecked here, but every
+# key and rule below was checked on the full source data.
+# Keys: one disposition per client and at most one per account and type (one OWNER, at most one
+# DISPONENT); one card per disposition; one loan per account (each holds on every source row).
+# loan: amount = duration x payments; duration is 12, 24, 36, 48 or 60 months; status A/B are
+# finished contracts (A paid, B not paid), C/D running (C on time, D in debt).
+# Not written as rules: trans.balance is the balance after each transaction, but the source does
+# not record the order of transactions within a day (trans_id order gives the running balance on
+# 49 % of rows), so no cumulative rule is declared.
 version: 1
 name: berka
 source:
@@ -31,6 +44,8 @@ tables:
       issued:
         type: date
     primary_key: card_id
+    unique:
+    - [disp_id]
   client:
     role: entity
     columns:
@@ -55,6 +70,9 @@ tables:
       type:
         type: categorical
     primary_key: disp_id
+    unique:
+    - [client_id]
+    - [account_id, type]
     link_affinity:
     - match:
       - client_id.district_id
@@ -114,6 +132,8 @@ tables:
       status:
         type: categorical
     primary_key: loan_id
+    unique:
+    - [account_id]
   order:
     role: entity
     columns:
@@ -207,22 +227,40 @@ rules:
 - table: trans
   type: check
   expr: days(account_id.date) <= days(date)
+# Checks below hold on every source row (card 892, trans 1,056,320, order 6,471).
+# Only the owner of an account can be issued a card, and a card is issued after the account opens.
+- table: card
+  type: check
+  expr: disp_id.type == 'OWNER'
+- table: card
+  type: check
+  expr: days(disp_id.account_id.date) <= days(issued)
+# A transaction's operation follows its type: PRIJEM (credit) is a cash deposit (VKLAD), a
+# collection from another bank (PREVOD Z UCTU) or interest (no operation, k_symbol UROK); VYDAJ
+# (withdrawal) is a cash withdrawal (VYBER), a remittance (PREVOD NA UCET) or a card withdrawal
+# (VYBER KARTOU). The source also holds 16,666 rows of type VYBER, all with operation VYBER.
+- table: trans
+  type: check
+  expr: isnull(operation) == (k_symbol == 'UROK')
+- table: trans
+  type: check
+  expr: "(type == 'PRIJEM' and (isnull(operation) or operation in ('PREVOD Z UCTU', 'VKLAD'))) or (type == 'VYDAJ'
+    and operation in ('PREVOD NA UCET', 'VYBER', 'VYBER KARTOU')) or (type == 'VYBER' and operation == 'VYBER')"
+# Pension (DUCHOD) and interest (UROK) are credits; insurance (POJISTNE), sanction interest
+# (SANKC. UROK), household (SIPO), statement (SLUZBY) and loan payments (UVER) are withdrawals.
+- table: trans
+  type: check
+  expr: type == 'PRIJEM' or isnull(k_symbol) or k_symbol not in ('DUCHOD', 'UROK')
+- table: trans
+  type: check
+  expr: type == 'VYDAJ' or isnull(k_symbol) or k_symbol not in ('POJISTNE', 'SANKC. UROK', 'SIPO', 'SLUZBY', 'UVER')
+- table: trans
+  type: check
+  expr: amount >= 0
+- table: order
+  type: check
+  expr: amount > 0
 synthesis:
   seed: 7
   scale:
     default: 1.0
-review:
-- 'card.issued: date (values parse as dates)'
-- 'district.A2: categorical (labels of a small reference table)'
-- 'trans.account: integer (numeric strings)'
-- 'district: 77 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
-- 'loan: derive rule amount = duration * payments (holds on the sampled rows)'
-- 'account.date = min(date) of trans: aggregate inferred (holds for every one of 400 parents checked)'
-- 'loan: check days(account_id.date) < days(date) (holds on 100.0% of 682 sampled rows with both dates, 71.2% by
-  chance)'
-- 'trans: check days(account_id.date) <= days(date) (holds on 100.0% of 20,000 sampled rows with both dates, 85.2%
-  by chance)'
-- 'disp: client_id.district_id = account_id.district_id on 90.8% of rows (by chance 2.7%); link affinity: account_id
-  is moved to a matching parent on the extra share'
-- 'trans: role fact (anchor account, time column date); check the anchor is the ''one'' side whose row counts should
-  be preserved'

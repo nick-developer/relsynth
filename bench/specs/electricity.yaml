@@ -1,5 +1,16 @@
-# The T12 spec of the hourly electricity load (benchmarks/timeseries/run_timeseries.py electricity_spec):
-# introspect drafts Load as a plain fact, so the regular-series model is declared here (G7 matrix).
+# UCI ElectricityLoadDiagrams20112014, hourly, written from its documentation.
+# Sources:
+#  - https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014 (consumption of each client
+#    every 15 minutes, no missing values; clients created after 2011 read zero before they start; on the
+#    March time-change day the 1:00-2:00 values are zero for every client, and in October they hold two
+#    hours)
+#  - https://github.com/laiguokun/multivariate-time-series-data (the copy the bench downloads: the 321
+#    clients left after 2011 is dropped, summed to hourly consumption, 26,304 hours of 2012 to 2014)
+# bench/builders/electricity_sqlite.py keeps the last 8,760 hours as Meter(MeterKey) and
+# Load(MeterKey, Hour, kW), one row per meter and hour, labelled 2014-01-01 00:00 onwards. Checked on that
+# build: 2,811,960 rows, 8,760 per meter, no duplicate (meter, hour), no negative value; 1.2 % of values are
+# zero (one hour per meter, the March time change, and one meter that reads zero all year).
+# The series model (one regular series per meter) is relsynth's T12 setting for this data.
 version: 1
 name: electricity
 source:
@@ -12,18 +23,26 @@ tables:
   Meter:
     role: entity
     primary_key: MeterKey
+    description: one row per client (321)
     columns:
       MeterKey:
         type: id
   Load:
     role: fact
+    description: hourly consumption of each client; one row per meter and hour
     columns:
       MeterKey:
         type: id
       Hour:
         type: datetime
+        description: hour of the reading, 2014-01-01 00:00 to 2014-12-31 23:00 as labelled by the builder
       kW:
         type: float
+        min: 0
+        description: hourly consumption (the sum of the four 15-minute readings); zero before a client starts
+          and on the March time-change hour
+    unique:
+    - [MeterKey, Hour]
     fact:
       anchor: Meter
     series:

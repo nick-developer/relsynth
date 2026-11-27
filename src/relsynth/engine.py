@@ -5338,19 +5338,33 @@ class Synthesizer:
         """Keys derived from other keys (offsets), lookups and derive rules, in that
         order: each reads only columns computed before it.  strict=False (an entity
         right after its links are drawn) skips what reads columns generated later."""
-        for r in self.derived_keys.get(t, []):
-            if r.get("offset_column") and r["offset_from"] in df.columns and r["offset_column"] in df.columns:
-                par = out[r["parent"]]
-                pk = self.spec["tables"][r["parent"]]["primary_key"]
-                df[r["child_key"]] = offset_keys(df[r["offset_from"]], df[r["offset_column"]], par[pk],
-                                                 par[r["order_by"]], r["unit"])
-        res = self._resolver(t, df, out)
-        for c in self.lookups[t]:
-            try:
-                df[c] = lookup_column(self.spec, t, c, df, out, res)
-            except KeyError:
-                if strict:
-                    raise
+        def offsets(header):
+            for r in self.derived_keys.get(t, []):
+                if r.get("offset_column") and bool(r.get("via_header")) == header and \
+                        r["offset_from"] in df.columns and r["offset_column"] in df.columns:
+                    par = out[r["parent"]]
+                    pk = self.spec["tables"][r["parent"]]["primary_key"]
+                    df[r["child_key"]] = offset_keys(df[r["offset_from"]], df[r["offset_column"]], par[pk],
+                                                     par[r["order_by"]], r["unit"])
+
+        def lookups(cols):
+            res = self._resolver(t, df, out)
+            for c in cols:
+                try:
+                    df[c] = lookup_column(self.spec, t, c, df, out, res)
+                except KeyError:
+                    if strict:
+                        raise
+
+        # keys offset from a header key read their base after the header lookups; a lookup
+        # through such a key (the ship date's year) is read once the key is set
+        late = {r["child_key"] for r in self.derived_keys.get(t, []) if r.get("via_header")}
+        through_late = [c for c, p in self.lookups[t].items() if isinstance(p, str) and p.split(".")[0] in late]
+        offsets(False)
+        lookups([c for c in self.lookups[t] if c not in through_late])
+        if late:
+            offsets(True)
+            lookups(through_late)
         if strict:
             df = self._apply_distributions(t, df)
             df, _ = self._apply_group_effects(t, df, out)
@@ -5693,6 +5707,11 @@ class Synthesizer:
             # lengths of closed latest versions (days), for a latest version drawn closed
             dur = (fr["e"] - fr["s"])[last].dt.days.dropna().to_numpy(dtype=float)
             dur = np.quantile(dur, np.linspace(0, 1, 51)) if len(dur) > 51 else dur
+            # days from one version's start to the next one's (a version's length): a start
+            # drawn on or before the previous version's start moves this far past it
+            step = (nxt - fr["s"]).dt.days.dropna().to_numpy(dtype=float)
+            step = step[step > 0]
+            step = np.quantile(step, np.linspace(0, 1, 51)) if len(step) > 51 else step
             multi = sizes[sizes >= 2].index
             skip = {Tt.get("primary_key"), nk, vf, vt} | {r["child_key"] for r in self.fk[t]} | set(self.lookups[t]) \
                 | set(self.derived[t])
@@ -5721,7 +5740,7 @@ class Synthesizer:
                         break
             st = {"nk": nk, "vf": vf, "vt": vt if vt in df.columns else None, "vcount": vcount,
                   "cur_h": cur_h, "cur_n": cur_n, "gaps": gv, "gcount": gc.astype(float), "stable": stable,
-                  "current": cur, "dur": dur}
+                  "current": cur, "dur": dur, "step": step}
 
             def draw(rng, st=st):
                 st["vw"] = rng.dirichlet(st["vcount"] + 0.5)
@@ -5823,10 +5842,20 @@ class Synthesizer:
         order = np.lexsort((s64.astype(np.int64), mo, gid))
         sv = s64[np.lexsort((s64.astype(np.int64), gid))]
         g_o = gid[order]
-        one = np.timedelta64(1, "D")
-        for i in range(1, n):           # strictly increasing within a key
-            if g_o[i] == g_o[i - 1] and not np.isnat(sv[i]) and not np.isnat(sv[i - 1]) and sv[i] <= sv[i - 1]:
-                sv[i] = sv[i - 1] + one
+        # strictly increasing within a key, versions no shorter than the source's shortest: a
+        # start closer to the previous one than that (two rows drew the same or nearby dates)
+        # moves past it by a version length drawn from the source's, so each version keeps a
+        # length the source has rather than a single day or none
+        stp = st.get("step")
+        has = stp is not None and len(stp) > 0
+        steps = (np.round(stp[rng.integers(0, len(stp), size=n)]).astype(np.int64) if has
+                 else np.ones(n, dtype=np.int64))
+        steps = np.maximum(steps, 1)
+        shortest = np.timedelta64(max(int(np.floor(stp.min())), 1) if has else 1, "D")
+        for i in range(1, n):
+            if g_o[i] == g_o[i - 1] and not np.isnat(sv[i]) and not np.isnat(sv[i - 1]) \
+                    and sv[i] < sv[i - 1] + shortest:
+                sv[i] = sv[i - 1] + np.timedelta64(int(steps[i]), "D")
         newstart = np.empty(n, dtype="datetime64[ns]")
         newstart[order] = sv
         is_last = np.r_[g_o[1:] != g_o[:-1], True]
@@ -5837,7 +5866,10 @@ class Synthesizer:
             gap = np.zeros(n) if st["gw"] is None else st["gaps"][rng.choice(len(st["gaps"]), size=n, p=st["gw"])]
             if len(st["dur"]):
                 dd = st["dur"][rng.integers(0, len(st["dur"]), size=n)]
-                e_ = np.where(np.isnat(e_), sv + (dd * 86400e9).astype("timedelta64[ns]"), e_)
+                # a latest version drawn closed but ending on or before its (possibly moved)
+                # start takes a closed length from the source instead
+                e_ = np.where(np.isnat(e_) | (e_ <= sv), sv + (np.maximum(dd, 1) * 86400e9).astype("timedelta64[ns]"),
+                              e_)
             ev = np.where(is_last, e_, nxt + (gap * 86400e9).astype("timedelta64[ns]"))
             # the open version is the row the model drew open (one per key after the spread)
             current = is_last & (mo[order] if mo.any() else (rng.random(n) < st["pcur"]))

@@ -61,7 +61,7 @@ import copy
 import numpy as np
 import pandas as pd
 
-from .expr import names_in, split_assignment
+from .expr import names_in, prefix_paths, split_assignment
 from .prepare import _keystr
 from .pushdown.loader import canonical_order
 from .spec import SpecError, inherit_scale
@@ -232,6 +232,16 @@ class Plan:
                     r["table"] = H
                 elif lhs in hset:
                     raise SpecError(f"{f}: derive rule '{r['expr']}' defines header column {lhs} from line columns")
+                else:
+                    # a line rule reading a parent through a header key (ship_date.d_date -
+                    # sold_date.d_date) now reaches it through the header
+                    if r["type"] == "derive":
+                        rhs = split_assignment(r["expr"])[1]
+                        new = prefix_paths(rhs, hset, key)
+                        if new != rhs:
+                            r["expr"] = f"{lhs} = {new}"
+                    else:
+                        r["expr"] = prefix_paths(r["expr"], hset, key)
             elif r["type"] == "aggregate" and r.get("from") == f:
                 via = next((x for x in rels if x["child"] == H and x["parent"] == r["table"]
                             and r.get("via") in (None, x["name"])), None)
@@ -396,8 +406,18 @@ class Plan:
             base = next((x for x in s["relationships"] if x["child"] == t and x["child_key"] == r["offset_from"]
                          and not x.get("composite")), None)
             if base is None:
-                raise SpecError(f"{r['name']}: offset_from {r['offset_from']} is not a key of {t} "
-                                "(with an order header, both keys must be header columns)")
+                # a line key offset from a key of its order header (a line's ship date from the
+                # order's date): the base is the header column, read on the line as a lookup
+                hd = self.headers.get(t)
+                base = next((x for x in s["relationships"] if hd and x["child"] == hd["table"]
+                             and x["child_key"] == r["offset_from"] and not x.get("composite")), None)
+                if base is None:
+                    raise SpecError(f"{r['name']}: offset_from {r['offset_from']} is not a key of {t} "
+                                    "or of its order header")
+                if base["parent"] != p:
+                    raise SpecError(f"{r['name']}: offset_from {r['offset_from']} references {base['parent']}, "
+                                    f"not {p}")
+                r["via_header"] = True
             otype = s["tables"][p]["columns"][r["order_by"]]["type"]
             unit = "day" if otype in ("date", "datetime") else "number"
             r["kind"] = "derived"

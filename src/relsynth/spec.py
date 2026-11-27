@@ -688,7 +688,10 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                             f"{ppk} of {p}; single-column links join on the parent's primary key (declare a "
                             "composite link with lists for other keys)")
             if r.get("offset_from") is not None:
-                base = next((x for x in rels if x.get("child") == c and x.get("child_key") == r["offset_from"]
+                # the base key is on the same table, or (internal model) on its order header
+                owners = {c} | ({x for x, tx in tables.items() if tx.get("virtual_header_of") == c}
+                                if r.get("via_header") else set())
+                base = next((x for x in rels if x.get("child") in owners and x.get("child_key") == r["offset_from"]
                              and not x.get("composite")), None)
                 if base is None or base.get("parent") != p:
                     errs.append(f"relationship {r['name']}: offset_from {r['offset_from']} must be another key of "

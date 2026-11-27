@@ -1,3 +1,18 @@
+# Contoso Data Generator V2 (SQLBI), ready-to-use 100k-orders Parquet set, written from its documentation.
+# Sources:
+#  - https://github.com/sql-bi/Contoso-Data-Generator-V2 at eaeb57a9: scripts/sql/CreateTablesCommon.sql,
+#    CreateTablesOrders.sql, CreateTablesSales.sql (tables, columns, types, primary keys; Sales is the
+#    join of Orders and OrderRows), README.md and docs/imgs/schema_*.svg (the two schemas)
+#  - https://docs.sqlbi.com/contoso-data-generator/ (details, config-json, config-data): customers are
+#    active between StartDT and EndDT; a store is active only between its open and close dates; each order
+#    goes to the online store (StoreKey 999999 in this set) or to a local store of the customer's country;
+#    the currency follows the customer's country (CountryCurrency); the delivery date is the order date
+#    plus one day plus a random number of days; quantities start at 1 and discounts are whole percentages
+#    from 0 % (OrderQuantityWeights, DiscountWeights)
+# Every rule below was checked on the set (93,470 orders, 223,974 rows): 0 violations except the age
+# derive, which holds on 99.38 % of customers (ages are computed at the generator's run date).
+# Model settings no page speaks to (fact anchor, group effect on prices, link affinity of customer and
+# store areas) are relsynth's usual choices, kept from the reviewed draft.
 version: 1
 name: contoso_parquet
 source:
@@ -147,12 +162,14 @@ tables:
         type: id
       Quantity:
         type: integer
+        min: 1
       UnitPrice:
         type: float
         ratio_of: ProductKey.Price
       NetPrice:
         type: float
         ratio_of: UnitPrice
+        description: UnitPrice less a whole-percent discount (0 % to 14 % in this set)
       UnitCost:
         type: float
         ratio_of: ProductKey.Cost
@@ -345,7 +362,7 @@ rules:
   expr: days(StartDT) < days(EndDT)
 - table: orders
   type: check
-  expr: days(DT) < days(CustomerKey.EndDT)
+  expr: days(CustomerKey.StartDT) <= days(DT) and days(DT) < days(CustomerKey.EndDT)
 - table: orders
   type: check
   expr: days(StoreKey.OpenDate) < days(DT)
@@ -371,99 +388,3 @@ synthesis:
   seed: 7
   scale:
     default: 1.0
-review:
-- 'customer: primary key CustomerKey inferred (only unique non-null key-like column (score 1.00))'
-- 'date: primary key DateKey inferred (only unique non-null key-like column (score 0.83))'
-- 'orders: primary key OrderKey inferred (only unique non-null key-like column (score 1.00))'
-- 'product: primary key ProductKey inferred (best of 2 unique columns (score 1.00, next 0.83))'
-- 'store: primary key StoreKey inferred (only unique non-null key-like column (score 1.00))'
-- 'orderrows.OrderKey -> orders: foreign key inferred (100% of values in the parent, coverage 100%, randomness 1.00,
-  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'orderrows.ProductKey -> product: foreign key inferred (100% of values in the parent, coverage 100%, randomness
-  1.00, name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'orders.CustomerKey -> customer: foreign key inferred (100% of values in the parent, coverage 50%, randomness
-  0.96, name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'orders.StoreKey -> store: foreign key inferred (100% of values in the parent, coverage 86%, randomness 0.98,
-  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'sales.OrderKey -> orders: foreign key inferred (100% of values in the parent, coverage 100%, randomness 1.00,
-  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'sales.CustomerKey -> customer: foreign key inferred (100% of values in the parent, coverage 50%, randomness 0.96,
-  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'sales.StoreKey -> store: foreign key inferred (100% of values in the parent, coverage 86%, randomness 0.98, name
-  1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'sales.ProductKey -> product: foreign key inferred (100% of values in the parent, coverage 100%, randomness 1.00,
-  name 1.00; name names the parent, and the values spread over its key (R >= 0.50))'
-- 'date: calendar (one row per day, 2016-01-01 to 2026-12-31, order column Date); copied as public reference data'
-- 'currencyexchange: unique key [''Date'', ''FromCurrency'', ''ToCurrency''] inferred (no repeat in the sample where
-  independent columns would repeat at least 10 times)'
-- 'customer.GivenName: pii (name matches person_name)'
-- 'customer.Surname: pii (name matches person_name)'
-- 'customer.StreetAddress: pii (name matches pattern)'
-- 'customer.ZipCode: pii (name matches pattern)'
-- 'customer.Vehicle: text (long-tail labels (91% of rows hold values seen fewer than 5 times, mean 3.1 words): generated
-  as short text; declare pii if they name people)'
-- 'date.WorkingDay: boolean (only 0/1 values)'
-- 'product.ProductCode: id (numeric codes with leading zeros (100% of values); kept as text)'
-- 'product.ProductName: text (free text (mean 6.5 words))'
-- 'store.State: categorical (labels of a small reference table)'
-- 'store.Description: categorical (labels of a small reference table)'
-- 'currencyexchange: reference table (100,450 rows, key [''Date'', ''FromCurrency'', ''ToCurrency'']) that no table
-  links to; read by keyed lookups, copied as-is (set mode: synthesize if it holds confidential data)'
-- 'store: 74 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
-- 'sales.CustomerKey: lookup OrderKey.CustomerKey (equal on 100.0% of 20,000 sampled rows; 0.0% expected by chance)'
-- 'sales.DeliveryDate: lookup OrderKey.DeliveryDate (equal on 100.0% of 20,000 sampled rows; 0.0% expected by chance)'
-- 'sales.StoreKey: lookup OrderKey.StoreKey (equal on 100.0% of 20,000 sampled rows; 17.9% expected by chance)'
-- 'sales.CurrencyCode: lookup OrderKey.CurrencyCode (equal on 100.0% of 20,000 sampled rows; 33.5% expected by chance)'
-- 'sales.OrderDate: lookup OrderKey.DT (equal on 100.0% of 20,000 sampled rows; 0.1% expected by chance)'
-- 'sales.ExchangeRate: keyed lookup currencyexchange.Exchange at Date = OrderDate, FromCurrency = ''USD'', ToCurrency
-  = CurrencyCode (equal on 100.0% of 5,000 sampled rows; 25.6% by chance)'
-- 'orders.CurrencyCode: mapped lookup of CustomerKey.Country (8 values; the map holds on 100.0% of 20,000 sampled
-  rows, 51.4% by chance)'
-- 'orderrows: unique key [''OrderKey'', ''RowNumber''] inferred (RowNumber numbers the rows of each OrderKey without
-  repeats in 100.0% of 249 complete groups)'
-- 'sales: unique key [''OrderKey'', ''LineNumber''] inferred (LineNumber numbers the rows of each OrderKey without
-  repeats in 100.0% of 249 complete groups)'
-- 'sales: view of orderrows (the same 6,314 sampled keys [''OrderKey'', ''LineNumber'']; every column is a column
-  of orderrows or a lookup, renamed: LineNumber = orderrows.RowNumber); rebuilt from the synthetic orderrows, so
-  it equals the join exactly'
-- 'orders.DeliveryDate: offset from DT (never earlier; 18 distinct gaps, most common 0 (58%), 3 (11%), 2 (10%));
-  generated as DT plus a modelled gap'
-- 'orderrows.RowNumber: line number 0..n-1 within OrderKey (starts at 0 in 100.0% of 300 complete groups; 2.7% of
-  groups skip numbers, which the synthetic data does not)'
-- 'customer.Age: whole years from Birthday to 2021-02-02 on 99.4% of rows (by chance 1.4%); soft rule: holds on
-  that share, otherwise the observed offsets'
-- 'customer: StateFull (554 values) determines GeoAreaKey, Continent, State, Country, CountryFull on at least 99.9%
-  of the sampled rows; generated through a copied dimension of their observed combinations, Country modelled with
-  the other columns and StateFull drawn within it'
-- 'product: SubCategoryKey (32 values) determines CategoryKey, CategoryName, SubCategoryName on at least 99.9% of
-  the sampled rows; generated through a copied dimension of their observed combinations, SubCategoryName modelled
-  with the other columns and SubCategoryKey drawn within it'
-- 'customer.City: 10,480 labels, 90.6% of 11,759 sampled rows with a repeated label sit in the label''s most common
-  StateFull (24.1% by chance); generated within StateFull from the labels held by enough rows (text.whole_values)'
-- 'orderrows.UnitPrice: ratio of ProductKey.Price: UnitPrice = ProductKey.Price x one of 16 factors (to 2 decimals;
-  reproduces 100.0% of rows to the stored precision, 0.7% by chance); the factor is modelled, the value derived'
-- 'orderrows.NetPrice: ratio of UnitPrice: NetPrice = UnitPrice x one of 15 factors (to 2 decimals; reproduces 100.0%
-  of rows to the stored precision, 0.3% by chance); the factor is modelled, the value derived'
-- 'orderrows.UnitCost: ratio of ProductKey.Cost with the factor of UnitPrice (100.0% of rows reproduced)'
-- 'orderrows.UnitPrice: the factor of UnitPrice is one value per (OrderKey.DT, ProductKey.CategoryKey) on 100.00%
-  of rows in groups of 2+ (by chance 60.0%); group effect: one value drawn per group'
-- 'customer: check days(StartDT) < days(EndDT) (holds on 100.0% of 20,000 sampled rows, 99.6% by chance)'
-- 'orders: check days(DT) < days(CustomerKey.EndDT) (holds on 100.0% of 20,000 sampled rows with both dates, 96.9%
-  by chance)'
-- 'orders: check days(StoreKey.OpenDate) < days(DT) (holds on 100.0% of 20,000 sampled rows with both dates, 99.6%
-  by chance)'
-- 'orders: check days(DT) <= days(StoreKey.CloseDate) (holds on 100.0% of 237 sampled rows with both dates, 87.5%
-  by chance)'
-- 'orders: check days(DT) == days(DeliveryDate) or StoreKey == 999999 (equal on 100.0% of 11,636 sampled rows outside
-  StoreKey = 999999, 0.1% by chance); and never equal for StoreKey = 999999: check days(DT) != days(DeliveryDate)
-  or StoreKey != 999999'
-- 'orders: check CustomerKey.Country == StoreKey.CountryCode or StoreKey == 999999 (equal on 100.0% of 11,636 sampled
-  rows outside StoreKey = 999999, 31.3% by chance); and never equal for StoreKey = 999999: check CustomerKey.Country
-  != StoreKey.CountryCode or StoreKey != 999999'
-- 'product: check Cost < Price (holds on 100.0% of 2,517 sampled rows, 67.1% by chance)'
-- 'orders: CustomerKey.GeoAreaKey = StoreKey.GeoAreaKey on 7.2% of rows (by chance 0.2%); link affinity: StoreKey
-  is moved to a matching parent on the extra share'
-- 'orders: keys numbered in the order of DT (non-decreasing on 100.0% of 19,999 consecutive sampled keys, 50.1%
-  by chance)'
-- 'orderrows: role fact (anchor orders, partner product); check the anchor is the ''one'' side whose row counts
-  should be preserved'

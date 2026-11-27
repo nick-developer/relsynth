@@ -222,6 +222,8 @@ A calendar referenced as order date and ship date is two relationships to one ta
 
 An order header carried on its lines (a degenerate dimension) is `fact.header: {key, columns, line_number}`. A separate orders table that the lines reference is an entity; the model report calls it the order header. Every order then has one customer and one set of dates, and its lines are numbered 1..n.
 
+A line key can be offset from a header key (`offset_from: cs_sold_date_sk` on the ship date's relationship, with the sold date a header column): the ship date then follows each order's date by a modelled gap on every line. Line rules may read parents through header keys (`days(ship_date_sk.d_date) - days(sold_date_sk.d_date)`); the engine reads them through the order header.
+
 ### Unknown members
 
 `unknown_members: [-1]` on the dimension:

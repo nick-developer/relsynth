@@ -1,0 +1,1961 @@
+# TPC-DS test database (DuckDB's dsdgen), written from the TPC-DS specification.
+# Sources:
+#  - TPC Benchmark DS Standard Specification, Version 4.0.0
+#    (https://www.tpc.org/TPC_Documents_Current_Versions/pdf/TPC-DS_v4.0.0.pdf):
+#    clause 2.3 and 2.4 (the 7 fact and 17 dimension tables: columns, datatypes, NULLs, primary keys,
+#    business keys and foreign keys), clause 2.4.9 to 2.4.11 (code tables), clause 5.3.11 (the load views
+#    LF_SS, LF_SR, LF_CS, LF_CR, LF_WS, LF_WR, which define each sales and returns measure).
+# Every rule below was checked on the SF1 data first (0 violations where its columns are set; dsdgen
+# leaves each nullable column empty on a few percent of rows, independently of the others).
+# One spec serves every scale factor: tpcds_sf1 and tpcds_sf10 differ only in row counts.
+# Datatypes map as: identifier -> id; integer -> integer; decimal(d, f) -> float with f decimals;
+# date -> date; char(16) business keys (B) -> id; other char/varchar -> categorical or text.
+# Copied (mode: copy): the calendar and time tables, the code lists (income band, reason, ship mode,
+# customer and household demographics, which hold one row per combination of values) and the small
+# business-site tables (store, call center, web site, warehouse). People (customer, address) and every
+# fact are synthesised.
+# Where dsdgen differs from the clause 5.3.11 views, the data wins and the difference is noted:
+#  - ss_ext_discount_amt holds the coupon amount, not (list - sales price) * quantity;
+#  - ext_tax, net_loss and the demographics keys of a sale are not the views' expressions of the store's
+#    tax rate or the customer's current demographics (they differ on most rows), so they are not rules.
+# Not written as rules, with the reason:
+#  - the returns-to-sales foreign key (sr_item_sk, sr_ticket_number) -> store_sales (and the catalog and
+#    web pairs) holds on every return but is composite on a fact; returns link to item and customer instead.
+# Model settings no clause speaks to (fact anchors and partners) are relsynth's usual choices for an
+# order-and-lines schema: the billed customer drives the rows, the item is the partner, and the ticket or
+# order number is the header that fixes customer, dates, store or call center for all lines of an order.
+# Results from this data are scale and integrity tests of relsynth, not TPC-DS results.
+version: 1
+name: tpcds
+source:
+  kind: parquet
+  path: bench/.cache/tpcds_sf1/parquet
+target:
+  kind: csv
+  path: synthetic
+tables:
+  date_dim:
+    role: entity
+    mode: copy
+    description: calendar, one row per day (clause 2.4.10); a fixed reference table
+    columns:
+      d_date_sk:
+        type: id
+      d_date_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      d_date:
+        type: date
+        nullable: false
+      d_month_seq:
+        type: integer
+      d_week_seq:
+        type: integer
+      d_quarter_seq:
+        type: integer
+      d_year:
+        type: integer
+      d_dow:
+        type: integer
+      d_moy:
+        type: integer
+      d_dom:
+        type: integer
+      d_qoy:
+        type: integer
+      d_fy_year:
+        type: integer
+      d_fy_quarter_seq:
+        type: integer
+      d_fy_week_seq:
+        type: integer
+      d_day_name:
+        type: categorical
+      d_quarter_name:
+        type: categorical
+      d_holiday:
+        type: boolean
+      d_weekend:
+        type: boolean
+      d_following_holiday:
+        type: boolean
+      d_first_dom:
+        type: integer
+      d_last_dom:
+        type: integer
+      d_same_day_ly:
+        type: integer
+      d_same_day_lq:
+        type: integer
+      d_current_day:
+        type: constant
+      d_current_week:
+        type: constant
+      d_current_month:
+        type: boolean
+      d_current_quarter:
+        type: boolean
+      d_current_year:
+        type: boolean
+    primary_key: d_date_sk
+    dimensions:
+    - key: d_month_seq
+      columns:
+      - d_quarter_seq
+      - d_year
+      - d_moy
+      - d_first_dom
+      - d_last_dom
+    - key: d_quarter_name
+      columns:
+      - d_qoy
+    - key: d_dow
+      columns:
+      - d_day_name
+      - d_weekend
+      anchor: d_day_name
+    key_order: d_date
+  time_dim:
+    role: entity
+    mode: copy
+    description: one row per second of the day (clause 2.4.17); a fixed reference table
+    columns:
+      t_time_sk:
+        type: id
+      t_time_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      t_time:
+        type: integer
+        nullable: false
+      t_hour:
+        type: integer
+      t_minute:
+        type: integer
+      t_second:
+        type: integer
+      t_am_pm:
+        type: categorical
+      t_shift:
+        type: categorical
+      t_sub_shift:
+        type: categorical
+      t_meal_time:
+        type: categorical
+    primary_key: t_time_sk
+    dimensions:
+    - key: t_hour
+      columns:
+      - t_am_pm
+      - t_shift
+      - t_sub_shift
+      - t_meal_time
+      anchor: t_sub_shift
+  income_band:
+    role: entity
+    mode: copy
+    description: 20 income bands (clause 2.4.13), a code list
+    columns:
+      ib_income_band_sk:
+        type: id
+      ib_lower_bound:
+        type: integer
+      ib_upper_bound:
+        type: integer
+    primary_key: ib_income_band_sk
+  reason:
+    role: entity
+    mode: copy
+    description: return reasons (clause 2.4.15), a code list
+    columns:
+      r_reason_sk:
+        type: id
+      r_reason_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      r_reason_desc:
+        type: categorical
+    primary_key: r_reason_sk
+  ship_mode:
+    role: entity
+    mode: copy
+    description: ship modes (clause 2.4.16), a code list
+    columns:
+      sm_ship_mode_sk:
+        type: id
+      sm_ship_mode_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      sm_type:
+        type: categorical
+      sm_code:
+        type: categorical
+      sm_carrier:
+        type: categorical
+      sm_contract:
+        type: categorical
+    primary_key: sm_ship_mode_sk
+  warehouse:
+    role: entity
+    mode: copy
+    description: 'warehouses (clause 2.4.6), 5 rows at SF1: business sites, not people'
+    columns:
+      w_warehouse_sk:
+        type: id
+      w_warehouse_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      w_warehouse_name:
+        type: categorical
+      w_warehouse_sq_ft:
+        type: integer
+      w_street_number:
+        type: categorical
+      w_street_name:
+        type: categorical
+      w_street_type:
+        type: categorical
+      w_suite_number:
+        type: categorical
+      w_city:
+        type: constant
+      w_county:
+        type: constant
+      w_state:
+        type: constant
+      w_zip:
+        type: categorical
+      w_country:
+        type: constant
+      w_gmt_offset:
+        type: float
+        decimals: 2
+    primary_key: w_warehouse_sk
+  customer_demographics:
+    role: entity
+    mode: copy
+    description: 'one row for each unique combination of demographic values (clause 2.4.9): a code list, not people'
+    columns:
+      cd_demo_sk:
+        type: id
+      cd_gender:
+        type: categorical
+      cd_marital_status:
+        type: categorical
+      cd_education_status:
+        type: categorical
+      cd_purchase_estimate:
+        type: integer
+      cd_credit_rating:
+        type: categorical
+      cd_dep_count:
+        type: integer
+      cd_dep_employed_count:
+        type: integer
+      cd_dep_college_count:
+        type: integer
+    primary_key: cd_demo_sk
+  household_demographics:
+    role: entity
+    mode: copy
+    description: 'one row per household demographic profile (clause 2.4.11): a code list, not people'
+    columns:
+      hd_demo_sk:
+        type: id
+      hd_income_band_sk:
+        type: id
+      hd_buy_potential:
+        type: categorical
+      hd_dep_count:
+        type: integer
+      hd_vehicle_count:
+        type: integer
+    primary_key: hd_demo_sk
+  store:
+    role: entity
+    mode: copy
+    description: 'stores (clause 2.4.1), 12 rows at SF1 as SCD2 versions: business sites, not people'
+    columns:
+      s_store_sk:
+        type: id
+      s_store_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      s_rec_start_date:
+        type: date
+      s_rec_end_date:
+        type: date
+      s_closed_date_sk:
+        type: id
+      s_store_name:
+        type: categorical
+      s_number_employees:
+        type: integer
+      s_floor_space:
+        type: integer
+      s_hours:
+        type: categorical
+      s_manager:
+        type: categorical
+      s_market_id:
+        type: integer
+      s_geography_class:
+        type: constant
+      s_market_desc:
+        type: text
+      s_market_manager:
+        type: categorical
+      s_division_id:
+        type: integer
+      s_division_name:
+        type: constant
+      s_company_id:
+        type: integer
+      s_company_name:
+        type: constant
+      s_street_number:
+        type: pii
+        pii:
+          generator: pattern
+      s_street_name:
+        type: pii
+        pii:
+          generator: pattern
+      s_street_type:
+        type: pii
+        pii:
+          generator: pattern
+      s_suite_number:
+        type: categorical
+      s_city:
+        type: categorical
+      s_county:
+        type: constant
+      s_state:
+        type: constant
+      s_zip:
+        type: pii
+        pii:
+          generator: pattern
+      s_country:
+        type: constant
+      s_gmt_offset:
+        type: float
+        decimals: 2
+      s_tax_percentage:
+        type: float
+        decimals: 2
+    primary_key: s_store_sk
+  call_center:
+    role: entity
+    mode: copy
+    description: 'call centers (clause 2.4.2), 6 rows at SF1 as SCD2 versions: business sites, not people'
+    columns:
+      cc_call_center_sk:
+        type: id
+      cc_call_center_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      cc_rec_start_date:
+        type: date
+      cc_rec_end_date:
+        type: date
+      cc_closed_date_sk:
+        type: id
+      cc_open_date_sk:
+        type: id
+      cc_name:
+        type: categorical
+      cc_class:
+        type: categorical
+      cc_employees:
+        type: integer
+      cc_sq_ft:
+        type: integer
+      cc_hours:
+        type: categorical
+      cc_manager:
+        type: categorical
+      cc_mkt_id:
+        type: integer
+      cc_mkt_class:
+        type: text
+      cc_mkt_desc:
+        type: text
+      cc_market_manager:
+        type: categorical
+      cc_division:
+        type: integer
+      cc_division_name:
+        type: categorical
+      cc_company:
+        type: integer
+      cc_company_name:
+        type: categorical
+      cc_street_number:
+        type: pii
+        pii:
+          generator: pattern
+      cc_street_name:
+        type: pii
+        pii:
+          generator: pattern
+      cc_street_type:
+        type: pii
+        pii:
+          generator: pattern
+      cc_suite_number:
+        type: categorical
+      cc_city:
+        type: constant
+      cc_county:
+        type: constant
+      cc_state:
+        type: constant
+      cc_zip:
+        type: pii
+        pii:
+          generator: pattern
+      cc_country:
+        type: constant
+      cc_gmt_offset:
+        type: float
+        decimals: 2
+      cc_tax_percentage:
+        type: float
+        decimals: 2
+    primary_key: cc_call_center_sk
+  web_site:
+    role: entity
+    mode: copy
+    description: 'web sites (clause 2.4.4), 30 rows at SF1 as SCD2 versions: business sites, not people'
+    columns:
+      web_site_sk:
+        type: id
+      web_site_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      web_rec_start_date:
+        type: date
+      web_rec_end_date:
+        type: date
+      web_name:
+        type: categorical
+      web_open_date_sk:
+        type: id
+      web_close_date_sk:
+        type: id
+      web_class:
+        type: constant
+      web_manager:
+        type: categorical
+      web_mkt_id:
+        type: integer
+      web_mkt_class:
+        type: categorical
+      web_mkt_desc:
+        type: text
+      web_market_manager:
+        type: categorical
+      web_company_id:
+        type: integer
+      web_company_name:
+        type: categorical
+      web_street_number:
+        type: pii
+        pii:
+          generator: pattern
+      web_street_name:
+        type: pii
+        pii:
+          generator: pattern
+      web_street_type:
+        type: pii
+        pii:
+          generator: pattern
+      web_suite_number:
+        type: categorical
+      web_city:
+        type: categorical
+      web_county:
+        type: constant
+      web_state:
+        type: constant
+      web_zip:
+        type: pii
+        pii:
+          generator: pattern
+      web_country:
+        type: constant
+      web_gmt_offset:
+        type: float
+        decimals: 2
+      web_tax_percentage:
+        type: float
+        decimals: 2
+    primary_key: web_site_sk
+    scd:
+      type: 2
+      natural_key: web_site_id
+      valid_from: web_rec_start_date
+      valid_to: web_rec_end_date
+  customer_address:
+    role: entity
+    description: 'customer addresses (clause 2.4.8): people''s addresses, synthesised'
+    columns:
+      ca_address_sk:
+        type: id
+      ca_address_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      ca_street_number:
+        type: pii
+        pii:
+          generator: pattern
+      ca_street_name:
+        type: pii
+        pii:
+          generator: pattern
+      ca_street_type:
+        type: pii
+        pii:
+          generator: pattern
+      ca_suite_number:
+        type: categorical
+      ca_city:
+        type: categorical
+      ca_county:
+        type: text
+        text:
+          condition_on: ca_gmt_offset
+          whole_values: true
+      ca_state:
+        type: categorical
+      ca_zip:
+        type: pii
+        pii:
+          generator: pattern
+      ca_country:
+        type: constant
+      ca_gmt_offset:
+        type: float
+        decimals: 2
+      ca_location_type:
+        type: categorical
+    primary_key: ca_address_sk
+  customer:
+    role: entity
+    description: 'customers (clause 2.4.7): people, synthesised'
+    columns:
+      c_customer_sk:
+        type: id
+      c_customer_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      c_current_cdemo_sk:
+        type: id
+      c_current_hdemo_sk:
+        type: id
+      c_current_addr_sk:
+        type: id
+      c_first_shipto_date_sk:
+        type: id
+      c_first_sales_date_sk:
+        type: id
+      c_salutation:
+        type: categorical
+      c_first_name:
+        type: categorical
+      c_last_name:
+        type: categorical
+      c_preferred_cust_flag:
+        type: boolean
+      c_birth_day:
+        type: integer
+      c_birth_month:
+        type: integer
+      c_birth_year:
+        type: integer
+      c_birth_country:
+        type: categorical
+      c_login:
+        type: constant
+      c_email_address:
+        type: pii
+        pii:
+          generator: email
+      c_last_review_date_sk:
+        type: id
+    primary_key: c_customer_sk
+  item:
+    role: entity
+    description: 'items (clause 2.4.12), SCD2: each i_item_id has 1 to 3 versions with i_rec_start_date/i_rec_end_date'
+    columns:
+      i_item_sk:
+        type: id
+      i_item_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      i_rec_start_date:
+        type: date
+      i_rec_end_date:
+        type: date
+      i_item_desc:
+        type: text
+      i_current_price:
+        type: float
+        decimals: 2
+      i_wholesale_cost:
+        type: float
+        decimals: 2
+        min: 1
+        max: 100
+      i_brand_id:
+        type: integer
+      i_brand:
+        type: text
+        text:
+          condition_on: i_class
+          whole_values: true
+      i_class_id:
+        type: integer
+      i_class:
+        type: categorical
+      i_category_id:
+        type: integer
+      i_category:
+        type: categorical
+      i_manufact_id:
+        type: integer
+      i_manufact:
+        type: categorical
+      i_size:
+        type: categorical
+      i_formulation:
+        type: categorical
+      i_color:
+        type: categorical
+      i_units:
+        type: categorical
+      i_container:
+        type: constant
+      i_manager_id:
+        type: integer
+      i_product_name:
+        type: pii
+        pii:
+          generator: pattern
+    primary_key: i_item_sk
+    scd:
+      type: 2
+      natural_key: i_item_id
+      valid_from: i_rec_start_date
+      valid_to: i_rec_end_date
+  promotion:
+    role: entity
+    description: promotions (clause 2.4.14)
+    columns:
+      p_promo_sk:
+        type: id
+      p_promo_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      p_start_date_sk:
+        type: id
+      p_end_date_sk:
+        type: id
+      p_item_sk:
+        type: id
+      p_cost:
+        type: float
+        decimals: 2
+      p_response_target:
+        type: integer
+      p_promo_name:
+        type: categorical
+      p_channel_dmail:
+        type: boolean
+      p_channel_email:
+        type: categorical
+      p_channel_catalog:
+        type: constant
+      p_channel_tv:
+        type: constant
+      p_channel_radio:
+        type: constant
+      p_channel_press:
+        type: constant
+      p_channel_event:
+        type: constant
+      p_channel_demo:
+        type: constant
+      p_channel_details:
+        type: text
+      p_purpose:
+        type: constant
+      p_discount_active:
+        type: constant
+    primary_key: p_promo_sk
+  catalog_page:
+    role: entity
+    description: catalog pages (clause 2.4.3)
+    columns:
+      cp_catalog_page_sk:
+        type: id
+      cp_catalog_page_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      cp_start_date_sk:
+        type: id
+      cp_end_date_sk:
+        type: id
+      cp_department:
+        type: constant
+      cp_catalog_number:
+        type: integer
+      cp_catalog_page_number:
+        type: integer
+      cp_description:
+        type: text
+      cp_type:
+        type: categorical
+    primary_key: cp_catalog_page_sk
+  web_page:
+    role: entity
+    description: web pages (clause 2.4.5), SCD2; some pages belong to a customer (wp_customer_sk), so the table
+      is synthesised rather than copied
+    columns:
+      wp_web_page_sk:
+        type: id
+      wp_web_page_id:
+        type: id
+        description: business key (B), clause 2.2.1.3
+        nullable: false
+      wp_rec_start_date:
+        type: date
+      wp_rec_end_date:
+        type: date
+      wp_creation_date_sk:
+        type: id
+      wp_access_date_sk:
+        type: id
+      wp_autogen_flag:
+        type: boolean
+      wp_customer_sk:
+        type: id
+      wp_url:
+        type: constant
+      wp_type:
+        type: categorical
+      wp_char_count:
+        type: integer
+      wp_link_count:
+        type: integer
+      wp_image_count:
+        type: integer
+      wp_max_ad_count:
+        type: integer
+    primary_key: wp_web_page_sk
+    scd:
+      type: 2
+      natural_key: wp_web_page_id
+      valid_from: wp_rec_start_date
+      valid_to: wp_rec_end_date
+  store_sales:
+    role: fact
+    description: store sales lines (clause 2.3.1); primary key (ss_item_sk, ss_ticket_number)
+    columns:
+      ss_sold_date_sk:
+        type: id
+      ss_sold_time_sk:
+        type: id
+      ss_item_sk:
+        type: id
+      ss_customer_sk:
+        type: id
+      ss_cdemo_sk:
+        type: id
+      ss_hdemo_sk:
+        type: id
+      ss_addr_sk:
+        type: id
+      ss_store_sk:
+        type: id
+      ss_promo_sk:
+        type: id
+      ss_ticket_number:
+        type: id
+      ss_quantity:
+        type: integer
+        min: 1
+        max: 100
+      ss_wholesale_cost:
+        type: float
+        decimals: 2
+        min: 1
+        max: 100
+      ss_list_price:
+        type: float
+        decimals: 2
+      ss_sales_price:
+        type: float
+        decimals: 2
+      ss_ext_discount_amt:
+        type: float
+        decimals: 2
+      ss_ext_sales_price:
+        type: float
+        decimals: 2
+      ss_ext_wholesale_cost:
+        type: float
+        decimals: 2
+      ss_ext_list_price:
+        type: float
+        decimals: 2
+      ss_ext_tax:
+        type: float
+        decimals: 2
+      ss_coupon_amt:
+        type: float
+        decimals: 2
+      ss_net_paid:
+        type: float
+        decimals: 2
+      ss_net_paid_inc_tax:
+        type: float
+        decimals: 2
+      ss_net_profit:
+        type: float
+        decimals: 2
+    unique:
+    - - ss_item_sk
+      - ss_ticket_number
+    fact:
+      anchor: ss_customer_sk
+      partner: ss_item_sk
+      header:
+        key: ss_ticket_number
+        columns:
+        - ss_sold_date_sk
+        - ss_sold_time_sk
+        - ss_customer_sk
+        - ss_cdemo_sk
+        - ss_hdemo_sk
+        - ss_addr_sk
+        - ss_store_sk
+  store_returns:
+    role: fact
+    description: store returns lines (clause 2.3.2); primary key (sr_item_sk, sr_ticket_number)
+    columns:
+      sr_returned_date_sk:
+        type: id
+      sr_return_time_sk:
+        type: id
+      sr_item_sk:
+        type: id
+      sr_customer_sk:
+        type: id
+      sr_cdemo_sk:
+        type: id
+      sr_hdemo_sk:
+        type: id
+      sr_addr_sk:
+        type: id
+      sr_store_sk:
+        type: id
+      sr_reason_sk:
+        type: id
+      sr_ticket_number:
+        type: id
+      sr_return_quantity:
+        type: integer
+        min: 1
+        max: 100
+      sr_return_amt:
+        type: float
+        decimals: 2
+      sr_return_tax:
+        type: float
+        decimals: 2
+      sr_return_amt_inc_tax:
+        type: float
+        decimals: 2
+      sr_fee:
+        type: float
+        decimals: 2
+        min: 0.5
+        max: 100
+      sr_return_ship_cost:
+        type: float
+        decimals: 2
+      sr_refunded_cash:
+        type: float
+        decimals: 2
+      sr_reversed_charge:
+        type: float
+        decimals: 2
+      sr_store_credit:
+        type: float
+        decimals: 2
+      sr_net_loss:
+        type: float
+        decimals: 2
+    unique:
+    - - sr_item_sk
+      - sr_ticket_number
+    fact:
+      anchor: sr_customer_sk
+      partner: sr_item_sk
+  catalog_sales:
+    role: fact
+    description: catalog sales lines (clause 2.3.3); primary key (cs_item_sk, cs_order_number)
+    columns:
+      cs_sold_date_sk:
+        type: id
+      cs_sold_time_sk:
+        type: id
+      cs_ship_date_sk:
+        type: id
+      cs_bill_customer_sk:
+        type: id
+      cs_bill_cdemo_sk:
+        type: id
+      cs_bill_hdemo_sk:
+        type: id
+      cs_bill_addr_sk:
+        type: id
+      cs_ship_customer_sk:
+        type: id
+      cs_ship_cdemo_sk:
+        type: id
+      cs_ship_hdemo_sk:
+        type: id
+      cs_ship_addr_sk:
+        type: id
+      cs_call_center_sk:
+        type: id
+      cs_catalog_page_sk:
+        type: id
+      cs_ship_mode_sk:
+        type: id
+      cs_warehouse_sk:
+        type: id
+      cs_item_sk:
+        type: id
+      cs_promo_sk:
+        type: id
+      cs_order_number:
+        type: id
+      cs_quantity:
+        type: integer
+        min: 1
+        max: 100
+      cs_wholesale_cost:
+        type: float
+        decimals: 2
+        min: 1
+        max: 100
+      cs_list_price:
+        type: float
+        decimals: 2
+      cs_sales_price:
+        type: float
+        decimals: 2
+      cs_ext_discount_amt:
+        type: float
+        decimals: 2
+      cs_ext_sales_price:
+        type: float
+        decimals: 2
+      cs_ext_wholesale_cost:
+        type: float
+        decimals: 2
+      cs_ext_list_price:
+        type: float
+        decimals: 2
+      cs_ext_tax:
+        type: float
+        decimals: 2
+      cs_coupon_amt:
+        type: float
+        decimals: 2
+      cs_ext_ship_cost:
+        type: float
+        decimals: 2
+      cs_net_paid:
+        type: float
+        decimals: 2
+      cs_net_paid_inc_tax:
+        type: float
+        decimals: 2
+      cs_net_paid_inc_ship:
+        type: float
+        decimals: 2
+      cs_net_paid_inc_ship_tax:
+        type: float
+        decimals: 2
+      cs_net_profit:
+        type: float
+        decimals: 2
+    unique:
+    - - cs_item_sk
+      - cs_order_number
+    fact:
+      anchor: cs_bill_customer_sk
+      partner: cs_item_sk
+      header:
+        key: cs_order_number
+        columns:
+        - cs_sold_date_sk
+        - cs_sold_time_sk
+        - cs_bill_customer_sk
+        - cs_bill_cdemo_sk
+        - cs_bill_hdemo_sk
+        - cs_bill_addr_sk
+        - cs_ship_customer_sk
+        - cs_ship_cdemo_sk
+        - cs_ship_hdemo_sk
+        - cs_ship_addr_sk
+        - cs_call_center_sk
+  catalog_returns:
+    role: fact
+    description: catalog returns lines (clause 2.3.4); primary key (cr_item_sk, cr_order_number)
+    columns:
+      cr_returned_date_sk:
+        type: id
+      cr_returned_time_sk:
+        type: id
+      cr_item_sk:
+        type: id
+      cr_refunded_customer_sk:
+        type: id
+      cr_refunded_cdemo_sk:
+        type: id
+      cr_refunded_hdemo_sk:
+        type: id
+      cr_refunded_addr_sk:
+        type: id
+      cr_returning_customer_sk:
+        type: id
+      cr_returning_cdemo_sk:
+        type: id
+      cr_returning_hdemo_sk:
+        type: id
+      cr_returning_addr_sk:
+        type: id
+      cr_call_center_sk:
+        type: id
+      cr_catalog_page_sk:
+        type: id
+      cr_ship_mode_sk:
+        type: id
+      cr_warehouse_sk:
+        type: id
+      cr_reason_sk:
+        type: id
+      cr_order_number:
+        type: id
+      cr_return_quantity:
+        type: integer
+        min: 1
+        max: 100
+      cr_return_amount:
+        type: float
+        decimals: 2
+      cr_return_tax:
+        type: float
+        decimals: 2
+      cr_return_amt_inc_tax:
+        type: float
+        decimals: 2
+      cr_fee:
+        type: float
+        decimals: 2
+        min: 0.5
+        max: 100
+      cr_return_ship_cost:
+        type: float
+        decimals: 2
+      cr_refunded_cash:
+        type: float
+        decimals: 2
+      cr_reversed_charge:
+        type: float
+        decimals: 2
+      cr_store_credit:
+        type: float
+        decimals: 2
+      cr_net_loss:
+        type: float
+        decimals: 2
+    unique:
+    - - cr_item_sk
+      - cr_order_number
+    fact:
+      anchor: cr_returning_customer_sk
+      partner: cr_item_sk
+  web_sales:
+    role: fact
+    description: web sales lines (clause 2.3.5); primary key (ws_item_sk, ws_order_number)
+    columns:
+      ws_sold_date_sk:
+        type: id
+      ws_sold_time_sk:
+        type: id
+      ws_ship_date_sk:
+        type: id
+      ws_item_sk:
+        type: id
+      ws_bill_customer_sk:
+        type: id
+      ws_bill_cdemo_sk:
+        type: id
+      ws_bill_hdemo_sk:
+        type: id
+      ws_bill_addr_sk:
+        type: id
+      ws_ship_customer_sk:
+        type: id
+      ws_ship_cdemo_sk:
+        type: id
+      ws_ship_hdemo_sk:
+        type: id
+      ws_ship_addr_sk:
+        type: id
+      ws_web_page_sk:
+        type: id
+      ws_web_site_sk:
+        type: id
+      ws_ship_mode_sk:
+        type: id
+      ws_warehouse_sk:
+        type: id
+      ws_promo_sk:
+        type: id
+      ws_order_number:
+        type: id
+      ws_quantity:
+        type: integer
+        min: 1
+        max: 100
+      ws_wholesale_cost:
+        type: float
+        decimals: 2
+        min: 1
+        max: 100
+      ws_list_price:
+        type: float
+        decimals: 2
+      ws_sales_price:
+        type: float
+        decimals: 2
+      ws_ext_discount_amt:
+        type: float
+        decimals: 2
+      ws_ext_sales_price:
+        type: float
+        decimals: 2
+      ws_ext_wholesale_cost:
+        type: float
+        decimals: 2
+      ws_ext_list_price:
+        type: float
+        decimals: 2
+      ws_ext_tax:
+        type: float
+        decimals: 2
+      ws_coupon_amt:
+        type: float
+        decimals: 2
+      ws_ext_ship_cost:
+        type: float
+        decimals: 2
+      ws_net_paid:
+        type: float
+        decimals: 2
+      ws_net_paid_inc_tax:
+        type: float
+        decimals: 2
+      ws_net_paid_inc_ship:
+        type: float
+        decimals: 2
+      ws_net_paid_inc_ship_tax:
+        type: float
+        decimals: 2
+      ws_net_profit:
+        type: float
+        decimals: 2
+    unique:
+    - - ws_item_sk
+      - ws_order_number
+    fact:
+      anchor: ws_bill_customer_sk
+      partner: ws_item_sk
+      header:
+        key: ws_order_number
+        columns:
+        - ws_sold_date_sk
+        - ws_sold_time_sk
+        - ws_bill_customer_sk
+        - ws_bill_cdemo_sk
+        - ws_bill_hdemo_sk
+        - ws_bill_addr_sk
+        - ws_ship_customer_sk
+        - ws_ship_cdemo_sk
+        - ws_ship_hdemo_sk
+        - ws_ship_addr_sk
+  web_returns:
+    role: fact
+    description: web returns lines (clause 2.3.6); primary key (wr_item_sk, wr_order_number)
+    columns:
+      wr_returned_date_sk:
+        type: id
+      wr_returned_time_sk:
+        type: id
+      wr_item_sk:
+        type: id
+      wr_refunded_customer_sk:
+        type: id
+      wr_refunded_cdemo_sk:
+        type: id
+      wr_refunded_hdemo_sk:
+        type: id
+      wr_refunded_addr_sk:
+        type: id
+      wr_returning_customer_sk:
+        type: id
+      wr_returning_cdemo_sk:
+        type: id
+      wr_returning_hdemo_sk:
+        type: id
+      wr_returning_addr_sk:
+        type: id
+      wr_web_page_sk:
+        type: id
+      wr_reason_sk:
+        type: id
+      wr_order_number:
+        type: id
+      wr_return_quantity:
+        type: integer
+        min: 1
+        max: 100
+      wr_return_amt:
+        type: float
+        decimals: 2
+      wr_return_tax:
+        type: float
+        decimals: 2
+      wr_return_amt_inc_tax:
+        type: float
+        decimals: 2
+      wr_fee:
+        type: float
+        decimals: 2
+        min: 0.5
+        max: 100
+      wr_return_ship_cost:
+        type: float
+        decimals: 2
+      wr_refunded_cash:
+        type: float
+        decimals: 2
+      wr_reversed_charge:
+        type: float
+        decimals: 2
+      wr_account_credit:
+        type: float
+        decimals: 2
+      wr_net_loss:
+        type: float
+        decimals: 2
+    unique:
+    - - wr_item_sk
+      - wr_order_number
+    fact:
+      anchor: wr_returning_customer_sk
+      partner: wr_item_sk
+  inventory:
+    role: fact
+    description: quantity on hand per item, warehouse and week (clause 2.3.7); primary key (date, item, warehouse)
+    columns:
+      inv_date_sk:
+        type: id
+      inv_item_sk:
+        type: id
+      inv_warehouse_sk:
+        type: id
+      inv_quantity_on_hand:
+        type: integer
+        min: 0
+        max: 1000
+    unique:
+    - - inv_date_sk
+      - inv_item_sk
+      - inv_warehouse_sk
+    fact:
+      anchor: inv_item_sk
+      partner: inv_warehouse_sk
+relationships:
+- child: household_demographics
+  child_key: hd_income_band_sk
+  parent: income_band
+  parent_key: ib_income_band_sk
+- child: store
+  child_key: s_closed_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: call_center
+  child_key: cc_closed_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: call_center
+  child_key: cc_open_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: web_site
+  child_key: web_open_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: web_site
+  child_key: web_close_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: customer
+  child_key: c_current_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: customer
+  child_key: c_current_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: customer
+  child_key: c_current_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: customer
+  child_key: c_first_shipto_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: c_first_sales_date_sk
+  order_by: d_date
+- child: customer
+  child_key: c_first_sales_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: customer
+  child_key: c_last_review_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: promotion
+  child_key: p_start_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: promotion
+  child_key: p_end_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: p_start_date_sk
+  order_by: d_date
+- child: promotion
+  child_key: p_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: catalog_page
+  child_key: cp_start_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: catalog_page
+  child_key: cp_end_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: cp_start_date_sk
+  order_by: d_date
+- child: web_page
+  child_key: wp_creation_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: web_page
+  child_key: wp_access_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: wp_creation_date_sk
+  order_by: d_date
+- child: web_page
+  child_key: wp_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: store_sales
+  child_key: ss_sold_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: store_sales
+  child_key: ss_sold_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: store_sales
+  child_key: ss_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: store_sales
+  child_key: ss_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: store_sales
+  child_key: ss_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: store_sales
+  child_key: ss_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: store_sales
+  child_key: ss_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: store_sales
+  child_key: ss_store_sk
+  parent: store
+  parent_key: s_store_sk
+- child: store_sales
+  child_key: ss_promo_sk
+  parent: promotion
+  parent_key: p_promo_sk
+- child: store_returns
+  child_key: sr_returned_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: store_returns
+  child_key: sr_return_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: store_returns
+  child_key: sr_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: store_returns
+  child_key: sr_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: store_returns
+  child_key: sr_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: store_returns
+  child_key: sr_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: store_returns
+  child_key: sr_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: store_returns
+  child_key: sr_store_sk
+  parent: store
+  parent_key: s_store_sk
+- child: store_returns
+  child_key: sr_reason_sk
+  parent: reason
+  parent_key: r_reason_sk
+- child: catalog_sales
+  child_key: cs_sold_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: catalog_sales
+  child_key: cs_sold_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: catalog_sales
+  child_key: cs_ship_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: cs_sold_date_sk
+  order_by: d_date
+- child: catalog_sales
+  child_key: cs_bill_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: catalog_sales
+  child_key: cs_bill_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: catalog_sales
+  child_key: cs_bill_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: catalog_sales
+  child_key: cs_bill_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: catalog_sales
+  child_key: cs_ship_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: catalog_sales
+  child_key: cs_ship_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: catalog_sales
+  child_key: cs_ship_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: catalog_sales
+  child_key: cs_ship_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: catalog_sales
+  child_key: cs_call_center_sk
+  parent: call_center
+  parent_key: cc_call_center_sk
+- child: catalog_sales
+  child_key: cs_catalog_page_sk
+  parent: catalog_page
+  parent_key: cp_catalog_page_sk
+- child: catalog_sales
+  child_key: cs_ship_mode_sk
+  parent: ship_mode
+  parent_key: sm_ship_mode_sk
+- child: catalog_sales
+  child_key: cs_warehouse_sk
+  parent: warehouse
+  parent_key: w_warehouse_sk
+- child: catalog_sales
+  child_key: cs_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: catalog_sales
+  child_key: cs_promo_sk
+  parent: promotion
+  parent_key: p_promo_sk
+- child: catalog_returns
+  child_key: cr_returned_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: catalog_returns
+  child_key: cr_returned_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: catalog_returns
+  child_key: cr_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: catalog_returns
+  child_key: cr_refunded_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: catalog_returns
+  child_key: cr_refunded_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: catalog_returns
+  child_key: cr_refunded_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: catalog_returns
+  child_key: cr_refunded_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: catalog_returns
+  child_key: cr_returning_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: catalog_returns
+  child_key: cr_returning_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: catalog_returns
+  child_key: cr_returning_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: catalog_returns
+  child_key: cr_returning_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: catalog_returns
+  child_key: cr_call_center_sk
+  parent: call_center
+  parent_key: cc_call_center_sk
+- child: catalog_returns
+  child_key: cr_catalog_page_sk
+  parent: catalog_page
+  parent_key: cp_catalog_page_sk
+- child: catalog_returns
+  child_key: cr_ship_mode_sk
+  parent: ship_mode
+  parent_key: sm_ship_mode_sk
+- child: catalog_returns
+  child_key: cr_warehouse_sk
+  parent: warehouse
+  parent_key: w_warehouse_sk
+- child: catalog_returns
+  child_key: cr_reason_sk
+  parent: reason
+  parent_key: r_reason_sk
+- child: web_sales
+  child_key: ws_sold_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: web_sales
+  child_key: ws_sold_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: web_sales
+  child_key: ws_ship_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+  offset_from: ws_sold_date_sk
+  order_by: d_date
+- child: web_sales
+  child_key: ws_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: web_sales
+  child_key: ws_bill_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: web_sales
+  child_key: ws_bill_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: web_sales
+  child_key: ws_bill_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: web_sales
+  child_key: ws_bill_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: web_sales
+  child_key: ws_ship_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: web_sales
+  child_key: ws_ship_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: web_sales
+  child_key: ws_ship_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: web_sales
+  child_key: ws_ship_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: web_sales
+  child_key: ws_web_page_sk
+  parent: web_page
+  parent_key: wp_web_page_sk
+- child: web_sales
+  child_key: ws_web_site_sk
+  parent: web_site
+  parent_key: web_site_sk
+- child: web_sales
+  child_key: ws_ship_mode_sk
+  parent: ship_mode
+  parent_key: sm_ship_mode_sk
+- child: web_sales
+  child_key: ws_warehouse_sk
+  parent: warehouse
+  parent_key: w_warehouse_sk
+- child: web_sales
+  child_key: ws_promo_sk
+  parent: promotion
+  parent_key: p_promo_sk
+- child: web_returns
+  child_key: wr_returned_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: web_returns
+  child_key: wr_returned_time_sk
+  parent: time_dim
+  parent_key: t_time_sk
+- child: web_returns
+  child_key: wr_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: web_returns
+  child_key: wr_refunded_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: web_returns
+  child_key: wr_refunded_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: web_returns
+  child_key: wr_refunded_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: web_returns
+  child_key: wr_refunded_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: web_returns
+  child_key: wr_returning_customer_sk
+  parent: customer
+  parent_key: c_customer_sk
+- child: web_returns
+  child_key: wr_returning_cdemo_sk
+  parent: customer_demographics
+  parent_key: cd_demo_sk
+- child: web_returns
+  child_key: wr_returning_hdemo_sk
+  parent: household_demographics
+  parent_key: hd_demo_sk
+- child: web_returns
+  child_key: wr_returning_addr_sk
+  parent: customer_address
+  parent_key: ca_address_sk
+- child: web_returns
+  child_key: wr_web_page_sk
+  parent: web_page
+  parent_key: wp_web_page_sk
+- child: web_returns
+  child_key: wr_reason_sk
+  parent: reason
+  parent_key: r_reason_sk
+- child: inventory
+  child_key: inv_date_sk
+  parent: date_dim
+  parent_key: d_date_sk
+- child: inventory
+  child_key: inv_item_sk
+  parent: item
+  parent_key: i_item_sk
+- child: inventory
+  child_key: inv_warehouse_sk
+  parent: warehouse
+  parent_key: w_warehouse_sk
+rules:
+- table: store_sales
+  type: derive
+  expr: ss_ext_sales_price = ss_quantity * ss_sales_price
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_ext_list_price = ss_quantity * ss_list_price
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_ext_wholesale_cost = ss_quantity * ss_wholesale_cost
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_ext_discount_amt = ss_coupon_amt
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_net_paid = ss_ext_sales_price - ss_coupon_amt
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_net_paid_inc_tax = ss_net_paid + ss_ext_tax
+  tolerance: 0.01
+- table: store_sales
+  type: derive
+  expr: ss_net_profit = ss_net_paid - ss_ext_wholesale_cost
+  tolerance: 0.01
+- table: store_sales
+  type: check
+  expr: ss_sales_price <= ss_list_price
+- table: store_sales
+  type: check
+  expr: ss_wholesale_cost <= ss_list_price and ss_list_price <= 2 * ss_wholesale_cost
+- table: store_sales
+  type: check
+  expr: ss_coupon_amt <= ss_ext_sales_price
+- table: store_sales
+  type: check
+  expr: ss_ext_tax <= ss_net_paid
+- table: catalog_sales
+  type: derive
+  expr: cs_ext_sales_price = cs_quantity * cs_sales_price
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_ext_list_price = cs_quantity * cs_list_price
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_ext_wholesale_cost = cs_quantity * cs_wholesale_cost
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_ext_discount_amt = cs_ext_list_price - cs_ext_sales_price
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_net_paid = cs_ext_sales_price - cs_coupon_amt
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_net_paid_inc_tax = cs_net_paid + cs_ext_tax
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_net_paid_inc_ship = cs_net_paid + cs_ext_ship_cost
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_net_paid_inc_ship_tax = cs_net_paid_inc_ship + cs_ext_tax
+  tolerance: 0.01
+- table: catalog_sales
+  type: derive
+  expr: cs_net_profit = cs_net_paid - cs_ext_wholesale_cost
+  tolerance: 0.01
+- table: catalog_sales
+  type: check
+  expr: cs_sales_price <= cs_list_price
+- table: catalog_sales
+  type: check
+  expr: cs_wholesale_cost <= cs_list_price and cs_list_price <= 2 * cs_wholesale_cost
+- table: catalog_sales
+  type: check
+  expr: cs_coupon_amt <= cs_ext_sales_price
+- table: catalog_sales
+  type: check
+  expr: cs_ext_tax <= cs_net_paid
+- table: web_sales
+  type: derive
+  expr: ws_ext_sales_price = ws_quantity * ws_sales_price
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_ext_list_price = ws_quantity * ws_list_price
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_ext_wholesale_cost = ws_quantity * ws_wholesale_cost
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_ext_discount_amt = ws_ext_list_price - ws_ext_sales_price
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_net_paid = ws_ext_sales_price - ws_coupon_amt
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_net_paid_inc_tax = ws_net_paid + ws_ext_tax
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_net_paid_inc_ship = ws_net_paid + ws_ext_ship_cost
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_net_paid_inc_ship_tax = ws_net_paid_inc_ship + ws_ext_tax
+  tolerance: 0.01
+- table: web_sales
+  type: derive
+  expr: ws_net_profit = ws_net_paid - ws_ext_wholesale_cost
+  tolerance: 0.01
+- table: web_sales
+  type: check
+  expr: ws_sales_price <= ws_list_price
+- table: web_sales
+  type: check
+  expr: ws_wholesale_cost <= ws_list_price and ws_list_price <= 2 * ws_wholesale_cost
+- table: web_sales
+  type: check
+  expr: ws_coupon_amt <= ws_ext_sales_price
+- table: web_sales
+  type: check
+  expr: ws_ext_tax <= ws_net_paid
+- table: catalog_sales
+  type: check
+  expr: between(cs_ship_date_sk - cs_sold_date_sk, 2, 90)
+- table: web_sales
+  type: check
+  expr: between(ws_ship_date_sk - ws_sold_date_sk, 1, 120)
+- table: store_returns
+  type: derive
+  expr: sr_return_amt_inc_tax = sr_return_amt + sr_return_tax
+  tolerance: 0.01
+- table: store_returns
+  type: derive
+  expr: sr_store_credit = sr_return_amt - sr_refunded_cash - sr_reversed_charge
+  tolerance: 0.01
+- table: store_returns
+  type: check
+  expr: sr_return_tax <= sr_return_amt
+- table: store_returns
+  type: check
+  expr: sr_refunded_cash <= sr_return_amt and sr_reversed_charge <= sr_return_amt
+- table: store_returns
+  type: check
+  expr: sr_return_tax < sr_net_loss and sr_fee <= sr_net_loss and sr_return_ship_cost < sr_net_loss
+- table: catalog_returns
+  type: derive
+  expr: cr_return_amt_inc_tax = cr_return_amount + cr_return_tax
+  tolerance: 0.01
+- table: catalog_returns
+  type: derive
+  expr: cr_store_credit = cr_return_amount - cr_refunded_cash - cr_reversed_charge
+  tolerance: 0.01
+- table: catalog_returns
+  type: check
+  expr: cr_return_tax <= cr_return_amount
+- table: catalog_returns
+  type: check
+  expr: cr_refunded_cash <= cr_return_amount and cr_reversed_charge <= cr_return_amount
+- table: catalog_returns
+  type: check
+  expr: cr_return_tax < cr_net_loss and cr_fee <= cr_net_loss and cr_return_ship_cost < cr_net_loss
+- table: web_returns
+  type: derive
+  expr: wr_return_amt_inc_tax = wr_return_amt + wr_return_tax
+  tolerance: 0.01
+- table: web_returns
+  type: derive
+  expr: wr_account_credit = wr_return_amt - wr_refunded_cash - wr_reversed_charge
+  tolerance: 0.01
+- table: web_returns
+  type: check
+  expr: wr_return_tax <= wr_return_amt
+- table: web_returns
+  type: check
+  expr: wr_refunded_cash <= wr_return_amt and wr_reversed_charge <= wr_return_amt
+- table: web_returns
+  type: check
+  expr: wr_return_tax < wr_net_loss and wr_fee <= wr_net_loss and wr_return_ship_cost < wr_net_loss
+- table: web_returns
+  type: derive
+  expr: wr_returning_customer_sk = wr_refunded_customer_sk
+- table: web_returns
+  type: derive
+  expr: wr_returning_cdemo_sk = wr_refunded_cdemo_sk
+- table: web_returns
+  type: derive
+  expr: wr_returning_hdemo_sk = wr_refunded_hdemo_sk
+- table: web_returns
+  type: derive
+  expr: wr_returning_addr_sk = wr_refunded_addr_sk
+- table: customer
+  type: check
+  expr: between(c_first_shipto_date_sk - c_first_sales_date_sk, 1, 60)
+- table: promotion
+  type: check
+  expr: between(p_end_date_sk - p_start_date_sk, 1, 70)
+- table: catalog_page
+  type: check
+  expr: cp_start_date_sk < cp_end_date_sk
+- table: web_page
+  type: check
+  expr: wp_creation_date_sk <= wp_access_date_sk
+- table: item
+  type: check
+  expr: days(i_rec_start_date) < days(i_rec_end_date)

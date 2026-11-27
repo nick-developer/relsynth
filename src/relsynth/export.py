@@ -282,7 +282,8 @@ def structure(syn):
     # ---- computed columns
     for t in T:
         off = [{"child_key": r["child_key"], "parent": r["parent"], "offset_from": r["offset_from"],
-                "offset_column": r["offset_column"], "order_by": r["order_by"], "unit": r["unit"]}
+                "offset_column": r["offset_column"], "order_by": r["order_by"], "unit": r["unit"],
+                "via_header": bool(r.get("via_header"))}
                for r in syn.derived_keys.get(t, []) if r.get("offset_column")]
         if off:
             S["offsets"][t] = off

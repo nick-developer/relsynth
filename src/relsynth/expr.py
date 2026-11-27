@@ -202,6 +202,30 @@ def names_in(expr: str) -> set[str]:
     return out
 
 
+def prefix_paths(expr: str, heads: set[str], key: str) -> str:
+    """The expression with every dotted path whose first name is in `heads` read through
+    `key` first (`sold_date.d_year` -> `order_no.sold_date.d_year`): used when those columns
+    move to a table that `key` references (an order header).  Bare names are unchanged."""
+    tree = parse(expr)
+    hit = False
+
+    class _T(ast.NodeTransformer):
+        def visit_Attribute(self, node):
+            nonlocal hit
+            if _path(node) is None:
+                return self.generic_visit(node)
+            root = node
+            while isinstance(root.value, ast.Attribute):
+                root = root.value
+            if isinstance(root.value, ast.Name) and root.value.id in heads:
+                root.value = ast.Attribute(value=ast.Name(id=key, ctx=ast.Load()), attr=root.value.id,
+                                           ctx=ast.Load())
+                hit = True
+            return node
+    out = _T().visit(tree)
+    return ast.unparse(out) if hit else expr
+
+
 def _path(node):
     parts = []
     while isinstance(node, ast.Attribute):
