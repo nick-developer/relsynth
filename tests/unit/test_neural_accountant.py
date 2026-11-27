@@ -128,6 +128,11 @@ def test_dp_options_reject_non_finite_values():
         with pytest.raises(GeneratorError):
             DPOptions.parse(bad, "t")
     assert DPOptions.parse({"epsilon": 2, "clip": 0.5}, "t").clip == 0.5
+    for bad_pop in (0, -3, 2.5, True, "100"):
+        with pytest.raises(GeneratorError):
+            DPOptions.parse({"epsilon": 1, "population": bad_pop}, "t")
+    d = DPOptions.parse({"epsilon": 1, "population": 500}, "t")
+    assert d.public_count(37) == 500 and DPOptions(1.0).public_count(37) == 37
 
 
 def test_dp_noise_comes_from_the_os_csprng(monkeypatch):

@@ -207,6 +207,13 @@ relsynth.
 its coarse group. `conditioning.given` is a frame of the parent attributes (`data.aux`); it is given only to
 generators that declare `parent` conditioning.
 
+**Families (contract 1.1).** A generator that declares `family` conditioning models the rows of a fact that share an
+anchor row jointly. At fit, `context.family` holds each row's anchor row (-1 for none), and `context.order` holds
+its order key, the fact's time column in seconds (`None` when the fact has no time column). At sampling,
+`conditioning.family` and `conditioning.order` hold the synthetic anchor rows and dates. The engine draws such a
+fact's dates before its attributes and keeps keys, counts and dates as for any generator. Generators that do not
+declare `family` see neither field. When the engine redraws some rows of a family (a rule or key rejection), `conditioning.siblings` holds the family's kept rows: the attribute columns plus `__family__`, `__order__` and, where known, `__group__`. The generator draws the redrawn rows given those rows as its model allows: `ctvae`'s causal prior reads the family in order, so a redrawn row is drawn given the kept rows before it, and the kept rows after it are read as they come (teacher forcing). The built-in family generator is `ctvae` ([neural.md](neural.md)).
+
 Return exactly `data.out_cols` and `n` rows. The engine checks both.
 
 ### Optional methods

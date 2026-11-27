@@ -5,10 +5,14 @@
 * ``ddpm``: a conditional Gaussian-multinomial diffusion model (TabDDPM,
   Kotelnikov et al. 2023), conditioned on the row's latent group as
   ClavaDDPM (Pang et al. 2024) conditions on parent clusters.
+* ``ctvae``: the context transformer VAE, a family generator (contract 1.1): the
+  rows sharing an anchor row are drawn jointly by a causal transformer prior over
+  row latents with a residual categorical head.
 
 Importing this package does not import torch; fitting does.  See docs/neural.md.
 """
+from .ctvae import CTVAEGenerator
 from .ddpm import DDPMGenerator
 from .tvae import TVAEGenerator
 
-__all__ = ["DDPMGenerator", "TVAEGenerator"]
+__all__ = ["CTVAEGenerator", "DDPMGenerator", "TVAEGenerator"]

@@ -2466,6 +2466,74 @@ claims:
       - test: tests/unit/test_neural.py::test_serialize_and_load
       - code: src/relsynth/generators/neural/base.py::NeuralGenerator
 
+  - id: NN-20
+    doc: docs/neural.md
+    area: structure
+    quote: "How it works (Props. 1860-1863, docs/proofs/sec_v74_ctvae.tex):"
+    status: supported
+    evidence:
+      - prop: prop:ctvaefam
+      - prop: prop:ctvaeres
+      - prop: prop:ctvaeskel
+      - test: tests/unit/test_ctvae.py::test_family_dependence_is_kept
+      - test: tests/unit/test_ctvae.py::test_keys_links_and_rules_hold
+      - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
+
+  - id: NN-21
+    doc: docs/neural.md
+    area: structure
+    quote: "- ctvae cannot fit from in-database statistics and a sample, because a row sample would cut families."
+    status: supported
+    evidence:
+      - test: tests/unit/test_ctvae.py::test_contract_declares_family_conditioning
+      - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
+
+  - id: NN-22
+    doc: docs/neural.md
+    area: structure
+    quote: "- On a table that is not a fact with an anchor, every row is a family of one row, and the spec check warns."
+    status: supported
+    evidence:
+      - test: tests/unit/test_ctvae.py::test_non_fact_table_warns
+      - code: src/relsynth/generators/registry.py::check
+
+  - id: NN-23
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The bound covers one anchor row's whole history in this table (Prop. 1863), but is conditional on the preprocessing, as for tvae."
+    status: supported
+    evidence:
+      - prop: prop:ctvaedp
+      - test: tests/unit/test_ctvae.py::test_entity_level_dp_sgd
+      - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
+  - id: NN-24
+    doc: docs/neural.md
+    area: privacy-measured
+    quote: "Every variant met the rule's family and row DCR limits on these runs; DCR is a measurement, not a privacy guarantee."
+    status: supported
+    evidence:
+      - report: docs/research/context-transformer-vae.md
+  - id: NN-25
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "The family calibration reads the training families' sizes and contexts, which the accountant does not cover, so with dp it is off unless the spec sets calibrate: true; it then joins the preprocessing outside the bound."
+    status: supported
+    evidence:
+      - prop: prop:ctvaedp
+      - test: tests/unit/test_ctvae.py::test_calibration_is_off_under_dp_unless_asked
+      - code: src/relsynth/generators/neural/ctvae.py::CTVAEGenerator
+
+  - id: NN-26
+    doc: docs/neural.md
+    area: privacy-formal
+    quote: "To remove that assumption, set population to a public figure (for example a published number of customers): every mechanism parameter is then computed from it instead of the actual count."
+    status: supported
+    evidence:
+      - prop: prop:ctvaedp
+      - test: tests/unit/test_ctvae.py::test_dp_population_fixes_the_mechanism
+      - test: tests/unit/test_neural_accountant.py::test_dp_options_reject_non_finite_values
+      - code: src/relsynth/generators/neural/train.py::DPOptions
+
   - id: NN-13
     doc: docs/neural.md
     area: structure

@@ -279,9 +279,11 @@ class TableModel:
     def fitted(self):
         return self.generator is not None and self.generator.fitted
 
-    def fit(self, groups=None, parent=None, rng=None, per_group_copula=True):
+    def fit(self, groups=None, parent=None, rng=None, per_group_copula=True, family=None, order=None):
         """groups: int label per row (None = one group). parent: dict group -> coarser
-        group label, used as the back-off of small groups."""
+        group label, used as the back-off of small groups.  family, order: the anchor row
+        and order key of every row (contract 1.1), handed only to a generator that
+        declares ``family`` conditioning."""
         from .generators.contract import FitContext
         rng = rng or np.random.default_rng()
         if self.generator is None:
@@ -290,9 +292,18 @@ class TableModel:
         ctx = FitContext(groups=None if groups is None else np.asarray(groups), parent=parent or {},
                          per_group=per_group_copula, rng=rng, config=self.cfg,
                          options=self.generator.options, compute=self.compute, table=self.tname)
+        if self.uses_family and family is not None:
+            ctx.family = np.asarray(family, np.int64)
+            ctx.order = None if order is None else np.asarray(order, float)
         self.generator.fit(self, ctx)
         self.generator.fitted = True
         return self
+
+    @property
+    def uses_family(self) -> bool:
+        """The generator models the rows of a family jointly (contract 1.1)."""
+        gen = self.generator
+        return gen is not None and "family" in getattr(gen.capabilities, "conditioning", ())
 
     def redraw(self, rng, mode="draw"):
         """Parameters of one synthetic dataset: one posterior draw of the
@@ -313,12 +324,19 @@ class TableModel:
     def fitted_groups(self):
         return self.generator.fitted_groups()
 
-    def sample(self, groups, rng, given: pd.DataFrame | None = None) -> pd.DataFrame:
+    def sample(self, groups, rng, given: pd.DataFrame | None = None, family=None, order=None,
+               siblings: pd.DataFrame | None = None, position=None) -> pd.DataFrame:
         from .generators.contract import Conditioning
         groups = np.asarray(groups)
         if given is not None and "parent" not in self.generator.capabilities.conditioning:
             given = None
-        df = self.generator.sample(len(groups), Conditioning(groups, given), rng)
+        cond = Conditioning(groups, given)
+        if self.uses_family and family is not None:
+            cond.family = np.asarray(family, np.int64)
+            cond.order = None if order is None else np.asarray(order, float)
+            cond.siblings = siblings
+            cond.position = None if position is None else np.asarray(position, np.int64)
+        df = self.generator.sample(len(groups), cond, rng)
         if list(df.columns) != self.out_cols or (self.out_cols and len(df) != len(groups)):
             from .generators.contract import GeneratorError
             raise GeneratorError(f"{self.tname}: generator {self.generator.name} returned columns "
