@@ -142,5 +142,8 @@ def test_scd2_versions_keep_increasing_starts_and_positive_lengths(tmp_path, sha
     assert (e.isna() | (s < e)).all()                            # every closed version has a length
     srt = p.assign(s=s).sort_values(["nk", "s"])
     assert (srt.groupby("nk")["s"].diff().dropna() > pd.Timedelta(0)).all()   # strictly increasing
+    if shape == "releases":     # moved starts stay on the release dates, never past the last one
+        rel = {"2017-10-27", "2019-10-28", "2020-10-27", "2021-10-27"}
+        assert s.dt.strftime("%Y-%m-%d").isin(rel).mean() > 0.95 and s.max() <= pd.Timestamp("2021-10-27")
     ln = (e - s).dt.days.dropna()
     assert (ln <= 1).mean() < 0.05                               # not collapsed to one-day versions

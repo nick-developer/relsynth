@@ -5712,6 +5712,12 @@ class Synthesizer:
             step = (nxt - fr["s"]).dt.days.dropna().to_numpy(dtype=float)
             step = step[step > 0]
             step = np.quantile(step, np.linspace(0, 1, 51)) if len(step) > 51 else step
+            # start dates of later versions (51 quantiles, days since the epoch): a moved start
+            # lands on the first of them past the previous version, so release-style starts
+            # (a few shared dates) stay on the source's dates
+            later = fr["s"][fr.duplicated("k", keep="first") & fr["s"].notna()]
+            ls = later.to_numpy(dtype="datetime64[ns]").astype("datetime64[D]").astype(np.int64)
+            ls = np.unique(np.round(np.quantile(ls, np.linspace(0, 1, 51))).astype(np.int64)) if len(ls) else ls
             multi = sizes[sizes >= 2].index
             skip = {Tt.get("primary_key"), nk, vf, vt} | {r["child_key"] for r in self.fk[t]} | set(self.lookups[t]) \
                 | set(self.derived[t])
@@ -5740,7 +5746,7 @@ class Synthesizer:
                         break
             st = {"nk": nk, "vf": vf, "vt": vt if vt in df.columns else None, "vcount": vcount,
                   "cur_h": cur_h, "cur_n": cur_n, "gaps": gv, "gcount": gc.astype(float), "stable": stable,
-                  "current": cur, "dur": dur, "step": step}
+                  "current": cur, "dur": dur, "step": step, "starts": ls}
 
             def draw(rng, st=st):
                 st["vw"] = rng.dirichlet(st["vcount"] + 0.5)
@@ -5844,18 +5850,34 @@ class Synthesizer:
         g_o = gid[order]
         # strictly increasing within a key, versions no shorter than the source's shortest: a
         # start closer to the previous one than that (two rows drew the same or nearby dates)
-        # moves past it by a version length drawn from the source's, so each version keeps a
-        # length the source has rather than a single day or none
+        # moves to the first later-version start of the source (quantiles) past that point, or,
+        # past the last of them, by a version length drawn from the source's
         stp = st.get("step")
         has = stp is not None and len(stp) > 0
         steps = (np.round(stp[rng.integers(0, len(stp), size=n)]).astype(np.int64) if has
                  else np.ones(n, dtype=np.int64))
         steps = np.maximum(steps, 1)
         shortest = np.timedelta64(max(int(np.floor(stp.min())), 1) if has else 1, "D")
+        ls = st.get("starts")
+        ls = ls if ls is not None and len(ls) else None
         for i in range(1, n):
             if g_o[i] == g_o[i - 1] and not np.isnat(sv[i]) and not np.isnat(sv[i - 1]) \
                     and sv[i] < sv[i - 1] + shortest:
-                sv[i] = sv[i - 1] + np.timedelta64(int(steps[i]), "D")
+                target = (sv[i - 1] + shortest).astype("datetime64[D]").astype(np.int64)
+                j = np.searchsorted(ls, target) if ls is not None else 0
+                if ls is not None and j < len(ls):
+                    sv[i] = np.datetime64(int(ls[j]), "D").astype("datetime64[ns]")
+                else:
+                    sv[i] = sv[i - 1] + np.timedelta64(int(steps[i]), "D")
+        if ls is not None:
+            # a key whose versions ran past the source's last later-version start takes the last
+            # of those starts (as many as it has versions, in order) when there are enough
+            top = np.datetime64(int(ls[-1]), "D").astype("datetime64[ns]")
+            bounds = np.flatnonzero(np.r_[True, g_o[1:] != g_o[:-1], True])
+            for a, b in zip(bounds[:-1], bounds[1:]):
+                v = b - a
+                if v <= len(ls) and not np.isnat(sv[b - 1]) and sv[b - 1] > top and not np.isnat(sv[a:b]).any():
+                    sv[a:b] = np.array([np.datetime64(int(x), "D") for x in ls[-v:]], dtype="datetime64[ns]")
         newstart = np.empty(n, dtype="datetime64[ns]")
         newstart[order] = sv
         is_last = np.r_[g_o[1:] != g_o[:-1], True]
@@ -5864,12 +5886,13 @@ class Synthesizer:
         if vt is not None:
             e_ = pd.to_datetime(df[vt], errors="coerce", format="mixed").to_numpy(dtype="datetime64[ns]")[order]
             gap = np.zeros(n) if st["gw"] is None else st["gaps"][rng.choice(len(st["gaps"]), size=n, p=st["gw"])]
-            if len(st["dur"]):
-                dd = st["dur"][rng.integers(0, len(st["dur"]), size=n)]
-                # a latest version drawn closed but ending on or before its (possibly moved)
-                # start takes a closed length from the source instead
-                e_ = np.where(np.isnat(e_) | (e_ <= sv), sv + (np.maximum(dd, 1) * 86400e9).astype("timedelta64[ns]"),
-                              e_)
+            # a latest version drawn closed but ending on or before its (possibly moved) start
+            # takes a closed length from the source instead: a closed latest version's length,
+            # else (no closed latest version in the source) a version length
+            lens = st["dur"] if len(st["dur"]) else (st["step"] if has else np.ones(1))
+            dd = np.maximum(lens[rng.integers(0, len(lens), size=n)], 1)
+            fix = (e_ <= sv) if not len(st["dur"]) else (np.isnat(e_) | (e_ <= sv))
+            e_ = np.where(fix, sv + (dd * 86400e9).astype("timedelta64[ns]"), e_)
             ev = np.where(is_last, e_, nxt + (gap * 86400e9).astype("timedelta64[ns]"))
             # the open version is the row the model drew open (one per key after the spread)
             current = is_last & (mo[order] if mo.any() else (rng.random(n) < st["pcur"]))
