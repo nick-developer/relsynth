@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """IBM AML (IT-AML, HI-Small) ground-truth checks.
 
-Independent of relsynth.  M1-M7 are identities on the real data (share 1.0, except M7): the dataset
+Independent of relsynth.  M1-M7 and M12 are identities on the real data (share 1.0, except M7): the dataset
 specification's composite account identity, self-loops and FX coupling, and the data facts the bench
 spec states (bench/specs/ibm_aml.yaml).  M8-M11 are measures recorded without a verdict.
 """
@@ -51,4 +51,15 @@ def checks(T: dict, ref: dict) -> dict:
         "M10 laundering share": _share(tr["is_laundering"] == 1),
         "M11 laundering share of ACH": _share((tr["is_laundering"] == 1)[tr["payment_format"] == "ACH"]),
     }
+    # M12: the specification applies the rate "at Timestamp"; the share of (currency pair, day) groups whose
+    # median rate is within 0.5 % of the pair's rate over the whole period says whether it moves with time
+    x = tr[~same & (tr["amount_paid"] >= 100)].assign(day=lambda d: pd.to_datetime(d["ts"]).dt.date,
+                                                       r=lambda d: d["amount_received"] / d["amount_paid"])
+    if len(x):
+        pair = x.groupby(["payment_currency", "receiving_currency"])["r"].transform("median")
+        g = x.assign(dev=(x["r"] / pair - 1).abs()).groupby(["payment_currency", "receiving_currency", "day"])
+        med = g["dev"].median()[g.size() >= 5]
+        out["M12 rate constant through the period (pair-days within 0.5 %)"] = _share(med <= 0.005)
+    else:
+        out["M12 rate constant through the period (pair-days within 0.5 %)"] = None
     return out

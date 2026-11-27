@@ -52,6 +52,13 @@ missing = con.execute("SELECT list(currency) FROM ccy WHERE usd_rate IS NULL").f
 if missing:
     raise SystemExit(f"no US Dollar rate for {missing}")
 con.sql("SELECT * FROM ccy ORDER BY currency").write_parquet(str(out / "currency.parquet"))
+# the specification applies the rate "at Timestamp": report how far each currency's daily rate moves from
+# its rate over the period (a fixed rate shows rounding only)
+moved = con.execute("""SELECT max(abs(d / c.usd_rate - 1)) FROM (SELECT rc AS currency, substr(ts, 1, 10) AS day,
+        median(ar::DOUBLE / ap::DOUBLE) AS d, count(*) AS n FROM raw
+        WHERE pc = 'US Dollar' AND rc <> pc AND ap::DOUBLE >= 100 GROUP BY 1, 2) JOIN ccy c USING (currency)
+    WHERE n >= 5""").fetchall()[0][0]
+print(f"largest daily move of a US Dollar rate from its period rate: {moved:.4%}", file=sys.stderr)
 con.sql("""SELECT r.trans_id, strptime(r.ts, '%Y/%m/%d %H:%M') AS ts,
         r.fb AS from_bank, f.account_key AS from_account_key, r.tb AS to_bank, t.account_key AS to_account_key,
         r.ar::DOUBLE AS amount_received, r.rc AS receiving_currency, r.ap::DOUBLE AS amount_paid,

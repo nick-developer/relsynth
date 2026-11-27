@@ -77,7 +77,7 @@ stress schema by `builders/stress_schema.py` from a seed).
 | `synthea_100k` | Synthea 3.4.0, 100,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
 | `synthea_1m` | Synthea 3.4.0, 1,000,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
 | `nyc_tlc_12m` | NYC TLC yellow taxi trips 2024 (12 months, about 41M trips) | 1 | bigger runner or maintainer machine |
-| `ibm_aml` | IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, 30.5k banks); checks M1-M11 | 1 | GitHub-hosted |
+| `ibm_aml` | IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, 30.5k banks; Kaggle, KAGGLE_API); checks M1-M12 | 1 | GitHub-hosted |
 | `open_food_facts` | Open Food Facts, 200,000-product extract of the 8 GB export (ODbL) | 1 | GitHub-hosted |
 | `tpch_sf10` | TPC-H data generator at SF10 (87M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
 | `tpch_sf100` | TPC-H data generator at SF100 (870M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |

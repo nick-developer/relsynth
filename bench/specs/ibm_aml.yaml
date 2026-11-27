@@ -13,9 +13,13 @@
 # are ACH or Wire only; one rate per currency for the whole period, consistent through the US Dollar
 # (amount_received = amount_paid x usd_rate(received) / usd_rate(paid) within max(0.01, 0.2 %) on all
 # but 19 rows; the specification's "rate applied at Timestamp" is constant here).
-# Not a rule yet (question to the owner): the specification says Bitcoin payments use Bitcoin
-# currencies; 78 of 146,091 Bitcoin-format rows use other currencies.
-# The *_Patterns.txt ground truth (laundering topologies) is not part of this source.
+# Bitcoin: the specification says Bitcoin payments use Bitcoin currencies; 78 of 146,091 Bitcoin-format
+# rows use other currencies, so the rule holds on 99.998 % of all rows (owner's decision, 2026-11-27).
+# The rate "applied at Timestamp": each currency's daily US Dollar rate stays within 0.01 % of its period
+# rate (rounding), so one rate per currency is the specification's rate here; check M12 re-tests it on
+# every run (owner: stick to the specification unless the data shows otherwise).
+# Source: the authors' Kaggle dataset (ealtman2019/ibm-transactions-for-anti-money-laundering-aml), read
+# with the KAGGLE_API secret. The *_Patterns.txt ground truth (laundering topologies) is not used.
 version: 1
 name: ibm_aml
 source:
@@ -109,6 +113,12 @@ relationships:
 - {child: trans, child_key: payment_currency, parent: currency, parent_key: currency}
 - {child: trans, child_key: receiving_currency, parent: currency, parent_key: currency}
 rules:
+# Bitcoin-format payments are paid in Bitcoin (specification 6.3), on 99.998 % of the rows
+- table: trans
+  type: derive
+  expr: payment_currency = where(payment_format == 'Bitcoin', 'Bitcoin', payment_currency)
+  holds: 0.99998
+  violation: model
 # same currency: no fee, Amount Paid == Amount Received (specification 6.3); other pairs at the fixed rate
 - table: trans
   type: derive

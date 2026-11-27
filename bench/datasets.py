@@ -133,13 +133,6 @@ DOWNLOADS = {
         "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/"
         "8673ac5e7af06427071fb435c7c8f95d7e51c4a7/food.parquet",
         "e70c5043101cfcf2f7c7c451c80b327384fe073a2738e4ee1febfeb4a0bde474"),
-    # IBM Transactions for Anti-Money Laundering (Altman et al. 2023; CDLA-Sharing-1.0), variant HI-Small. The
-    # official copies are on Kaggle (login) and IBM Box; this is a third-party Hugging Face copy at a pinned
-    # commit, whose row count (5,078,345) matches the paper; its card's licence line (apache-2.0) is not the
-    # data's. SHA-256 checked on download
-    "ibm-aml-HI-Small_Trans.csv": ("https://huggingface.co/datasets/bbfizp/AMLSim-HI-Small/resolve/"
-                                   "8342c1343ae6c869e0cf76c0188edb2a54e0eb81/HI-Small_Trans.csv",
-                                   "b19d39f515523373f991b689c07e11e7b0b95c17a2c27a87d91584ae16c5b040"),
     # the T12 mirror of UCI ElectricityLoadDiagrams20112014 (CC BY 4.0), as benchmarks/timeseries pins it
     "electricity.txt.gz": ("https://raw.githubusercontent.com/laiguokun/multivariate-time-series-data/"
                            "master/electricity/electricity.txt.gz",
@@ -177,6 +170,86 @@ def download(name: str) -> Path:
             raise RuntimeError(f"{name}: no SHA-256 pinned yet; this download's is {got} (check the file, then pin "
                                "it in bench/datasets.py DOWNLOADS)")
         raise RuntimeError(f"{name}: SHA-256 {got} does not match the pinned {digest}")
+    tmp.replace(path)
+    return path
+
+
+# Kaggle datasets read with the KAGGLE_API secret (bench.yml passes it to the jobs that need it):
+# {name: (owner/dataset, file, SHA-256)}. IBM Transactions for Anti-Money Laundering (Altman et al. 2023;
+# CDLA-Sharing-1.0) is published there by its authors
+KAGGLE_AML = "ealtman2019/ibm-transactions-for-anti-money-laundering-aml"
+KAGGLE = {"ibm-aml-HI-Small_Trans.csv": (KAGGLE_AML, "HI-Small_Trans.csv", "")}
+
+
+def _kaggle_auth() -> str | None:
+    """The Authorization header for the Kaggle API from KAGGLE_API: a kaggle.json document
+    ({"username", "key"}), "username:key", or an API token."""
+    import base64
+    import json
+    raw = (os.environ.get("KAGGLE_API") or "").strip()
+    if not raw:
+        return None
+    user = key = None
+    if raw.startswith("{"):
+        doc = json.loads(raw)
+        user, key = doc.get("username"), doc.get("key")
+    elif ":" in raw:
+        user, key = raw.split(":", 1)
+    if user and key:
+        return "Basic " + base64.b64encode(f"{user}:{key}".encode()).decode()
+    return f"Bearer {raw}"
+
+
+def _kaggle_available() -> tuple[bool, str]:
+    return (True, "") if os.environ.get("KAGGLE_API") else (False, "KAGGLE_API is not set (Kaggle download)")
+
+
+def download_kaggle(name: str) -> Path:
+    """The cached Kaggle file, downloaded with KAGGLE_API on first use. The API answers with a redirect
+    to a signed storage URL, which is fetched without the credential (it never leaves kaggle.com)."""
+    import urllib.error
+    import urllib.request
+    slug, file, digest = KAGGLE[name]
+    path = CACHE / "downloads" / name
+    if path.exists() and (not digest or sha256(path) == digest):
+        return path
+    auth = _kaggle_auth()
+    if auth is None:
+        raise RuntimeError(f"{name}: KAGGLE_API is not set")
+
+    class _Stop(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+            return None                 # urllib raises HTTPError: the signed URL is read from it
+
+    url = f"https://www.kaggle.com/api/v1/datasets/download/{slug}/{file}"
+    req = urllib.request.Request(url, headers={"Authorization": auth, "User-Agent": "relsynth-bench"})  # noqa: S310
+    say(f"downloading {file} from Kaggle ({slug})")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".part")
+    try:
+        with urllib.request.build_opener(_Stop).open(req, timeout=600) as r, open(tmp, "wb") as f:  # noqa: S310
+            shutil.copyfileobj(r, f)
+    except urllib.error.HTTPError as e:
+        target = e.headers.get("Location", "") if e.code in (301, 302, 303, 307, 308) else ""
+        if not target.startswith("https://"):
+            raise RuntimeError(f"{name}: Kaggle answered HTTP {e.code}") from None
+        with urlopen(target, timeout=600) as r, open(tmp, "wb") as f:
+            shutil.copyfileobj(r, f)
+    with open(tmp, "rb") as f:
+        zipped = f.read(4) == b"PK\x03\x04"
+    if zipped:                          # a large file comes zipped
+        with zipfile.ZipFile(tmp) as z:
+            member = next(m for m in z.namelist() if m.endswith(file))
+            with z.open(member) as src, open(path.with_suffix(path.suffix + ".unz"), "wb") as dst:
+                shutil.copyfileobj(src, dst)
+        tmp.unlink()
+        tmp = path.with_suffix(path.suffix + ".unz")
+    got = sha256(tmp)
+    if digest and got != digest:
+        tmp.unlink()
+        raise RuntimeError(f"{name}: SHA-256 {got} does not match the pinned {digest}")
+    if not digest:
+        say(f"{name}: SHA-256 {got} (not pinned yet; the download is authenticated, pin it in KAGGLE)")
     tmp.replace(path)
     return path
 
@@ -722,11 +795,12 @@ DATASETS = {
                            seeds=(1,), generic=True, coverage=("events", "messy_values", "skew", "size_gb")),
     "ibm_aml": Dataset("ibm_aml",
                        lambda: "parquet:" + str(_built("ibm_aml/parquet", "aml_parquet.py",
-                                                       lambda: download("ibm-aml-HI-Small_Trans.csv"), OUT,
+                                                       lambda: download_kaggle("ibm-aml-HI-Small_Trans.csv"), OUT,
                                                        dir_out=True)),
                        _spec("ibm_aml"), _parquet_checks("ibm_aml"),
                        note="IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, "
-                            "30.5k banks); checks M1-M11", tier="monthly", seeds=(1,), generic=True,
+                            "30.5k banks; Kaggle, KAGGLE_API); checks M1-M12", tier="monthly", seeds=(1,),
+                       generic=True, requires=_kaggle_available,
                        coverage=("events", "skew", "high_cardinality", "size_100mb")),
     "open_food_facts": Dataset("open_food_facts",
                                lambda: "parquet:" + str(_built("open_food_facts/parquet", "openfoodfacts_extract.py",

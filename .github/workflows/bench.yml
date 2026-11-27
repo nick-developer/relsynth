@@ -94,6 +94,8 @@ jobs:
           SEEDS: ${{ matrix.part.seeds }}
           DATASETS: ${{ matrix.part.datasets }}
           FAKE: ${{ matrix.part.fake }}
+          # the Kaggle credential reaches only the job of the dataset read from Kaggle (bench/datasets.py KAGGLE)
+          KAGGLE_API: ${{ contains(matrix.part.datasets, 'ibm_aml') && secrets.KAGGLE_API || '' }}
         run: |
           # shellcheck disable=SC2086
           python -m bench run ${DATASETS:+--datasets $DATASETS} --seeds "$SEEDS" $FAKE --out-dir bench-out --label "$TIER"
