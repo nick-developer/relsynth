@@ -19,7 +19,7 @@
 # rate (rounding), so one rate per currency is the specification's rate here; check M12 re-tests it on
 # every run (owner: stick to the specification unless the data shows otherwise).
 # Source: the authors' Kaggle dataset (ealtman2019/ibm-transactions-for-anti-money-laundering-aml), read
-# with the KAGGLE_API secret. The *_Patterns.txt ground truth (laundering topologies) is not used.
+# with the KAGGLE_API_TOKEN secret. The *_Patterns.txt ground truth (laundering topologies) is not used.
 version: 1
 name: ibm_aml
 source:

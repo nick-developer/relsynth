@@ -174,7 +174,7 @@ def download(name: str) -> Path:
     return path
 
 
-# Kaggle datasets read with the KAGGLE_API secret (bench.yml passes it to the jobs that need it):
+# Kaggle datasets read with the KAGGLE_API_TOKEN secret (bench.yml passes it to the jobs that need it):
 # {name: (owner/dataset, file, SHA-256)}. IBM Transactions for Anti-Money Laundering (Altman et al. 2023;
 # CDLA-Sharing-1.0) is published there by its authors
 KAGGLE_AML = "ealtman2019/ibm-transactions-for-anti-money-laundering-aml"
@@ -182,11 +182,11 @@ KAGGLE = {"ibm-aml-HI-Small_Trans.csv": (KAGGLE_AML, "HI-Small_Trans.csv", "")}
 
 
 def _kaggle_auth() -> str | None:
-    """The Authorization header for the Kaggle API from KAGGLE_API: a kaggle.json document
+    """The Authorization header for the Kaggle API from KAGGLE_API_TOKEN: a kaggle.json document
     ({"username", "key"}), "username:key", or an API token."""
     import base64
     import json
-    raw = (os.environ.get("KAGGLE_API") or "").strip()
+    raw = (os.environ.get("KAGGLE_API_TOKEN") or "").strip()
     if not raw:
         return None
     user = key = None
@@ -201,11 +201,11 @@ def _kaggle_auth() -> str | None:
 
 
 def _kaggle_available() -> tuple[bool, str]:
-    return (True, "") if os.environ.get("KAGGLE_API") else (False, "KAGGLE_API is not set (Kaggle download)")
+    return (True, "") if os.environ.get("KAGGLE_API_TOKEN") else (False, "KAGGLE_API_TOKEN is not set (Kaggle download)")
 
 
 def download_kaggle(name: str) -> Path:
-    """The cached Kaggle file, downloaded with KAGGLE_API on first use. The API answers with a redirect
+    """The cached Kaggle file, downloaded with KAGGLE_API_TOKEN on first use. The API answers with a redirect
     to a signed storage URL, which is fetched without the credential (it never leaves kaggle.com)."""
     import urllib.error
     import urllib.request
@@ -215,7 +215,7 @@ def download_kaggle(name: str) -> Path:
         return path
     auth = _kaggle_auth()
     if auth is None:
-        raise RuntimeError(f"{name}: KAGGLE_API is not set")
+        raise RuntimeError(f"{name}: KAGGLE_API_TOKEN is not set")
 
     class _Stop(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
@@ -799,7 +799,7 @@ DATASETS = {
                                                        dir_out=True)),
                        _spec("ibm_aml"), _parquet_checks("ibm_aml"),
                        note="IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, "
-                            "30.5k banks; Kaggle, KAGGLE_API); checks M1-M12", tier="monthly", seeds=(1,),
+                            "30.5k banks; Kaggle, KAGGLE_API_TOKEN); checks M1-M12", tier="monthly", seeds=(1,),
                        generic=True, requires=_kaggle_available,
                        coverage=("events", "skew", "high_cardinality", "size_100mb")),
     "open_food_facts": Dataset("open_food_facts",
