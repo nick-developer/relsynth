@@ -25,20 +25,16 @@ import duckdb
 
 src, out = Path(sys.argv[1]), Path(sys.argv[2])
 out.mkdir(parents=True, exist_ok=True)
-
-
-def lit(p) -> str:
-    return "'" + str(p).replace("'", "''") + "'"
-
-
 con = duckdb.connect()
-# both account columns are named "Account" in the header: read by position, every value as text
-con.execute(f"""CREATE TEMP VIEW raw AS SELECT row_number() OVER () AS trans_id, * FROM read_csv({lit(src)},
-    header = true, all_varchar = true, names = ['ts', 'fb', 'fa', 'tb', 'ta', 'ar', 'rc', 'ap', 'pc', 'pf', 'lab'])""")
+# both account columns are named "Account" in the header: read by position, every value as text. Paths go
+# through the relation API (no SQL text is built from a value)
+csv = con.read_csv(str(src), header=True, all_varchar=True,
+                   names=["ts", "fb", "fa", "tb", "ta", "ar", "rc", "ap", "pc", "pf", "lab"])
+con.sql("SELECT row_number() OVER () AS trans_id, * FROM csv").to_table("raw")
 con.execute("CREATE TEMP TABLE acct AS SELECT row_number() OVER (ORDER BY b, a) AS account_key, b AS bank_id, "
             "a AS account_id FROM (SELECT fb AS b, fa AS a FROM raw UNION SELECT tb, ta FROM raw)")
-con.execute(f"COPY (SELECT DISTINCT bank_id FROM acct ORDER BY bank_id) TO {lit(out / 'bank.parquet')} (FORMAT parquet)")
-con.execute(f"COPY (SELECT * FROM acct ORDER BY account_key) TO {lit(out / 'account.parquet')} (FORMAT parquet)")
+con.sql("SELECT DISTINCT bank_id FROM acct ORDER BY bank_id").write_parquet(str(out / "bank.parquet"))
+con.sql("SELECT * FROM acct ORDER BY account_key").write_parquet(str(out / "account.parquet"))
 # the simulator converts at one rate per currency for the whole period, and the rates of all pairs are
 # consistent through the US Dollar (A->B = usd(B) / usd(A) within 0.2 %, rounding of small amounts):
 # usd_rate = units per US Dollar, the median rate of the cross-currency payments of at least 100 units
@@ -52,16 +48,16 @@ con.execute("""CREATE TEMP TABLE ccy AS WITH c AS (SELECT DISTINCT x AS currency
     SELECT c.currency, CASE WHEN c.currency = 'US Dollar' THEN 1.0 ELSE
         (SELECT round(v, 5 - floor(log10(v))::INTEGER) FROM (SELECT coalesce(fwd.r, rev.r) AS v)) END AS usd_rate
     FROM c LEFT JOIN fwd USING (currency) LEFT JOIN rev USING (currency)""")
-missing = con.execute("SELECT list(currency) FROM ccy WHERE usd_rate IS NULL").fetchone()[0]
+missing = con.execute("SELECT list(currency) FROM ccy WHERE usd_rate IS NULL").fetchall()[0][0]
 if missing:
     raise SystemExit(f"no US Dollar rate for {missing}")
-con.execute(f"COPY (SELECT * FROM ccy ORDER BY currency) TO {lit(out / 'currency.parquet')} (FORMAT parquet)")
-con.execute(f"""COPY (SELECT r.trans_id, strptime(r.ts, '%Y/%m/%d %H:%M') AS ts,
+con.sql("SELECT * FROM ccy ORDER BY currency").write_parquet(str(out / "currency.parquet"))
+con.sql("""SELECT r.trans_id, strptime(r.ts, '%Y/%m/%d %H:%M') AS ts,
         r.fb AS from_bank, f.account_key AS from_account_key, r.tb AS to_bank, t.account_key AS to_account_key,
         r.ar::DOUBLE AS amount_received, r.rc AS receiving_currency, r.ap::DOUBLE AS amount_paid,
         r.pc AS payment_currency, r.pf AS payment_format, r.lab::INTEGER AS is_laundering
     FROM raw r JOIN acct f ON f.bank_id = r.fb AND f.account_id = r.fa
-    JOIN acct t ON t.bank_id = r.tb AND t.account_id = r.ta ORDER BY r.trans_id)
-    TO {lit(out / 'trans.parquet')} (FORMAT parquet, COMPRESSION zstd)""")
+    JOIN acct t ON t.bank_id = r.tb AND t.account_id = r.ta ORDER BY r.trans_id""").write_parquet(
+    str(out / "trans.parquet"), compression="zstd")
 for t in ("bank", "account", "currency", "trans"):
-    print(t, con.execute(f"SELECT count(*) FROM read_parquet({lit(out / (t + '.parquet'))})").fetchone()[0], "rows")
+    print(t, con.read_parquet(str(out / f"{t}.parquet")).shape[0], "rows")
