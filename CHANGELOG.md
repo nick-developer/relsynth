@@ -48,6 +48,11 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Fixed
 
+- Pushdown: a sampled fact with a date offset (or another hidden column of the internal model) no longer
+  fails with a KeyError; segment discovery's GROUP BY statistics use source columns only (TPC-H SF1 bench).
+- Loading: categorical and text columns read with a nullable dtype (Int64, Float64, boolean, as a
+  pushed-down Parquet sample reads a code column with nulls) become text codes. pandas 3.1 refused them
+  with a TypeError (NYC TLC bench) and pandas 3.0 left them as numbers.
 - **Reproducible drafts** (`relsynth introspect`; Props. 1840–1842, checks C1840–C1842). Three drafting faults made the weekly bench drafts of the MIMIC-IV demo differ from run to run:
   - A table without a primary or unique key (up to 5 million rows) is sampled by a keyed hash of each row's content (bottom-n order sampling) instead of `ORDER BY random()`: the sample depends only on the rows and the seed, not on the order the database returns them in.
   - A ratio column (`ratio_of`) is drafted only when its factor has less entropy than the column itself, so a code column that depends weakly on a parent number is no longer drafted as a ratio on large tables. Each drafting test draws from its own keyed generator, so its outcome does not depend on earlier tests.
