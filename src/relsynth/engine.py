@@ -520,17 +520,23 @@ def _log_dm(n, a):
 
 def _log_bf_joint(cnt, dims):
     """log Bayes factor of a saturated joint table against independent margins
-    (Gunel and Dickey 1974): cell counts cnt (raveled over dims) under a uniform
-    Dirichlet(1) joint, against the product of the margins under Dirichlet priors
-    with the joint prior's margins (L / d_j per level), so both models give the
-    same prior mean."""
+    (Gunel and Dickey 1974): cell counts cnt (raveled over dims) under a symmetric
+    Dirichlet joint with total concentration c = sum_j d_j, against the product of
+    the margins under the joint prior's margins, Dirichlet(c / d_j) per level, so
+    both models have the same prior mean.  With c = L (one per cell) the margin
+    priors are concentrated near uniform when the table is sparse (L >> n), and
+    skewed independent margins then read as dependence (three Zipf links of 13
+    levels, 400 rows: log BF +91); with c = sum_j d_j such tables score below 0 at
+    every size tried while strong dependence (half the rows copying one link) stays
+    decisive."""
     dims = tuple(int(d) for d in dims)
     L = int(np.prod(dims))
+    c = float(sum(dims))
     t = np.asarray(cnt, float).reshape(dims)
-    lbf = _log_dm(t.ravel(), np.ones(L))
+    lbf = _log_dm(t.ravel(), np.full(L, c / L))
     for j, d in enumerate(dims):
         m = t.sum(axis=tuple(i for i in range(len(dims)) if i != j))
-        lbf -= _log_dm(m, np.full(d, L / d))
+        lbf -= _log_dm(m, np.full(d, c / d))
     return lbf
 
 
@@ -2362,10 +2368,12 @@ class Synthesizer:
         their segments (rows, for small copied parents with a segment per row) given
         the block, P(s | block), with the sparse-Dirichlet back-off of _extra_dist.
         Privacy: a combination held by fewer than privacy.suppress_small_counts
-        source rows is left out of the counts, so it is never reproduced from the
-        source, as a rare level of a single column is not (the floor of the
-        rule-linked joints).  The joint law is used only when the joint table beats
-        independence by facts.joint_links_bf (Bayes factor of a Dirichlet-multinomial
+        source rows is not a level of the joint law; its rows form one "other"
+        level at which each link is drawn from its own law, so it is never
+        reproduced from its own count, as a rare level of a single column is not
+        (the floor of the rule-linked joints), and the margins keep their mass.
+        The joint law is used only when the joint table beats independence by
+        facts.joint_links_bf (Bayes factor of a Dirichlet-multinomial
         joint against the product of Dirichlet-multinomial margins; Good 1976, Gunel
         and Dickey 1974) and has at most facts.joint_links_max_levels levels;
         otherwise the keys stay independent given the block, as before."""
@@ -2396,18 +2404,25 @@ class Synthesizer:
             cnt = np.bincount(s, minlength=L)
             keep = cnt[s] >= kmin
             floored = int((cnt > 0).sum() - (cnt >= kmin).sum())
-            lbf = _log_bf_joint(np.where(cnt >= kmin, cnt, 0), dims)
+            # the evidence for dependence is read on every row; the floor only decides which
+            # combinations the joint law may reproduce
+            lbf = _log_bf_joint(cnt, dims)
             if not keep.any() or lbf < lbf_min:
                 dec[f"joint links {label}"] = (f"independent given the block: log Bayes factor of the joint "
                                                f"table {lbf:.1f} < {lbf_min:.1f}")
                 continue
-            d = self._level_dist(z1[keep], z2[keep], s[keep], K1, K2, L)
-            d.update({"members": list(g), "dims": list(dims)})
+            # rows of floored combinations form one more level, "other": a row drawn at it takes each
+            # link from its own law given the block, as before, so the margins keep their mass and a
+            # rare combination appears only as often as independent links give it
+            lab = np.where(keep, s, L)
+            d = self._level_dist(z1, z2, lab, K1, K2, L + 1)
+            d.update({"members": list(g), "dims": list(dims), "other": L})
             self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
             info["extra_joint"].append(d)
             dec[f"joint links {label}"] = (
                 f"drawn jointly over {int((cnt >= kmin).sum())} observed combinations (log Bayes factor {lbf:.0f}); "
-                f"{floored} combinations held by fewer than {kmin} rows ({int((~keep).sum())} rows) left out")
+                f"{floored} combinations held by fewer than {kmin} rows ({int((~keep).sum())} rows) drawn as "
+                "independent links")
 
     def _extra_dist(self, z1, z2, s, K1, K2, ex):
         """P(extra-dimension segment | block): sparse Dirichlet with a back-off
@@ -4700,12 +4715,21 @@ class Synthesizer:
                     p = p / p.sum() if p.sum() > 0 else av0 / av0.sum()
                     self._rows_of_segments(rng, rows, rng.choice(kb, size=len(rows), p=p), memx, wx, kx, res[j])
                 continue
-            p = np.asarray(d["P"][b], float) * avail
-            p = p / p.sum() if p.sum() > 0 else avail / max(avail.sum(), 1e-300)
-            segs = np.unravel_index(rng.choice(L, size=len(rows), p=p), dims)
+            av = np.r_[avail, 1.0]                                  # the "other" level
+            p = np.asarray(d["P"][b], float) * av
+            p = p / p.sum() if p.sum() > 0 else av / av.sum()
+            lev = rng.choice(L + 1, size=len(rows), p=p)
+            oth = lev == L
+            segs = np.unravel_index(np.where(oth, 0, lev), dims)
             for j in range(len(mem)):
                 r, xp, kx, wx, memx, availx = ext[j]
-                self._rows_of_segments(rng, rows, segs[j], memx, wx, kx, res[j])
+                seg = np.asarray(segs[j]).copy()
+                if oth.any():
+                    # independent links at the "other" level, each from its own law given the block
+                    pj = np.asarray(xp["P"][b], float) * availx
+                    pj = pj / pj.sum() if pj.sum() > 0 else availx / availx.sum()
+                    seg[oth] = rng.choice(len(pj), size=int(oth.sum()), p=pj)
+                self._rows_of_segments(rng, rows, seg, memx, wx, kx, res[j])
         return {ext[j][0]["child_key"]: res[j] for j in range(len(mem))}
 
     @staticmethod
@@ -5870,7 +5894,7 @@ class Synthesizer:
                     continue
                 if b >= len(d["P"]):
                     return None                                   # rows without a partner
-                p = np.asarray(d["P"][b], float) * avail * (pm if wv else 1.0 - pm)
+                p = np.asarray(d["P"][b], float)[:len(avail)] * avail * (pm if wv else 1.0 - pm)
                 if p.sum() <= 0:
                     p = avail * (pm if wv else 1.0 - pm)
                 if p.sum() <= 0:

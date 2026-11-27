@@ -224,7 +224,7 @@ S = {
         "joint_links": ("auto | off", "auto", "Extra links of the fact to the same parent table (a role-playing "
                         "dimension: payment and receiving currency, origin and destination) drawn jointly over "
                         "their observed combinations; combinations held by fewer than "
-                        "privacy.suppress_small_counts rows are left out. auto: when the joint table beats "
+                        "privacy.suppress_small_counts rows are drawn as independent links. auto: when the joint table beats "
                         "independence by facts.joint_links_bf. off: each link drawn on its own."),
         "time_column": ("column", None, "Date column with a seasonal profile per segment."),
         "time_bucket": ("day | week | month | quarter | year", "month", "Bucket of the seasonal profile."),

@@ -126,6 +126,11 @@ def test_log_bf_joint_detects_dependence_only():
     dep = np.bincount(a * 6 + np.where(rng.random(3000) < 0.9, a, rng.integers(0, 6, 3000)), minlength=36)
     assert _log_bf_joint(indep, (6, 6)) < np.log(100)
     assert _log_bf_joint(dep, (6, 6)) > 100
+    # sparse tables with skewed independent margins (three links of 13 levels, 400 rows)
+    p = 1 / np.arange(1, 14) ** 1.3
+    labs = [rng.choice(13, 400, p=p / p.sum()) for _ in range(3)]
+    sparse = np.bincount(np.ravel_multi_index(labs, (13, 13, 13)), minlength=13 ** 3)
+    assert _log_bf_joint(sparse, (13, 13, 13)) < 0
 
 
 def test_role_playing_links_drawn_jointly(tmp_path):
@@ -139,7 +144,8 @@ def test_role_playing_links_drawn_jointly(tmp_path):
     assert (s_off.pay == s_off.recv).mean() < same_real - 0.2
     assert "drawn jointly" in dec["t"]["joint links pay + recv"]
     assert abs((s_on.pay == s_on.recv).mean() - same_real) < 0.04
-    assert np.mean([p not in real_pairs for p in zip(s_on.pay, s_on.recv)]) == 0.0
+    # new combinations only from the rows of floored combinations, drawn as independent links
+    assert np.mean([p not in real_pairs for p in zip(s_on.pay, s_on.recv)]) < 0.005
     assert _tvd(s_on.fmt, src.fmt) < 0.05 < _tvd(s_off.fmt, src.fmt)
 
 
@@ -182,7 +188,7 @@ def test_match_on_role_playing_links_exact(tmp_path):
     s = on["t"]
     real_pairs = set(zip(src.pay, src.recv))
     assert abs((s.pay == s.recv).mean() - (src.pay == src.recv).mean()) < 0.01
-    assert np.mean([p not in real_pairs for p in zip(s.pay, s.recv)]) == 0.0
+    assert np.mean([p not in real_pairs for p in zip(s.pay, s.recv)]) < 0.005
     assert _tvd(s.fmt, src.fmt) < 0.03
 
 
