@@ -1465,9 +1465,15 @@ class Synthesizer:
         return self._stat_index(f, r["child_key"], r["parent"], vals)
 
     def _measures(self, f):
-        """The (up to three) continuous columns whose normal scores segment discovery uses."""
+        """The (up to three) continuous columns whose normal scores segment discovery uses.
+        Only source columns: a pushed-down fact's GROUP BY statistics run in the database,
+        which holds no hidden column of the internal model (a date offset's gap, a ratio's
+        factor, a stated distribution's draw)."""
+        from .transform import HIDDEN_PREFIXES as PLAN_HIDDEN
         tm = self.tm[f]
-        return [cd.name for cd in tm.codecs if cd.kind == "continuous" and cd.name not in tm.aux][:3]
+        hidden = PLAN_HIDDEN + HIDDEN_PREFIXES
+        return [cd.name for cd in tm.codecs if cd.kind == "continuous" and cd.name not in tm.aux
+                and not cd.name.startswith(hidden)][:3]
 
     def _nested_groups(self, f):
         """GROUP BY statistics of a pushed-down nested fact over its composite key and

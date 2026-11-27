@@ -307,11 +307,14 @@ def coerce(df: pd.DataFrame, tspec: dict, optional=(), notes=None, table="") -> 
                 # column back, after copying it into Python strings twice (gigabytes on a
                 # 15M-row table)
                 continue
+            # a masked dtype (Int64, Float64, boolean: what a pushed-down sample reads for a code
+            # column with nulls) refuses text in where() from pandas 3.1, so the codes go to objects first
+            o = s.astype(object)
             if pd.api.types.is_float_dtype(s) and s.isna().any() and _exact_integers(s.dropna()):
                 # integer codes read as floats because of a null: '1', not '1.0'
-                df[c] = s.where(s.isna(), s.map(lambda x: str(int(x)), na_action="ignore"))
+                df[c] = o.where(s.isna(), o.map(lambda x: str(int(x)), na_action="ignore"))
             else:
-                df[c] = s.where(s.isna(), s.astype(str))
+                df[c] = o.where(s.isna(), s.astype(str))
     return df
 
 
@@ -371,7 +374,7 @@ def canonical_keys(s: pd.Series) -> pd.Series:
         num = pd.to_numeric(s, errors="coerce")
         if num.notna().sum() == len(txt) and _exact_integers(num.dropna()):
             return num.round().astype("Int64")
-    return s.where(s.isna(), s.astype(str))
+    return s.astype(object).where(s.isna(), s.astype(str))
 
 
 def _to_bool(v):
