@@ -150,3 +150,15 @@ def test_offset_through_a_key_that_moves_to_the_order_header(tmp_path):
     gap = (pd.to_datetime(s["l_date"]) - pd.to_datetime(s["c_id"].map(out["customer"].set_index("c_id")["c_since"]))).dt.days
     assert len(s) > 0 and gap.between(1, 30).all()
 
+
+
+def test_pushed_down_fact_with_offsets_fits(tmp_path):
+    """A sampled fact's GROUP BY statistics run in the database, which holds no hidden offset
+    column: segment discovery uses source columns only."""
+    db = _db(tmp_path)
+    s = _spec(db)
+    s["synthesis"] = {"pushdown": {"mode": "on", "sample_rows": 300, "min_rows": 0}}
+    r = rs.run(s, write=False, privacy=False, seed=1)
+    assert r.ok and "lines" in r.model.pushdown.get("pushed", {})
+    ship, commit, receipt = _gaps(r.data)
+    assert ship.between(1, 30).all() and receipt.between(1, 7).all()
