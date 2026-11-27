@@ -453,6 +453,47 @@ def _lookup_order(lk):
 _log = logging.getLogger("relsynth")
 
 
+AFFINITY_PASSES = 8          # passes of link-affinity moves under a unique key (_apply_affinity)
+
+
+def _ukey(values):
+    """A unique key's value as a hashable tuple of spellings; None when a part is null (NULLs are
+    distinct under a unique key)."""
+    out = []
+    for v in values:
+        if v is None or (isinstance(v, float) and v != v) or v is pd.NA or v is pd.NaT:
+            return None
+        out.append(str(int(v)) if isinstance(v, (float, np.floating)) and float(v).is_integer() else str(v))
+    return tuple(out)
+
+
+def _dm_split_gain(L, P, W=None) -> float:
+    """log marginal likelihood of the partner rows P under one symmetric
+    Dirichlet-multinomial per level L (concentration 1 / number of partners) minus
+    that of one pooled Dirichlet-multinomial; W are row weights (counts).  Only
+    the non-empty (level, partner) cells enter: an empty cell adds
+    gammaln(alpha) - gammaln(alpha) = 0, so the sum over the cells that occur
+    equals the sum over every level and partner, in O(rows) rather than
+    O(levels x rows)."""
+    nP = int(P.max()) + 1
+    a = 1.0 / nP
+    w = np.ones(len(P)) if W is None else np.asarray(W, dtype=float)
+
+    def cells(key):
+        u, inv = np.unique(key, return_inverse=True)
+        return np.bincount(inv, weights=w, minlength=len(u))
+
+    lev = np.unique(L, return_inverse=True)[1]
+    c_kp = cells(lev.astype(np.int64) * nP + P)              # counts per occurring (level, partner)
+    n_k = np.bincount(lev, weights=w)                        # rows per level
+    c_p = np.bincount(P, weights=w, minlength=nP)            # pooled counts per partner
+    g = gammaln(a)
+    split = (len(n_k) * gammaln(nP * a) - gammaln(n_k + nP * a).sum()
+             + (gammaln(c_kp + a) - g).sum())
+    pooled = gammaln(nP * a) - gammaln(c_p.sum() + nP * a) + (gammaln(c_p + a) - g).sum()
+    return float(split - pooled)
+
+
 def say(msg):
     """Progress of long fits and samples, one INFO record per stage on the
     'relsynth' logger (the CLI shows them on stderr; RELSYNTH_QUIET=1 or
@@ -628,7 +669,13 @@ class Synthesizer:
         for t in T:
             excl = self._excluded(t)
             aux = self._aux_columns(t, tables) if T[t]["role"] == "fact" else None
-            self.tm[t] = TableModel(t, T[t], tables[t], table_config(cfg, t), exclude=excl, aux=aux)
+            # own columns a check rule constrains together (paths through keys excluded)
+            groups = [{c for c in names_in(r["expr"]) if "." not in c} for r in self.spec.get("rules", [])
+                      if r.get("table") == t and r.get("type") == "check"]
+            self.tm[t] = TableModel(t, T[t], tables[t], table_config(cfg, t), exclude=excl, aux=aux,
+                                    rule_groups=groups)
+            if self.tm[t].rule_groups:
+                self.log["decisions"].setdefault(t, {})["rule-linked joints"] = self.tm[t].rule_groups
             self._attach_generator(t)
         # ---- latent entity objects (strata = rows of small copied parents)
         E = {}
@@ -1242,17 +1289,9 @@ class Synthesizer:
                     continue
                 L, P = lev[pos[ok]], q[ok]
                 W = None if wt is None else wt[ok]
-                nP = int(P.max()) + 1
-                alpha = 1.0 / nP
-
-                def dm(cnt):
-                    return float(gammaln(nP * alpha) - gammaln(cnt.sum() + nP * alpha)
-                                 + (gammaln(cnt + alpha) - gammaln(alpha)).sum())
                 # a relation the levels do not explain contributes nothing (its rates
                 # may be equal across strata), not negative evidence
-                tot += max(0.0, sum(dm(np.bincount(P[L == k], weights=None if W is None else W[L == k],
-                                                   minlength=nP).astype(float)) for k in np.unique(L))
-                           - dm(np.bincount(P, weights=W, minlength=nP).astype(float)))
+                tot += max(0.0, _dm_split_gain(L, P, W))
         return tot
 
     def _strata(self, e, tables):
@@ -2698,7 +2737,16 @@ class Synthesizer:
             # number unique per customer): the attributes are drawn before the links,
             # so moving the links conditions on both (keys of attributes only: _finish)
             attrs = set(self.tm[t].out_cols) if t in getattr(self, "tm", {}) else set()
+            # a column that stratifies the entity's rows (_attribute_strata: a disposition's type) is set
+            # with the row's stratum, before its links, like a modelled attribute
+            if getattr(self, "attr_strata", {}).get(t):
+                attrs.add(self.attr_strata[t])
             ukeys = [u for u in T[t].get("unique", []) if set(u) & fkcols and set(u) <= fkcols | attrs]
+            for u in T[t].get("unique", []):
+                if set(u) & fkcols and not set(u) <= fkcols | attrs:
+                    self.log["warnings"].append(
+                        f"{t}: unique key {list(u)} is not enforced: {sorted(set(u) - fkcols - attrs)} "
+                        "is set after the links (a derived, aggregated or generated column)")
             # links fixed by stratification are not moved by the link sampler: a rule that
             # reads only those links and the row's attributes is a rule on the attributes
             fixed = set(getattr(self, "strata_info", {}).get(t, {}).get("by", [])) if T[t]["role"] == "entity" else set()
@@ -5450,8 +5498,11 @@ class Synthesizer:
         still holds."""
         for st in getattr(self, "affinity", {}).get(t, []):
             r = next((x for x in self.fk[t] if x["child_key"] == st["fk"]), None)
-            if r is None or not len(df) or any(st["fk"] in u for u in self.cons.get(t, {}).get("unique", [])):
+            if r is None or not len(df):
                 continue
+            # unique keys over the moved link (one owner per account): a move is kept only when the
+            # row's new key is not already held, so the moves keep every key unique
+            ukeys = [u for u in self.cons.get(t, {}).get("unique", []) if st["fk"] in u and all(c in df for c in u)]
             P = out[r["parent"]]
             pk = self.spec["tables"][r["parent"]]["primary_key"]
             if st["col"] not in P.columns:
@@ -5475,7 +5526,8 @@ class Synthesizer:
             nz = (getattr(self, "fact_info", {}).get(t) or {}).get("null2")
             if nz and st["fk"] == self.fact_info[t]["fks"][1]["child_key"]:
                 keep_null = df[st["fk"]].notna().to_numpy()    # a row without a partner keeps none
-            cand = np.flatnonzero(~same & np.array([x is not None and x in byval for x in av]) & keep_null)
+            eligible = np.array([x is not None and x in byval for x in av]) & keep_null
+            cand = np.flatnonzero(~same & eligible)
             cand = cand[self.rng.permutation(len(cand))]
             # every row rule is re-checked: a moved link can also break a rule that the
             # sampler treats as an attribute rule (a link fixed by stratification)
@@ -5487,30 +5539,94 @@ class Synthesizer:
             track = "__anchor_row__" in df and not fi.get("nested") and fi.get("fks") \
                 and st["fk"] == fi["fks"][0]["child_key"] and r["parent"] == fi.get("anchor")
             arow = df["__anchor_row__"].to_numpy().copy() if track else None
-            start = 0
-            while moved < need and start < len(cand):
-                # consecutive, non-overlapping windows: each candidate row is tried once
-                rows = cand[start:start + 2 * (need - moved)]
-                start += len(rows)
-                newk = np.empty(len(rows), dtype=object)
-                newp = np.empty(len(rows), dtype=np.int64)
-                for v, ii in pd.Series(np.arange(len(rows))).groupby(av[rows]).indices.items():
-                    m = byval[v]
-                    newp[ii] = m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]
-                    newk[ii] = pkeys[newp[ii]]
-                sub = df.iloc[rows].copy()
-                sub[st["fk"]] = newk
-                ok = np.ones(len(rows), bool)
-                if krules:
-                    sub = self._computed(t, sub, out, strict=False)
-                    rs = self._resolver(t, sub, out)
-                    for kr in krules:
-                        ok &= check_mask(sub, kr["expr"], rs)
-                acc = np.flatnonzero(ok)[:need - moved]
-                col[rows[acc]] = newk[acc]
-                if track:
-                    arow[rows[acc]] = newp[acc]
-                moved += len(acc)
+            # held[q]: row holding each value of unique key q; same: the rows already matching
+            held = []
+            for u in ukeys:
+                parts = [col if c == st["fk"] else df[c].to_numpy(dtype=object) for c in u]
+                held.append((u, parts, {k: i for i, k in enumerate(map(_ukey, zip(*parts))) if k is not None}))
+            swapped = 0
+
+            def key_of(q, rr, link, held=held, fk=st["fk"]):
+                """Value of unique key q on row rr with the moved link set to link."""
+                u, parts, _ = held[q]
+                return _ukey(tuple(link if c == fk else parts[p_][rr] for p_, c in enumerate(u)))
+            # under a unique key most targets are taken: the rows still not matching are tried again,
+            # with new targets, while a pass moves any (one pass otherwise, as each row is tried once)
+            for pass_ in range(AFFINITY_PASSES if held else 1):
+                if pass_:
+                    cand = np.flatnonzero(~same & eligible)
+                    cand = cand[self.rng.permutation(len(cand))]
+                before = moved
+                start = 0
+                while moved < need and start < len(cand):
+                    # consecutive, non-overlapping windows: each candidate row is tried once
+                    rows = cand[start:start + 2 * (need - moved)]
+                    start += len(rows)
+                    newk = np.empty(len(rows), dtype=object)
+                    newp = np.empty(len(rows), dtype=np.int64)
+                    for v, ii in pd.Series(np.arange(len(rows))).groupby(av[rows]).indices.items():
+                        m = byval[v]
+                        newp[ii] = m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]
+                        newk[ii] = pkeys[newp[ii]]
+                    sub = df.iloc[rows].copy()
+                    sub[st["fk"]] = newk
+                    ok = np.ones(len(rows), bool)
+                    if krules:
+                        sub = self._computed(t, sub, out, strict=False)
+                        rs = self._resolver(t, sub, out)
+                        for kr in krules:
+                            ok &= check_mask(sub, kr["expr"], rs)
+                    acc = np.flatnonzero(ok)
+                    if held:
+                        keep = []
+                        for i in acc:
+                            if len(keep) + swapped >= need - moved:
+                                break
+                            row = rows[i]
+                            new_keys = [key_of(q, row, newk[i]) for q in range(len(held))]
+                            owners = {held[q][2].get(k) for q, k in enumerate(new_keys) if k is not None} - {None, row}
+                            if not owners:
+                                for q, k in enumerate(new_keys):
+                                    held[q][2].pop(key_of(q, row, col[row]), None)
+                                    if k is not None:
+                                        held[q][2][k] = row
+                                col[row] = newk[i]       # parts of the moved link read col
+                                same[row] = True
+                                keep.append(i)
+                                continue
+                            # the new key is held by one other row j that does not match: exchange the two
+                            # rows' links (the set of keys is unchanged, so every key stays unique); row i
+                            # then matches and j's match is not lost
+                            j = owners.pop() if len(owners) == 1 else None
+                            if j is None or same[j] or krules:
+                                continue
+                            old_i, old_j = col[row], col[j]
+                            ki_old = [key_of(q, row, old_i) for q in range(len(held))]
+                            kj_old = [key_of(q, j, old_j) for q in range(len(held))]
+                            kj_new = [key_of(q, j, old_i) for q in range(len(held))]
+                            if any(k is not None and held[q][2].get(k) not in (None, row, j) for q, k in enumerate(kj_new)):
+                                continue
+                            for q in range(len(held)):
+                                for k in (ki_old[q], kj_old[q]):
+                                    held[q][2].pop(k, None)
+                                if new_keys[q] is not None:
+                                    held[q][2][new_keys[q]] = row
+                                if kj_new[q] is not None:
+                                    held[q][2][kj_new[q]] = j
+                            col[row], col[j] = old_j, old_i
+                            same[row] = True
+                            if track:
+                                arow[row], arow[j] = arow[j], arow[row]
+                            swapped += 1
+                        acc = np.asarray(keep, dtype=np.int64)
+                    acc = acc[:need - moved]
+                    col[rows[acc]] = newk[acc]
+                    if track:
+                        arow[rows[acc]] = newp[acc]
+                    moved += len(acc) + swapped
+                    swapped = 0
+                if moved >= need or moved == before:
+                    break
             df[st["fk"]] = col
             if track:
                 df["__anchor_row__"] = arow

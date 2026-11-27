@@ -102,10 +102,12 @@ def _cramers_v(x, y):
 
 
 class TableModel:
-    def __init__(self, tname, tspec, df: pd.DataFrame, cfg, exclude=(), aux=None):
+    def __init__(self, tname, tspec, df: pd.DataFrame, cfg, exclude=(), aux=None, rule_groups=()):
         """aux: optional list of (name, column spec, series) of parent attributes
         joined onto each row.  They enter the copula, and at synthesis the row's
-        own columns are drawn conditionally on its synthetic parent's values."""
+        own columns are drawn conditionally on its synthetic parent's values.
+        rule_groups: sets of the table's own columns that check rules constrain
+        together (_join_rule_linked)."""
         self.tname = tname
         self.role = tspec.get("role")
         self.cfg = cfg
@@ -130,12 +132,50 @@ class TableModel:
             self.cols.append(name)
             self.aux.append(name)
         self.out_cols = [c for c in self.cols if c not in self.aux]
+        self.rule_groups: list = []
+        self._join_rule_linked(rule_groups, int(mcfg.get("joint_max_levels", 64)), kmin)
         self._join_functional_dependencies(cfg["marginals"].get("fd_bf", 100.0))
         self._join_dependent_categoricals(cfg["marginals"].get("joint_max_levels", 64),
                                           cfg["marginals"].get("joint_min_cramers_v", 0.3))
         self._order_nominal_levels()
         self.generator: Any = None   # set by the engine (relsynth.generators); copula if left unset
         self.compute: Any = None
+
+    def _join_rule_linked(self, groups, max_levels, kmin):
+        """Categoricals that check rules constrain together (a transaction's type,
+        operation and symbol) are joined into one categorical over their observed
+        combinations, so that rows drawn from the model already lie in the rules'
+        support and their joint law is the source's; drawn through the copula one
+        by one, most draws break the rules and rejecting them shifts each column's
+        shares.  A group is joined when it has at most max_levels combinations and
+        every combination is held by at least kmin rows (the small-count
+        threshold), so the joint discloses no combination rarer than a level of a
+        single column may be; otherwise it is left to the other joins."""
+        cand = {cd.name: i for i, cd in enumerate(self.codecs)
+                if cd.kind == "discrete" and cd.ctype in ("categorical", "boolean") and cd.name not in self.aux
+                and not isinstance(cd, JointCodec)}
+        merged: list[set] = []
+        for g in groups:
+            g = {c for c in g if c in cand}
+            if len(g) < 2:
+                continue
+            for m in [m for m in merged if m & g]:
+                merged.remove(m)
+                g |= m
+            merged.append(g)
+        drop = []
+        for g in merged:
+            m = sorted(cand[c] for c in g)
+            combos = pd.Series(list(zip(*[self.X[i].tolist() for i in m]))).value_counts()
+            if len(combos) > max_levels or (self.n_rows and combos.min() < kmin):
+                continue
+            jc = JointCodec([self.codecs[i] for i in m], [self.X[i] for i in m])
+            self.X[m[0]] = jc.encode_parts([self.X[i] for i in m])
+            self.codecs[m[0]], self.cols[m[0]] = jc, jc.name
+            self.rule_groups.append([c.name for c in jc.parts])
+            drop += m[1:]
+        for j in sorted(drop, reverse=True):
+            del self.codecs[j], self.X[j], self.cols[j]
 
     def _join_functional_dependencies(self, bf):
         """Categoricals linked by functional dependencies (city -> state -> country,
@@ -146,7 +186,7 @@ class TableModel:
         nothing beyond that column and keeps the dependency exactly."""
         cand = [i for i, cd in enumerate(self.codecs)
                 if cd.kind == "discrete" and cd.ctype in ("categorical", "boolean") and cd.name not in self.aux
-                and "__OTHER__" not in cd.levels]
+                and not isinstance(cd, JointCodec) and "__OTHER__" not in cd.levels]
         if len(cand) < 2:
             return
         n = self.n_rows

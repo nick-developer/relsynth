@@ -284,7 +284,7 @@ rules:
 # (VYBER KARTOU). The source also holds 16,666 rows of type VYBER, all with operation VYBER.
 - table: trans
   type: check
-  expr: isnull(operation) == (k_symbol == 'UROK')
+  expr: isnull(operation) == (notnull(k_symbol) and k_symbol == 'UROK')
 - table: trans
   type: check
   expr: "(type == 'PRIJEM' and (isnull(operation) or operation in ('PREVOD Z UCTU', 'VKLAD'))) or (type == 'VYDAJ'
