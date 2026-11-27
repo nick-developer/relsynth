@@ -1,0 +1,4191 @@
+{
+ "schema": 1,
+ "relsynth": "2.2.0",
+ "git": {
+  "sha": "6b4e0ac1ada266029f93ad69cfdcfe7143743848",
+  "branch": "main",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm3lb7s",
+  "platform": "Linux-7.0.0-1020-azure-x86_64-with-glibc2.43",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "cpus": 4,
+  "python": "3.12.16",
+  "numpy": "2.5.5",
+  "pandas": "3.1.1",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-11-27T08:24:50+00:00",
+ "label": "weekly",
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "covtype",
+   "seed": 1,
+   "pushdown": "auto",
+   "spec_sha256": "cfbef43ac795e9a33b9c4a03ea5f82e7a9378c92191f248b129691a04f8f4585",
+   "seconds": 340.9,
+   "cost": {
+    "cpu_seconds": 361.5,
+    "peak_mib": 1973.8
+   },
+   "exit_code": 0,
+   "rows": {
+    "covtype": 581012
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 116,
+    "total": 117
+   },
+   "privacy_check": {
+    "status": "pass",
+    "seconds": 69.03
+   },
+   "quality": {
+    "seconds": 392.0,
+    "cpu_seconds": 929.6,
+    "peak_mib": 1457.9
+   },
+   "checks": [
+    {
+     "id": "scorecard:covtype.Elevation|marginal_ks",
+     "pass": true,
+     "value": 0.0092,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Elevation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Aspect|marginal_ks",
+     "pass": true,
+     "value": 0.0034,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Aspect|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Slope|marginal_ks",
+     "pass": true,
+     "value": 0.0055,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Slope|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.0259,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.0081,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|marginal_ks",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|marginal_ks",
+     "pass": true,
+     "value": 0.0057,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|marginal_ks",
+     "pass": true,
+     "value": 0.0049,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|marginal_ks",
+     "pass": true,
+     "value": 0.0047,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|marginal_ks",
+     "pass": true,
+     "value": 0.0062,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|marginal_tvd",
+     "pass": true,
+     "value": 0.0015,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|marginal_tvd",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|marginal_tvd",
+     "pass": true,
+     "value": 0.003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|marginal_tvd",
+     "pass": true,
+     "value": 0.0014,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|marginal_tvd",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.label|marginal_tvd",
+     "pass": true,
+     "value": 0.0046,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.label|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype|association_max_diff",
+     "pass": false,
+     "value": 0.367,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:covtype|discriminator_auc",
+     "pass": true,
+     "value": 0.52,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:covtype|dcr_ratio",
+     "pass": true,
+     "value": 1.4029,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:covtype|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:covtype: Vertical_Distance_To_Hydrology <= Horizontal_Distance_To_Hydrology|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000126
+    },
+    {
+     "id": "scorecard:covtype: notnull(Wilderness_Area_0) and notnull(Wilderness_Area_1) and notnull(Wilderness_Area_2) and notnull(Wilderness_Area_3) and Wilderness_Area_0 + Wilderness_Area_1 + Wilderness_Area_2 + Wilderness_Area_3 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:covtype: notnull(Soil_Type0) and notnull(Soil_Type1) and notnull(Soil_Type2) and notnull(Soil_Type3) and notnull(Soil_Type4) and notnull(Soil_Type5) and notnull(Soil_Type6) and notnull(Soil_Type7) and notnull(Soil_Type8) and notnull(Soil_Type9) and notnull(Soil_Type10) and notnull(Soil_Type11) and notnull(Soil_Type12) and notnull(Soil_Type13) and notnull(Soil_Type14) and notnull(Soil_Type15) and notnull(Soil_Type16) and notnull(Soil_Type17) and notnull(Soil_Type18) and notnull(Soil_Type19) and notnull(Soil_Type20) and notnull(Soil_Type21) and notnull(Soil_Type22) and notnull(Soil_Type23) and notnull(Soil_Type24) and notnull(Soil_Type25) and notnull(Soil_Type26) and notnull(Soil_Type27) and notnull(Soil_Type28) and notnull(Soil_Type29) and notnull(Soil_Type30) and notnull(Soil_Type31) and notnull(Soil_Type32) and notnull(Soil_Type33) and notnull(Soil_Type34) and notnull(Soil_Type35) and notnull(Soil_Type36) and notnull(Soil_Type37) and notnull(Soil_Type38) and notnull(Soil_Type39) and Soil_Type0 + Soil_Type1 + Soil_Type2 + Soil_Type3 + Soil_Type4 + Soil_Type5 + Soil_Type6 + Soil_Type7 + Soil_Type8 + Soil_Type9 + Soil_Type10 + Soil_Type11 + Soil_Type12 + Soil_Type13 + Soil_Type14 + Soil_Type15 + Soil_Type16 + Soil_Type17 + Soil_Type18 + Soil_Type19 + Soil_Type20 + Soil_Type21 + Soil_Type22 + Soil_Type23 + Soil_Type24 + Soil_Type25 + Soil_Type26 + Soil_Type27 + Soil_Type28 + Soil_Type29 + Soil_Type30 + Soil_Type31 + Soil_Type32 + Soil_Type33 + Soil_Type34 + Soil_Type35 + Soil_Type36 + Soil_Type37 + Soil_Type38 + Soil_Type39 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "metric:privacy_check_domias_auc",
+     "pass": null,
+     "value": 0.530173,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_check_closest_distance_auc",
+     "pass": null,
+     "value": 0.510476,
+     "direction": "lower"
+    },
+    {
+     "id": "domain:X1 pk_duplicates|covtype",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|covtype",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.0,
+     "real": null
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 622.2,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1973.8,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Elevation",
+     "pass": true,
+     "value": 0.022536,
+     "limit": 0.05,
+     "alpha": 0.000851
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Elevation",
+     "pass": true,
+     "value": 0.02184,
+     "limit": 0.05,
+     "alpha": 0.001627
+    },
+    {
+     "id": "quality:js_distance:covtype:Elevation",
+     "pass": true,
+     "value": 0.016846,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Aspect",
+     "pass": true,
+     "value": 0.008417,
+     "limit": 0.05,
+     "alpha": 0.002299
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Aspect",
+     "pass": true,
+     "value": 0.012261,
+     "limit": 0.05,
+     "alpha": 0.000584
+    },
+    {
+     "id": "quality:js_distance:covtype:Aspect",
+     "pass": true,
+     "value": 0.017371,
+     "limit": 0.05,
+     "alpha": 0.000127
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Slope",
+     "pass": true,
+     "value": 0.026501,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Slope",
+     "pass": true,
+     "value": 0.026187,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Slope",
+     "pass": true,
+     "value": 0.020736,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.033377,
+     "limit": 0.05,
+     "alpha": 0.000574
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.040754,
+     "limit": 0.05,
+     "alpha": 0.000594
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.035308,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.035414,
+     "limit": 0.05,
+     "alpha": 0.000779
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.028146,
+     "limit": 0.05,
+     "alpha": 0.000898
+    },
+    {
+     "id": "quality:js_distance:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.027462,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.010496,
+     "limit": 0.05,
+     "alpha": 0.000482
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.014241,
+     "limit": 0.05,
+     "alpha": 0.00013
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.017285,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.0147,
+     "limit": 0.05,
+     "alpha": 8.3e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.0131,
+     "limit": 0.05,
+     "alpha": 0.000112
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.026375,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.016156,
+     "limit": 0.05,
+     "alpha": 3.4e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.012203,
+     "limit": 0.05,
+     "alpha": 3.3e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.023956,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.013445,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.013436,
+     "limit": 0.05,
+     "alpha": 1.7e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.027211,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.018396,
+     "limit": 0.05,
+     "alpha": 0.000856
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.021383,
+     "limit": 0.05,
+     "alpha": 0.00034
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.018928,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.000256,
+     "limit": 0.05,
+     "alpha": 0.000262
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_1",
+     "pass": true,
+     "value": 0.00134,
+     "limit": 0.05,
+     "alpha": 0.005189
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_2",
+     "pass": true,
+     "value": 0.003039,
+     "limit": 0.05,
+     "alpha": 0.002616
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_3",
+     "pass": true,
+     "value": 0.007946,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type0",
+     "pass": true,
+     "value": 0.000299,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type1",
+     "pass": true,
+     "value": 0.006951,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type2",
+     "pass": true,
+     "value": 0.001453,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type3",
+     "pass": true,
+     "value": 0.001301,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type4",
+     "pass": true,
+     "value": 0.005621,
+     "limit": 0.05,
+     "alpha": 0.001761
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type5",
+     "pass": true,
+     "value": 0.002928,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type6",
+     "pass": true,
+     "value": 0.006144,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type7",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type8",
+     "pass": true,
+     "value": 0.003393,
+     "limit": 0.05,
+     "alpha": 0.003448
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type9",
+     "pass": true,
+     "value": 0.003977,
+     "limit": 0.05,
+     "alpha": 0.000664
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type10",
+     "pass": true,
+     "value": 0.006206,
+     "limit": 0.05,
+     "alpha": 0.000248
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type11",
+     "pass": true,
+     "value": 0.003282,
+     "limit": 0.05,
+     "alpha": 0.000286
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type12",
+     "pass": true,
+     "value": 0.000378,
+     "limit": 0.05,
+     "alpha": 0.000139
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type13",
+     "pass": true,
+     "value": 0.003498,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type14",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type15",
+     "pass": true,
+     "value": 0.007337,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type16",
+     "pass": true,
+     "value": 0.005979,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type17",
+     "pass": true,
+     "value": 0.002906,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type18",
+     "pass": true,
+     "value": 0.004137,
+     "limit": 0.05,
+     "alpha": 0.002113
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type19",
+     "pass": true,
+     "value": 0.004831,
+     "limit": 0.05,
+     "alpha": 0.004265
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type20",
+     "pass": true,
+     "value": 0.003685,
+     "limit": 0.05,
+     "alpha": 0.001383
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type21",
+     "pass": true,
+     "value": 0.00306,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type22",
+     "pass": true,
+     "value": 0.001416,
+     "limit": 0.05,
+     "alpha": 0.00544
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type23",
+     "pass": true,
+     "value": 0.002351,
+     "limit": 0.05,
+     "alpha": 0.004407
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type24",
+     "pass": true,
+     "value": 0.008342,
+     "limit": 0.05,
+     "alpha": 0.000677
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type25",
+     "pass": true,
+     "value": 0.004048,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type26",
+     "pass": true,
+     "value": 0.006938,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type27",
+     "pass": true,
+     "value": 0.00166,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type28",
+     "pass": true,
+     "value": 0.00176,
+     "limit": 0.05,
+     "alpha": 0.001373
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type29",
+     "pass": true,
+     "value": 0.005537,
+     "limit": 0.05,
+     "alpha": 0.000714
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type30",
+     "pass": true,
+     "value": 0.005662,
+     "limit": 0.05,
+     "alpha": 0.005745
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type31",
+     "pass": true,
+     "value": 0.006808,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type32",
+     "pass": true,
+     "value": 0.005316,
+     "limit": 0.05,
+     "alpha": 0.000528
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type33",
+     "pass": true,
+     "value": 0.001804,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type34",
+     "pass": true,
+     "value": 0.002707,
+     "limit": 0.05,
+     "alpha": 0.002508
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type35",
+     "pass": true,
+     "value": 0.003019,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type36",
+     "pass": true,
+     "value": 0.002786,
+     "limit": 0.05,
+     "alpha": 9.5e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type37",
+     "pass": true,
+     "value": 0.001757,
+     "limit": 0.05,
+     "alpha": 0.001154
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type38",
+     "pass": true,
+     "value": 0.004874,
+     "limit": 0.05,
+     "alpha": 0.00026
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type39",
+     "pass": true,
+     "value": 0.002738,
+     "limit": 0.05,
+     "alpha": 0.001124
+    },
+    {
+     "id": "quality:js_distance:covtype:label",
+     "pass": true,
+     "value": 0.012039,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.007505,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:covtype",
+     "pass": false,
+     "value": 0.17195,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.015415,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:covtype",
+     "pass": true,
+     "value": 0.02094,
+     "limit": 0.1,
+     "alpha": 6.4e-05
+    },
+    {
+     "id": "quality:beta_recall_gap:covtype",
+     "pass": false,
+     "value": 0.15764,
+     "limit": 0.1,
+     "alpha": 0.0005
+    },
+    {
+     "id": "quality:tstr_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9844,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9844,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9844,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    }
+   ]
+  },
+  {
+   "dataset": "covtype",
+   "seed": 2,
+   "pushdown": "auto",
+   "spec_sha256": "cfbef43ac795e9a33b9c4a03ea5f82e7a9378c92191f248b129691a04f8f4585",
+   "seconds": 350.8,
+   "cost": {
+    "cpu_seconds": 374.9,
+    "peak_mib": 1966.6
+   },
+   "exit_code": 0,
+   "rows": {
+    "covtype": 581012
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 116,
+    "total": 117
+   },
+   "privacy_check": {
+    "status": "pass",
+    "seconds": 61.51
+   },
+   "quality": {
+    "seconds": 398.8,
+    "cpu_seconds": 961.9,
+    "peak_mib": 1460.6
+   },
+   "checks": [
+    {
+     "id": "scorecard:covtype.Elevation|marginal_ks",
+     "pass": true,
+     "value": 0.0092,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Elevation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Aspect|marginal_ks",
+     "pass": true,
+     "value": 0.0041,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Aspect|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Slope|marginal_ks",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Slope|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.028,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.0067,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|marginal_ks",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|marginal_ks",
+     "pass": true,
+     "value": 0.005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|marginal_ks",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|marginal_ks",
+     "pass": true,
+     "value": 0.0035,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|marginal_ks",
+     "pass": true,
+     "value": 0.0085,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|marginal_tvd",
+     "pass": true,
+     "value": 0.0023,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|marginal_tvd",
+     "pass": true,
+     "value": 0.0025,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|marginal_tvd",
+     "pass": true,
+     "value": 0.0022,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|marginal_tvd",
+     "pass": true,
+     "value": 0.0005,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|marginal_tvd",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.label|marginal_tvd",
+     "pass": true,
+     "value": 0.0043,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.label|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype|association_max_diff",
+     "pass": false,
+     "value": 0.3627,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:covtype|discriminator_auc",
+     "pass": true,
+     "value": 0.5113,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:covtype|dcr_ratio",
+     "pass": true,
+     "value": 1.4693,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:covtype|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:covtype: Vertical_Distance_To_Hydrology <= Horizontal_Distance_To_Hydrology|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000126
+    },
+    {
+     "id": "scorecard:covtype: notnull(Wilderness_Area_0) and notnull(Wilderness_Area_1) and notnull(Wilderness_Area_2) and notnull(Wilderness_Area_3) and Wilderness_Area_0 + Wilderness_Area_1 + Wilderness_Area_2 + Wilderness_Area_3 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:covtype: notnull(Soil_Type0) and notnull(Soil_Type1) and notnull(Soil_Type2) and notnull(Soil_Type3) and notnull(Soil_Type4) and notnull(Soil_Type5) and notnull(Soil_Type6) and notnull(Soil_Type7) and notnull(Soil_Type8) and notnull(Soil_Type9) and notnull(Soil_Type10) and notnull(Soil_Type11) and notnull(Soil_Type12) and notnull(Soil_Type13) and notnull(Soil_Type14) and notnull(Soil_Type15) and notnull(Soil_Type16) and notnull(Soil_Type17) and notnull(Soil_Type18) and notnull(Soil_Type19) and notnull(Soil_Type20) and notnull(Soil_Type21) and notnull(Soil_Type22) and notnull(Soil_Type23) and notnull(Soil_Type24) and notnull(Soil_Type25) and notnull(Soil_Type26) and notnull(Soil_Type27) and notnull(Soil_Type28) and notnull(Soil_Type29) and notnull(Soil_Type30) and notnull(Soil_Type31) and notnull(Soil_Type32) and notnull(Soil_Type33) and notnull(Soil_Type34) and notnull(Soil_Type35) and notnull(Soil_Type36) and notnull(Soil_Type37) and notnull(Soil_Type38) and notnull(Soil_Type39) and Soil_Type0 + Soil_Type1 + Soil_Type2 + Soil_Type3 + Soil_Type4 + Soil_Type5 + Soil_Type6 + Soil_Type7 + Soil_Type8 + Soil_Type9 + Soil_Type10 + Soil_Type11 + Soil_Type12 + Soil_Type13 + Soil_Type14 + Soil_Type15 + Soil_Type16 + Soil_Type17 + Soil_Type18 + Soil_Type19 + Soil_Type20 + Soil_Type21 + Soil_Type22 + Soil_Type23 + Soil_Type24 + Soil_Type25 + Soil_Type26 + Soil_Type27 + Soil_Type28 + Soil_Type29 + Soil_Type30 + Soil_Type31 + Soil_Type32 + Soil_Type33 + Soil_Type34 + Soil_Type35 + Soil_Type36 + Soil_Type37 + Soil_Type38 + Soil_Type39 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "metric:privacy_check_domias_auc",
+     "pass": null,
+     "value": 0.521031,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_check_closest_distance_auc",
+     "pass": null,
+     "value": 0.502743,
+     "direction": "lower"
+    },
+    {
+     "id": "domain:X1 pk_duplicates|covtype",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|covtype",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.0,
+     "real": null
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 645.3,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1966.6,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Elevation",
+     "pass": true,
+     "value": 0.018351,
+     "limit": 0.05,
+     "alpha": 0.000851
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Elevation",
+     "pass": true,
+     "value": 0.01953,
+     "limit": 0.05,
+     "alpha": 0.001627
+    },
+    {
+     "id": "quality:js_distance:covtype:Elevation",
+     "pass": true,
+     "value": 0.017994,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Aspect",
+     "pass": true,
+     "value": 0.00625,
+     "limit": 0.05,
+     "alpha": 0.002299
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Aspect",
+     "pass": true,
+     "value": 0.007855,
+     "limit": 0.05,
+     "alpha": 0.000584
+    },
+    {
+     "id": "quality:js_distance:covtype:Aspect",
+     "pass": true,
+     "value": 0.023444,
+     "limit": 0.05,
+     "alpha": 0.000127
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Slope",
+     "pass": true,
+     "value": 0.021497,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Slope",
+     "pass": true,
+     "value": 0.020824,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Slope",
+     "pass": true,
+     "value": 0.022914,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.047368,
+     "limit": 0.05,
+     "alpha": 0.000574
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": false,
+     "value": 0.056041,
+     "limit": 0.05,
+     "alpha": 0.000594
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.033368,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.036906,
+     "limit": 0.05,
+     "alpha": 0.000779
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.026508,
+     "limit": 0.05,
+     "alpha": 0.000898
+    },
+    {
+     "id": "quality:js_distance:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.026169,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.013414,
+     "limit": 0.05,
+     "alpha": 0.000482
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.020045,
+     "limit": 0.05,
+     "alpha": 0.00013
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.019227,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.014406,
+     "limit": 0.05,
+     "alpha": 8.3e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.012591,
+     "limit": 0.05,
+     "alpha": 0.000112
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.024747,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.015335,
+     "limit": 0.05,
+     "alpha": 3.4e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.012078,
+     "limit": 0.05,
+     "alpha": 3.3e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.023673,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.010425,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.010606,
+     "limit": 0.05,
+     "alpha": 1.7e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.016289,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.021406,
+     "limit": 0.05,
+     "alpha": 0.000856
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.026552,
+     "limit": 0.05,
+     "alpha": 0.00034
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.025039,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.010151,
+     "limit": 0.05,
+     "alpha": 0.000262
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_1",
+     "pass": true,
+     "value": 0.004269,
+     "limit": 0.05,
+     "alpha": 0.005189
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_2",
+     "pass": true,
+     "value": 0.004457,
+     "limit": 0.05,
+     "alpha": 0.002616
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_3",
+     "pass": true,
+     "value": 0.007857,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type0",
+     "pass": true,
+     "value": 0.000299,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type1",
+     "pass": true,
+     "value": 0.01052,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type2",
+     "pass": true,
+     "value": 0.002362,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type3",
+     "pass": true,
+     "value": 0.002468,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type4",
+     "pass": true,
+     "value": 0.000404,
+     "limit": 0.05,
+     "alpha": 0.001761
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type5",
+     "pass": true,
+     "value": 0.000199,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type6",
+     "pass": true,
+     "value": 0.006144,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type7",
+     "pass": true,
+     "value": 0.004288,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type8",
+     "pass": true,
+     "value": 0.003854,
+     "limit": 0.05,
+     "alpha": 0.003448
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type9",
+     "pass": true,
+     "value": 0.006229,
+     "limit": 0.05,
+     "alpha": 0.000664
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type10",
+     "pass": true,
+     "value": 0.000303,
+     "limit": 0.05,
+     "alpha": 0.000248
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type11",
+     "pass": true,
+     "value": 0.005757,
+     "limit": 0.05,
+     "alpha": 0.000286
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type12",
+     "pass": true,
+     "value": 0.002745,
+     "limit": 0.05,
+     "alpha": 0.000139
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type13",
+     "pass": true,
+     "value": 0.009379,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type14",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type15",
+     "pass": true,
+     "value": 0.007337,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type16",
+     "pass": true,
+     "value": 0.002024,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type17",
+     "pass": true,
+     "value": 0.007419,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type18",
+     "pass": true,
+     "value": 0.003067,
+     "limit": 0.05,
+     "alpha": 0.002113
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type19",
+     "pass": true,
+     "value": 0.013143,
+     "limit": 0.05,
+     "alpha": 0.004265
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type20",
+     "pass": true,
+     "value": 0.002405,
+     "limit": 0.05,
+     "alpha": 0.001383
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type21",
+     "pass": true,
+     "value": 0.006714,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type22",
+     "pass": true,
+     "value": 0.005488,
+     "limit": 0.05,
+     "alpha": 0.00544
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type23",
+     "pass": true,
+     "value": 0.001699,
+     "limit": 0.05,
+     "alpha": 0.004407
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type24",
+     "pass": true,
+     "value": 0.00317,
+     "limit": 0.05,
+     "alpha": 0.000677
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type25",
+     "pass": true,
+     "value": 0.003089,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type26",
+     "pass": true,
+     "value": 0.001383,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type27",
+     "pass": true,
+     "value": 0.008048,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type28",
+     "pass": true,
+     "value": 0.00484,
+     "limit": 0.05,
+     "alpha": 0.001373
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type29",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05,
+     "alpha": 0.000714
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type30",
+     "pass": true,
+     "value": 0.010019,
+     "limit": 0.05,
+     "alpha": 0.005745
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type31",
+     "pass": true,
+     "value": 0.003501,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type32",
+     "pass": true,
+     "value": 0.000717,
+     "limit": 0.05,
+     "alpha": 0.000528
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type33",
+     "pass": true,
+     "value": 0.00892,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type34",
+     "pass": true,
+     "value": 0.003822,
+     "limit": 0.05,
+     "alpha": 0.002508
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type35",
+     "pass": true,
+     "value": 0.003019,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type36",
+     "pass": true,
+     "value": 0.003633,
+     "limit": 0.05,
+     "alpha": 9.5e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type37",
+     "pass": true,
+     "value": 0.000808,
+     "limit": 0.05,
+     "alpha": 0.001154
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type38",
+     "pass": true,
+     "value": 0.001971,
+     "limit": 0.05,
+     "alpha": 0.00026
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type39",
+     "pass": true,
+     "value": 0.011871,
+     "limit": 0.05,
+     "alpha": 0.001124
+    },
+    {
+     "id": "quality:js_distance:covtype:label",
+     "pass": true,
+     "value": 0.016933,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.008379,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:covtype",
+     "pass": false,
+     "value": 0.1846,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.016807,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:covtype",
+     "pass": true,
+     "value": 0.03072,
+     "limit": 0.1,
+     "alpha": 6.4e-05
+    },
+    {
+     "id": "quality:beta_recall_gap:covtype",
+     "pass": false,
+     "value": 0.16886,
+     "limit": 0.1,
+     "alpha": 0.0005
+    },
+    {
+     "id": "quality:tstr_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9792,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9792,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9792,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    }
+   ]
+  },
+  {
+   "dataset": "covtype",
+   "seed": 3,
+   "pushdown": "auto",
+   "spec_sha256": "cfbef43ac795e9a33b9c4a03ea5f82e7a9378c92191f248b129691a04f8f4585",
+   "seconds": 346.3,
+   "cost": {
+    "cpu_seconds": 367.8,
+    "peak_mib": 1958.5
+   },
+   "exit_code": 0,
+   "rows": {
+    "covtype": 581012
+   },
+   "pushed": [],
+   "scorecard": {
+    "passed": 116,
+    "total": 117
+   },
+   "privacy_check": {
+    "status": "pass",
+    "seconds": 80.5
+   },
+   "quality": {
+    "seconds": 394.7,
+    "cpu_seconds": 941.4,
+    "peak_mib": 1461.0
+   },
+   "checks": [
+    {
+     "id": "scorecard:covtype.Elevation|marginal_ks",
+     "pass": true,
+     "value": 0.0079,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Elevation|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Aspect|marginal_ks",
+     "pass": true,
+     "value": 0.0041,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Aspect|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Slope|marginal_ks",
+     "pass": true,
+     "value": 0.0056,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Slope|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.0296,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|marginal_ks",
+     "pass": true,
+     "value": 0.0069,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Vertical_Distance_To_Hydrology|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|marginal_ks",
+     "pass": true,
+     "value": 0.0058,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Roadways|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|marginal_ks",
+     "pass": true,
+     "value": 0.0059,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_9am|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|marginal_ks",
+     "pass": true,
+     "value": 0.0032,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_Noon|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|marginal_ks",
+     "pass": true,
+     "value": 0.0035,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Hillshade_3pm|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|marginal_ks",
+     "pass": true,
+     "value": 0.0053,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Horizontal_Distance_To_Fire_Points|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|marginal_tvd",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|marginal_tvd",
+     "pass": true,
+     "value": 0.002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|marginal_tvd",
+     "pass": true,
+     "value": 0.0029,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Wilderness_Area_3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type0|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type1|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type2|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type3|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type4|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type5|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type6|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type7|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type8|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|marginal_tvd",
+     "pass": true,
+     "value": 0.0018,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type9|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|marginal_tvd",
+     "pass": true,
+     "value": 0.0006,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type10|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|marginal_tvd",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type11|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type12|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type13|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type14|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type15|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type16|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type17|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type18|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type19|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type20|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|marginal_tvd",
+     "pass": true,
+     "value": 0.0014,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type21|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|marginal_tvd",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type22|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type23|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type24|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type25|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type26|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type27|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type28|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|marginal_tvd",
+     "pass": true,
+     "value": 0.0009,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type29|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|marginal_tvd",
+     "pass": true,
+     "value": 0.0001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type30|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|marginal_tvd",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type31|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|marginal_tvd",
+     "pass": true,
+     "value": 0.0007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type32|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|marginal_tvd",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type33|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|marginal_tvd",
+     "pass": true,
+     "value": 0.0003,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type34|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type35|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|marginal_tvd",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type36|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type37|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|marginal_tvd",
+     "pass": true,
+     "value": 0.0008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type38|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|marginal_tvd",
+     "pass": true,
+     "value": 0.0004,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.Soil_Type39|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype.label|marginal_tvd",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:covtype.label|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:covtype|association_max_diff",
+     "pass": false,
+     "value": 0.3505,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:covtype|discriminator_auc",
+     "pass": true,
+     "value": 0.5178,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:covtype|dcr_ratio",
+     "pass": true,
+     "value": 1.3532,
+     "limit": 0.5
+    },
+    {
+     "id": "scorecard:covtype|exact_match_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.01
+    },
+    {
+     "id": "scorecard:covtype: Vertical_Distance_To_Hydrology <= Horizontal_Distance_To_Hydrology|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.000126
+    },
+    {
+     "id": "scorecard:covtype: notnull(Wilderness_Area_0) and notnull(Wilderness_Area_1) and notnull(Wilderness_Area_2) and notnull(Wilderness_Area_3) and Wilderness_Area_0 + Wilderness_Area_1 + Wilderness_Area_2 + Wilderness_Area_3 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "scorecard:covtype: notnull(Soil_Type0) and notnull(Soil_Type1) and notnull(Soil_Type2) and notnull(Soil_Type3) and notnull(Soil_Type4) and notnull(Soil_Type5) and notnull(Soil_Type6) and notnull(Soil_Type7) and notnull(Soil_Type8) and notnull(Soil_Type9) and notnull(Soil_Type10) and notnull(Soil_Type11) and notnull(Soil_Type12) and notnull(Soil_Type13) and notnull(Soil_Type14) and notnull(Soil_Type15) and notnull(Soil_Type16) and notnull(Soil_Type17) and notnull(Soil_Type18) and notnull(Soil_Type19) and notnull(Soil_Type20) and notnull(Soil_Type21) and notnull(Soil_Type22) and notnull(Soil_Type23) and notnull(Soil_Type24) and notnull(Soil_Type25) and notnull(Soil_Type26) and notnull(Soil_Type27) and notnull(Soil_Type28) and notnull(Soil_Type29) and notnull(Soil_Type30) and notnull(Soil_Type31) and notnull(Soil_Type32) and notnull(Soil_Type33) and notnull(Soil_Type34) and notnull(Soil_Type35) and notnull(Soil_Type36) and notnull(Soil_Type37) and notnull(Soil_Type38) and notnull(Soil_Type39) and Soil_Type0 + Soil_Type1 + Soil_Type2 + Soil_Type3 + Soil_Type4 + Soil_Type5 + Soil_Type6 + Soil_Type7 + Soil_Type8 + Soil_Type9 + Soil_Type10 + Soil_Type11 + Soil_Type12 + Soil_Type13 + Soil_Type14 + Soil_Type15 + Soil_Type16 + Soil_Type17 + Soil_Type18 + Soil_Type19 + Soil_Type20 + Soil_Type21 + Soil_Type22 + Soil_Type23 + Soil_Type24 + Soil_Type25 + Soil_Type26 + Soil_Type27 + Soil_Type28 + Soil_Type29 + Soil_Type30 + Soil_Type31 + Soil_Type32 + Soil_Type33 + Soil_Type34 + Soil_Type35 + Soil_Type36 + Soil_Type37 + Soil_Type38 + Soil_Type39 == 1|rule_violation_rate",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.0
+    },
+    {
+     "id": "metric:privacy_check_domias_auc",
+     "pass": null,
+     "value": 0.509015,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:privacy_check_closest_distance_auc",
+     "pass": null,
+     "value": 0.532569,
+     "direction": "lower"
+    },
+    {
+     "id": "domain:X1 pk_duplicates|covtype",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|covtype",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.0,
+     "real": null
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 633.0,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1958.5,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Elevation",
+     "pass": true,
+     "value": 0.021611,
+     "limit": 0.05,
+     "alpha": 0.000851
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Elevation",
+     "pass": true,
+     "value": 0.022777,
+     "limit": 0.05,
+     "alpha": 0.001627
+    },
+    {
+     "id": "quality:js_distance:covtype:Elevation",
+     "pass": true,
+     "value": 0.017689,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Aspect",
+     "pass": true,
+     "value": 0.004596,
+     "limit": 0.05,
+     "alpha": 0.002299
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Aspect",
+     "pass": true,
+     "value": 0.007841,
+     "limit": 0.05,
+     "alpha": 0.000584
+    },
+    {
+     "id": "quality:js_distance:covtype:Aspect",
+     "pass": true,
+     "value": 0.019057,
+     "limit": 0.05,
+     "alpha": 0.000127
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Slope",
+     "pass": true,
+     "value": 0.012524,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Slope",
+     "pass": true,
+     "value": 0.013045,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Slope",
+     "pass": true,
+     "value": 0.021798,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.033701,
+     "limit": 0.05,
+     "alpha": 0.000574
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.044451,
+     "limit": 0.05,
+     "alpha": 0.000594
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.028172,
+     "limit": 0.05,
+     "alpha": 5e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.032584,
+     "limit": 0.05,
+     "alpha": 0.000779
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.020951,
+     "limit": 0.05,
+     "alpha": 0.000898
+    },
+    {
+     "id": "quality:js_distance:covtype:Vertical_Distance_To_Hydrology",
+     "pass": true,
+     "value": 0.020313,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.01495,
+     "limit": 0.05,
+     "alpha": 0.000482
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.022686,
+     "limit": 0.05,
+     "alpha": 0.00013
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Roadways",
+     "pass": true,
+     "value": 0.023607,
+     "limit": 0.05,
+     "alpha": 3e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.011783,
+     "limit": 0.05,
+     "alpha": 8.3e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.011258,
+     "limit": 0.05,
+     "alpha": 0.000112
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_9am",
+     "pass": true,
+     "value": 0.029887,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.012728,
+     "limit": 0.05,
+     "alpha": 3.4e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.009071,
+     "limit": 0.05,
+     "alpha": 3.3e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_Noon",
+     "pass": true,
+     "value": 0.01777,
+     "limit": 0.05,
+     "alpha": 4e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.007181,
+     "limit": 0.05,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.007412,
+     "limit": 0.05,
+     "alpha": 1.7e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Hillshade_3pm",
+     "pass": true,
+     "value": 0.02164,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:w1_raw_sd:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.012845,
+     "limit": 0.05,
+     "alpha": 0.000856
+    },
+    {
+     "id": "quality:w1_rank_normal:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.018556,
+     "limit": 0.05,
+     "alpha": 0.00034
+    },
+    {
+     "id": "quality:js_distance:covtype:Horizontal_Distance_To_Fire_Points",
+     "pass": true,
+     "value": 0.019021,
+     "limit": 0.05,
+     "alpha": 1e-06
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.001495,
+     "limit": 0.05,
+     "alpha": 0.000262
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_1",
+     "pass": true,
+     "value": 0.002672,
+     "limit": 0.05,
+     "alpha": 0.005189
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_2",
+     "pass": true,
+     "value": 0.003724,
+     "limit": 0.05,
+     "alpha": 0.002616
+    },
+    {
+     "id": "quality:js_distance:covtype:Wilderness_Area_3",
+     "pass": true,
+     "value": 0.006971,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type0",
+     "pass": true,
+     "value": 0.003057,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type1",
+     "pass": true,
+     "value": 0.007333,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type2",
+     "pass": true,
+     "value": 0.003745,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type3",
+     "pass": true,
+     "value": 0.008315,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type4",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.05,
+     "alpha": 0.001761
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type5",
+     "pass": true,
+     "value": 0.003847,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type6",
+     "pass": true,
+     "value": 0.002476,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type7",
+     "pass": true,
+     "value": 0.007525,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type8",
+     "pass": true,
+     "value": 0.002927,
+     "limit": 0.05,
+     "alpha": 0.003448
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type9",
+     "pass": true,
+     "value": 0.003325,
+     "limit": 0.05,
+     "alpha": 0.000664
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type10",
+     "pass": true,
+     "value": 0.006638,
+     "limit": 0.05,
+     "alpha": 0.000248
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type11",
+     "pass": true,
+     "value": 0.000975,
+     "limit": 0.05,
+     "alpha": 0.000286
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type12",
+     "pass": true,
+     "value": 0.000503,
+     "limit": 0.05,
+     "alpha": 0.000139
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type13",
+     "pass": true,
+     "value": 0.004775,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type14",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type15",
+     "pass": true,
+     "value": 0.009558,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type16",
+     "pass": true,
+     "value": 0.005343,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type17",
+     "pass": true,
+     "value": 0.00531,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type18",
+     "pass": true,
+     "value": 0.001241,
+     "limit": 0.05,
+     "alpha": 0.002113
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type19",
+     "pass": true,
+     "value": 0.006374,
+     "limit": 0.05,
+     "alpha": 0.004265
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type20",
+     "pass": true,
+     "value": 0.001136,
+     "limit": 0.05,
+     "alpha": 0.001383
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type21",
+     "pass": true,
+     "value": 0.003695,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type22",
+     "pass": true,
+     "value": 0.005139,
+     "limit": 0.05,
+     "alpha": 0.00544
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type23",
+     "pass": true,
+     "value": 0.00357,
+     "limit": 0.05,
+     "alpha": 0.004407
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type24",
+     "pass": true,
+     "value": 0.010045,
+     "limit": 0.05,
+     "alpha": 0.000677
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type25",
+     "pass": true,
+     "value": 0.001192,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type26",
+     "pass": true,
+     "value": 0.000456,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type27",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type28",
+     "pass": true,
+     "value": 0.00378,
+     "limit": 0.05,
+     "alpha": 0.001373
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type29",
+     "pass": true,
+     "value": 0.009147,
+     "limit": 0.05,
+     "alpha": 0.000714
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type30",
+     "pass": true,
+     "value": 0.006175,
+     "limit": 0.05,
+     "alpha": 0.005745
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type31",
+     "pass": true,
+     "value": 0.00133,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type32",
+     "pass": true,
+     "value": 0.000239,
+     "limit": 0.05,
+     "alpha": 0.000528
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type33",
+     "pass": true,
+     "value": 0.005228,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type34",
+     "pass": true,
+     "value": 0.001566,
+     "limit": 0.05,
+     "alpha": 0.002508
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type35",
+     "pass": true,
+     "value": 0.004288,
+     "limit": 0.05,
+     "alpha": 0.000313
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type36",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05,
+     "alpha": 9.5e-05
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type37",
+     "pass": true,
+     "value": 0.001621,
+     "limit": 0.05,
+     "alpha": 0.001154
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type38",
+     "pass": true,
+     "value": 0.011289,
+     "limit": 0.05,
+     "alpha": 0.00026
+    },
+    {
+     "id": "quality:js_distance:covtype:Soil_Type39",
+     "pass": true,
+     "value": 0.005052,
+     "limit": 0.05,
+     "alpha": 0.001124
+    },
+    {
+     "id": "quality:js_distance:covtype:label",
+     "pass": true,
+     "value": 0.012132,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.007309,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:kway2_tvd_max:covtype",
+     "pass": false,
+     "value": 0.1741,
+     "limit": 0.15
+    },
+    {
+     "id": "quality:kway3_tvd_mean:covtype",
+     "pass": true,
+     "value": 0.015562,
+     "limit": 0.08
+    },
+    {
+     "id": "quality:alpha_precision_gap:covtype",
+     "pass": true,
+     "value": 0.02302,
+     "limit": 0.1,
+     "alpha": 6.4e-05
+    },
+    {
+     "id": "quality:beta_recall_gap:covtype",
+     "pass": false,
+     "value": 0.16602,
+     "limit": 0.1,
+     "alpha": 0.0005
+    },
+    {
+     "id": "quality:tstr_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:trts_gap:covtype:Wilderness_Area_0",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.9844,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.9844,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:business_rule_preservation",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0.99
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.9844,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.0,
+     "direction": "lower"
+    }
+   ]
+  }
+ ],
+ "finished": "2026-11-27T09:03:00+00:00"
+}

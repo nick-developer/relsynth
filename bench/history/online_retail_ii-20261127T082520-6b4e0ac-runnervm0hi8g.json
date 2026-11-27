@@ -1,0 +1,2187 @@
+{
+ "schema": 1,
+ "relsynth": "2.2.0",
+ "git": {
+  "sha": "6b4e0ac1ada266029f93ad69cfdcfe7143743848",
+  "branch": "main",
+  "dirty": false
+ },
+ "machine": {
+  "node": "runnervm0hi8g",
+  "platform": "Linux-7.0.0-1020-azure-x86_64-with-glibc2.43",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "cpus": 4,
+  "python": "3.12.16",
+  "numpy": "2.5.5",
+  "pandas": "3.1.1",
+  "scipy": "1.18.1",
+  "ci": true
+ },
+ "started": "2026-11-27T08:25:20+00:00",
+ "label": "weekly",
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "suites": [
+  "scorecard",
+  "quality",
+  "privacy",
+  "repro"
+ ],
+ "runs": [
+  {
+   "dataset": "online_retail_ii",
+   "seed": 1,
+   "pushdown": "auto",
+   "spec_sha256": "1c3f2e457881b2f2517ca2c53dd766c24ca7137724ea7d2b098ca4352d16f7ef",
+   "seconds": 63.7,
+   "cost": {
+    "cpu_seconds": 95.5,
+    "peak_mib": 1177.1
+   },
+   "exit_code": 0,
+   "rows": {
+    "customer": 5942,
+    "invoice": 53628,
+    "invoice_line": 1077009,
+    "product": 5305
+   },
+   "pushed": [
+    "invoice_line"
+   ],
+   "scorecard": {
+    "passed": 32,
+    "total": 34
+   },
+   "privacy_check": {
+    "status": "skipped",
+    "seconds": 0.0
+   },
+   "quality": {
+    "seconds": 113.6,
+    "cpu_seconds": 138.4,
+    "peak_mib": 784.7
+   },
+   "checks": [
+    {
+     "id": "scorecard:customer.country|marginal_tvd",
+     "pass": true,
+     "value": 0.0128,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:customer.country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:customer|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:customer|discriminator_auc",
+     "pass": true,
+     "value": 0.5006,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|marginal_ks",
+     "pass": true,
+     "value": 0.0062,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.5042,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|marginal_ks",
+     "pass": true,
+     "value": 0.007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.price|marginal_ks",
+     "pass": true,
+     "value": 0.0065,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line|association_max_diff",
+     "pass": true,
+     "value": 0.0137,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line|discriminator_auc",
+     "pass": true,
+     "value": 0.5213,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:product|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.invoice_date|join_ks",
+     "pass": true,
+     "value": 0.0411,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.customer_id.country|join_tvd",
+     "pass": true,
+     "value": 0.0274,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 2.2566,
+     "limit": 3.022
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_ks",
+     "pass": false,
+     "value": 0.1259,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0039,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0032,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.1139,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.009,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_ks",
+     "pass": true,
+     "value": 0.0388,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.009,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:product.description|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:invoice_line: pairs (invoice, stock_code)|pair_repeat_share_diff",
+     "pass": false,
+     "value": 0.0188,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:X1 pk_duplicates|customer",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|customer",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice",
+     "pass": null,
+     "value": 0.001082,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice_line",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice_line",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|product",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|product",
+     "pass": null,
+     "value": 0.000754,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.008512,
+     "real": null
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice.customer_id",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice.customer_id",
+     "pass": null,
+     "value": 0.163416,
+     "real": 0.156676
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.invoice",
+     "pass": null,
+     "value": 0.135097,
+     "real": 0.157563
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.stock_code",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.stock_code",
+     "pass": null,
+     "value": 0.099181,
+     "real": 0.116536
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 83.6,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1177.1,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:js_distance:customer:country",
+     "pass": true,
+     "value": 0.05743,
+     "limit": 0.066,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:customer",
+     "pass": true,
+     "value": 0.002541,
+     "limit": 0.1,
+     "alpha": 0.004043
+    },
+    {
+     "id": "quality:beta_recall_gap:customer",
+     "pass": true,
+     "value": 0.002442,
+     "limit": 0.1,
+     "alpha": 0.004125
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice:invoice_date",
+     "pass": true,
+     "value": 0.009477,
+     "limit": 0.08748,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice:invoice_date",
+     "pass": true,
+     "value": 0.014041,
+     "limit": 0.081636,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice:invoice_date",
+     "pass": true,
+     "value": 0.018833,
+     "limit": 0.05,
+     "alpha": 0.003707
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice",
+     "pass": true,
+     "value": 0.0127,
+     "limit": 0.1,
+     "alpha": 0.000126
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice",
+     "pass": false,
+     "value": 0.127702,
+     "limit": 0.1,
+     "alpha": 8.8e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:quantity",
+     "pass": true,
+     "value": 0.124357,
+     "limit": 0.128852,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:quantity",
+     "pass": true,
+     "value": 0.022336,
+     "limit": 0.298692,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:quantity",
+     "pass": true,
+     "value": 0.021558,
+     "limit": 0.15167,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:price",
+     "pass": true,
+     "value": 0.139343,
+     "limit": 1.072338,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:price",
+     "pass": true,
+     "value": 0.015676,
+     "limit": 0.182324,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:price",
+     "pass": true,
+     "value": 0.031157,
+     "limit": 0.272004,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_mean:invoice_line",
+     "pass": true,
+     "value": 0.0302,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_max:invoice_line",
+     "pass": true,
+     "value": 0.0302,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice_line",
+     "pass": true,
+     "value": 0.011227,
+     "limit": 0.266736,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice_line",
+     "pass": true,
+     "value": 0.010102,
+     "limit": 0.972411,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:invoice_line:price",
+     "pass": true,
+     "value": -0.016474,
+     "limit": 0.092041,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:trts_gap:invoice_line:price",
+     "pass": true,
+     "value": 0.039281,
+     "limit": 1.767207,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.091541,
+     "limit": 0.105456,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.101297,
+     "limit": 2.111822,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.16398,
+     "limit": 0.315949,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 0.160401,
+     "limit": 0.058445,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.invoice->invoice",
+     "pass": true,
+     "value": 0.357734,
+     "limit": 1.118854,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.stock_code->product",
+     "pass": false,
+     "value": 1.152361,
+     "limit": 0.171061,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.stock_code->product",
+     "pass": true,
+     "value": 0.013007,
+     "limit": 0.052322,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.stock_code->product",
+     "pass": true,
+     "value": 0.698154,
+     "limit": 1.717781,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout2_w1_rel:invoice.customer_id->customer | invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.126307,
+     "limit": 0.15,
+     "alpha": 0.005921
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.04595,
+     "limit": 0.075323,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.04595,
+     "limit": 0.15,
+     "alpha": 5.8e-05
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.001187,
+     "limit": 0.05,
+     "alpha": 0.00187
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.002055,
+     "limit": 0.15,
+     "alpha": 0.000534
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.04145,
+     "limit": 0.101401,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.04535,
+     "limit": 0.15,
+     "alpha": 0.001351
+    },
+    {
+     "id": "quality:dda_accuracy:customer:logistic",
+     "pass": false,
+     "value": 0.61,
+     "limit": 0.6
+    },
+    {
+     "id": "quality:dda_accuracy:invoice:logistic",
+     "pass": false,
+     "value": 0.6823,
+     "limit": 0.6,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:mt_tstr_gap:invoice:invoice_date",
+     "pass": true,
+     "value": -0.002844,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:mt_trts_gap:invoice:invoice_date",
+     "pass": true,
+     "value": 0.007455,
+     "limit": 0.05,
+     "alpha": 0.004425
+    },
+    {
+     "id": "quality:dda_accuracy:product:logistic",
+     "pass": false,
+     "value": 0.612,
+     "limit": 0.6
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.8462,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.8462,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:referential_integrity",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.8462,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": -0.002844,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": -0.002844,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:c2st_agg_accuracy_max",
+     "pass": null,
+     "value": 0.6823,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:cardinality_similarity_mean",
+     "pass": null,
+     "value": 0.826805,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:cardinality_similarity_min",
+     "pass": null,
+     "value": 0.762755,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_1-hop",
+     "pass": null,
+     "value": 0.976432,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_2-hop",
+     "pass": null,
+     "value": 0.95855,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "online_retail_ii",
+   "seed": 2,
+   "pushdown": "auto",
+   "spec_sha256": "1c3f2e457881b2f2517ca2c53dd766c24ca7137724ea7d2b098ca4352d16f7ef",
+   "seconds": 71.0,
+   "cost": {
+    "cpu_seconds": 115.1,
+    "peak_mib": 1176.3
+   },
+   "exit_code": 0,
+   "rows": {
+    "customer": 5942,
+    "invoice": 53628,
+    "invoice_line": 1058802,
+    "product": 5305
+   },
+   "pushed": [
+    "invoice_line"
+   ],
+   "scorecard": {
+    "passed": 32,
+    "total": 34
+   },
+   "privacy_check": {
+    "status": "skipped",
+    "seconds": 0.0
+   },
+   "quality": {
+    "seconds": 113.8,
+    "cpu_seconds": 138.5,
+    "peak_mib": 781.2
+   },
+   "checks": [
+    {
+     "id": "scorecard:customer.country|marginal_tvd",
+     "pass": true,
+     "value": 0.0128,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:customer.country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:customer|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:customer|discriminator_auc",
+     "pass": true,
+     "value": 0.4928,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|marginal_ks",
+     "pass": true,
+     "value": 0.007,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.4941,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|marginal_ks",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.price|marginal_ks",
+     "pass": true,
+     "value": 0.0075,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line|association_max_diff",
+     "pass": true,
+     "value": 0.0316,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line|discriminator_auc",
+     "pass": true,
+     "value": 0.4998,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:product|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.invoice_date|join_ks",
+     "pass": true,
+     "value": 0.0236,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.customer_id.country|join_tvd",
+     "pass": true,
+     "value": 0.0318,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 2.5126,
+     "limit": 3.022
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_ks",
+     "pass": true,
+     "value": 0.1197,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0012,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|null_fk_diff",
+     "pass": true,
+     "value": 0.001,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.1031,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_ks",
+     "pass": false,
+     "value": 0.135,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.008,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:product.description|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:invoice_line: pairs (invoice, stock_code)|pair_repeat_share_diff",
+     "pass": false,
+     "value": 0.0196,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:X1 pk_duplicates|customer",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|customer",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice",
+     "pass": null,
+     "value": 0.000342,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice_line",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice_line",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|product",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|product",
+     "pass": null,
+     "value": 0.002262,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 0.992432,
+     "real": null
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice.customer_id",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice.customer_id",
+     "pass": null,
+     "value": 0.150854,
+     "real": 0.156676
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.invoice",
+     "pass": null,
+     "value": 0.108731,
+     "real": 0.157563
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.stock_code",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.stock_code",
+     "pass": null,
+     "value": 0.094632,
+     "real": 0.116536
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 102.4,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1176.3,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:js_distance:customer:country",
+     "pass": true,
+     "value": 0.050812,
+     "limit": 0.066,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:customer",
+     "pass": true,
+     "value": 0.004765,
+     "limit": 0.1,
+     "alpha": 0.004043
+    },
+    {
+     "id": "quality:beta_recall_gap:customer",
+     "pass": true,
+     "value": 0.004765,
+     "limit": 0.1,
+     "alpha": 0.004125
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice:invoice_date",
+     "pass": true,
+     "value": 0.01307,
+     "limit": 0.08748,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice:invoice_date",
+     "pass": true,
+     "value": 0.015845,
+     "limit": 0.081636,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice:invoice_date",
+     "pass": true,
+     "value": 0.02121,
+     "limit": 0.05,
+     "alpha": 0.003707
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice",
+     "pass": true,
+     "value": 0.01508,
+     "limit": 0.1,
+     "alpha": 0.000126
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice",
+     "pass": false,
+     "value": 0.114478,
+     "limit": 0.1,
+     "alpha": 8.8e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:quantity",
+     "pass": true,
+     "value": 0.070223,
+     "limit": 0.128852,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:quantity",
+     "pass": true,
+     "value": 0.033988,
+     "limit": 0.298692,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:quantity",
+     "pass": true,
+     "value": 0.030591,
+     "limit": 0.15167,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:price",
+     "pass": true,
+     "value": 0.055656,
+     "limit": 1.072338,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:price",
+     "pass": true,
+     "value": 0.018284,
+     "limit": 0.182324,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:price",
+     "pass": true,
+     "value": 0.026426,
+     "limit": 0.272004,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_mean:invoice_line",
+     "pass": true,
+     "value": 0.03435,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_max:invoice_line",
+     "pass": true,
+     "value": 0.03435,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice_line",
+     "pass": true,
+     "value": 0.022931,
+     "limit": 0.266736,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice_line",
+     "pass": true,
+     "value": 0.016053,
+     "limit": 0.972411,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:invoice_line:price",
+     "pass": true,
+     "value": -0.014277,
+     "limit": 0.092041,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:trts_gap:invoice_line:price",
+     "pass": true,
+     "value": 0.005876,
+     "limit": 1.767207,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.101279,
+     "limit": 0.105456,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.18037,
+     "limit": 2.111822,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.137218,
+     "limit": 0.315949,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 0.160401,
+     "limit": 0.058445,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.invoice->invoice",
+     "pass": true,
+     "value": 0.16545,
+     "limit": 1.118854,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.stock_code->product",
+     "pass": false,
+     "value": 1.120719,
+     "limit": 0.171061,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.stock_code->product",
+     "pass": false,
+     "value": 0.083129,
+     "limit": 0.052322,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.stock_code->product",
+     "pass": true,
+     "value": 0.776006,
+     "limit": 1.717781,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout2_w1_rel:invoice.customer_id->customer | invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.090778,
+     "limit": 0.15,
+     "alpha": 0.005921
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.0392,
+     "limit": 0.075323,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.0392,
+     "limit": 0.15,
+     "alpha": 5.8e-05
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.002974,
+     "limit": 0.05,
+     "alpha": 0.00187
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.003072,
+     "limit": 0.15,
+     "alpha": 0.000534
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.029175,
+     "limit": 0.101401,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.0295,
+     "limit": 0.15,
+     "alpha": 0.001351
+    },
+    {
+     "id": "quality:dda_accuracy:customer:logistic",
+     "pass": false,
+     "value": 0.6062,
+     "limit": 0.6
+    },
+    {
+     "id": "quality:dda_accuracy:invoice:logistic",
+     "pass": false,
+     "value": 0.6796,
+     "limit": 0.6,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:mt_tstr_gap:invoice:invoice_date",
+     "pass": true,
+     "value": -0.001455,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:mt_trts_gap:invoice:invoice_date",
+     "pass": true,
+     "value": 0.00046,
+     "limit": 0.05,
+     "alpha": 0.004425
+    },
+    {
+     "id": "quality:dda_accuracy:product:logistic",
+     "pass": false,
+     "value": 0.6595,
+     "limit": 0.6
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.8308,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.8308,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:referential_integrity",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.8308,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": -0.001455,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": -0.001455,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:c2st_agg_accuracy_max",
+     "pass": null,
+     "value": 0.6796,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:cardinality_similarity_mean",
+     "pass": null,
+     "value": 0.833254,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:cardinality_similarity_min",
+     "pass": null,
+     "value": 0.760983,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_1-hop",
+     "pass": null,
+     "value": 0.978913,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_2-hop",
+     "pass": null,
+     "value": 0.970825,
+     "direction": "higher"
+    }
+   ]
+  },
+  {
+   "dataset": "online_retail_ii",
+   "seed": 3,
+   "pushdown": "auto",
+   "spec_sha256": "1c3f2e457881b2f2517ca2c53dd766c24ca7137724ea7d2b098ca4352d16f7ef",
+   "seconds": 67.0,
+   "cost": {
+    "cpu_seconds": 111.9,
+    "peak_mib": 1175.8
+   },
+   "exit_code": 0,
+   "rows": {
+    "customer": 5942,
+    "invoice": 53628,
+    "invoice_line": 1068492,
+    "product": 5305
+   },
+   "pushed": [
+    "invoice_line"
+   ],
+   "scorecard": {
+    "passed": 33,
+    "total": 34
+   },
+   "privacy_check": {
+    "status": "skipped",
+    "seconds": 0.0
+   },
+   "quality": {
+    "seconds": 112.5,
+    "cpu_seconds": 137.2,
+    "peak_mib": 783.8
+   },
+   "checks": [
+    {
+     "id": "scorecard:customer.country|marginal_tvd",
+     "pass": true,
+     "value": 0.0163,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:customer.country|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:customer|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:customer|discriminator_auc",
+     "pass": true,
+     "value": 0.506,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|marginal_ks",
+     "pass": true,
+     "value": 0.0064,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice.invoice_date|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice|discriminator_auc",
+     "pass": true,
+     "value": 0.5121,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|marginal_ks",
+     "pass": true,
+     "value": 0.0075,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.quantity|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.price|marginal_ks",
+     "pass": true,
+     "value": 0.0061,
+     "limit": 0.08
+    },
+    {
+     "id": "scorecard:invoice_line.price|null_rate_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line|association_max_diff",
+     "pass": true,
+     "value": 0.0036,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line|discriminator_auc",
+     "pass": true,
+     "value": 0.4953,
+     "limit": 0.65
+    },
+    {
+     "id": "scorecard:product|association_max_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.15
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.invoice_date|join_ks",
+     "pass": true,
+     "value": 0.0309,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined:invoice.customer_id.country|join_tvd",
+     "pass": true,
+     "value": 0.0342,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.joined|join_assoc_max_z",
+     "pass": true,
+     "value": 2.0573,
+     "limit": 3.022
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_ks",
+     "pass": true,
+     "value": 0.1079,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice.customer_id->customer|null_fk_diff",
+     "pass": true,
+     "value": 0.0002,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_ks",
+     "pass": true,
+     "value": 0.1121,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.invoice->invoice|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|fk_integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 1.0
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_ks",
+     "pass": true,
+     "value": 0.0379,
+     "limit": 0.12
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|cardinality_mean_rel_err",
+     "pass": true,
+     "value": 0.0011,
+     "limit": 0.1
+    },
+    {
+     "id": "scorecard:invoice_line.stock_code->product|null_fk_diff",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "scorecard:product.description|text_rare_token_leaks",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_ngram_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:product.description|text_rare_exact_copies",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0
+    },
+    {
+     "id": "scorecard:invoice_line: pairs (invoice, stock_code)|pair_repeat_share_diff",
+     "pass": false,
+     "value": 0.0191,
+     "limit": 0.01
+    },
+    {
+     "id": "domain:X1 pk_duplicates|customer",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|customer",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice",
+     "pass": null,
+     "value": 6.2e-05,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|invoice_line",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|invoice_line",
+     "pass": null,
+     "value": 0.0,
+     "real": null
+    },
+    {
+     "id": "domain:X1 pk_duplicates|product",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X6 null_share_mad|product",
+     "pass": null,
+     "value": 0.000754,
+     "real": null
+    },
+    {
+     "id": "domain:X5 rows_ratio",
+     "pass": null,
+     "value": 1.00099,
+     "real": null
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice.customer_id",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice.customer_id",
+     "pass": null,
+     "value": 0.165998,
+     "real": 0.156676
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.invoice",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.invoice",
+     "pass": null,
+     "value": 0.135085,
+     "real": 0.157563
+    },
+    {
+     "id": "domain:X2 fk_orphans|invoice_line.stock_code",
+     "pass": true,
+     "value": 0.0,
+     "real": 0.0
+    },
+    {
+     "id": "domain:X4 fanout_top1pct|invoice_line.stock_code",
+     "pass": null,
+     "value": 0.104169,
+     "real": 0.116536
+    },
+    {
+     "id": "metric:cpu_seconds_per_million_rows",
+     "pass": null,
+     "kind": "cost",
+     "value": 98.7,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:peak_memory_mib",
+     "pass": null,
+     "kind": "cost",
+     "value": 1175.8,
+     "direction": "lower"
+    },
+    {
+     "id": "quality:js_distance:customer:country",
+     "pass": true,
+     "value": 0.053323,
+     "limit": 0.066,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:customer",
+     "pass": true,
+     "value": 0.007156,
+     "limit": 0.1,
+     "alpha": 0.004043
+    },
+    {
+     "id": "quality:beta_recall_gap:customer",
+     "pass": true,
+     "value": 0.007213,
+     "limit": 0.1,
+     "alpha": 0.004125
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice:invoice_date",
+     "pass": true,
+     "value": 0.006896,
+     "limit": 0.08748,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice:invoice_date",
+     "pass": true,
+     "value": 0.01262,
+     "limit": 0.081636,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice:invoice_date",
+     "pass": true,
+     "value": 0.018116,
+     "limit": 0.05,
+     "alpha": 0.003707
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice",
+     "pass": true,
+     "value": 0.00698,
+     "limit": 0.1,
+     "alpha": 0.000126
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice",
+     "pass": false,
+     "value": 0.1127,
+     "limit": 0.1,
+     "alpha": 8.8e-05
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:quantity",
+     "pass": true,
+     "value": 0.100368,
+     "limit": 0.128852,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:quantity",
+     "pass": true,
+     "value": 0.015941,
+     "limit": 0.298692,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:quantity",
+     "pass": true,
+     "value": 0.017659,
+     "limit": 0.15167,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_raw_sd:invoice_line:price",
+     "pass": true,
+     "value": 0.161296,
+     "limit": 1.072338,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:w1_rank_normal:invoice_line:price",
+     "pass": true,
+     "value": 0.017756,
+     "limit": 0.182324,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:js_distance:invoice_line:price",
+     "pass": true,
+     "value": 0.028578,
+     "limit": 0.272004,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_mean:invoice_line",
+     "pass": true,
+     "value": 0.0329,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:kway2_tvd_max:invoice_line",
+     "pass": true,
+     "value": 0.0329,
+     "limit": 0.161067,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:alpha_precision_gap:invoice_line",
+     "pass": true,
+     "value": 0.014639,
+     "limit": 0.266736,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:beta_recall_gap:invoice_line",
+     "pass": true,
+     "value": 0.011742,
+     "limit": 0.972411,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:tstr_gap:invoice_line:price",
+     "pass": true,
+     "value": -0.014272,
+     "limit": 0.092041,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:trts_gap:invoice_line:price",
+     "pass": true,
+     "value": 0.013871,
+     "limit": 1.767207,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice.customer_id->customer",
+     "pass": false,
+     "value": 0.106025,
+     "limit": 0.105456,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.0,
+     "limit": 0.03
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice.customer_id->customer",
+     "pass": true,
+     "value": 0.049861,
+     "limit": 2.111822,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.147662,
+     "limit": 0.315949,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 0.160401,
+     "limit": 0.058445,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.invoice->invoice",
+     "pass": true,
+     "value": 0.333588,
+     "limit": 1.118854,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_w1_rel:invoice_line.stock_code->product",
+     "pass": false,
+     "value": 1.13534,
+     "limit": 0.171061,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_zero_share_diff:invoice_line.stock_code->product",
+     "pass": true,
+     "value": 0.016588,
+     "limit": 0.052322,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout_dispersion_log_ratio:invoice_line.stock_code->product",
+     "pass": true,
+     "value": 0.731645,
+     "limit": 1.717781,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:fanout2_w1_rel:invoice.customer_id->customer | invoice_line.invoice->invoice",
+     "pass": false,
+     "value": 1.124491,
+     "limit": 0.15,
+     "alpha": 0.005921
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.04245,
+     "limit": 0.075323,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer:1",
+     "pass": true,
+     "value": 0.04245,
+     "limit": 0.15,
+     "alpha": 5.8e-05
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.00288,
+     "limit": 0.05,
+     "alpha": 0.00187
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice_line.invoice->invoice:1",
+     "pass": true,
+     "value": 0.005003,
+     "limit": 0.15,
+     "alpha": 0.000534
+    },
+    {
+     "id": "quality:hop_trend_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.034075,
+     "limit": 0.101401,
+     "alpha": 0.01
+    },
+    {
+     "id": "quality:hop_trend_worst_gap:invoice.customer_id->customer | invoice_line.invoice->invoice:2",
+     "pass": true,
+     "value": 0.0357,
+     "limit": 0.15,
+     "alpha": 0.001351
+    },
+    {
+     "id": "quality:dda_accuracy:customer:logistic",
+     "pass": false,
+     "value": 0.602,
+     "limit": 0.6
+    },
+    {
+     "id": "quality:dda_accuracy:invoice:logistic",
+     "pass": false,
+     "value": 0.6842,
+     "limit": 0.6,
+     "alpha": 1.1e-05
+    },
+    {
+     "id": "quality:mt_tstr_gap:invoice:invoice_date",
+     "pass": true,
+     "value": 0.000834,
+     "limit": 0.05
+    },
+    {
+     "id": "quality:mt_trts_gap:invoice:invoice_date",
+     "pass": true,
+     "value": 0.003092,
+     "limit": 0.05,
+     "alpha": 0.004425
+    },
+    {
+     "id": "quality:dda_accuracy:product:logistic",
+     "pass": false,
+     "value": 0.6184,
+     "limit": 0.6
+    },
+    {
+     "id": "area:fidelity",
+     "pass": false,
+     "value": 0.8462,
+     "limit": 0
+    },
+    {
+     "id": "metric:fidelity_pass_rate",
+     "pass": null,
+     "value": 0.8462,
+     "direction": "higher"
+    },
+    {
+     "id": "area:utility",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:utility_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "area:integrity",
+     "pass": true,
+     "value": 1.0,
+     "limit": 0
+    },
+    {
+     "id": "metric:integrity_pass_rate",
+     "pass": null,
+     "value": 1.0,
+     "direction": "higher"
+    },
+    {
+     "id": "goal:referential_integrity",
+     "pass": true,
+     "value": 1.0,
+     "real": 1.0
+    },
+    {
+     "id": "goal:distribution_match",
+     "pass": false,
+     "value": 0.8462,
+     "limit": 0.95
+    },
+    {
+     "id": "goal:utility_gap",
+     "pass": true,
+     "value": 0.000834,
+     "limit": 0.05
+    },
+    {
+     "id": "metric:utility_gap_max",
+     "pass": null,
+     "value": 0.000834,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:c2st_agg_accuracy_max",
+     "pass": null,
+     "value": 0.6842,
+     "direction": "lower"
+    },
+    {
+     "id": "metric:cardinality_similarity_mean",
+     "pass": null,
+     "value": 0.828174,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:cardinality_similarity_min",
+     "pass": null,
+     "value": 0.765067,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_1-hop",
+     "pass": null,
+     "value": 0.977335,
+     "direction": "higher"
+    },
+    {
+     "id": "metric:k_hop_trend_2-hop",
+     "pass": null,
+     "value": 0.965925,
+     "direction": "higher"
+    }
+   ]
+  }
+ ],
+ "finished": "2026-11-27T08:34:40+00:00"
+}
