@@ -213,3 +213,32 @@ def test_link_affinity_model_validated(tmp_path):
     spec["tables"]["t"]["link_affinity"] = [{"match": ["fr.acc", "to.acc"], "model": "joint"}]
     with pytest.raises(SpecError, match="model must be rows or share"):
         load_spec(spec)
+
+
+def test_match_through_lookup_column(tmp_path):
+    # the first path is a lookup column of the fact (the sender's region): read through its path
+    spec, src, wh = _shipments(tmp_path)
+    rw = wh.set_index("wh").region
+    con = sqlite3.connect(spec["source"]["path"])
+    src.assign(fr_region=src.wf.map(rw)).to_sql("s", con, index=False, if_exists="replace")
+    con.close()
+    T = spec["tables"]["s"]
+    T["columns"]["fr_region"] = {"type": "lookup", "lookup": "wf.region"}
+    T["link_affinity"] = [{"match": ["fr_region", "wt.region"]}]
+    rows, dec = _run(spec)
+    assert "hidden attribute" in dec["s"]["link affinity fr_region = wt.region"]
+    assert _tvd(rows["s"]["mode"], src["mode"]) < 0.03
+
+
+def test_match_on_derived_column_keeps_share_model(tmp_path):
+    # a derived first path exists only after the row is drawn: the share model is kept
+    spec, src = _transfers(tmp_path)
+    con = sqlite3.connect(spec["source"]["path"])
+    src.assign(pc=src.pay).to_sql("t", con, index=False, if_exists="replace")
+    con.close()
+    spec["tables"]["t"]["columns"]["pc"] = "categorical"
+    spec["rules"].append({"table": "t", "type": "derive", "expr": "pc = pay"})
+    spec["tables"]["t"]["link_affinity"] = [{"match": ["pc", "recv.cur"]}]
+    on, dec = _run(spec)
+    assert dec["t"]["link affinity pc = recv.cur model"] == "share model: the first path is a column drawn after the links"
+    assert (on["t"].pc == on["t"].pay).all()

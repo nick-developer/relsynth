@@ -2370,9 +2370,10 @@ class Synthesizer:
         the block, P(s | block), with the sparse-Dirichlet back-off of _extra_dist.
         Privacy: a combination held by fewer than privacy.suppress_small_counts
         source rows is not a level of the joint law; its rows form one "other"
-        level at which each link is drawn from its own law, so it is never
-        reproduced from its own count, as a rare level of a single column is not
-        (the floor of the rule-linked joints), and the margins keep their mass.
+        level at which each link is drawn from its own law given the block,
+        reweighted to that link's margin over the "other" rows, so a combination is
+        never reproduced from its own count, as a rare level of a single column is
+        not (the floor of the rule-linked joints), and each link keeps its margin.
         The joint law is used only when the joint table beats independence by
         facts.joint_links_bf (Bayes factor of a Dirichlet-multinomial
         joint against the product of Dirichlet-multinomial margins; Good 1976, Gunel
@@ -2417,7 +2418,17 @@ class Synthesizer:
             # rare combination appears only as often as independent links give it
             lab = np.where(keep, s, L)
             d = self._level_dist(z1, z2, lab, K1, K2, L + 1)
-            d.update({"members": list(g), "dims": list(dims), "other": L})
+            # each link's law at "other" is its law given the block reweighted to the margin of the
+            # floored rows (smoothed towards its overall margin with one pseudo-row per level), so a
+            # link's margin over all rows stays its source margin
+            ratio = []
+            for j, sx in enumerate(labs):
+                c_all = np.bincount(sx, minlength=dims[j]).astype(float)
+                c_oth = np.bincount(sx[~keep], minlength=dims[j]).astype(float)
+                p_all = c_all / max(c_all.sum(), 1.0)
+                q = (c_oth + dims[j] * p_all) / max(c_oth.sum() + dims[j], 1.0)
+                ratio.append(np.where(p_all > 0, q / np.maximum(p_all, 1e-300), 1.0))
+            d.update({"members": list(g), "dims": list(dims), "other": L, "other_ratio": ratio})
             self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
             info["extra_joint"].append(d)
             dec[f"joint links {label}"] = (
@@ -4666,7 +4677,7 @@ class Synthesizer:
         for c, vals in cols.items():
             df[c] = vals
         if v is not None and getattr(self, "match_flags", {}).get(f) and len(df):
-            df = self._match_links(f, st, df, ents, blk, st_nb, nz)
+            df, blk = self._match_links(f, st, df, ents, blk, st_nb, nz)
         if "time" in info:
             df[info["time"]["col"]] = ts if ts is not None else self._fact_times(info, z1, u, rng)
         df["__group__"] = groups
@@ -4728,6 +4739,9 @@ class Synthesizer:
                 if oth.any():
                     # independent links at the "other" level, each from its own law given the block
                     pj = np.asarray(xp["P"][b], float) * availx
+                    ratios = d.get("other_ratio")
+                    rj = np.asarray(ratios[j], float) if ratios else np.ones(len(pj))
+                    pj = pj * np.r_[rj, np.ones(max(len(pj) - len(rj), 0))][:len(pj)]
                     pj = pj / pj.sum() if pj.sum() > 0 else availx / availx.sum()
                     seg[oth] = rng.choice(len(pj), size=int(oth.sum()), p=pj)
                 self._rows_of_segments(rng, rows, seg, memx, wx, kx, res[j])
@@ -5699,6 +5713,7 @@ class Synthesizer:
         every match under structure.link_affinity: share, keep the share model of
         _apply_affinity."""
         out: dict = {}
+        self.affinity_model_why = {}
         default = _setting(self, "structure", "link_affinity", "rows")
         for t, T in self.spec["tables"].items():
             info = getattr(self, "fact_info", {}).get(t)
@@ -5706,7 +5721,6 @@ class Synthesizer:
             if not las or T.get("role") != "fact" or not info or info.get("nested") or len(info["fks"]) < 2:
                 continue
             keys = {r["child_key"]: j for j, r in enumerate(info["fks"])}
-            dec = self.log["decisions"].setdefault(t, {})
             for i, la in enumerate(las):
                 a, b = la["match"]
                 fk = b.split(".")[0]
@@ -5718,9 +5732,19 @@ class Synthesizer:
                     why = "share model: the moved link is the anchor"
                 elif any(fk in u for u in T.get("unique", [])):
                     why = "share model: a unique key covers the moved link"
+                a0 = a
+                if why is None and "." not in a:
+                    # the match is resolved while the row is drawn, before lookups, derives and the
+                    # time column exist: a lookup is read through its path, a column drawn later
+                    # keeps the share model (applied once every column exists)
+                    lk = self.lookups.get(t, {}).get(a)
+                    if isinstance(lk, str) and "." in lk:
+                        a = lk
+                    elif a not in keys and (a not in T["columns"] or a in self._excluded(t)):
+                        why = "share model: the first path is a column drawn after the links"
                 if why:
                     if mode == "rows" and la.get("share") is None:
-                        dec[f"link affinity {a} = {b} model"] = why
+                        self.affinity_model_why[(t, a0, b)] = why     # logged with the share model's fit
                     continue
                 df = tables.get(t)
                 try:
@@ -5732,7 +5756,7 @@ class Synthesizer:
                 flag = ((av.to_numpy(dtype=object) == bv.to_numpy(dtype=object)) & av.notna().to_numpy())
                 j = keys[fk]
                 out.setdefault(t, []).append({
-                    "name": f"{self.MATCH_PREFIX}{i}", "a": a, "b": b, "fk": fk, "col": b.split(".", 1)[1],
+                    "name": f"{self.MATCH_PREFIX}{i}", "a": a, "a0": a0, "b": b, "fk": fk, "col": b.split(".", 1)[1],
                     "slot": j, "parent": info["fks"][j]["parent"], "src": flag, "share": float(flag.mean()) if len(flag) else 0.0,
                     "heads": {self._path_head(t, a), fk}})
         return out
@@ -5782,10 +5806,14 @@ class Synthesizer:
             agreeing are moved as above;
           * a parent is chosen by its degree weight among the eligible rows;
           * a move that would break an earlier entry's agreement is not made.
-        Rows without a partner keep none."""
+        Rows without a partner keep none.  A moved partner moves the row's block to
+        the new partner's segment, so later redraws of the row read its own block.
+        Returns the rows and their blocks."""
         rng = self.rng
         info = self.fact_info[f]
         done = []
+        k_part = st["r2"]["child_key"]
+        part0 = df[k_part].to_numpy(dtype=object).copy()
         for m in self.match_flags[f]:
             if m["name"] not in df.columns:
                 continue
@@ -5838,7 +5866,16 @@ class Synthesizer:
             if len(bad):
                 df = self._move_matched(f, df, ents, m, bad, want, av, kx, wx, done, rng)
             done.append(m)
-        return df
+        blk = np.asarray(blk, np.int64).copy()
+        moved = np.flatnonzero(df[k_part].to_numpy(dtype=object) != part0)
+        if len(moved):
+            K2 = info["coarse_of_block"][2]
+            v = self._index_of(df, st, moved)
+            z2 = np.asarray(st["z2"], np.int64)
+            ok = (v >= 0) & (blk[moved] < (st_nb if st_nb is not None else np.iinfo(np.int64).max))
+            mv = moved[ok]
+            blk[mv] = (blk[mv] // K2) * K2 + z2[v[ok]]
+        return df, blk
 
     def _joint_rows_given_match(self, f, st, d, m, blk, want, ents):
         """Keys of a group of role-playing links given whether the match m holds,
@@ -5906,7 +5943,7 @@ class Synthesizer:
                 if not len(rows):
                     continue
                 if b >= len(d["P"]):
-                    return None                                   # rows without a partner
+                    continue        # rows without a partner: left to the redraws (no result here)
                 p = np.asarray(d["P"][b], float)[:len(avail)] * avail * (pm if wv else 1.0 - pm)
                 if p.sum() <= 0:
                     p = avail * (pm if wv else 1.0 - pm)
@@ -5919,7 +5956,8 @@ class Synthesizer:
                 self._rows_of_segments(rng, np.arange(len(rows)), segs[ia], ext[ia][4], wa, kx, ra)
                 res[ia][rows] = ra
                 # the second link among its segment's rows that match the first (or do not)
-                vrow = ca[arow.reindex(_keystr(pd.Series(ra)).to_numpy(dtype=object)).fillna(-1).astype(np.int64).to_numpy()]
+                ia_ = arow.reindex(_keystr(pd.Series(ra)).to_numpy(dtype=object)).fillna(-1).astype(np.int64).to_numpy()
+                vrow = np.where(ia_ >= 0, ca[np.maximum(ia_, 0)], -1)     # no first row: no value to match
                 sb = np.asarray(segs[ib])
                 for (sg, vv), ii in pd.DataFrame({"s": sb, "v": vrow}).groupby(["s", "v"]).indices.items():
                     mm = ext[ib][4][sg] if sg < len(ext[ib][4]) else np.zeros(0, np.int64)
@@ -5938,15 +5976,28 @@ class Synthesizer:
         return same == np.asarray(want, bool)
 
     def _keeps_done(self, f, df, sub, ents, done, rows):
-        """Rows (positions rows of df, new values in sub) whose earlier match entries
-        that agreed before still agree."""
+        """Rows (positions rows of df, new values in sub) on which a move keeps what
+        held before it: every earlier match entry that agreed still agrees, and every
+        key or attribute rule of the row that held still holds (as the share model
+        checks its moves), so a move never makes a valid row invalid.  A rule that
+        reads a column not drawn yet (the time column) is checked later, by the
+        validity redraws."""
         ok = np.ones(len(rows), bool)
-        if not done:
-            return ok
         old = df.iloc[rows]
         for m in done:
             w = old[m["name"]].astype(str).to_numpy() == "1"
             ok &= ~self._match_agrees(f, old, ents, m, w) | self._match_agrees(f, sub, ents, m, w)
+        cons = self.cons.get(f, {})
+        krules = cons.get("key_rules", []) + cons.get("attr_rules", [])
+        if krules and len(rows):
+            w_old = self._computed(f, old.copy(), ents, strict=False)
+            w_new = self._computed(f, sub.copy(), ents, strict=False)
+            r_old, r_new = self._resolver(f, w_old, ents), self._resolver(f, w_new, ents)
+            for kr in krules:
+                try:
+                    ok &= ~check_mask(w_old, kr["expr"], r_old) | check_mask(w_new, kr["expr"], r_new)
+                except (KeyError, SpecError, ValueError):
+                    continue
         return ok
 
     def _move_matched(self, f, df, ents, m, bad, want, av, kx, wx, done, rng):
@@ -6014,7 +6065,25 @@ class Synthesizer:
             for la in T.get("link_affinity") or []:
                 a, b = la["match"]
                 st = {"a": a, "b": b, "fk": b.split(".")[0], "col": b.split(".", 1)[1]}
-                mf = next((m for m in getattr(self, "match_flags", {}).get(t, []) if m["a"] == a and m["b"] == b), None)
+                flags = getattr(self, "match_flags", {}).get(t, [])
+                mf = next((m for m in flags if m.get("a0", m["a"]) == a and m["b"] == b), None)
+                why = None
+                if mf is not None:
+                    # known only now: an occupancy fact keeps each (anchor, partner) pair, which a moved
+                    # partner would break; a unique key enforced over the moved link needs the held-key
+                    # check of the share model
+                    rel = (getattr(self, "fact_info", {}).get(t) or {}).get("rel")
+                    if mf["slot"] == 1 and getattr(rel, "kind", None) == "occ":
+                        why = "share model: the moved link is the partner of an occupancy fact"
+                    elif any(mf["fk"] in u for u in self.cons.get(t, {}).get("unique", [])):
+                        why = "share model: a unique key covers the moved link"
+                    if why:
+                        flags.remove(mf)
+                        self.log["decisions"].setdefault(t, {})[f"link affinity {a} = {b} model"] = why
+                        mf = None
+                if mf is None and (t, a, b) in getattr(self, "affinity_model_why", {}):
+                    self.log["decisions"].setdefault(t, {})[f"link affinity {a} = {b} model"] = \
+                        self.affinity_model_why[(t, a, b)]
                 if mf is not None:
                     # drawn per row with the attributes (_match_links): no share to reach afterwards
                     st["rows"] = True
