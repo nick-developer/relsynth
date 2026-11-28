@@ -186,3 +186,43 @@ def test_scd2_first_starts_after_the_last_reversioning_are_kept(tmp_path):
     # share stays below the source's 37 %)
     assert (first > top).mean() > 0.1
     assert first.nunique() > 50          # first starts not collapsed onto one date
+
+
+@pytest.mark.parametrize("shape", ["releases", "continuous"])
+def test_scd2_source_whose_versions_end_before_they_start_keeps_its_end_dates(tmp_path, shape):
+    """Class: SCD sources whose closed versions end on or before their start (end dates loaded
+    from an earlier system, placeholder ends; AdventureWorksDW products end in 2007/2008 after
+    starting in 2011/2012). Their end dates are kept as the source has them, not replaced by
+    start + 1 day; a well-formed source (the tests above) still gets positive lengths."""
+    rng = np.random.default_rng(7)
+    rows = []
+    for k in range(500):
+        if shape == "releases":
+            s = pd.Timestamp(str(rng.choice(["2011-07-01", "2012-07-01", "2013-07-01"])))
+            e = {"2011-07-01": pd.Timestamp("2007-12-28"), "2012-07-01": pd.Timestamp("2008-12-27")}.get(
+                s.strftime("%Y-%m-%d"), pd.NaT)
+        else:
+            s = pd.Timestamp("2016-01-01") + pd.Timedelta(days=int(rng.integers(0, 1500)))
+            e = s - pd.Timedelta(days=int(rng.integers(200, 900))) if rng.random() < 0.5 else pd.NaT
+        rows.append((k + 1, f"K{k:05d}", s.strftime("%Y-%m-%d"), None if pd.isna(e) else e.strftime("%Y-%m-%d"),
+                     float(rng.gamma(3.0, 10.0))))
+    df = pd.DataFrame(rows, columns=["sk", "nk", "start_date", "end_date", "price"])
+    db = tmp_path / "scd_ill.db"
+    with sqlite3.connect(db) as con:
+        df.to_sql("product", con, index=False)
+    spec = {"version": 1, "name": "scd", "source": {"kind": "sqlite", "path": str(db)},
+            "tables": {"product": {"role": "entity", "primary_key": "sk",
+                                   "scd": {"type": 2, "natural_key": "nk", "valid_from": "start_date",
+                                           "valid_to": "end_date"},
+                                   "columns": {"sk": {"type": "id"}, "nk": {"type": "id"},
+                                               "start_date": {"type": "date"}, "end_date": {"type": "date"},
+                                               "price": {"type": "float"}}}},
+            "relationships": []}
+    p = rs.run(spec, write=False, privacy=False, seed=2).data["product"]
+    s, e = pd.to_datetime(p["start_date"]), pd.to_datetime(p["end_date"])
+    closed = e.notna()
+    assert closed.mean() > 0.3
+    assert ((e - s).dt.days[closed] == 1).mean() < 0.05          # before: every closed version was start + 1 day
+    assert (e[closed] < s[closed]).mean() > 0.8                  # as in the source (100 %)
+    if shape == "releases":                                      # the source's end dates
+        assert e[closed].dt.strftime("%Y-%m-%d").isin({"2007-12-28", "2008-12-27"}).mean() > 0.8

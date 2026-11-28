@@ -263,6 +263,7 @@ META: dict[str, dict] = dict([
     _p("repair.occupancy_rounds", type="int", low=0, high=1e4),
     _p("detection.group_effect_share", type="float", low=0, high=1),
     _p("detection.scd_stable_share", type="float", low=0, high=1),
+    _p("detection.scd_wellformed_share", type="float", low=0, high=1),
     _p("detection.scd_max_versions", type="int", low=1, high=1e6),
     _p("evaluation.thresholds", type="map"),
     _p("evaluation.assoc_max_rows", type="int", low=100, high=1e9),
