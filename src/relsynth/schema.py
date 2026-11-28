@@ -543,6 +543,9 @@ SYNTH_DOC = {
     "structure.participation": "auto | none: hurdle on the share of parents without children.",
     "uniqueness.mh_sweeps": "Sweeps of the unique-key sampler.",
     "uniqueness.grain": "auto | none: unique keys of two foreign keys become grains.",
+    "uniqueness.free_parent_repair": "auto | off: rows the unique-key sampler cannot place get a parent drawn by the "
+                                     "link model among the parents whose key is still free for the row (one owner "
+                                     "per account); off: uniformly over all parents (2.x) (Prop. 1880).",
     "uniqueness.rake_rounds": "Rounds of raking for rule cells.",
     "trees.max_depth": "auto | int: deepest hierarchy level generated.",
     "trees.frailty": "auto | on | off: branching heterogeneity in trees.",
@@ -552,6 +555,9 @@ SYNTH_DOC = {
     "text.backoff_strength": "Back-off weight of the n-gram model.",
     "text.max_retries": "Retries before a text value is replaced.",
     "rules.max_rejection_rounds": "Redraw rounds for rows that fail a check rule.",
+    "rules.late": "enforce | report: check rules that read an aggregate column (directly or through a link) are "
+                  "enforced after the aggregates by redrawing the rows that break them; report: only counted "
+                  "(2.x) (Prop. 1881).",
     "generator": "Default generator plug-in of every table's attribute columns (a table's own `generator` wins): "
                  "copula (Bayesian Gaussian copula, relsynth 1.0), independent, cart, or an installed plug-in.",
     "generator_selection.mode": "off | auto | trial: how each table's generator is chosen when the table names "

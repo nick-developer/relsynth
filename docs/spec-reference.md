@@ -746,6 +746,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure.link_affinity` | `rows` | Default of link_affinity model (rows or share). |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto \| none: unique keys of two foreign keys become grains. |
+| `uniqueness.free_parent_repair` | `auto` | auto \| off: rows the unique-key sampler cannot place get a parent drawn by the link model among the parents whose key is still free for the row (one owner per account); off: uniformly over all parents (2.x) (Prop. 1880). |
 | `uniqueness.rake_rounds` | `3` | Rounds of raking for rule cells. |
 | `trees.max_depth` | `auto` | auto \| int: deepest hierarchy level generated. |
 | `trees.frailty` | `auto` | auto \| on \| off: branching heterogeneity in trees. |
@@ -755,6 +756,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `text.backoff_strength` | `2.0` | Back-off weight of the n-gram model. |
 | `text.max_retries` | `30` | Retries before a text value is replaced. |
 | `rules.max_rejection_rounds` | `25` | Redraw rounds for rows that fail a check rule. |
+| `rules.late` | `enforce` | enforce \| report: check rules that read an aggregate column (directly or through a link) are enforced after the aggregates by redrawing the rows that break them; report: only counted (2.x) (Prop. 1881). |
 | `rules.rake_max_levels` | `50` | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | `2000` | Rule cells: largest joint table raked. |
 | `rules.balance_floor` | `auto` | auto: a running balance (cumulative rule with an outflow column) that is negative on a share p of its source rows gets the floor 0 when the synthetic running sum would be negative on more than 2 p of rows, i.e. when the floor matches the source's share of negative rows better (Prop. 1787; never negative in the source: always a floor); off: only never-negative balances get the floor (2.2). |
