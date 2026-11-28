@@ -2402,6 +2402,12 @@ class Synthesizer:
                 dec[f"joint links {label}"] = (f"independent given the block: {' x '.join(map(str, dims))} joint "
                                                f"levels > facts.joint_links_max_levels {max_lv}")
                 continue
+            # the joint law is dense in blocks x levels: kept within the budget of the block arrays
+            budget = float(self.cfg["segments"].get("copied_budget_cells", 2e7))
+            if float(K1) * K2 * (L + 1) > budget:
+                dec[f"joint links {label}"] = (f"independent given the block: {K1 * K2} blocks x {L + 1} joint levels "
+                                               f"> synthesis.segments.copied_budget_cells {budget:.3g}")
+                continue
             s = np.ravel_multi_index(tuple(labs), tuple(dims))
             cnt = np.bincount(s, minlength=L)
             keep = cnt[s] >= kmin
@@ -2428,7 +2434,10 @@ class Synthesizer:
                 p_all = c_all / max(c_all.sum(), 1.0)
                 q = (c_oth + dims[j] * p_all) / max(c_oth.sum() + dims[j], 1.0)
                 ratio.append(np.where(p_all > 0, q / np.maximum(p_all, 1e-300), 1.0))
-            d.update({"members": list(g), "dims": list(dims), "other": L, "other_ratio": ratio})
+            # floored combinations are no levels of the joint law: their coordinates are masked
+            # in every draw (the prior keeps a pseudo-count on them)
+            d.update({"members": list(g), "dims": list(dims), "other": L, "other_ratio": ratio,
+                      "kept": (cnt >= kmin).astype(float)})
             self._register(lambda rng, d=d: d.update(d["redraw"](rng)), now=False)
             info["extra_joint"].append(d)
             dec[f"joint links {label}"] = (
@@ -4713,6 +4722,7 @@ class Synthesizer:
         avail = np.ones(1)
         for e_ in ext:
             avail = np.multiply.outer(avail, np.asarray(e_[5], float)).ravel()
+        avail = avail * np.asarray(d.get("kept", np.ones(len(avail))), float)[:len(avail)]
         L = len(avail)
         for b in np.unique(blk):
             rows = np.flatnonzero(blk == b)
@@ -5732,13 +5742,18 @@ class Synthesizer:
                     why = "share model: the moved link is the anchor"
                 elif any(fk in u for u in T.get("unique", [])):
                     why = "share model: a unique key covers the moved link"
+                elif keys.get(fk) == 1 and (T.get("fact") or {}).get("pairs", self.cfg["facts"]["pairs"]) == "occupancy":
+                    # a declared occupancy fact is known now; one the data selects is handled at fit
+                    why = "share model: the moved link is the partner of an occupancy fact"
                 a0 = a
                 if why is None and "." not in a:
                     # the match is resolved while the row is drawn, before lookups, derives and the
                     # time column exist: a lookup is read through its path, a column drawn later
                     # keeps the share model (applied once every column exists)
                     lk = self.lookups.get(t, {}).get(a)
-                    if isinstance(lk, str) and "." in lk:
+                    if isinstance(lk, str) and "." in lk and T["columns"].get(a, {}).get("map"):
+                        why = "share model: the first path is a mapped lookup (compared after its map is applied)"
+                    elif isinstance(lk, str) and "." in lk:
                         a = lk
                     elif a not in keys and (a not in T["columns"] or a in self._excluded(t)):
                         why = "share model: the first path is a column drawn after the links"
@@ -5866,6 +5881,13 @@ class Synthesizer:
             if len(bad):
                 df = self._move_matched(f, df, ents, m, bad, want, av, kx, wx, done, rng)
             done.append(m)
+            if m["slot"] == 1:
+                blk = self._blocks_of_moved(info, st, df, blk, k_part, part0, st_nb)
+        return df, np.asarray(blk, np.int64)
+
+    def _blocks_of_moved(self, info, st, df, blk, k_part, part0, st_nb):
+        """Blocks of rows whose partner moved: the anchor segment with the new
+        partner's segment (rows without a partner keep theirs)."""
         blk = np.asarray(blk, np.int64).copy()
         moved = np.flatnonzero(df[k_part].to_numpy(dtype=object) != part0)
         if len(moved):
@@ -5875,7 +5897,7 @@ class Synthesizer:
             ok = (v >= 0) & (blk[moved] < (st_nb if st_nb is not None else np.iinfo(np.int64).max))
             mv = moved[ok]
             blk[mv] = (blk[mv] // K2) * K2 + z2[v[ok]]
-        return df, blk
+        return blk
 
     def _joint_rows_given_match(self, f, st, d, m, blk, want, ents):
         """Keys of a group of role-playing links given whether the match m holds,
@@ -5933,6 +5955,7 @@ class Synthesizer:
         avail = np.ones(1)
         for e_ in ext:
             avail = np.multiply.outer(avail, np.asarray(e_[5], float)).ravel()
+        avail = avail * np.asarray(d.get("kept", np.ones(len(avail))), float)[:len(avail)]
         rng = self.rng
         arow = pd.Series(np.arange(len(kx)), index=idx)
         arow = arow[~arow.index.duplicated()]
@@ -5952,8 +5975,25 @@ class Synthesizer:
                         res[j][rows] = None
                     continue
                 segs = np.unravel_index(rng.choice(len(p), size=len(rows), p=p / p.sum()), dims)
+                # the first row by its weight times the weight of the second segment's rows it
+                # matches (or does not), so the pair has the joint law given the match
                 ra = np.empty(len(rows), dtype=object)
-                self._rows_of_segments(rng, np.arange(len(rows)), segs[ia], ext[ia][4], wa, kx, ra)
+                sa_, sb_ = np.asarray(segs[ia]), np.asarray(segs[ib])
+                for (sg_a, sg_b), ii in pd.DataFrame({"a": sa_, "b": sb_}).groupby(["a", "b"]).indices.items():
+                    mm = ext[ia][4][sg_a] if sg_a < len(ext[ia][4]) else np.zeros(0, np.int64)
+                    if not len(mm):
+                        ra[ii] = None                                   # null first key
+                        continue
+                    if sg_b < B.shape[0]:
+                        cm = np.where(ca[mm] >= 0, B[sg_b, np.maximum(ca[mm], 0)], 0.0)
+                        comp = cm if wv else WB[sg_b] - cm
+                    else:
+                        comp = np.zeros(len(mm)) if wv else np.ones(len(mm))   # null second key never matches
+                    ww = wa[mm] * np.maximum(comp, 0.0)
+                    if ww.sum() <= 0:
+                        ra[ii] = None
+                        continue
+                    ra[ii] = kx[mm[rng.choice(len(mm), size=len(ii), p=ww / ww.sum())]]
                 res[ia][rows] = ra
                 # the second link among its segment's rows that match the first (or do not)
                 ia_ = arow.reindex(_keystr(pd.Series(ra)).to_numpy(dtype=object)).fillna(-1).astype(np.int64).to_numpy()
@@ -6042,11 +6082,12 @@ class Synthesizer:
                 q[no[~hit]] = qn[~hit]
             tried = np.flatnonzero(q >= 0)
             if not len(tried):
-                break
+                continue            # every draw missed (a parent with the row's value): draw again
             rows = left[tried]
             sub = df.iloc[rows].copy()
             sub[m["fk"]] = kx[q[tried]]
-            ok = self._keeps_done(f, df, sub, ents, done, rows)
+            # the move must make this entry agree on the moved row (both paths may read the link)
+            ok = self._keeps_done(f, df, sub, ents, done, rows) & self._match_agrees(f, sub, ents, m, wantb[rows])
             col[rows[ok]] = kx[q[tried]][ok]
             df[m["fk"]] = col.copy()
             keep = np.ones(len(left), bool)

@@ -152,9 +152,19 @@ def test_role_playing_links_drawn_jointly(tmp_path):
 def test_rare_combination_left_out(tmp_path):
     spec, src = _transfers(tmp_path, rare_pair=True)
     assert ((src.pay == "C00") & (src.recv == "C11")).sum() == 3
-    on, dec = _run(spec)
-    assert "fewer than 5 rows" in dec["t"]["joint links pay + recv"]
-    assert not ((on["t"].pay == "C00") & (on["t"].recv == "C11")).any()
+    out = rs.run(spec, write=False, privacy=False, seed=1)
+    assert out.ok, out.errors
+    syn = out.model.synthesizer
+    assert "fewer than 5 rows" in syn.log["decisions"]["t"]["joint links pay + recv"]
+    # the fitted joint law has no level for the floored pair: its coordinate is masked in every
+    # draw and its rows sit at the "other" level (where independent links may still meet on it)
+    info = syn.fact_info["t"]
+    d = info["extra_joint"][0]
+    e_pay, e_recv = (info["extra"][xj].e2 for xj in d["members"])
+    idx = np.ravel_multi_index((int(e_pay.z[0]), int(e_recv.z[11])), tuple(d["dims"]))
+    assert d["kept"][idx] == 0
+    assert d["kept"].sum() < len(d["kept"])
+    assert np.asarray(d["P"])[:, d["other"]].sum() > 0
 
 
 def test_joint_links_off_per_fact(tmp_path):

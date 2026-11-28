@@ -254,7 +254,9 @@ S = {
         "map": ("map", None, "Lookup values mapped through a fixed table (country -> currency)."),
         "default": ("any", None, "Value for codes outside `map`."),
         "offset_from": ("column", None, "This date/number = that column + a modelled gap (delivery = order + 0..7 "
-                        "days; an answer's last activity = its creation + a gap that is often 0)."),
+                        "days; an answer's last activity = its creation + a gap that is often 0). The column may be in a "
+                        "parent table, as a path through foreign keys (`fk.column`), and may itself be an offset; a cycle "
+                        "is refused."),
         "ratio_of": ("column | fk.col", None, "This number = that number x a modelled factor (unit price = list "
                      "price x one of 16 factors)."),
         "ratio_same_as": ("column", None, "Use the factor of another ratio column (unit cost moves with unit "
@@ -468,7 +470,9 @@ SYNTH_DOC = {
     "marginals.max_levels": "Levels kept per categorical (rarer ones pooled).",
     "marginals.tail_trim": "Share trimmed from continuous tails.",
     "marginals.point_mass_knots": ("Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated "
-                                   "amounts, wages): give the rest of the column about copula.grid quantile knots."),
+                                   "amounts, wages): give the rest of the column about copula.grid quantile knots. Off by "
+                                   "default (each knot is a quantile of the data); turn it on in the spec, or per table, where "
+                                   "such a column's tail matters."),
     "marginals.min_dependence_rows": "Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample.",
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",

@@ -222,6 +222,8 @@ A calendar referenced as order date and ship date is two relationships to one ta
 
 An order header carried on its lines (a degenerate dimension) is `fact.header: {key, columns, line_number}`. A separate orders table that the lines reference is an entity; the model report calls it the order header. Every order then has one customer and one set of dates, and its lines are numbered 1..n.
 
+A line key can be offset from a header key (`offset_from: cs_sold_date_sk` on the ship date's relationship, with the sold date a header column): the ship date then follows each order's date by a modelled gap on every line. Line rules may read parents through header keys (`days(ship_date_sk.d_date) - days(sold_date_sk.d_date)`); the engine reads them through the order header.
+
 ### Unknown members
 
 `unknown_members: [-1]` on the dimension:
@@ -245,7 +247,7 @@ On a fact, the rows that point at the unknown member are restored by drawing tha
 ### Periodic and accumulating snapshots, factless facts
 
 - **Periodic snapshot** (one row per account and month): declare the grain as `unique: [[account_id, month_key]]`. The fact is then generated as the occupancy of the pairs.
-- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates).
+- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates). A line's date can start from its header's date through the foreign key (`offset_from: l_orderkey.o_orderdate`), and an offset can be the base of another (receipt from ship, ship from the order's date), so the gaps between them hold on every row.
 - **Factless fact** (attendance, coverage): it needs nothing special. Rows per parent and the pairs are modelled as for any fact.
 
 ### A value shared by a group, co-location, rules that mostly hold
@@ -468,7 +470,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `lookup` | fk.col path \| keyed lookup |  | For type lookup: the value of a parent's column, or {table, match, value} into a reference table. |
 | `map` | map |  | Lookup values mapped through a fixed table (country -> currency). |
 | `default` | any |  | Value for codes outside `map`. |
-| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). |
+| `offset_from` | column |  | This date/number = that column + a modelled gap (delivery = order + 0..7 days; an answer's last activity = its creation + a gap that is often 0). The column may be in a parent table, as a path through foreign keys (`fk.column`), and may itself be an offset; a cycle is refused. |
 | `ratio_of` | column \| fk.col |  | This number = that number x a modelled factor (unit price = list price x one of 16 factors). |
 | `ratio_same_as` | column |  | Use the factor of another ratio column (unit cost moves with unit price). |
 | `text` | text |  | Options of a text column. |
@@ -700,7 +702,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `marginals.dirichlet_prior` | `0.25` | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | `200` | Levels kept per categorical (rarer ones pooled). |
 | `marginals.tail_trim` | `0.0` | Share trimmed from continuous tails. |
-| `marginals.point_mass_knots` | `False` | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. |
+| `marginals.point_mass_knots` | `False` | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. Off by default (each knot is a quantile of the data); turn it on in the spec, or per table, where such a column's tail matters. |
 | `marginals.min_dependence_rows` | `5` | Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample. |
 | `marginals.fd_bf` | `100.0` | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | `64` | Largest joint of dependent categoricals. |

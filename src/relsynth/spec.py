@@ -233,6 +233,13 @@ def normalise(raw: dict) -> dict:
     gsm = spec["synthesis"].get("generator_selection")
     if isinstance(gsm, dict) and gsm.get("mode") is False:
         gsm["mode"] = "off"                          # the same YAML 1.1 reading of an unquoted off
+    sf = spec["synthesis"].get("facts")
+    if isinstance(sf, dict) and sf.get("joint_links") is False:
+        sf["joint_links"] = "off"
+    for t_ in (spec.get("tables") or {}).values() if isinstance(spec.get("tables"), dict) else ():
+        fa = t_.get("fact") if isinstance(t_, dict) else None
+        if isinstance(fa, dict) and fa.get("joint_links") is False:
+            fa["joint_links"] = "off"
     if not isinstance(spec.get("tables") or {}, dict):
         raise SpecError("tables must be a mapping {table name: table}")
     if not isinstance(spec["relationships"], list) or not all(isinstance(r, dict) for r in spec["relationships"]):

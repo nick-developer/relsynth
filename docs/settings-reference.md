@@ -43,7 +43,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `marginals.dirichlet_prior` | float | `0.25` | 0 … 1e+06 | yes (log) | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | int | `200` | 1 … 1e+07 | yes (log) | Levels kept per categorical (rarer ones pooled). |
 | `marginals.tail_trim` | float | `0.0` | 0 … 0.5 | yes | Share trimmed from continuous tails. |
-| `marginals.point_mass_knots` | bool | `False` |  | yes | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. |
+| `marginals.point_mass_knots` | bool | `False` |  | yes | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. Off by default (each knot is a quantile of the data); turn it on in the spec, or per table, where such a column's tail matters. |
 | `marginals.min_dependence_rows` | int | `5` | 0 … 1e+07 | yes | Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample. |
 | `marginals.fd_bf` | float | `100.0` | 1 … 1e+300 |  | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | int | `64` | 1 … 1e+07 | yes (log) | Largest joint of dependent categoricals. |

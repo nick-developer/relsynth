@@ -222,6 +222,8 @@ A calendar referenced as order date and ship date is two relationships to one ta
 
 An order header carried on its lines (a degenerate dimension) is `fact.header: {key, columns, line_number}`. A separate orders table that the lines reference is an entity; the model report calls it the order header. Every order then has one customer and one set of dates, and its lines are numbered 1..n.
 
+A line key can be offset from a header key (`offset_from: cs_sold_date_sk` on the ship date's relationship, with the sold date a header column): the ship date then follows each order's date by a modelled gap on every line. Line rules may read parents through header keys (`days(ship_date_sk.d_date) - days(sold_date_sk.d_date)`); the engine reads them through the order header.
+
 ### Unknown members
 
 `unknown_members: [-1]` on the dimension:
@@ -245,7 +247,7 @@ On a fact, the rows that point at the unknown member are restored by drawing tha
 ### Periodic and accumulating snapshots, factless facts
 
 - **Periodic snapshot** (one row per account and month): declare the grain as `unique: [[account_id, month_key]]`. The fact is then generated as the occupancy of the pairs.
-- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates).
+- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates). A line's date can start from its header's date through the foreign key (`offset_from: l_orderkey.o_orderdate`), and an offset can be the base of another (receipt from ship, ship from the order's date), so the gaps between them hold on every row.
 - **Factless fact** (attendance, coverage): it needs nothing special. Rows per parent and the pairs are modelled as for any fact.
 
 ### A value shared by a group, co-location, rules that mostly hold
