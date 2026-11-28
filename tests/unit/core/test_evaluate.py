@@ -36,6 +36,35 @@ def test_canon_counts_equals_the_per_row_definition():
     assert len(E._canon_counts(pd.Series([], dtype=object))) == 0
 
 
+def test_joined_level_shares_counted_on_ancestor_rows_equal_the_gathered_column():
+    """_JoinedView.level_shares (ancestor rows weighted by their fact rows; the joined column of a fact
+    with millions of rows is not gathered) gives _canon_counts of the gathered column exactly: values,
+    labels and order, with ties, missing parents, null values and equal values spelt differently."""
+    rng = np.random.default_rng(11)
+    spec = {"tables": {"f": {"primary_key": "id", "columns": {"id": {"type": "id"}, "d": {"type": "id"}}},
+                       "d": {"primary_key": "k", "columns": {"k": {"type": "id"}, "g": {"type": "id"},
+                                                             "c": {"type": "categorical"}}},
+                       "g": {"primary_key": "k", "columns": {"k": {"type": "id"}, "n": {"type": "categorical"}}}},
+            "relationships": [{"child": "f", "child_key": "d", "parent": "d", "kind": "many_to_one"},
+                              {"child": "d", "child_key": "g", "parent": "g", "kind": "many_to_one"}]}
+    for t in range(40):
+        nd, ng, nf = int(rng.integers(1, 60)), int(rng.integers(1, 20)), int(rng.integers(1, 3000))
+        levels = [1, 1.0, Decimal("1"), "a", "b", None, 2, 2.5] if t % 2 else ["x", "y", "z", None]
+        d = pd.DataFrame({"k": np.arange(nd), "g": rng.integers(0, ng + 2, nd),
+                          "c": pd.Series([levels[i] for i in rng.integers(0, len(levels), nd)], dtype=object)})
+        g = pd.DataFrame({"k": np.arange(ng), "n": rng.integers(0, 4, ng)})
+        f = pd.DataFrame({"id": np.arange(nf), "d": rng.integers(0, nd + 3, nf)})    # some missing parents
+        view = E.joined_view(spec, {"f": f, "d": d, "g": g}, "f")
+        for c in ("d.c", "d.g.n"):
+            ref = E._canon_counts(view[c].dropna())
+            got = view.level_shares(c)
+            if len(ref) == 0:
+                assert got is None
+            else:
+                pd.testing.assert_series_equal(got, ref, check_names=False, check_index_type=False)
+    assert view.level_shares("d") is None                   # the fact's own column
+
+
 def test_tvd_and_ks():
     a = pd.Series(["x"] * 6 + ["y"] * 4)
     b = pd.Series(["x"] * 3 + ["z"] * 7)

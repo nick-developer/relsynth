@@ -99,6 +99,36 @@ def tvd(a, b):
     return _tvd_shares(_canon_counts(a), _canon_counts(b))
 
 
+def _canon_counts_weighted(vals, w, first):
+    """_canon_counts of a column in which value vals[i] occurs w[i] times, first at row first[i]: the
+    same shares in the same order, without the repeated column (the level shares of an ancestor
+    attribute joined onto a fact of millions of rows are counted on the ancestor's rows).  None when
+    the values mix bools with numbers (True == 1 under hashing; _canon_counts spells those per row)."""
+    arr = vals.to_numpy(dtype=object) if isinstance(vals, (pd.Series, pd.Index)) else np.asarray(vals, dtype=object)
+    w, first = np.asarray(w, dtype=np.int64), np.asarray(first, dtype=np.int64)
+    keep = (w > 0) & ~pd.isna(arr)
+    arr, w, first = arr[keep], w[keep], first[keep]
+    if len(arr) == 0:
+        return None
+    kind = pd.api.types.infer_dtype(arr, skipna=True)
+    if kind not in ("string", "integer", "floating", "mixed-integer-float", "decimal", "datetime", "datetime64",
+                    "date", "empty", "boolean") and any(isinstance(v, (bool, np.bool_)) for v in arr):
+        return None
+    codes, uniq = pd.factorize(arr)
+    k = np.bincount(codes, weights=w, minlength=len(uniq)).astype(np.int64)
+    fr = np.full(len(uniq), np.iinfo(np.int64).max, dtype=np.int64)
+    np.minimum.at(fr, codes, first)
+    lab_first, cnt = {}, {}
+    for u, r, c in zip(uniq, fr, k):
+        lab = _canon(u)
+        lab_first[lab] = min(lab_first.get(lab, r), r)
+        cnt[lab] = cnt.get(lab, 0) + int(c)
+    labels = sorted(lab_first, key=lab_first.get)
+    counts = np.array([cnt[l] for l in labels], dtype=np.int64)
+    out = pd.Series(counts, index=pd.Index(labels, dtype=object)).sort_values(ascending=False)
+    return out / counts.sum()
+
+
 def _tvd_shares(pa, pb):
     """Total variation distance between two level-share series (_canon_counts)."""
     idx = pa.index.union(pb.index)
@@ -603,6 +633,22 @@ class _JoinedView:
                 break
         self.columns = pd.Index(list(self.src))
 
+    def level_shares(self, c):
+        """_canon_counts(self[c].dropna()) counted on the ancestor's rows (each weighted by its fact
+        rows), so the joined column is never gathered; None for the fact's own columns."""
+        s, pos = self.src[c]
+        if pos is None:
+            return None
+        cache = self.__dict__.setdefault("_weights", {})
+        if id(pos) not in cache:
+            ok = np.flatnonzero(pos >= 0)
+            w = np.bincount(pos[ok], minlength=len(s))
+            first = np.full(len(s), np.iinfo(np.int64).max, dtype=np.int64)
+            np.minimum.at(first, pos[ok], ok)
+            cache[id(pos)] = (pos, w, first)    # pos kept so that its id is not reused
+        _, w, first = cache[id(pos)]
+        return _canon_counts_weighted(s.reset_index(drop=True), w, first)
+
     def __getitem__(self, c):
         s, pos = self.src[c]
         s = s.reset_index(drop=True)
@@ -642,6 +688,13 @@ def _kish(view, keycol, default):
     return float(min(default, w.sum() ** 2 / max((w ** 2).sum(), 1.0))) if len(w) else default
 
 
+def _level_shares(view, c):
+    """Level shares of joined column c: on the ancestor's rows for a gathered view (a column of a
+    fact with millions of rows is not repeated as objects), else over the joined rows."""
+    pa = view.level_shares(c) if isinstance(view, _JoinedView) else None
+    return pa if pa is not None else _canon_counts(view[c].dropna())
+
+
 def join_metrics(spec, real, syn, fact):
     rv, sv = joined_view(spec, real, fact), joined_view(spec, syn, fact)
     out, kish = {}, {}
@@ -667,10 +720,10 @@ def join_metrics(spec, real, syn, fact):
             # every row (astype(str) of a joined column of a fact with millions of rows held a
             # second copy of it as text); the same shares in the same order for text and integer
             # levels, and they also give the TVD
-            pa = _canon_counts(rv[c].dropna())
+            pa, pb = _level_shares(rv, c), _level_shares(sv, c)
             pr = pa.to_numpy()
             mu, sd = tvd_null(pr, anc_rows, syn_rows)
-            out[c] = {"tvd": _tvd_shares(pa, _canon_counts(sv[c].dropna())),
+            out[c] = {"tvd": _tvd_shares(pa, pb),
                       "crit": tvd_crit(pr, anc_rows, syn_rows, pp=True), "n_eff": round(anc_rows, 1),
                       "n_eff_syn": round(syn_rows, 1), "tvd_mu": mu, "tvd_sd": sd, "n_real": nr_}
         else:
