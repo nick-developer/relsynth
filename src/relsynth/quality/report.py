@@ -334,8 +334,11 @@ def _detection_checks(b, spec, real, syn, holdout, rng):
         bench[p] = acc
         draws = []
         for _ in range(R):
-            A, B = cal.split_db_root(spec, real, p, rng)
-            draws.append(mt.detection_accuracy(mt.aggregated(spec, A, p)[0], mt.aggregated(spec, B, p)[0], kinds,
+            # the halves' aggregated rows are rows of fr (each parent row's children follow it into
+            # its half), so the split needs only masks; building the half databases and
+            # re-aggregating them copied every fact below the root (12 GiB on TPC-DS SF1)
+            mA, mB = cal.split_masks(spec, real, p, rng)
+            draws.append(mt.detection_accuracy(fr[mA].reset_index(drop=True), fr[mB].reset_index(drop=True), kinds,
                                                cfg["classifier"], max_rows=mr, seed=cfg["seed"]))
         N = min(len(fr), len(fs), mr)
         Nh = min(len(fr) // 2, len(fr) - len(fr) // 2, mr)

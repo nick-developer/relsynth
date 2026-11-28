@@ -287,3 +287,26 @@ def test_a_one_row_parent_splits_rows_or_falls_back_to_the_fixed_tolerance(shop)
     assert mt._pair_trend(e, e, e, e, True, True) is None
     assert mt._pair_trend(e, x, e, x, True, True) is None
     assert mt._pair_trend(x, x, x, x, True, True) == 1.0
+
+
+def test_detection_split_masks_pick_the_rows_of_the_half_databases(shop):
+    """Class: parents whose child tables are large facts (TPC-DS SF1: item and date_dim over the
+    11.7M-row inventory and the sales facts). The detection null built both half databases and
+    re-aggregated them for each split, copying every fact below the root (12 GiB). Each parent
+    row's children follow it into its half, so a half's aggregated rows are rows of the whole
+    aggregated table: the masks select the same parent rows as split_db_root, with the same
+    draws, and the aggregated halves equal those rows."""
+    spec, a, _ = shop
+    for p in mt.parents_with_children(spec):
+        if len(a[p]) < 20:
+            continue
+        fr, kinds = mt.aggregated(spec, a, p)
+        pk = spec["tables"][p]["primary_key"]
+        r1, r2 = np.random.default_rng(7), np.random.default_rng(7)
+        A, B = cal.split_db_root(spec, a, p, r1)
+        mA, mB = cal.split_masks(spec, a, p, r2)
+        assert r1.random() == r2.random()           # the same draws from rng
+        for H, m in ((A, mA), (B, mB)):
+            assert list(a[p][pk][m]) == list(H[p][pk])
+            old = mt.aggregated(spec, H, p)[0][list(kinds)].reset_index(drop=True)
+            pd.testing.assert_frame_equal(old, fr[m][list(kinds)].reset_index(drop=True), check_dtype=False)

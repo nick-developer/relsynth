@@ -109,6 +109,39 @@ def split_db_root(spec, tables, t, rng):
     return split_db(spec, tables, chain[-1][2] if chain else t, rng)
 
 
+def split_masks(spec, tables, t, rng):
+    """The rows of t in each half of split_db_root(spec, tables, t, rng), as two boolean masks,
+    with the same draws from rng, without building the halves. split_db_root copies every
+    table below the root (on TPC-DS SF1 the 11.7M-row inventory and every sales fact, per
+    split); a metric that reads t only through per-row values computed once on the whole table
+    (aggregated child features, whose children follow their parent row into its half) needs
+    only the masks."""
+    chain = anchor_chain(spec, tables, t)
+    root = chain[-1][2] if chain else t
+    n = len(tables[root])
+    perm = rng.permutation(n)
+    up = {c: (c, fk, p, pk) for c, fk, p, pk in descendants(spec, root)}
+    path, cur = [], t
+    while cur != root:                      # t's line from the root, as split_db reaches it
+        path.append(up[cur])
+        cur = up[cur][2]
+    path.reverse()
+    keys = {}
+
+    def k(tab, col):
+        if (tab, col) not in keys:
+            keys[(tab, col)] = keystr(tables[tab][col])
+        return keys[(tab, col)]
+    out = []
+    for idx in (np.sort(perm[: n // 2]), np.sort(perm[n // 2:])):
+        m = np.zeros(n, dtype=bool)
+        m[idx] = True
+        for c, fk, p, pk in path:
+            m = k(c, fk).isin(set(k(p, pk)[m].dropna())).to_numpy()
+        out.append(m)
+    return out
+
+
 def split_db(spec, tables, t, rng, follow=True):
     """Two half-databases: the rows of t split at random into halves, every
     table below t (with follow) keeps the rows whose parent is in the half;
