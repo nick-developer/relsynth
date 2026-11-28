@@ -1509,32 +1509,55 @@ def grain_metrics(spec, real, syn, real_stats=None):
         names = sorted(refs)
         memo = {}
 
-        def refv(tabs, side, x):
-            if (side, x) not in memo:
-                memo[(side, x)] = _ref_values(spec, f, tabs, x)
-            return memo[(side, x)]
+        def refv(x):
+            """Real and synthetic codes of reference path x in one label space (the real side's
+            spellings first, a synthetic spelling the real side lacks gets -1), or None."""
+            if x not in memo:
+                r_, s_ = _ref_codes(spec, f, real, x), _ref_codes(spec, f, syn, x)
+                memo[x] = None if r_ is None or s_ is None else \
+                    (r_[0], len(r_[1]), np.asarray(pd.Index(r_[1]).get_indexer(s_[1]), dtype=np.int64)[s_[0]])
+            return memo[x]
         for i, a in enumerate(names):
             for b in names[i + 1:]:
-                va, vb = refv(real, "r", a), refv(real, "r", b)
-                sa, sb = refv(syn, "s", a), refv(syn, "s", b)
-                if va is None or sa is None or vb is None or sb is None:
+                ra_, rb_ = refv(a), refv(b)
+                if ra_ is None or rb_ is None:
                     continue
-                cnt = Counter(zip(va, vb))
-                if not cnt or len(va) / len(cnt) < 5:
+                (ca, _, sa), (cb, nb, sb) = ra_, rb_
+                # each (a, b) combination as one integer; the real combinations and their counts
+                comb, counts = np.unique(ca * nb + cb, return_counts=True)
+                if not len(comb) or len(ca) / len(comb) < 5:
                     continue                 # sparse support: novel combinations are expected
-                novel = float(np.mean([(x, y) not in cnt for x, y in zip(sa, sb)])) if len(sa) else 0.0
+                seen = (sa >= 0) & (sb >= 0)
+                novel = float(np.mean(~(seen & np.isin(np.where(seen, sa * nb + sb, -1), comb)))) if len(sa) else 0.0
                 # null value of the novel share: the real sample's missing mass, estimated
                 # by Good-Turing (N1/n), with Esty's (1983) variance plus the synthetic
                 # sample's binomial noise
-                n = len(va)
-                n1 = sum(1 for v in cnt.values() if v == 1)
-                n2 = sum(1 for v in cnt.values() if v == 2)
+                n = len(ca)
+                n1 = int((counts == 1).sum())
+                n2 = int((counts == 2).sum())
                 gt = n1 / n
                 sd = float(np.sqrt(max(n1 + 2 * n2 - n1 * n1 / n, 1) / n ** 2 + max(gt, 1 / n) / max(len(sa), 1)))
                 out[f"{f}: support ({a}, {b})"] = {"kind": "support", "real": 0.0, "syn": novel,
-                                                   "rows_per_combination": round(len(va) / len(cnt), 1),
+                                                   "rows_per_combination": round(len(ca) / len(comb), 1),
                                                    "good_turing": gt, "sd": sd, "crit": gt + 2.5 * sd}
     return out
+
+
+def _ref_codes(spec, t, tables, path):
+    """_ref_values as (codes, labels): labels[codes] is _ref_values, each distinct spelling once, so a
+    reference key of a fact with millions of rows is held as integers, not one string per row."""
+    from .prepare import make_resolver
+    df = tables[t]
+    try:
+        v = df[path] if "." not in path else make_resolver(spec, t, df, tables)(path)
+    except Exception:  # noqa: BLE001
+        return None
+    codes, uniq = pd.factorize(pd.Series(v), use_na_sentinel=True)
+    # spell the distinct values only, then merge values that spell alike (1 and 1.0); nulls are "__null__"
+    spell = keystr(pd.Series(uniq)).fillna("__null__").to_numpy(dtype=object)
+    labels = np.append(spell, "__null__")
+    merged, out_labels = pd.factorize(labels)
+    return merged[np.where(codes >= 0, codes, len(labels) - 1)].astype(np.int64), np.asarray(out_labels, dtype=object)
 
 
 def _ref_values(spec, t, tables, path):
