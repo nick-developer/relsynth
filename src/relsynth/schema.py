@@ -636,6 +636,8 @@ SYNTH_DOC = {
     "repair.occupancy_rounds": "Redraws that give every parent its mandatory first row in occupancy facts.",
     "detection.group_effect_share": "A group effect holding on fewer source groups than this share is reported.",
     "detection.scd_stable_share": "SCD2 stable auto: columns equal across versions on at least this share of keys.",
+    "detection.scd_wellformed_share": "SCD2: below this share of source closed latest versions ending after their start, "
+                                      "the source's own version lengths (signs included) are kept.",
     "detection.scd_max_versions": "Largest number of versions per key modelled exactly (more are pooled).",
     "evaluation.thresholds": "Fixed tolerances of the scorecard by name (ks, tvd, auc, ...; see the table below). "
                              "Each limit is the larger of its tolerance and its sampling limit.",

@@ -119,6 +119,8 @@ def _pair_trend(xa, xb, ya, yb, cat_x, cat_y, bins=10, dx=None, dy=None):
         ra = pearsonr(fa[oka], ga[oka]).statistic
         rb = pearsonr(fb[okb], gb[okb]).statistic if np.ptp(fb[okb]) > 0 and np.ptp(gb[okb]) > 0 else 0.0
         return float(1 - abs(ra - rb) / 2)
+    if not len(xa) or not len(xb):     # a side without rows (a split half under a one-row root): no score
+        return None
     xa_, xb_ = dx if dx is not None else _discretise(xa, xb, cat_x, bins)
     ya_, yb_ = dy if dy is not None else _discretise(ya, yb, cat_y, bins)
     ka = xa_.astype(np.int64) * (10 ** 6 + 2) + ya_

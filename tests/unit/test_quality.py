@@ -252,3 +252,61 @@ def test_fanout_of_a_sampled_fact_uses_exact_counts():
     tabs = {"gp": gp, "p": par, "c": sample}
     g_full = mt.grandchild_counts({"gp": gp, "p": par, "c": child}, "gp", "g", "p", "k", "g", "c", "fk")
     assert np.array_equal(mt.grandchild_counts(tabs, "gp", "g", "p", "k", "g", "c", "fk", exact), g_full)
+
+
+def test_a_one_row_parent_splits_rows_or_falls_back_to_the_fixed_tolerance(shop):
+    """Class: relationships whose parent table has a single row, or whose child rows all hang
+    from one parent row (one store, warehouse or call centre, as in small TPC-DS scale factors;
+    the rates of a single currency). Real-vs-real splits need two clusters; with one, a half was
+    empty and the report stopped (KeyError on the empty fan-out law). Now the rows are the split
+    units (the hop trends of the lines under the one product), and a one-row table, which
+    cannot be split at all, uses the fixed tolerance (the product fan-out)."""
+    spec, a, b = shop
+    one = []
+    for side in (a, b):
+        d = dict(side)
+        d["product"] = side["product"].iloc[:1].reset_index(drop=True)
+        d["lines"] = side["lines"].assign(product_id=d["product"]["product_id"].iloc[0])
+        one.append(d)
+    assert not cal.splittable(cal.cluster_ids(spec, one[0], "product"))
+    rep = assess(spec, one[0], one[1], config={"null_splits": 4, "multi_splits": 3})
+    fan = [c for c in rep["checks"] if c["metric"].startswith("fanout")
+           and "product" in str(c["scope"].get("relationship", ""))]
+    assert fan and all(c["null"]["method"] == "fixed tolerance" for c in fan)
+    others = [c for c in rep["checks"] if c["metric"] == "fanout_w1_rel"
+              and "product" not in str(c["scope"].get("relationship", ""))]
+    assert others and all(c["null"]["method"].startswith("real-vs-real") for c in others)
+    assert cal.splittable(np.array(["a", "b"])) and not cal.splittable(np.array(["a", "a"]))
+    assert list(cal.split_units(np.array(["a", "a", "a"]))) == ["0", "1", "2"]
+    assert list(cal.split_units(np.array(["a", "b", "a"]))) == ["a", "b", "a"]
+    hops = [c for c in rep["checks"] if c["metric"].startswith("hop_trend")
+            and str(c["scope"].get("path", "")).endswith("->product")]
+    assert hops and all(c["null"]["method"].startswith("real-vs-real") for c in hops)
+    # a column-pair trend with no rows on a side (a split half under a one-row root) has no score
+    e, x = pd.Series([], dtype=object), pd.Series(["u", "v", "u"])
+    assert mt._pair_trend(e, e, e, e, True, True) is None
+    assert mt._pair_trend(e, x, e, x, True, True) is None
+    assert mt._pair_trend(x, x, x, x, True, True) == 1.0
+
+
+def test_detection_split_masks_pick_the_rows_of_the_half_databases(shop):
+    """Class: parents whose child tables are large facts (TPC-DS SF1: item and date_dim over the
+    11.7M-row inventory and the sales facts). The detection null built both half databases and
+    re-aggregated them for each split, copying every fact below the root (12 GiB). Each parent
+    row's children follow it into its half, so a half's aggregated rows are rows of the whole
+    aggregated table: the masks select the same parent rows as split_db_root, with the same
+    draws, and the aggregated halves equal those rows."""
+    spec, a, _ = shop
+    for p in mt.parents_with_children(spec):
+        if len(a[p]) < 20:
+            continue
+        fr, kinds = mt.aggregated(spec, a, p)
+        pk = spec["tables"][p]["primary_key"]
+        r1, r2 = np.random.default_rng(7), np.random.default_rng(7)
+        A, B = cal.split_db_root(spec, a, p, r1)
+        mA, mB = cal.split_masks(spec, a, p, r2)
+        assert r1.random() == r2.random()           # the same draws from rng
+        for H, m in ((A, mA), (B, mB)):
+            assert list(a[p][pk][m]) == list(H[p][pk])
+            old = mt.aggregated(spec, H, p)[0][list(kinds)].reset_index(drop=True)
+            pd.testing.assert_frame_equal(old, fr[m][list(kinds)].reset_index(drop=True), check_dtype=False)

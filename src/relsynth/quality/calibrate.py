@@ -78,6 +78,23 @@ def cluster_ids(spec, tables, t):
     return ids.fillna("__null__").astype(str).to_numpy()
 
 
+def splittable(ids) -> bool:
+    """Whether real-vs-real splits exist: at least two units, so that each half gets one."""
+    return len(np.unique(ids)) >= 2
+
+
+def split_units(ids):
+    """The units a real-vs-real split moves whole: the clusters of Prop. 109 (i) when there are
+    at least two. Rows that all hang from one root row (one store, one call centre, rates of a
+    single currency) form one cluster, which cannot be split; their rows are then the units, so
+    the null law measures the rows' sampling noise. Within-cluster dependence is not estimable
+    from one cluster, so this limit can be tighter than a clustered one; it is still far closer
+    to the real-vs-real noise than the fixed tolerance, which ignores the sample size. With
+    fewer than two rows nothing can be split and the checks use the fixed tolerance."""
+    ids = np.asarray(ids)
+    return ids if splittable(ids) else np.arange(len(ids)).astype(str)
+
+
 def cluster_halves(ids, rng):
     """Boolean mask of half A: whole clusters assigned at random to the halves."""
     u, inv = np.unique(ids, return_inverse=True)
@@ -90,6 +107,39 @@ def split_db_root(spec, tables, t, rng):
     """split_db at the root of t's anchor chain, so that whole clusters move."""
     chain = anchor_chain(spec, tables, t)
     return split_db(spec, tables, chain[-1][2] if chain else t, rng)
+
+
+def split_masks(spec, tables, t, rng):
+    """The rows of t in each half of split_db_root(spec, tables, t, rng), as two boolean masks,
+    with the same draws from rng, without building the halves. split_db_root copies every
+    table below the root (on TPC-DS SF1 the 11.7M-row inventory and every sales fact, per
+    split); a metric that reads t only through per-row values computed once on the whole table
+    (aggregated child features, whose children follow their parent row into its half) needs
+    only the masks."""
+    chain = anchor_chain(spec, tables, t)
+    root = chain[-1][2] if chain else t
+    n = len(tables[root])
+    perm = rng.permutation(n)
+    up = {c: (c, fk, p, pk) for c, fk, p, pk in descendants(spec, root)}
+    path, cur = [], t
+    while cur != root:                      # t's line from the root, as split_db reaches it
+        path.append(up[cur])
+        cur = up[cur][2]
+    path.reverse()
+    keys = {}
+
+    def k(tab, col):
+        if (tab, col) not in keys:
+            keys[(tab, col)] = keystr(tables[tab][col])
+        return keys[(tab, col)]
+    out = []
+    for idx in (np.sort(perm[: n // 2]), np.sort(perm[n // 2:])):
+        m = np.zeros(n, dtype=bool)
+        m[idx] = True
+        for c, fk, p, pk in path:
+            m = k(c, fk).isin(set(k(p, pk)[m].dropna())).to_numpy()
+        out.append(m)
+    return out
 
 
 def split_db(spec, tables, t, rng, follow=True):

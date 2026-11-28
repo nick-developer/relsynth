@@ -48,10 +48,19 @@ MIN_SEEDS_CALIBRATED = 3
 
 def error_summary(err: str, n: int = 300) -> str:
     """A run's error for a log line: its first line and, for a Python traceback, the exception
-    (the last non-empty line), which a head of the text alone cuts off."""
-    lines = [x.strip() for x in str(err).splitlines() if x.strip()]
+    (the last non-empty line), which a head of the text alone cuts off. A faulthandler dump (the
+    memory watchdog's) lists the most recent call first, so its innermost frames are kept instead,
+    each as file:line in function."""
+    text = str(err)
+    if "Current thread" in text:
+        frames = re.findall(r'File "([^"]+)", line (\d+) in (\S+)', text[text.index("Current thread"):])
+        if frames:
+            where = " < ".join(f"{Path(f).name}:{ln} in {fn}" for f, ln, fn in frames[:6])
+            head = text[: text.index("Current thread")].strip()
+            return ((head + " " if head else "") + where)[:n]
+    lines = [x.strip() for x in text.splitlines() if x.strip()]
     if len(lines) <= 1:
-        return str(err)[:n]
+        return text[:n]
     head, last = lines[0], lines[-1]
     return (head[: n // 3] + " ... " + last[: n - n // 3])
 

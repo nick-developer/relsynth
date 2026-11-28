@@ -6489,6 +6489,10 @@ class Synthesizer:
                 gv, gc = gv[keep], gc[keep]
             # lengths of closed latest versions (days), for a latest version drawn closed
             dur = (fr["e"] - fr["s"])[last].dt.days.dropna().to_numpy(dtype=float)
+            # share of closed latest versions that end after they start: a source whose intervals
+            # are not well formed (end dates loaded before the start, placeholder ends) keeps its
+            # own lengths, signs included, instead of having them forced positive
+            wf = float((dur > 0).mean()) if len(dur) else 1.0
             dur = np.quantile(dur, np.linspace(0, 1, 51)) if len(dur) > 51 else dur
             # days from one version's start to the next one's (a version's length): a start
             # drawn on or before the previous version's start moves this far past it
@@ -6529,7 +6533,8 @@ class Synthesizer:
                         break
             st = {"nk": nk, "vf": vf, "vt": vt if vt in df.columns else None, "vcount": vcount,
                   "cur_h": cur_h, "cur_n": cur_n, "gaps": gv, "gcount": gc.astype(float), "stable": stable,
-                  "current": cur, "dur": dur, "step": step, "starts": ls}
+                  "current": cur, "dur": dur, "step": step, "starts": ls,
+                  "wellformed": wf >= _setting(self, "detection", "scd_wellformed_share", 0.99)}
 
             def draw(rng, st=st):
                 st["vw"] = rng.dirichlet(st["vcount"] + 0.5)
@@ -6682,8 +6687,15 @@ class Synthesizer:
             # takes a closed length from the source instead: a closed latest version's length,
             # else (no closed latest version in the source) a version length
             lens = st["dur"] if len(st["dur"]) else (st["step"] if has else np.ones(1))
-            dd = np.maximum(lens[rng.integers(0, len(lens), size=n)], 1)
-            fix = (e_ <= sv) if not len(st["dur"]) else (np.isnat(e_) | (e_ <= sv))
+            dd = lens[rng.integers(0, len(lens), size=n)]
+            if st.get("wellformed", True):
+                dd = np.maximum(dd, 1)
+                fix = (e_ <= sv) if not len(st["dur"]) else (np.isnat(e_) | (e_ <= sv))
+            else:
+                # the source's closed latest versions often end on or before their start
+                # (detection.scd_wellformed_share): the drawn end is kept, and a missing one
+                # takes a source length with its sign
+                fix = np.isnat(e_)
             e_ = np.where(fix, sv + (dd * 86400e9).astype("timedelta64[ns]"), e_)
             ev = np.where(is_last, e_, nxt + (gap * 86400e9).astype("timedelta64[ns]"))
             # the open version is the row the model drew open (one per key after the spread)

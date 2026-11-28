@@ -78,7 +78,8 @@ DEFAULT_SYNTHESIS = {
     "repair": {"pair_tries": 200, "constraint_rounds": 200, "thin_rounds": 200, "tree_redraws": 40,
                "unique_code_rounds": 50, "participation_rounds": 4, "occupancy_rounds": 20},
     # thresholds that detect a structure in the source
-    "detection": {"group_effect_share": 0.95, "scd_stable_share": 0.99, "scd_max_versions": 50},
+    "detection": {"group_effect_share": 0.95, "scd_stable_share": 0.99, "scd_wellformed_share": 0.99,
+                  "scd_max_versions": 50},
     # the scorecard: fixed tolerances (relsynth.evaluate.THRESHOLDS, overridable per key) and the
     # rows the association and discriminator metrics use
     "evaluation": {"thresholds": {}, "assoc_max_rows": 20000, "discriminator_rows": 5000,
