@@ -590,3 +590,16 @@ def test_selections_table_lists_choices_and_missing_runs(tmp_path):
     assert "| adult seed 1 | trial | cart | 9/10 |" in table and "cart 0.900 (0 privacy, 4.0 s)" in table
     assert "ddpm: cannot model" in table
     assert missing == ["chinook seed 1", "stress_s seed 1"]
+
+
+def test_error_summary_keeps_a_watchdog_dumps_innermost_frames():
+    from bench.regress import error_summary
+
+    dump = ('quality assessment failed (-6): Current thread 0x07 (most recent call first):\n'
+            '  File "/home/runner/site-packages/relsynth/quality/multi.py", line 120 in _pair_trend\n'
+            '  File "/home/runner/site-packages/relsynth/quality/report.py", line 88 in _relationship_checks\n'
+            '  File "/home/')
+    s = error_summary(dump, 400)
+    assert s.startswith("quality assessment failed (-6):")
+    assert "multi.py:120 in _pair_trend < report.py:88 in _relationship_checks" in s
+    assert error_summary("Traceback\n  x\nValueError: boom") == "Traceback ... ValueError: boom"
