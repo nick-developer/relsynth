@@ -725,6 +725,11 @@ DATASETS = {
     "berka": Dataset("berka", lambda: f"sqlite:{build_berka()}", _spec("berka"), _sqlite_checks("berka"),
                      note="Berka / PKDD'99 Czech bank (SyntheRela 'financial', 8 tables, 1.08M rows); checks F1-F16",
                      privacy={"shadow": {"enabled": False}, "generators": ALL_GENERATORS}, generic=True,
+                     accepted=((r"^metric:integrity_pass_rate$",
+                                "spec from the PKDD'99 description (#79) adds rules the engine does not enforce yet: "
+                                "card issued on or after its account's date (a late rule over an aggregate column, "
+                                "only reported) and one OWNER per account (unique account_id, type; MH sweeps leave "
+                                "conflicts); engine follow-up PR; accepted by the owner on 2026-11-28"),),
                      coverage=("many_to_many", "events", "skew", "size_100mb")),
     "acs": Dataset("acs", lambda: f"sqlite:{build_acs()}", _spec("acs"), _sqlite_checks("acs"),
                    note="ACS PUMS 2019, NIST CRC national excerpt (27,253 people, 24 columns); checks A1-A14",
