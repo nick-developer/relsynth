@@ -4004,16 +4004,15 @@ class Synthesizer:
                         and _setting(self, "uniqueness", "free_parent_repair", "auto") == "auto":
                     r = blk[0]
                     sel, vals = self._free_parents(r, rows, z, zs, keys, cache, ukeys, used, karr, rng)
+                    n0 = int((~valid).sum())
                     if len(sel):
-                        empty = 0
-                        n0 = int((~valid).sum())
                         try_move(sel, {r["child_key"]: vals}, False)
+                    if int((~valid).sum()) < n0:
+                        empty = 0
                         free_placed += n0 - int((~valid).sum())
-                    else:
-                        empty += 1
-                        if empty >= len(blocks):
-                            break
-                    continue
+                        continue
+                    # nothing placed on a free parent (no free parent left, or the moves break a key
+                    # rule): this round falls back to the uniform proposal below
                 prop = {}
                 for r in blk:
                     pk_ = np.asarray(keys[r["parent"]], dtype=object)
@@ -4080,7 +4079,8 @@ class Synthesizer:
         draws distinct free parents without replacement, with the link model's
         probability of a parent for the row's segment, phi[z_row, z_parent] w_p / m,
         (Gumbel top-k: successive sampling proportional to the weights, Vieira 2014;
-        uniform over the free parents when the model gives them no weight).  This
+        rows left over once the weighted free parents are taken go uniformly to the
+        free parents the model gives no weight).  This
         is the link model conditioned on the key, restricted to the free parents, so
         a group of m rows with at least m free parents is placed exactly in one draw.
         Rows of a group with no free parent are left out (returned rows only)."""
@@ -4109,17 +4109,24 @@ class Synthesizer:
         groups = {}
         for i in rows:
             groups.setdefault(rest(i), []).append(i)
+        # parents held per value of the key's other columns, read once from the held keys
+        held_by = []
+        for ui, u, pos in uk:
+            hb = {}
+            for k in used[ui]:
+                if len(u) == 1:
+                    hb.setdefault((), []).append(k)
+                else:
+                    hb.setdefault(k[:pos] + k[pos + 1:], []).append(k[pos])
+            held_by.append(hb)
         sel, vals = [], []
         pidx = pd.Index(pk_[allowed])
         for g, gi in groups.items():
-            if any(_has_null(tuple(x)) for x in g):
-                continue          # a null part never collides: not a unique-key conflict
             free = np.ones(len(allowed), bool)
-            for (ui, u, pos), other in zip(uk, g):
-                if len(u) == 1:
-                    held = list(used[ui])      # a key of the link alone: every held parent
-                else:
-                    held = [k[pos] for k in used[ui] if k[:pos] + k[pos + 1:] == other]
+            for q, other in enumerate(g):
+                if _has_null(tuple(other)):
+                    continue      # a key with a null part never collides: it restricts nothing
+                held = held_by[q].get(tuple(other))
                 if held:
                     free &= ~pidx.isin(held)
             gi = np.asarray(gi)
@@ -4131,14 +4138,19 @@ class Synthesizer:
                     break
                 ri = gi[zr == k]
                 wk = base[cand] * (info["phi"][k][zp[cand]] if zp is not None else 1.0)
-                if not (wk > 0).any():
-                    wk = np.ones(len(cand))
                 pos_ = np.flatnonzero(wk > 0)
                 take = min(len(ri), len(pos_))
-                g_ = np.log(wk[pos_]) + rng.gumbel(size=len(pos_))
-                top = pos_[np.argpartition(-g_, take - 1)[:take]] if take < len(pos_) else pos_
+                top = np.zeros(0, np.int64)
+                if take:
+                    g_ = np.log(wk[pos_]) + rng.gumbel(size=len(pos_))
+                    top = pos_[np.argpartition(-g_, take - 1)[:take]] if take < len(pos_) else pos_
+                if take < len(ri):
+                    # free parents the model gives no weight: the rest of the rows uniformly among them
+                    zero = np.flatnonzero(wk <= 0)
+                    extra = zero[rng.permutation(len(zero))[:len(ri) - take]]
+                    top = np.r_[top, extra]
                 top = top[rng.permutation(len(top))]
-                sel.extend(ri[:take].tolist())
+                sel.extend(ri[:len(top)].tolist())
                 vals.extend(pk_[cand[top]].tolist())
                 chosen = np.zeros(len(allowed), bool)
                 chosen[np.searchsorted(allowed, cand[top])] = True
@@ -5303,6 +5315,9 @@ class Synthesizer:
                 df = df[keep].reset_index(drop=True)
                 seg = seg[keep]
                 groups = np.asarray(groups)[keep]
+                gv_ = getattr(self, "_given", {}).get(t)
+                if gv_ is not None and len(gv_) == len(keep):
+                    self._given[t] = gv_.iloc[np.flatnonzero(keep)].reset_index(drop=True)
                 n = len(df)
                 self._sequences(t, df)
         if cons.get("late_rules") and T["role"] == "fact":
@@ -6531,6 +6546,27 @@ class Synthesizer:
             return "a cumulative rule reads the table's rows in order"
         if any(r.get("anchor") in cols for r in self.fk[t]):
             return "an anchored link is drawn from the attributes"
+        if T[t].get("bridge") and T[t]["bridge"].get("weight") in cols:
+            return "bridge weights are normalised per group"
+        for c, cs in T[t]["columns"].items():
+            if cs["type"] != "text":
+                continue
+            tc = getattr(self, "text", {}).get((t, c))
+            if (cs.get("text") or {}).get("condition_on") in cols or set(getattr(tc, "cols", None) or ()) & cols:
+                return f"text column {c} is generated given the attributes"
+        for r in self.spec["relationships"]:
+            if r["parent"] != t or r["child"] == t:
+                continue
+            if r.get("anchor") in cols:
+                return f"links of {r['child']} were drawn from these attributes"
+            for c, _, _ in (getattr(self, "cind", {}) or {}).get((r["child"], r["child_key"]), ()):
+                if c in cols:
+                    return f"links of {r['child']} exclude parent rows by {t}.{c}"
+        for (t2, _ck), excl in (getattr(self, "cind", {}) or {}).items():
+            for c, _, _ in excl:
+                parts = str(c).split("\x1f")
+                if len(parts) == 3 and parts[1] == t and parts[2] in cols:
+                    return f"links of {t2} exclude parent rows by {t}.{parts[2]}"
         if self.derived_keys.get(t) or any(cs.get("offset_from") or cs.get("ratio_of") for cs in T[t]["columns"].values()):
             return "offset or ratio columns are computed from the drawn values"
         for f, amap in (getattr(self, "aux_map", {}) or {}).items():
@@ -6647,18 +6683,31 @@ class Synthesizer:
                         ok &= check_mask(sub, r["expr"], rs)
                     for i, r in enumerate(others):
                         ok &= check_mask(sub, r["expr"], rs) | ~held[i][idx]
-                    for u in akeys:
+                    if akeys:
+                        # a rejected row keeps its old key, so the accepted rows must avoid it too;
+                        # rejecting a row can expose its old key, hence the fixed point
                         rest = np.ones(len(df), bool)
                         rest[idx] = False
-                        taken = set(map(_ukey, df.loc[rest, u].astype(object).itertuples(index=False, name=None)))
-                        seen = set()
-                        for j, k in enumerate(map(_ukey, sub[u].astype(object).itertuples(index=False, name=None))):
-                            if k is None:
-                                continue
-                            if k in taken or k in seen:
-                                ok[j] = False
-                            elif ok[j]:
-                                seen.add(k)
+                        outside = [set(map(_ukey, df.loc[rest, u].astype(object).itertuples(index=False, name=None)))
+                                   for u in akeys]
+                        oldk = [list(map(_ukey, df.iloc[idx][u].astype(object).itertuples(index=False, name=None)))
+                                for u in akeys]
+                        newk = [list(map(_ukey, sub[u].astype(object).itertuples(index=False, name=None)))
+                                for u in akeys]
+                        while True:
+                            before_ok = ok.copy()
+                            for q in range(len(akeys)):
+                                taken = outside[q] | {k for j, k in enumerate(oldk[q]) if not ok[j] and k is not None}
+                                seen = set()
+                                for j, k in enumerate(newk[q]):
+                                    if not ok[j] or k is None:
+                                        continue
+                                    if k in taken or k in seen:
+                                        ok[j] = False
+                                    else:
+                                        seen.add(k)
+                            if (ok == before_ok).all():
+                                break
                     if ncg is not None and rounds < nc_rounds and ok.any():
                         ok[ok] &= ~ncg.near_copies(sub.iloc[np.flatnonzero(ok)])
                     acc = idx[ok]
@@ -6685,6 +6734,14 @@ class Synthesizer:
             # the redrawn rows feed aggregates, lookups and derives of other tables: recomputed,
             # with the violations of every rule counted again on the final rows
             self._aggregates(out)
+        for t, rec in log.items():
+            # on the final rows (the last recompute can move an aggregate a late rule reads)
+            df = out[t]
+            res = self._resolver(t, df, out)
+            bad = np.zeros(len(df), bool)
+            for r in self.cons[t]["late_rules"]:
+                bad |= ~check_mask(df, r["expr"], res)
+            rec["still_violating"] = int(bad.sum())
 
     # ================================================================== report
     def model_summary(self):
