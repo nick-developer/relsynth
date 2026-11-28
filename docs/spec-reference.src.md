@@ -222,6 +222,8 @@ A calendar referenced as order date and ship date is two relationships to one ta
 
 An order header carried on its lines (a degenerate dimension) is `fact.header: {key, columns, line_number}`. A separate orders table that the lines reference is an entity; the model report calls it the order header. Every order then has one customer and one set of dates, and its lines are numbered 1..n.
 
+A line key can be offset from a header key (`offset_from: cs_sold_date_sk` on the ship date's relationship, with the sold date a header column): the ship date then follows each order's date by a modelled gap on every line. Line rules may read parents through header keys (`days(ship_date_sk.d_date) - days(sold_date_sk.d_date)`); the engine reads them through the order header.
+
 ### Unknown members
 
 `unknown_members: [-1]` on the dimension:
@@ -245,13 +247,14 @@ On a fact, the rows that point at the unknown member are restored by drawing tha
 ### Periodic and accumulating snapshots, factless facts
 
 - **Periodic snapshot** (one row per account and month): declare the grain as `unique: [[account_id, month_key]]`. The fact is then generated as the occupancy of the pairs.
-- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates).
+- **Accumulating snapshot** (order, ship and delivery dates on one row): chain the dates with `offset_from` (on relationships for date keys, on columns for dates). A line's date can start from its header's date through the foreign key (`offset_from: l_orderkey.o_orderdate`), and an offset can be the base of another (receipt from ship, ship from the order's date), so the gaps between them hold on every row.
 - **Factless fact** (attendance, coverage): it needs nothing special. Rows per parent and the pairs are modelled as for any fact.
 
 ### A value shared by a group, co-location, rules that mostly hold
 
 - `group_effects: [{column, by}]`: one value per group (a daily price factor per category). Introspect finds it when the value is constant in at least 99.9 % of rows in groups of 2+ rows, beyond chance.
-- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`.
+- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`. On a fact whose moved link is the partner or an extra link, whether a row matches is a hidden attribute drawn with the row's other attributes (`model: rows`, the default; a reinvestment is always a self-loop, a truck runs only within a region), and the link is chosen to agree with it; `model: share` moves links after the rows are drawn until the share is reached. The share model is also kept for a moved anchor, the partner of an occupancy fact, a moved link under a unique key, and a first path that is drawn after the links (a derived or time column; a lookup column is read through its path).
+- Two or more extra links of a fact to the same parent table (a role-playing dimension: payment and receiving currency, origin and destination airport) are drawn jointly over their observed combinations when the joint table beats independence (`fact.joint_links`, default `auto`). Combinations held by fewer than `privacy.suppress_small_counts` source rows are drawn as independent links, never from their own counts.
 - `holds: 0.99` on a derive rule: the rule holds on that share of rows, and the other rows take the source's offsets from it (`violation: offset`) or their modelled value (`violation: model`).
 
 ### Writing into a database with the original structure
