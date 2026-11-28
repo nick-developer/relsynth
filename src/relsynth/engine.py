@@ -2777,9 +2777,10 @@ class Synthesizer:
                         if pc in self.late.get(pt, ()):
                             return True
                 return False
+            late = [r for r in krules + arules if is_late(r)]
             krules = [r for r in krules if not is_late(r)]
             arules = [r for r in arules if not is_late(r)]
-            self.cons[t] = {"unique": ukeys, "key_rules": krules, "attr_rules": arules,
+            self.cons[t] = {"unique": ukeys, "key_rules": krules, "attr_rules": arules, "late_rules": late,
                             "anchor_rules": [r for r in spec["rules"] if r["table"] == t and r.get("anchor_link")
                                              and T[t]["role"] == "entity"]}
             if krules and T[t]["role"] == "entity" and t not in self.copied:
@@ -3098,6 +3099,7 @@ class Synthesizer:
                 out[t] = out[t].drop(columns=_hidden_cols(out[t]))
         say("sample: aggregates")
         self._aggregates(out)
+        self._enforce_late(out, ctx)
         if getattr(self, "_scen", None) is not None:
             self.sample_log["scenario"] = self._scen.log()
         self.sample_log["seconds"] = round(time.time() - t0, 2)
@@ -3984,7 +3986,11 @@ class Synthesizer:
         # parents drawn uniformly over the allowed parent rows.  It runs only for rows
         # that would otherwise break a declared unique key or key rule, so it changes
         # no output that already satisfied them; the later sweeps then mix as before.
-        fallback = 0
+        # A link that is part of a unique key (one owner per account, one line number
+        # per order) is drawn only among the parents whose key is still free for the
+        # row (_free_parents, Prop. 1880): uniform draws over all parents almost never
+        # hit the few free ones when nearly every parent already holds the key.
+        fallback = free_placed = 0
         if (~valid).any():
             before = int((~valid).sum())
             empty = 0  # consecutive blocks without any allowed parent
@@ -3992,8 +3998,23 @@ class Synthesizer:
                 if not (~valid).any():
                     break
                 rows = rng.permutation(np.flatnonzero(~valid))
+                blk = blocks[it % len(blocks)]
+                if len(blk) == 1 and any(blk[0]["child_key"] in u for u in ukeys) \
+                        and _setting(self, "uniqueness", "free_parent_repair", "auto") == "auto":
+                    r = blk[0]
+                    sel, vals = self._free_parents(r, rows, z, zs, keys, cache, ukeys, used, karr, rng)
+                    if len(sel):
+                        empty = 0
+                        n0 = int((~valid).sum())
+                        try_move(sel, {r["child_key"]: vals}, False)
+                        free_placed += n0 - int((~valid).sum())
+                    else:
+                        empty += 1
+                        if empty >= len(blocks):
+                            break
+                    continue
                 prop = {}
-                for r in blocks[it % len(blocks)]:
+                for r in blk:
                     pk_ = np.asarray(keys[r["parent"]], dtype=object)
                     mask = getattr(self, "_edge_masks", {}).get(r["name"])
                     allowed = np.flatnonzero(np.asarray(mask) > 0) if mask is not None and len(mask) == len(pk_) \
@@ -4037,8 +4058,10 @@ class Synthesizer:
         left = int((~valid).sum())
         self.sample_log["uniqueness"][e] = {"repair_rounds": rounds, "unresolved_rows": left, "sweeps": sweeps,
                                             "seconds": round(time.time() - t0, 1)}
-        if fallback:
-            self.sample_log["uniqueness"][e]["rows_placed_uniformly"] = fallback
+        if fallback - free_placed:
+            self.sample_log["uniqueness"][e]["rows_placed_uniformly"] = fallback - free_placed
+        if free_placed:
+            self.sample_log["uniqueness"][e]["rows_placed_on_free_keys"] = free_placed
         if exact_log:
             rlog = exact_log
         if rlog:
@@ -4047,6 +4070,79 @@ class Synthesizer:
             self.sample_log["warnings"].append(f"{e}: {left} rows could not satisfy its unique keys / key rules "
                                                "(not enough parent combinations at this scale)")
         return df
+
+    def _free_parents(self, r, rows, z, zs, keys, cache, ukeys, used, karr, rng):
+        """Parents for link r of the given rows such that every unique key holding r
+        stays unique (Prop. 1880).  The rows are grouped by the other columns of
+        those keys (the row's disposition type for a key [account, type]); within a
+        group a parent is free when no other row holds the key with it.  Each group
+        draws distinct free parents without replacement, with the link model's
+        probability of a parent for the row's segment, phi[z_row, z_parent] w_p / m,
+        (Gumbel top-k: successive sampling proportional to the weights, Vieira 2014;
+        uniform over the free parents when the model gives them no weight).  This
+        is the link model conditioned on the key, restricted to the free parents, so
+        a group of m rows with at least m free parents is placed exactly in one draw.
+        Rows of a group with no free parent are left out (returned rows only)."""
+        fk = r["child_key"]
+        p = r["parent"]
+        info = self.edge_info[r["name"]]
+        pk_ = np.asarray(keys[p], dtype=object)
+        mask = getattr(self, "_edge_masks", {}).get(r["name"])
+        allowed = np.flatnonzero(np.asarray(mask) > 0) if mask is not None and len(mask) == len(pk_) \
+            else np.arange(len(pk_))
+        if not len(allowed) or not len(rows):
+            return np.zeros(0, np.int64), np.zeros(0, dtype=object)
+        zp = np.asarray(zs[p])
+        if len(zp) == len(pk_):
+            w = cache.get(("edge", r["name"]))
+            w = np.ones(len(pk_)) if w is None or len(w) != len(pk_) else np.asarray(w, float)
+            m = np.bincount(zp, minlength=info["phi"].shape[1]).astype(float)
+            base = w / np.maximum(m[zp], 1.0)
+        else:
+            zp, base = None, np.ones(len(pk_))
+        uk = [(ui, u, u.index(fk)) for ui, u in enumerate(ukeys) if fk in u]
+
+        def rest(i):
+            # the row's values of the other columns of each key holding the link
+            return tuple(tuple(karr[c][i] for c in u if c != fk) for _, u, _ in uk)
+        groups = {}
+        for i in rows:
+            groups.setdefault(rest(i), []).append(i)
+        sel, vals = [], []
+        pidx = pd.Index(pk_[allowed])
+        for g, gi in groups.items():
+            if any(_has_null(tuple(x)) for x in g):
+                continue          # a null part never collides: not a unique-key conflict
+            free = np.ones(len(allowed), bool)
+            for (ui, u, pos), other in zip(uk, g):
+                if len(u) == 1:
+                    held = list(used[ui])      # a key of the link alone: every held parent
+                else:
+                    held = [k[pos] for k in used[ui] if k[:pos] + k[pos + 1:] == other]
+                if held:
+                    free &= ~pidx.isin(held)
+            gi = np.asarray(gi)
+            gi = gi[rng.permutation(len(gi))]
+            zr = np.asarray(z)[gi]
+            for k in np.unique(zr):
+                cand = allowed[free]
+                if not len(cand):
+                    break
+                ri = gi[zr == k]
+                wk = base[cand] * (info["phi"][k][zp[cand]] if zp is not None else 1.0)
+                if not (wk > 0).any():
+                    wk = np.ones(len(cand))
+                pos_ = np.flatnonzero(wk > 0)
+                take = min(len(ri), len(pos_))
+                g_ = np.log(wk[pos_]) + rng.gumbel(size=len(pos_))
+                top = pos_[np.argpartition(-g_, take - 1)[:take]] if take < len(pos_) else pos_
+                top = top[rng.permutation(len(top))]
+                sel.extend(ri[:take].tolist())
+                vals.extend(pk_[cand[top]].tolist())
+                chosen = np.zeros(len(allowed), bool)
+                chosen[np.searchsorted(allowed, cand[top])] = True
+                free &= ~chosen
+        return np.asarray(sel, dtype=np.int64), np.asarray(vals + [None], dtype=object)[:-1]
 
     def _resolver(self, t, df, out):
         """Values of 'fk.col' paths for the rows of df (table t) from the generated tables."""
@@ -5205,8 +5301,12 @@ class Synthesizer:
                 self.sample_log["rows_removed_by_rules"][t] = int((~keep).sum())
                 df = df[keep].reset_index(drop=True)
                 seg = seg[keep]
+                groups = np.asarray(groups)[keep]
                 n = len(df)
                 self._sequences(t, df)
+        if cons.get("late_rules") and T["role"] == "fact":
+            # the rows' generator groups, for the redraws of late rules after the aggregates
+            self.__dict__.setdefault("_late_groups", {})[t] = np.asarray(groups)
         for r in cons.get("key_rules", []) + cons.get("anchor_rules", []):
             viol[r["expr"]] = int((~check_mask(df, r["expr"], self._resolver(t, df, out))).sum())
         self.sample_log["rule_violations"][t] = viol
@@ -6408,6 +6508,182 @@ class Synthesizer:
             for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "check"]:
                 viol[r["expr"]] = int((~check_mask(df, r["expr"], self._resolver(t, df, out))).sum())
             out[t] = df[[c for c in T[t]["columns"]]]
+
+    def _late_blocker(self, t, df, out):
+        """Why the rows of t cannot be redrawn after the aggregates (None when they
+        can): the redraw replaces the row's modelled attributes, so it is made only
+        where nothing computed earlier from those attributes would go stale."""
+        T = self.spec["tables"]
+        tm = self.tm.get(t)
+        if tm is None or not tm.fitted or not tm.out_cols:
+            return "no modelled attributes to redraw"
+        cols = {c for c in tm.out_cols if c in df.columns}
+        if not cols:
+            return "no modelled attributes to redraw"
+        if getattr(self, "_scen", None) is not None:
+            return "a scenario maps the finished rows"
+        if t in getattr(self, "scd", {}) or t in getattr(self, "seq", {}):
+            return "version dates or event sequences are computed from the attributes"
+        if tm.uses_family:
+            return "the generator draws rows given their family"
+        if any(r["type"] == "cumulative" and r["table"] == t for r in self.spec["rules"]):
+            return "a cumulative rule reads the table's rows in order"
+        if any(r.get("anchor") in cols for r in self.fk[t]):
+            return "an anchored link is drawn from the attributes"
+        if self.derived_keys.get(t) or any(cs.get("offset_from") or cs.get("ratio_of") for cs in T[t]["columns"].values()):
+            return "offset or ratio columns are computed from the drawn values"
+        for f, amap in (getattr(self, "aux_map", {}) or {}).items():
+            if any(p == t and c in cols for _, _, p, c in amap):
+                return f"the rows of {f} were drawn given these attributes"
+        for t2, ts in T.items():
+            if t2 == t:
+                continue
+            for c2, cs in ts["columns"].items():
+                for key in ("offset_from", "ratio_of"):
+                    path = cs.get(key)
+                    if isinstance(path, str) and "." in path:
+                        try:
+                            _, (pt, pc) = resolve_path(self.spec, t2, path)
+                        except (KeyError, ValueError, SpecError):
+                            continue
+                        if pt == t and pc in cols:
+                            return f"{t2}.{c2} is computed from {t}.{pc}"
+        if T[t]["role"] == "fact":
+            g = getattr(self, "_late_groups", {}).get(t)
+            if g is None or len(g) != len(df):
+                return "the rows' generator groups are not known"
+            gv = getattr(self, "_given", {}).get(t)
+            if gv is not None and len(gv) != len(df):
+                return "the rows' conditioning values are not known"
+        for r in self.spec["rules"]:
+            if r["type"] != "check" or r["table"] == t:
+                continue
+            for u in names_in(r["expr"]):
+                if "." not in u:
+                    continue
+                try:
+                    _, (pt, pc) = resolve_path(self.spec, r["table"], u)
+                except (KeyError, ValueError, SpecError):
+                    continue
+                if pt == t and pc in cols:
+                    return f"a rule of {r['table']} reads {t}.{pc}"
+        return None
+
+    def _enforce_late(self, out, ctx):
+        """Late rules enforced (Prop. 1881).  A check rule that reads an aggregate
+        column, on its own table or through a link (a card issued on or after its
+        account's opening date, when that date is the first transaction's), can
+        only be evaluated once every table is drawn and the aggregates computed.
+        Rows that break one are redrawn here from their own conditional, as the
+        rule redraws of _finish do: the row's modelled attributes from the
+        generator given the row's segment (and conditioning values), accepted only
+        when every late rule of the row holds, every other rule of the row that held
+        still holds, unique keys over attributes stay unique, and the row is not a
+        near copy (privacy.near_copy, as in _finish).  Rejection sampling from
+        Q(x | z) restricted to the valid set is an exact draw from Q(x | z, rules)
+        (the accepted law of _finish).  Rows not accepted within
+        synthesis.rules.max_rejection_rounds keep their values and are reported.
+        A redraw changes a table that an aggregate reads, so the aggregates (and the
+        lookups and derives above them) are recomputed and the pass repeated, at
+        most three times.  synthesis.rules.late: report keeps the 2.x behaviour."""
+        if _setting(self, "rules", "late", "enforce") != "enforce":
+            return
+        T = self.spec["tables"]
+        todo = [t for t in self.all_order if self.cons.get(t, {}).get("late_rules") and t in out
+                and t not in self.copied and t in T]
+        if not todo:
+            return
+        rng = self.rng
+        maxr = int(self.cfg["rules"]["max_rejection_rounds"])
+        log = self.sample_log.setdefault("late_rules", {})
+        for _pass in range(3):
+            changed = False
+            for t in todo:
+                df = out[t]
+                if not len(df):
+                    continue
+                cons = self.cons[t]
+                late = cons["late_rules"]
+                res = self._resolver(t, df, out)
+                bad = np.zeros(len(df), bool)
+                for r in late:
+                    bad |= ~check_mask(df, r["expr"], res)
+                if not bad.any():
+                    continue
+                rec = log.setdefault(t, {"violating": int(bad.sum()), "redrawn": 0, "rounds": 0})
+                why = self._late_blocker(t, df, out)
+                if why is not None:
+                    rec["not_enforced"] = why
+                    continue
+                tm = self.tm[t]
+                others = [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "check"
+                          and r not in late]
+                held = {i: check_mask(df, r["expr"], res) for i, r in enumerate(others)}
+                akeys = [u for u in T[t].get("unique", []) if u and all(c in tm.out_cols for c in u)]
+                cols = [c for c in tm.out_cols if c in df.columns]
+                groups = np.asarray(ctx["zs"][t]) if T[t]["role"] != "fact" else self._late_groups[t]
+                gv = getattr(self, "_given", {}).get(t) if T[t]["role"] == "fact" else None
+                ncg = self._near_copy_guard(t) if T[t]["role"] != "fact" else None
+                nc_rounds = min(int((self.cfg.get("privacy") or {}).get("near_copy_rounds", 20)), maxr // 2)
+                rounds, fixed = 0, 0
+                while bad.any() and rounds < maxr:
+                    idx = np.flatnonzero(bad)
+                    new = tm.sample(groups[idx], rng, gv.iloc[idx] if gv is not None else None)
+                    sub = df.iloc[idx].copy()
+                    for c in cols:
+                        try:
+                            sub[c] = pd.Series(new[c].to_numpy(dtype=object), index=sub.index).astype(df[c].dtype)
+                        except (TypeError, ValueError):
+                            sub[c] = new[c].to_numpy(dtype=object)
+                    rs = self._resolver(t, sub, out)
+                    for c in self.lookups[t]:
+                        sub[c] = lookup_column(self.spec, t, c, sub, out, rs)
+                    for r in [r for r in self.spec["rules"] if r["table"] == t and r["type"] == "derive"]:
+                        sub = self._apply_derive(t, sub, r, out)
+                    rs = self._resolver(t, sub, out)
+                    ok = np.ones(len(idx), bool)
+                    for r in late:
+                        ok &= check_mask(sub, r["expr"], rs)
+                    for i, r in enumerate(others):
+                        ok &= check_mask(sub, r["expr"], rs) | ~held[i][idx]
+                    for u in akeys:
+                        rest = np.ones(len(df), bool)
+                        rest[idx] = False
+                        taken = set(map(_ukey, df.loc[rest, u].astype(object).itertuples(index=False, name=None)))
+                        seen = set()
+                        for j, k in enumerate(map(_ukey, sub[u].astype(object).itertuples(index=False, name=None))):
+                            if k is None:
+                                continue
+                            if k in taken or k in seen:
+                                ok[j] = False
+                            elif ok[j]:
+                                seen.add(k)
+                    if ncg is not None and rounds < nc_rounds and ok.any():
+                        ok[ok] &= ~ncg.near_copies(sub.iloc[np.flatnonzero(ok)])
+                    acc = idx[ok]
+                    if len(acc):
+                        for c in sub.columns:
+                            col = df[c].to_numpy(dtype=object, copy=True)
+                            col[acc] = sub[c].to_numpy(dtype=object)[ok]
+                            try:
+                                df[c] = pd.Series(col, index=df.index).astype(df[c].dtype)
+                            except (TypeError, ValueError):
+                                df[c] = col
+                        bad[acc] = False
+                        fixed += len(acc)
+                    rounds += 1
+                out[t] = df
+                rec["redrawn"] += fixed
+                rec["rounds"] += rounds
+                rec["still_violating"] = int(bad.sum())
+                if fixed:
+                    changed = True
+                    self._renumber_by_order(t, out, ctx["keys"])
+            if not changed:
+                break
+            # the redrawn rows feed aggregates, lookups and derives of other tables: recomputed,
+            # with the violations of every rule counted again on the final rows
+            self._aggregates(out)
 
     # ================================================================== report
     def model_summary(self):

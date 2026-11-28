@@ -84,6 +84,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `uniqueness.mh_sweeps` | int | `20` | 0 … 1e+06 | yes (log) | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | choice | `auto` | auto, none |  | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.rake_rounds` | int | `3` | 0 … 10000 | yes | Rounds of raking for rule cells. |
+| `uniqueness.free_parent_repair` | choice | `auto` | auto, off |  | auto \| off: rows the unique-key sampler cannot place get a parent drawn by the link model among the parents whose key is still free for the row (one owner per account); off: uniformly over all parents (2.x) (Prop. 1880). |
 | `trees.max_depth` | int | `auto` | 1 … 1e+06 or auto |  | auto \| int: deepest hierarchy level generated. |
 | `trees.frailty` | choice | `auto` | auto, on, off | yes | auto \| on \| off: branching heterogeneity in trees. |
 | `text.order` | int | `3` | 1 … 12 | yes | n-gram order of text columns. |
@@ -95,6 +96,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `rules.rake_max_levels` | int | `50` | 1 … 1e+07 |  | Rule cells: a column with more levels is not raked. |
 | `rules.rake_max_cells` | int | `2000` | 1 … 1e+09 |  | Rule cells: largest joint table raked. |
 | `rules.balance_floor` | choice | `auto` | auto, off |  | auto: a running balance (cumulative rule with an outflow column) that is negative on a share p of its source rows gets the floor 0 when the synthetic running sum would be negative on more than 2 p of rows, i.e. when the floor matches the source's share of negative rows better (Prop. 1787; never negative in the source: always a floor); off: only never-negative balances get the floor (2.2). |
+| `rules.late` | choice | `enforce` | enforce, report |  | enforce \| report: check rules that read an aggregate column (directly or through a link) are enforced after the aggregates by redrawing the rows that break them; report: only counted (2.x) (Prop. 1881). |
 | `repair.pair_tries` | int | `200` | 0 … 1e+07 | yes (log) | Degree-preserving swaps tried per repeated pair or self-link before the pair is dropped. |
 | `repair.constraint_rounds` | int | `200` | 0 … 1e+07 | yes (log) | Redraw rounds of entity rows that break a check rule or a unique key. |
 | `repair.thin_rounds` | int | `200` | 0 … 1e+07 |  | Rounds of anchor thinning (participation of facts). |
