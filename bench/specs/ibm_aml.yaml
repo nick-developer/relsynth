@@ -72,11 +72,14 @@ tables:
       # Poisson pair model keeps 13 %. pairs: occupancy with multiplicity: anchor keeps 80 % but draws
       # only 2.3 rows per pair on the full set (1.8M of 5.08M rows), so it is not set here (engine
       # follow-up)
-    # the account match first: a self-loop is also a same-bank pair, so the bank match counts the
-    # self-loops already placed (11.6 % self-loops, 2.0 % other same-bank pairs)
+    # matches drawn with the row's attributes (Prop. 1871): self-loops (every Reinvestment), transfers
+    # inside one bank, and one currency on both sides (cross-currency payments are ACH or Wire). The
+    # account match first: a self-loop is also a same-bank pair (11.6 % self-loops, 2.0 % other
+    # same-bank pairs)
     link_affinity:
     - match: [from_account_key.account_key, to_account_key.account_key]
     - match: [from_account_key.bank_id, to_account_key.bank_id]
+    - match: [payment_currency, receiving_currency.currency]
     columns:
       trans_id:
         type: id
@@ -123,6 +126,13 @@ rules:
 - table: trans
   type: derive
   expr: payment_currency = where(payment_format == 'Bitcoin', 'Bitcoin', payment_currency)
+  holds: 0.99998
+  violation: model
+# ... and received in Bitcoin: a Bitcoin payment is neither ACH nor Wire, so both currencies agree (rule
+# below, every source row) and the receiving currency is Bitcoin on the same rows as the payment currency
+- table: trans
+  type: derive
+  expr: receiving_currency = where(payment_format == 'Bitcoin', 'Bitcoin', receiving_currency)
   holds: 0.99998
   violation: model
 # same currency: no fee, Amount Paid == Amount Received (specification 6.3); other pairs at the fixed rate

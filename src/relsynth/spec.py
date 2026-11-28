@@ -60,11 +60,15 @@ DEFAULT_SYNTHESIS = {
               # G4: parent-segment totals of a count-model link follow the count law (Prop. 1783)
               "segment_totals": "auto", "segment_total_sweeps": 4, "dp_count_start": "draw",
               # rows whose partner key is NULL: modelled as a null level given the anchor (Prop. 1843)
-              "null_partner": "auto"},
+              "null_partner": "auto",
+              # role-playing extra links drawn jointly (Prop. 1870)
+              "joint_links": "auto", "joint_links_bf": 100.0, "joint_links_max_levels": 4096},
     "structure": {"structural_prior": 0.9, "structural_pooling": 3.0, "beta_prior": 0.5,
                   "conditional_inclusion": "auto", "inclusion_min_expected": 10.0, "inclusion_fk_levels": True,
                   "inclusion_max_levels": 50, "inclusion_multiplicity": "bonferroni",
-                  "participation": "auto"},
+                  "participation": "auto",
+                  # link_affinity matches as a hidden row attribute (Prop. 1871) or a share reached afterwards
+                  "link_affinity": "rows"},
     "uniqueness": {"mh_sweeps": 20, "grain": "auto", "rake_rounds": 3},
     "trees": {"max_depth": "auto", "frailty": "auto"},
     "text": {"order": 3, "min_token_rows": 3, "max_copy_ngram": 8,  # nosec B105 - token counts, not passwords
@@ -230,6 +234,13 @@ def normalise(raw: dict) -> dict:
     gsm = spec["synthesis"].get("generator_selection")
     if isinstance(gsm, dict) and gsm.get("mode") is False:
         gsm["mode"] = "off"                          # the same YAML 1.1 reading of an unquoted off
+    sf = spec["synthesis"].get("facts")
+    if isinstance(sf, dict) and sf.get("joint_links") is False:
+        sf["joint_links"] = "off"
+    for t_ in (spec.get("tables") or {}).values() if isinstance(spec.get("tables"), dict) else ():
+        fa = t_.get("fact") if isinstance(t_, dict) else None
+        if isinstance(fa, dict) and fa.get("joint_links") is False:
+            fa["joint_links"] = "off"
     if not isinstance(spec.get("tables") or {}, dict):
         raise SpecError("tables must be a mapping {table name: table}")
     if not isinstance(spec["relationships"], list) or not all(isinstance(r, dict) for r in spec["relationships"]):
@@ -276,7 +287,8 @@ def normalise(raw: dict) -> dict:
         if t.get("link_affinity"):
             # two links that point at matching parents more often than by chance
             t["link_affinity"] = [{"match": list(x.get("match") or []),
-                                   **({"share": float(x["share"])} if x.get("share") is not None else {})}
+                                   **({"share": float(x["share"])} if x.get("share") is not None else {}),
+                                   **({"model": x["model"]} if x.get("model") is not None else {})}
                                   for x in t["link_affinity"]]
         if t.get("dimensions"):
             t["dimensions"] = [{"key": d["key"], "columns": list(d.get("columns") or []),
@@ -424,6 +436,8 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                 errs.append(f"{tname}: link_affinity {m[1]} must be a column of a direct parent (one link)")
             if la.get("share") is not None and not 0 <= la["share"] <= 1:
                 errs.append(f"{tname}: link_affinity share must be in [0, 1]")
+            if la.get("model") is not None and la["model"] not in ("rows", "share"):
+                errs.append(f"{tname}: link_affinity model must be rows or share")
         br = t.get("bridge")
         if br is not None:
             if not isinstance(br, dict) or br.get("group") not in t["columns"] or br.get("weight") not in t["columns"]:
@@ -647,7 +661,8 @@ def validate(spec: dict, keys: bool = True) -> list[str]:
                                ("multiplicity", ("auto", "none", "partner", "anchor", "block")),
                                ("count_model", ("auto", "poisson", "dp")),
                                ("group_fallback", ("auto", "anchor", "partner")),
-                               ("link_degree", ("auto", "segment", "dp"))):
+                               ("link_degree", ("auto", "segment", "dp")),
+                               ("joint_links", ("auto", "off"))):
                 if k in f and f[k] not in allowed:
                     errs.append(f"{tname}: fact.{k} must be one of {list(allowed)}")
     seen_fk = set()

@@ -86,7 +86,8 @@ def partition_rule(syn, f) -> tuple[str, str]:
     info = syn.fact_info[f]
     rel = info["rel"]
     T = syn.spec["tables"][f]
-    if getattr(syn, "affinity", {}).get(f):
+    if any(not st.get("rows") for st in getattr(syn, "affinity", {}).get(f, [])):
+        # matches drawn per row (link_affinity model: rows) couple nothing across rows
         return WHOLE, "link affinity: the matching share is a share of the whole table"
     if info["nested"] and info["nest"].get("parent") != info.get("anchor"):
         return WHOLE, "nested on a fact other than its anchor"
