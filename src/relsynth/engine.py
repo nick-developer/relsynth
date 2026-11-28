@@ -2974,6 +2974,7 @@ class Synthesizer:
         self.sample_log = {"rule_violations": {}, "text_rejections": {}, "rows_removed_by_rules": {},
                            "uniqueness": {}, "warnings": []}       # warnings of this dataset only
         self._edge_masks = {}
+        self._late_groups = {}            # facts' generator groups for late-rule redraws (this dataset only)
         say("sample: entities")
         for e in self.order:
             ent = self.E[e]
