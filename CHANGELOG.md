@@ -54,6 +54,7 @@ All notable user-visible changes are recorded here, following [Keep a Changelog 
 
 ### Fixed
 
+- **Quality report with a one-row parent** (`relsynth quality`, `assess_quality`): a relationship whose parent has a single row, or whose rows all hang from one root row (one store or call centre), stopped the report with a `KeyError` or `zero-size array` error, because a real-vs-real split left one half empty. Splits are now drawn only when there are at least two clusters; otherwise the check keeps its fixed tolerance. The weekly `tpcds_sf1` bench run failed on this.
 - Pushdown: a sampled fact with a date offset (or another hidden column of the internal model) no longer
   fails with a KeyError; segment discovery's GROUP BY statistics use source columns only (TPC-H SF1 bench).
 - Loading: categorical and text columns read with a nullable dtype (Int64, Float64, boolean, as a
