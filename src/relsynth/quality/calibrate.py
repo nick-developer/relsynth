@@ -79,11 +79,20 @@ def cluster_ids(spec, tables, t):
 
 
 def splittable(ids) -> bool:
-    """Whether real-vs-real splits exist: at least two clusters, so that each half
-    gets one. Rows that all hang from one root row (a single store, one call
-    centre) cannot be split without breaking Prop. 109 (i); their checks fall back
-    to the fixed tolerance."""
+    """Whether real-vs-real splits exist: at least two units, so that each half gets one."""
     return len(np.unique(ids)) >= 2
+
+
+def split_units(ids):
+    """The units a real-vs-real split moves whole: the clusters of Prop. 109 (i) when there are
+    at least two. Rows that all hang from one root row (one store, one call centre, rates of a
+    single currency) form one cluster, which cannot be split; their rows are then the units, so
+    the null law measures the rows' sampling noise. Within-cluster dependence is not estimable
+    from one cluster, so this limit can be tighter than a clustered one; it is still far closer
+    to the real-vs-real noise than the fixed tolerance, which ignores the sample size. With
+    fewer than two rows nothing can be split and the checks use the fixed tolerance."""
+    ids = np.asarray(ids)
+    return ids if splittable(ids) else np.arange(len(ids)).astype(str)
 
 
 def cluster_halves(ids, rng):

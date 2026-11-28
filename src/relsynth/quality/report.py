@@ -126,7 +126,7 @@ def _table_checks(b, spec, real, syn, holdout, t, rng):
         return
     ix = _cap_idx(len(real[t]), cfg["max_rows"], seed)
     r, s = real[t].iloc[ix].reset_index(drop=True), _cap(syn[t], cfg["max_rows"], seed)
-    ids = cal.cluster_ids(spec, real, t)[ix]
+    ids = cal.split_units(cal.cluster_ids(spec, real, t)[ix])
     R = cfg["null_splits"] if cfg["calibrate"] and cal.splittable(ids) else 0
     masks = [cal.cluster_halves(ids, rng) for _ in range(R)]
     halves = [(r[mk].reset_index(drop=True), r[~mk].reset_index(drop=True)) for mk in masks]
@@ -174,6 +174,7 @@ def _utility_checks(b, spec, t, r, s, hold, target, cols, m_tstr, m_trts, scope,
     mr = cfg["max_rows_model"]
     note = None
     if hold is None:
+        ids = cal.split_units(ids)
         u_ids = np.unique(ids)
         test = set(rng.permutation(u_ids)[: int(round(0.3 * len(u_ids)))])
         mk = ~np.isin(ids, list(test))
@@ -181,10 +182,11 @@ def _utility_checks(b, spec, t, r, s, hold, target, cols, m_tstr, m_trts, scope,
         note = "held-out rows are an internal split of the data the generator saw: TSTR is optimistic"
     else:
         train = r
-    if not len(hold) or not len(train):     # one cluster: no rows to hold out
+    if not len(hold) or not len(train):     # under two rows: nothing to hold out
         return
     u = ut.utility(train, s, hold, spec, t, target, cols, seed=cfg["seed"], max_rows=mr)
     b.details.setdefault(scope.get("table", t), {})[m_tstr.replace("_gap", "")] = u
+    ids = cal.split_units(ids)
     R = cfg["multi_splits"] if cfg["calibrate"] and cal.splittable(ids) else 0
     feats = [c for c in cols if c != target]
     d_tstr, d_trts, hs = [], [], []
@@ -221,7 +223,7 @@ def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
         law["scale_factor"] = f
         bench[name] = 1 - float(ks_2samp(cr, cs).statistic)
         b.details.setdefault("_relationships", {})[name] = law
-        ids = cal.cluster_ids(spec, real, p)
+        ids = cal.split_units(cal.cluster_ids(spec, real, p))
         R = R0 if cal.splittable(ids) else 0
         nulls, hs = [], []
         for _ in range(R):
@@ -247,7 +249,7 @@ def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
         law = mt.fanout_law(cr, cs)
         if not law:
             continue
-        ids = cal.cluster_ids(spec, real, gp)
+        ids = cal.split_units(cal.cluster_ids(spec, real, gp))
         R = R0 if cal.splittable(ids) else 0
         nulls, hs = [], []
         for _ in range(R):
@@ -285,6 +287,18 @@ def _path_checks(b, spec, real, syn, rng):
             for name in names:
                 if name in hn:
                     nulls[name].append(hn[name])
+    rel = {n: c for n, _p, _pk, c, _fk in mt.relations(spec)}
+    for name in [n for n in ht if R and not nulls[n]]:
+        # every split at the top left a side without bottom rows: they all hang from one top
+        # row (one cluster), so the bottom rows are the units (cal.split_units)
+        bottom = rel[name.split(" | ")[-1]]
+        if len(real[bottom]) < 2:
+            continue
+        for _ in range(R):
+            A, B = cal.split_db(spec, real, bottom, rng)
+            hn = mt.hop_trends(spec, A, B, cfg["max_hops"], cfg["max_rows"], cfg["seed"], only={name})
+            if name in hn:
+                nulls[name].append(hn[name])
     for name, d in ht.items():
         mx = cfg["max_rows"]
         n_r = min(_bottom_rows(spec, real, name), mx)

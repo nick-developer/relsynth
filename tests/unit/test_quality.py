@@ -254,11 +254,13 @@ def test_fanout_of_a_sampled_fact_uses_exact_counts():
     assert np.array_equal(mt.grandchild_counts(tabs, "gp", "g", "p", "k", "g", "c", "fk", exact), g_full)
 
 
-def test_a_one_row_parent_falls_back_to_the_fixed_tolerance(shop):
-    """Class: relationships whose parent table has a single row, or whose parent rows all hang
-    from one root row (one store, warehouse or call centre, as in small TPC-DS scale factors).
-    Real-vs-real splits need two clusters; with one, a half was empty and the report stopped
-    (KeyError on the empty fan-out law). Now those checks use the fixed tolerance."""
+def test_a_one_row_parent_splits_rows_or_falls_back_to_the_fixed_tolerance(shop):
+    """Class: relationships whose parent table has a single row, or whose child rows all hang
+    from one parent row (one store, warehouse or call centre, as in small TPC-DS scale factors;
+    the rates of a single currency). Real-vs-real splits need two clusters; with one, a half was
+    empty and the report stopped (KeyError on the empty fan-out law). Now the rows are the split
+    units (the hop trends of the lines under the one product), and a one-row table, which
+    cannot be split at all, uses the fixed tolerance (the product fan-out)."""
     spec, a, b = shop
     one = []
     for side in (a, b):
@@ -275,6 +277,11 @@ def test_a_one_row_parent_falls_back_to_the_fixed_tolerance(shop):
               and "product" not in str(c["scope"].get("relationship", ""))]
     assert others and all(c["null"]["method"].startswith("real-vs-real") for c in others)
     assert cal.splittable(np.array(["a", "b"])) and not cal.splittable(np.array(["a", "a"]))
+    assert list(cal.split_units(np.array(["a", "a", "a"]))) == ["0", "1", "2"]
+    assert list(cal.split_units(np.array(["a", "b", "a"]))) == ["a", "b", "a"]
+    hops = [c for c in rep["checks"] if c["metric"].startswith("hop_trend")
+            and str(c["scope"].get("path", "")).endswith("->product")]
+    assert hops and all(c["null"]["method"].startswith("real-vs-real") for c in hops)
     # a column-pair trend with no rows on a side (a split half under a one-row root) has no score
     e, x = pd.Series([], dtype=object), pd.Series(["u", "v", "u"])
     assert mt._pair_trend(e, e, e, e, True, True) is None
