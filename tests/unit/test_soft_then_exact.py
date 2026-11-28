@@ -91,3 +91,38 @@ def test_derive_reading_a_soft_column_directly(tmp_path):
             "synthesis": {"seed": 5}}
     o = rs.run(spec, write=False, seed=2).data["orders"]
     assert ((o["net"] - o["gross"] * (1 - o["disc"])).abs() <= 0.011).mean() > 0.999
+
+
+def test_running_balance_of_a_column_derived_from_a_soft_one(tmp_path):
+    """A cumulative rule whose step reads an exact derive of a soft column (running spend per customer of
+    net prices) follows the soft rule's final values."""
+    rng = np.random.default_rng(6)
+    n = 4000
+    cust = rng.integers(1, 200, n)
+    seg = np.where(cust % 3 == 0, "trade", "retail")
+    disc = np.where(seg == "trade", 0.15, rng.choice([0.0, 0.05], n))
+    disc = np.where((seg == "trade") & (rng.random(n) < 0.03), 0.10, disc)
+    gross = np.round(rng.gamma(3.0, 40.0, n), 2)
+    df = pd.DataFrame({"oid": np.arange(1, n + 1), "cust": cust, "seg": seg, "disc": disc, "gross": gross,
+                       "net": gross * (1 - disc)})
+    df["spend"] = df.sort_values("oid").groupby("cust")["net"].cumsum()
+    db = tmp_path / "spend.db"
+    with sqlite3.connect(db) as con:
+        df.to_sql("orders", con, index=False)
+    spec = {"version": 1, "name": "spend", "source": {"kind": "sqlite", "path": str(db)},
+            "tables": {"orders": {"role": "entity", "primary_key": "oid",
+                                  "columns": {"oid": {"type": "id"}, "cust": {"type": "categorical"},
+                                              "seg": {"type": "categorical"}, "disc": {"type": "float"},
+                                              "gross": {"type": "float"}, "net": {"type": "float"},
+                                              "spend": {"type": "float"}}}},
+            "relationships": [],
+            "rules": [{"table": "orders", "type": "derive", "expr": "disc = where(seg == 'trade', 0.15, disc)",
+                       "holds": 0.97, "violation": "model"},
+                      {"table": "orders", "type": "derive", "expr": "net = gross * (1 - disc)", "tolerance": 0.01},
+                      {"table": "orders", "type": "cumulative", "column": "spend", "step": "net", "by": "cust",
+                       "order": "oid", "opening": 0}],
+            "synthesis": {"seed": 5}}
+    o = rs.run(spec, write=False, seed=2).data["orders"]
+    o = o.assign(k=pd.to_numeric(o["oid"])).sort_values("k")
+    expect = o.groupby("cust")["net"].cumsum()
+    assert ((o["spend"] - expect).abs() <= 0.02 + 1e-6 * expect.abs()).mean() > 0.999

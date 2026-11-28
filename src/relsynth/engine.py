@@ -461,7 +461,8 @@ def _ukey(values):
     distinct under a unique key)."""
     out = []
     for v in values:
-        if v is None or (isinstance(v, (float, np.floating)) and math.isnan(v)) or v is pd.NA or v is pd.NaT:
+        if v is None or (isinstance(v, (float, np.floating)) and math.isnan(v)) or v is pd.NA or v is pd.NaT \
+                or (isinstance(v, (np.datetime64, np.timedelta64)) and np.isnat(v)):
             return None
         out.append(str(int(v)) if isinstance(v, (float, np.floating)) and float(v).is_integer() else str(v))
     return tuple(out)
@@ -5615,11 +5616,13 @@ class Synthesizer:
         return df
 
     def _after_soft(self, t, df, out):
-        """Lookups and exact derives of t that read a soft rule's column, directly or through it as a key,
-        recomputed after the soft rules.  Class: a rule that holds on most rows (Bitcoin payments in
-        Bitcoin, a standard discount) feeding an exact one (an amount converted at the payment currency's
-        rate, a net price): soft rules are applied last, so the exact rule had read the value before the
-        soft rule changed it, and the two disagreed on the rows the soft rule changed."""
+        """Lookups, exact derives and running balances (cumulative rules) of t that read a soft rule's
+        column, directly or through it as a key, recomputed after the soft rules, in rule order.
+        Class: a rule that holds on most rows (Bitcoin payments in Bitcoin, a standard discount)
+        feeding an exact one (an amount converted at the payment currency's rate, a net price, a
+        running balance of net prices): soft rules are applied last, so the exact rule had read the
+        value before the soft rule changed it, and the two disagreed on the rows the soft rule
+        changed."""
         soft = {st["lhs"] for st in getattr(self, "soft", {}).get(t, [])}
         stale = set(soft)
         if not stale or not len(df):
@@ -5635,7 +5638,17 @@ class Synthesizer:
                 df[c] = lookup_column(self.spec, t, c, df, out, res)
             stale |= set(cols)
         for r in self.spec["rules"]:
-            if r["table"] != t or r["type"] != "derive":
+            if r["table"] != t:
+                continue
+            if r["type"] == "cumulative":
+                # a running balance whose step, groups or order read a changed column follows it
+                by = r["by"] if isinstance(r["by"], list) else [r["by"]]
+                if r["column"] in df.columns and r["column"] not in soft and \
+                        reads(list(names_in(str(r.get("step", "")))) + by + [r["order"]]):
+                    df = self._cumulative(t, df, r, out)    # keeps the run's floor choice
+                    stale.add(r["column"])
+                continue
+            if r["type"] != "derive":
                 continue
             lhs = split_assignment(r["expr"])[0]
             if lhs in self.late[t] or lhs in soft:
@@ -6041,7 +6054,9 @@ class Synthesizer:
                 continue
             # unique keys over the moved link (one owner per account): a move is kept only when the
             # row's new key is not already held, so the moves keep every key unique
-            ukeys = [u for u in self.cons.get(t, {}).get("unique", []) if st["fk"] in u and all(c in df for c in u)]
+            ukeys = [u for u in self.cons.get(t, {}).get("unique", []) if st["fk"] in u]
+            if any(c not in df for u in ukeys for c in u):
+                continue    # a key column not drawn yet: a move could not be checked, so none is made
             P = out[r["parent"]]
             pk = self.spec["tables"][r["parent"]]["primary_key"]
             if st["col"] not in P.columns:
@@ -6525,13 +6540,22 @@ class Synthesizer:
                 else:
                     sv[i] = sv[i - 1] + np.timedelta64(int(steps[i]), "D")
         if ls is not None:
-            # a key whose versions ran past the source's last later-version start takes the last
-            # of those starts (as many as it has versions, in order) when there are enough
+            # a key with later versions that ran past the source's last later-version start takes
+            # the last of those starts for its later versions (in order) when there are enough and
+            # they follow its first start; the first version's start (when the entity appeared) is
+            # kept unless it leaves no room for them, and a key with one version is never moved
             top = np.datetime64(int(ls[-1]), "D").astype("datetime64[ns]")
             bounds = np.flatnonzero(np.r_[True, g_o[1:] != g_o[:-1], True])
             for a, b in zip(bounds[:-1], bounds[1:]):
                 v = b - a
-                if v <= len(ls) and not np.isnat(sv[b - 1]) and sv[b - 1] > top and not np.isnat(sv[a:b]).any():
+                if v < 2 or v - 1 > len(ls) or np.isnat(sv[a:b]).any() or sv[b - 1] <= top:
+                    continue
+                later = np.array([np.datetime64(int(x), "D") for x in ls[-(v - 1):]], dtype="datetime64[ns]")
+                if later[0] >= sv[a] + shortest:
+                    sv[a + 1:b] = later
+                elif v <= len(ls):
+                    # the first start leaves no room for the later versions before the last
+                    # later-version start: the whole key takes the last v of those starts
                     sv[a:b] = np.array([np.datetime64(int(x), "D") for x in ls[-v:]], dtype="datetime64[ns]")
         newstart = np.empty(n, dtype="datetime64[ns]")
         newstart[order] = sv
