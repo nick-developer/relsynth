@@ -221,6 +221,11 @@ S = {
                         "the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows "
                         "effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on "
                         "every modelled key."),
+        "joint_links": ("auto | off", "auto", "Extra links of the fact to the same parent table (a role-playing "
+                        "dimension: payment and receiving currency, origin and destination) drawn jointly over "
+                        "their observed combinations; combinations held by fewer than "
+                        "privacy.suppress_small_counts rows are drawn as independent links. auto: when the joint table beats "
+                        "independence by facts.joint_links_bf. off: each link drawn on its own."),
         "time_column": ("column", None, "Date column with a seasonal profile per segment."),
         "time_bucket": ("day | week | month | quarter | year", "month", "Bucket of the seasonal profile."),
         "condition_on_parents": ("bool | list of fk.col", True, "Condition measures on parents' continuous "
@@ -249,7 +254,9 @@ S = {
         "map": ("map", None, "Lookup values mapped through a fixed table (country -> currency)."),
         "default": ("any", None, "Value for codes outside `map`."),
         "offset_from": ("column", None, "This date/number = that column + a modelled gap (delivery = order + 0..7 "
-                        "days; an answer's last activity = its creation + a gap that is often 0)."),
+                        "days; an answer's last activity = its creation + a gap that is often 0). The column may be in a "
+                        "parent table, as a path through foreign keys (`fk.column`), and may itself be an offset; a cycle "
+                        "is refused."),
         "ratio_of": ("column | fk.col", None, "This number = that number x a modelled factor (unit price = list "
                      "price x one of 16 factors)."),
         "ratio_same_as": ("column", None, "Use the factor of another ratio column (unit cost moves with unit "
@@ -369,7 +376,12 @@ S = {
     "link_affinity": {
         "match": ("[path, path]", None, "Two paths whose values match more often than chance; the link of the "
                   "second is moved (CustomerKey.GeoAreaKey, StoreKey.GeoAreaKey)."),
-        "share": ("number", "learned", "Matching share to reach (default: the source's, drawn from its posterior)."),
+        "share": ("number", "learned", "Matching share to reach (default: the source's, drawn from its posterior). "
+                  "A fixed share uses the share model."),
+        "model": ("rows | share", "structure.link_affinity", "rows: whether a row matches is a hidden attribute "
+                  "drawn with the row's other attributes, and the link is chosen to agree with it (facts whose "
+                  "moved link is the partner or an extra link). share: links are moved after the rows are drawn "
+                  "until the matching share is reached."),
     },
     "unique_where": {
         "columns": ("list of column", None, "Key columns."),
@@ -458,7 +470,9 @@ SYNTH_DOC = {
     "marginals.max_levels": "Levels kept per categorical (rarer ones pooled).",
     "marginals.tail_trim": "Share trimmed from continuous tails.",
     "marginals.point_mass_knots": ("Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated "
-                                   "amounts, wages): give the rest of the column about copula.grid quantile knots."),
+                                   "amounts, wages): give the rest of the column about copula.grid quantile knots. Off by "
+                                   "default (each knot is a quantile of the data); turn it on in the spec, or per table, where "
+                                   "such a column's tail matters."),
     "marginals.min_dependence_rows": "Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample.",
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",
@@ -496,7 +510,13 @@ SYNTH_DOC = {
                           "where a NULL key is stage 1's noise and is left out. Not modelled (left out, as in "
                           "drop): a fact whose partner is virtual, a fact that is the parent of a nested fact, "
                           "and, with push-down, rows absent from the push-down sample.",
+    "structure.link_affinity": "Default of link_affinity model (rows or share).",
     "facts.link_degree": "Default of fact.link_degree.",
+    "facts.joint_links": "Default of fact.joint_links.",
+    "facts.joint_links_bf": "Bayes factor the joint table of role-playing links must reach against independent "
+                            "links to be drawn jointly (fact.joint_links: auto).",
+    "facts.joint_links_max_levels": "Most joint levels (product of the links' segment counts) a group of "
+                                    "role-playing links is drawn over; larger groups stay independent.",
     "facts.link_degree_min_rows": "auto gives a key a degree law only when each segment's links are spread over "
                                   "at least this many rows (Kish effective number, link-weighted); below it a few "
                                   "rows carry the links and attributes joined through the key would follow them.",

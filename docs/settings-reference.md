@@ -43,7 +43,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `marginals.dirichlet_prior` | float | `0.25` | 0 … 1e+06 | yes (log) | Shrinkage of a segment's categorical law to the table's. |
 | `marginals.max_levels` | int | `200` | 1 … 1e+07 | yes (log) | Levels kept per categorical (rarer ones pooled). |
 | `marginals.tail_trim` | float | `0.0` | 0 … 0.5 | yes | Share trimmed from continuous tails. |
-| `marginals.point_mass_knots` | bool | `False` |  | yes | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. |
+| `marginals.point_mass_knots` | bool | `False` |  | yes | Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated amounts, wages): give the rest of the column about copula.grid quantile knots. Off by default (each knot is a quantile of the data); turn it on in the spec, or per table, where such a column's tail matters. |
 | `marginals.min_dependence_rows` | int | `5` | 0 … 1e+07 | yes | Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample. |
 | `marginals.fd_bf` | float | `100.0` | 1 … 1e+300 |  | Bayes factor to treat a categorical dependency as functional. |
 | `marginals.joint_max_levels` | int | `64` | 1 … 1e+07 | yes (log) | Largest joint of dependent categoricals. |
@@ -72,6 +72,9 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `facts.segment_total_sweeps` | int | `4` | 0 … 10000 |  | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
 | `facts.dp_count_start` | choice | `draw` | draw, balanced |  | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `facts.null_partner` | choice | `auto` | auto, model, drop |  | auto \| model \| drop: rows whose partner key is NULL (an optional second link) are modelled as rows without a partner, a null level given the anchor segment (model), or left out of the model as in 2.2 (drop). auto is model, except in stage 2 of DP mode, where a NULL key is stage 1's noise and is left out. Not modelled (left out, as in drop): a fact whose partner is virtual, a fact that is the parent of a nested fact, and, with push-down, rows absent from the push-down sample. |
+| `facts.joint_links` | choice | `auto` | auto, off | yes | Default of fact.joint_links. |
+| `facts.joint_links_bf` | float | `100.0` | 1 … 1e+300 | yes (log) | Bayes factor the joint table of role-playing links must reach against independent links to be drawn jointly (fact.joint_links: auto). |
+| `facts.joint_links_max_levels` | int | `4096` | 1 … 1e+07 |  | Most joint levels (product of the links' segment counts) a group of role-playing links is drawn over; larger groups stay independent. |
 | `structure.structural_prior` | float | `0.9` | 0 … 0.999 | yes | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | float | `3.0` | 0 … 1e+06 | yes | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | float | `0.5` | 1e-06 … 1e+06 | yes (log) | Beta prior of link and occupancy rates. |
@@ -81,6 +84,7 @@ Generated from `relsynth.settings` (`python -m relsynth.settings > docs/settings
 | `structure.inclusion_max_levels` | int | `50` | 1 … 1e+06 | yes (log) | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
 | `structure.inclusion_multiplicity` | choice | `bonferroni` | bonferroni, none | yes | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
 | `structure.participation` | choice | `auto` | auto, none | yes | auto \| none: hurdle on the share of parents without children. |
+| `structure.link_affinity` | choice | `rows` | rows, share | yes | Default of link_affinity model (rows or share). |
 | `uniqueness.mh_sweeps` | int | `20` | 0 … 1e+06 | yes (log) | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | choice | `auto` | auto, none |  | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.rake_rounds` | int | `3` | 0 … 10000 | yes | Rounds of raking for rule cells. |

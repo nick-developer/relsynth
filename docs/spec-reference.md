@@ -253,7 +253,8 @@ On a fact, the rows that point at the unknown member are restored by drawing tha
 ### A value shared by a group, co-location, rules that mostly hold
 
 - `group_effects: [{column, by}]`: one value per group (a daily price factor per category). Introspect finds it when the value is constant in at least 99.9 % of rows in groups of 2+ rows, beyond chance.
-- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`.
+- `link_affinity: [{match: [a.col, b.col]}]`: two links point at matching parents more often than chance (a customer's store in the customer's region). The share is the source's, drawn from its posterior. You can set it with `share`. On a fact whose moved link is the partner or an extra link, whether a row matches is a hidden attribute drawn with the row's other attributes (`model: rows`, the default; a reinvestment is always a self-loop, a truck runs only within a region), and the link is chosen to agree with it; `model: share` moves links after the rows are drawn until the share is reached. The share model is also kept for a moved anchor, the partner of an occupancy fact, a moved link under a unique key, and a first path that is drawn after the links (a derived or time column; a lookup column is read through its path).
+- Two or more extra links of a fact to the same parent table (a role-playing dimension: payment and receiving currency, origin and destination airport) are drawn jointly over their observed combinations when the joint table beats independence (`fact.joint_links`, default `auto`). Combinations held by fewer than `privacy.suppress_small_counts` source rows are drawn as independent links, never from their own counts.
 - `holds: 0.99` on a derive rule: the rule holds on that share of rows, and the other rows take the source's offsets from it (`violation: offset`) or their modelled value (`violation: model`).
 
 ### Writing into a database with the original structure
@@ -435,6 +436,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `count_model` | auto \| poisson \| dp | `auto` | Rows per anchor: Poisson/negative binomial or a Dirichlet-process count law. |
 | `group_fallback` | auto \| anchor \| partner | `auto` | Which dimension's marginals a sparse block borrows. |
 | `link_degree` | auto \| segment \| dp | `auto` | Degree law of the two keys of a link table (bonds per atom as the second atom, actors per movie). auto: a key whose degrees prefer a Dirichlet-process or negative-binomial law by the count-model Bayes factor gets it, with the block totals kept (unless its links sit on fewer than facts.link_degree_min_rows effective rows). segment: rows spread within segments as in 1.0. dp: the DP law on every modelled key. |
+| `joint_links` | auto \| off | `auto` | Extra links of the fact to the same parent table (a role-playing dimension: payment and receiving currency, origin and destination) drawn jointly over their observed combinations; combinations held by fewer than privacy.suppress_small_counts rows are drawn as independent links. auto: when the joint table beats independence by facts.joint_links_bf. off: each link drawn on its own. |
 | `time_column` | column |  | Date column with a seasonal profile per segment. |
 | `time_bucket` | day \| week \| month \| quarter \| year | `month` | Bucket of the seasonal profile. |
 | `condition_on_parents` | bool \| list of fk.col | `True` | Condition measures on parents' continuous attributes (unit price follows list price). |
@@ -613,7 +615,8 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `match` | [path, path] |  | Two paths whose values match more often than chance; the link of the second is moved (CustomerKey.GeoAreaKey, StoreKey.GeoAreaKey). |
-| `share` | number | `learned` | Matching share to reach (default: the source's, drawn from its posterior). |
+| `share` | number | `learned` | Matching share to reach (default: the source's, drawn from its posterior). A fixed share uses the share model. |
+| `model` | rows \| share | `structure.link_affinity` | rows: whether a row matches is a hidden attribute drawn with the row's other attributes, and the link is chosen to agree with it (facts whose moved link is the partner or an extra link). share: links are moved after the rows are drawn until the matching share is reached. |
 
 ### `unique[]` (filtered key)
 
@@ -728,6 +731,9 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `facts.segment_total_sweeps` | `4` | Sweeps (one proposal per row) of the facts.segment_totals kernel. |
 | `facts.dp_count_start` | `draw` | Start of the DP count law's conditional draw: draw (i.i.d. counts brought to the total, so rare large counts are reachable; Prop. 1782) or balanced (every count near the mean, 2.2 draws, which can never reach a count above the largest pair sum). |
 | `facts.null_partner` | `auto` | auto \| model \| drop: rows whose partner key is NULL (an optional second link) are modelled as rows without a partner, a null level given the anchor segment (model), or left out of the model as in 2.2 (drop). auto is model, except in stage 2 of DP mode, where a NULL key is stage 1's noise and is left out. Not modelled (left out, as in drop): a fact whose partner is virtual, a fact that is the parent of a nested fact, and, with push-down, rows absent from the push-down sample. |
+| `facts.joint_links` | `auto` | Default of fact.joint_links. |
+| `facts.joint_links_bf` | `100.0` | Bayes factor the joint table of role-playing links must reach against independent links to be drawn jointly (fact.joint_links: auto). |
+| `facts.joint_links_max_levels` | `4096` | Most joint levels (product of the links' segment counts) a group of role-playing links is drawn over; larger groups stay independent. |
 | `structure.structural_prior` | `0.9` | Prior probability that an unseen combination is forbidden. |
 | `structure.structural_pooling` | `3.0` | Prior concentration of the structural weights learned from a relation's group-columns (zero / one / free exchangeable across them, w ~ Dirichlet(kappa * (pi/2, pi/2, 1 - pi)) centred on structural_prior); blocks inside a free group-column keep the fixed weights. Learned weights keep fully complete relations complete. 0 keeps the fixed weights of structural_prior (v0.8). |
 | `structure.beta_prior` | `0.5` | Beta prior of link and occupancy rates. |
@@ -737,6 +743,7 @@ Every key below is checked by `validate`. Any other key is an error, with the cl
 | `structure.inclusion_max_levels` | `50` | A candidate column with at most this many values is tested level by level (more: only null against set); performance and readability, not evidence. |
 | `structure.inclusion_multiplicity` | `bonferroni` | bonferroni: each tested level needs inclusion_min_expected + log(levels tested for the link) expected references, so the chance of excluding any level by accident stays at exp(-inclusion_min_expected) however many levels are tested (Prop. 1786); none: inclusion_min_expected per level (2.2). |
 | `structure.participation` | `auto` | auto \| none: hurdle on the share of parents without children. |
+| `structure.link_affinity` | `rows` | Default of link_affinity model (rows or share). |
 | `uniqueness.mh_sweeps` | `20` | Sweeps of the unique-key sampler. |
 | `uniqueness.grain` | `auto` | auto \| none: unique keys of two foreign keys become grains. |
 | `uniqueness.free_parent_repair` | `auto` | auto \| off: rows the unique-key sampler cannot place get a parent drawn by the link model among the parents whose key is still free for the row (one owner per account); off: uniformly over all parents (2.x) (Prop. 1880). |

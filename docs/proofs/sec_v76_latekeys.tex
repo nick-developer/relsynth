@@ -1,5 +1,5 @@
 %=====================================================================
-\section{Late rules and unique link keys}\label{sec:v75latekeys}
+\section{Late rules and unique link keys}\label{sec:v76latekeys}
 % numbered from 1880; the shared counter is restored at the end
 \newcounter{savedproplatekeys}\setcounter{savedproplatekeys}{\value{proposition}}
 Two classes of declared constraint were reported but not always met. A \emph{late rule} is a check rule that reads an aggregate column, on its own table or through a link (a card issued on or after its account's opening date, when the opening date is the account's first transaction date). It can be evaluated only after every table is drawn and the aggregates computed. A \emph{unique link key} is a unique key made of one link and columns fixed before the links (one owner per account: \texttt{[account\_id, type]}, with the type set from the disposition's stratum). When nearly every parent already holds the key, the link model's proposals and a uniform fallback rarely reach the few free parents, so rows were left in conflict. The code is \texttt{Synthesizer.\_enforce\_late} and \texttt{Synthesizer.\_free\_parents}; the tests are in \texttt{tests/unit/test\_late\_rules\_unique\_links.py}.

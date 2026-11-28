@@ -322,6 +322,10 @@ def structure(syn):
         obj = getattr(syn, name, None)
         if obj:
             scope.append(f"{what}: {', '.join(sorted(map(str, obj)))} (engine only)")
+    fi = getattr(syn, "fact_info", None) or {}
+    joint = [f for f in S["fact_order"] if (fi.get(f) or {}).get("extra_joint")]
+    if joint:
+        scope.append(f"joint role-playing links: {', '.join(joint)} (engine only; the replica draws them one by one)")
     if syn.plan.views:
         scope.append(f"views {', '.join(syn.plan.views)} (engine only)")
     if syn.plan.unknown_rows:
