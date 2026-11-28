@@ -127,7 +127,7 @@ def _table_checks(b, spec, real, syn, holdout, t, rng):
     ix = _cap_idx(len(real[t]), cfg["max_rows"], seed)
     r, s = real[t].iloc[ix].reset_index(drop=True), _cap(syn[t], cfg["max_rows"], seed)
     ids = cal.cluster_ids(spec, real, t)[ix]
-    R = cfg["null_splits"] if cfg["calibrate"] else 0
+    R = cfg["null_splits"] if cfg["calibrate"] and cal.splittable(ids) else 0
     masks = [cal.cluster_halves(ids, rng) for _ in range(R)]
     halves = [(r[mk].reset_index(drop=True), r[~mk].reset_index(drop=True)) for mk in masks]
     sizes = (len(r), len(s))
@@ -181,9 +181,11 @@ def _utility_checks(b, spec, t, r, s, hold, target, cols, m_tstr, m_trts, scope,
         note = "held-out rows are an internal split of the data the generator saw: TSTR is optimistic"
     else:
         train = r
+    if not len(hold) or not len(train):     # one cluster: no rows to hold out
+        return
     u = ut.utility(train, s, hold, spec, t, target, cols, seed=cfg["seed"], max_rows=mr)
     b.details.setdefault(scope.get("table", t), {})[m_tstr.replace("_gap", "")] = u
-    R = cfg["multi_splits"] if cfg["calibrate"] else 0
+    R = cfg["multi_splits"] if cfg["calibrate"] and cal.splittable(ids) else 0
     feats = [c for c in cols if c != target]
     d_tstr, d_trts, hs = [], [], []
     for _ in range(R):
@@ -205,7 +207,7 @@ def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
     # per-parent counts of a sample would be about the sampling rate times the source's
     real_stats = real_stats or {}
     cfg = b.cfg
-    R = cfg["multi_splits"] if cfg["calibrate"] else 0
+    R0 = cfg["multi_splits"] if cfg["calibrate"] else 0
     bench = {}
     for name, p, pk, c, fk in mt.relations(spec):
         if not len(real[p]) or not len(syn[p]):
@@ -220,6 +222,7 @@ def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
         bench[name] = 1 - float(ks_2samp(cr, cs).statistic)
         b.details.setdefault("_relationships", {})[name] = law
         ids = cal.cluster_ids(spec, real, p)
+        R = R0 if cal.splittable(ids) else 0
         nulls, hs = [], []
         for _ in range(R):
             mk = cal.cluster_halves(ids, rng)
@@ -245,6 +248,7 @@ def _relationship_checks(b, spec, real, syn, rng, real_stats=None):
         if not law:
             continue
         ids = cal.cluster_ids(spec, real, gp)
+        R = R0 if cal.splittable(ids) else 0
         nulls, hs = [], []
         for _ in range(R):
             mk = cal.cluster_halves(ids, rng)

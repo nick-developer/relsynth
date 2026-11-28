@@ -252,3 +252,31 @@ def test_fanout_of_a_sampled_fact_uses_exact_counts():
     tabs = {"gp": gp, "p": par, "c": sample}
     g_full = mt.grandchild_counts({"gp": gp, "p": par, "c": child}, "gp", "g", "p", "k", "g", "c", "fk")
     assert np.array_equal(mt.grandchild_counts(tabs, "gp", "g", "p", "k", "g", "c", "fk", exact), g_full)
+
+
+def test_a_one_row_parent_falls_back_to_the_fixed_tolerance(shop):
+    """Class: relationships whose parent table has a single row, or whose parent rows all hang
+    from one root row (one store, warehouse or call centre, as in small TPC-DS scale factors).
+    Real-vs-real splits need two clusters; with one, a half was empty and the report stopped
+    (KeyError on the empty fan-out law). Now those checks use the fixed tolerance."""
+    spec, a, b = shop
+    one = []
+    for side in (a, b):
+        d = dict(side)
+        d["product"] = side["product"].iloc[:1].reset_index(drop=True)
+        d["lines"] = side["lines"].assign(product_id=d["product"]["product_id"].iloc[0])
+        one.append(d)
+    assert not cal.splittable(cal.cluster_ids(spec, one[0], "product"))
+    rep = assess(spec, one[0], one[1], config={"null_splits": 4, "multi_splits": 3})
+    fan = [c for c in rep["checks"] if c["metric"].startswith("fanout")
+           and "product" in str(c["scope"].get("relationship", ""))]
+    assert fan and all(c["null"]["method"] == "fixed tolerance" for c in fan)
+    others = [c for c in rep["checks"] if c["metric"] == "fanout_w1_rel"
+              and "product" not in str(c["scope"].get("relationship", ""))]
+    assert others and all(c["null"]["method"].startswith("real-vs-real") for c in others)
+    assert cal.splittable(np.array(["a", "b"])) and not cal.splittable(np.array(["a", "a"]))
+    # a column-pair trend with no rows on a side (a split half under a one-row root) has no score
+    e, x = pd.Series([], dtype=object), pd.Series(["u", "v", "u"])
+    assert mt._pair_trend(e, e, e, e, True, True) is None
+    assert mt._pair_trend(e, x, e, x, True, True) is None
+    assert mt._pair_trend(x, x, x, x, True, True) == 1.0

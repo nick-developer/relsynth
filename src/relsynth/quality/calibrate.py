@@ -78,6 +78,14 @@ def cluster_ids(spec, tables, t):
     return ids.fillna("__null__").astype(str).to_numpy()
 
 
+def splittable(ids) -> bool:
+    """Whether real-vs-real splits exist: at least two clusters, so that each half
+    gets one. Rows that all hang from one root row (a single store, one call
+    centre) cannot be split without breaking Prop. 109 (i); their checks fall back
+    to the fixed tolerance."""
+    return len(np.unique(ids)) >= 2
+
+
 def cluster_halves(ids, rng):
     """Boolean mask of half A: whole clusters assigned at random to the halves."""
     u, inv = np.unique(ids, return_inverse=True)
