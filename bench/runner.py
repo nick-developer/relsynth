@@ -431,7 +431,7 @@ def run(datasets: list[str], seeds: list[int] | None, *, fake: bool = True, push
             f"identities broken, {failed('quality', 'area')} quality, {failed('privacy')} privacy and "
             f"{failed('goal')} goal checks failed, {r.get('seconds')} s (+{(r.get('quality') or {}).get('seconds', 0)} s "
             f"quality, +{(r.get('privacy') or {}).get('seconds', 0)} s privacy)"
-            + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
+            + (f", ERROR {regress.error_summary(r['error'])}" if r.get("error") else ""))
         acc: dict = {}
         for c in r.get("checks", []):
             why = c["pass"] is False and regress.accepted_reason({name: DATASETS[name].accepted}, name, c["id"])

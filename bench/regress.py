@@ -46,6 +46,16 @@ from pathlib import Path
 MIN_SEEDS_CALIBRATED = 3
 
 
+def error_summary(err: str, n: int = 300) -> str:
+    """A run's error for a log line: its first line and, for a Python traceback, the exception
+    (the last non-empty line), which a head of the text alone cuts off."""
+    lines = [x.strip() for x in str(err).splitlines() if x.strip()]
+    if len(lines) <= 1:
+        return str(err)[:n]
+    head, last = lines[0], lines[-1]
+    return (head[: n // 3] + " ... " + last[: n - n // 3])
+
+
 def _runs(records: list[dict]):
     for rec in records:
         for r in rec.get("runs", []):
@@ -189,7 +199,7 @@ def compare(baseline: dict, record: dict, full: bool = False,
         b = baseline["datasets"].get(ds)
         for r in rs:
             if r.get("error"):
-                regressions.append(f"R3 {ds} seed {r.get('seed')}: run failed: {r['error'][:300]}")
+                regressions.append(f"R3 {ds} seed {r.get('seed')}: run failed: {error_summary(r['error'], 400)}")
         if b is None:
             notes.append(f"{ds}: not in the baseline; recorded only")
             continue

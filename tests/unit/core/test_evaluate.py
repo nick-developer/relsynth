@@ -36,6 +36,101 @@ def test_canon_counts_equals_the_per_row_definition():
     assert len(E._canon_counts(pd.Series([], dtype=object))) == 0
 
 
+def test_joined_level_shares_counted_on_ancestor_rows_equal_the_gathered_column():
+    """_JoinedView.level_shares (ancestor rows weighted by their fact rows; the joined column of a fact
+    with millions of rows is not gathered) gives _canon_counts of the gathered column exactly: values,
+    labels and order, with ties, missing parents, null values and equal values spelt differently."""
+    rng = np.random.default_rng(11)
+    spec = {"tables": {"f": {"primary_key": "id", "columns": {"id": {"type": "id"}, "d": {"type": "id"}}},
+                       "d": {"primary_key": "k", "columns": {"k": {"type": "id"}, "g": {"type": "id"},
+                                                             "c": {"type": "categorical"}}},
+                       "g": {"primary_key": "k", "columns": {"k": {"type": "id"}, "n": {"type": "categorical"}}}},
+            "relationships": [{"child": "f", "child_key": "d", "parent": "d", "kind": "many_to_one"},
+                              {"child": "d", "child_key": "g", "parent": "g", "kind": "many_to_one"}]}
+    for t in range(40):
+        nd, ng, nf = int(rng.integers(1, 60)), int(rng.integers(1, 20)), int(rng.integers(1, 3000))
+        levels = [1, 1.0, Decimal("1"), "a", "b", None, 2, 2.5] if t % 2 else ["x", "y", "z", None]
+        d = pd.DataFrame({"k": np.arange(nd), "g": rng.integers(0, ng + 2, nd),
+                          "c": pd.Series([levels[i] for i in rng.integers(0, len(levels), nd)], dtype=object)})
+        g = pd.DataFrame({"k": np.arange(ng), "n": rng.integers(0, 4, ng)})
+        f = pd.DataFrame({"id": np.arange(nf), "d": rng.integers(0, nd + 3, nf)})    # some missing parents
+        view = E.joined_view(spec, {"f": f, "d": d, "g": g}, "f")
+        for c in ("d.c", "d.g.n"):
+            ref = E._canon_counts(view[c].dropna())
+            got = view.level_shares(c)
+            if len(ref) == 0:
+                assert got is None
+            else:
+                pd.testing.assert_series_equal(got, ref, check_names=False, check_index_type=False)
+    assert view.level_shares("d") is None                   # the fact's own column
+
+
+def _support_by_strings(spec, f, real, syn):
+    """The support check as it was written before integer codes: one string per row, Counter of tuples."""
+    from collections import Counter
+    T = spec["tables"]
+    copied = {t for t, ts in T.items() if ts.get("mode") == "copy"}
+    fks = [r for r in spec["relationships"] if r["child"] == f]
+    refs = {r["child_key"]: 1 for r in fks if r["parent"] in copied}
+    for r in fks:
+        for r2 in spec["relationships"]:
+            if r2["child"] == r["parent"] and r2["parent"] in copied and r["parent"] not in copied:
+                refs[f"{r['child_key']}.{r2['child_key']}"] = 1
+    out, names = {}, sorted(refs)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            va, vb = E._ref_values(spec, f, real, a), E._ref_values(spec, f, real, b)
+            sa, sb = E._ref_values(spec, f, syn, a), E._ref_values(spec, f, syn, b)
+            cnt = Counter(zip(va, vb))
+            if not cnt or len(va) / len(cnt) < 5:
+                continue
+            novel = float(np.mean([(x, y) not in cnt for x, y in zip(sa, sb)])) if len(sa) else 0.0
+            n = len(va)
+            n1 = sum(1 for v in cnt.values() if v == 1)
+            n2 = sum(1 for v in cnt.values() if v == 2)
+            gt = n1 / n
+            sd = float(np.sqrt(max(n1 + 2 * n2 - n1 * n1 / n, 1) / n ** 2 + max(gt, 1 / n) / max(len(sa), 1)))
+            out[f"{f}: support ({a}, {b})"] = {"kind": "support", "real": 0.0, "syn": novel,
+                                               "rows_per_combination": round(len(va) / len(cnt), 1),
+                                               "good_turing": gt, "sd": sd, "crit": gt + 2.5 * sd}
+    return out
+
+
+def test_support_on_integer_codes_equals_the_string_definition():
+    """grain_metrics' support check on integer codes (a fact's reference keys are not held as one string
+    per row) gives the values of the per-row string definition: direct and two-hop references, nulls,
+    1/1.0 spellings, synthetic values the real side lacks."""
+    rng = np.random.default_rng(4)
+    spec = {"tables": {"f": {"role": "fact", "primary_key": "id", "fact": {"anchor": "s"},
+                             "columns": {"id": {"type": "id"}, "s": {"type": "id"}, "d": {"type": "id"},
+                                         "w": {"type": "id"}}},
+                       "s": {"role": "entity", "primary_key": "k", "columns": {"k": {"type": "id"}, "r": {"type": "id"}}},
+                       "d": {"role": "entity", "mode": "copy", "primary_key": "k", "columns": {"k": {"type": "id"}}},
+                       "w": {"role": "entity", "mode": "copy", "primary_key": "k", "columns": {"k": {"type": "id"}}},
+                       "r": {"role": "entity", "mode": "copy", "primary_key": "k", "columns": {"k": {"type": "id"}}}},
+            "relationships": [{"child": "f", "child_key": "s", "parent": "s", "kind": "many_to_one"},
+                              {"child": "f", "child_key": "d", "parent": "d", "kind": "many_to_one"},
+                              {"child": "f", "child_key": "w", "parent": "w", "kind": "many_to_one"},
+                              {"child": "s", "child_key": "r", "parent": "r", "kind": "many_to_one"}]}
+
+    def tables(n, extra):
+        s = pd.DataFrame({"k": np.arange(40), "r": rng.integers(0, 5 + extra, 40)})
+        d = pd.Series(rng.integers(0, 6 + extra, n), dtype=object)
+        d[rng.random(n) < 0.05] = None
+        d[rng.random(n) < 0.1] = 1.0
+        return {"f": pd.DataFrame({"id": np.arange(n), "s": rng.integers(0, 40, n), "d": d,
+                                   "w": rng.integers(0, 3 + extra, n)}),
+                "s": s, "d": pd.DataFrame({"k": np.arange(9)}), "w": pd.DataFrame({"k": np.arange(9)}),
+                "r": pd.DataFrame({"k": np.arange(9)})}
+    real, syn = tables(3000, 0), tables(2500, 2)
+    got = {k: v for k, v in E.grain_metrics(spec, real, syn).items() if v["kind"] == "support"}
+    ref = _support_by_strings(spec, "f", real, syn)
+    assert got.keys() == ref.keys() and len(got) >= 2
+    for k in ref:
+        for m in ("syn", "rows_per_combination", "good_turing", "sd", "crit"):
+            assert got[k][m] == ref[k][m], (k, m)
+
+
 def test_tvd_and_ks():
     a = pd.Series(["x"] * 6 + ["y"] * 4)
     b = pd.Series(["x"] * 3 + ["z"] * 7)
