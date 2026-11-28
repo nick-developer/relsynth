@@ -6013,42 +6013,45 @@ class Synthesizer:
         pv = pv.to_numpy(dtype=object)
         w = np.where(np.isfinite(wx) & (wx > 0), wx, 0.0)
         byval = pd.Series(np.arange(len(kx))).groupby(pv).indices
-        newk = df[m["fk"]].to_numpy(dtype=object).copy()
-        changed = []
+        col = df[m["fk"]].to_numpy(dtype=object).copy()
         tot = w.sum()
         bad = np.asarray(bad, np.int64)
-        yes = bad[np.asarray(want, bool)[bad]]
-        no = bad[~np.asarray(want, bool)[bad]]
-        # rows that should match: a parent with the row's value, by weight (one draw per value)
-        if len(yes):
-            avy = np.asarray(av, dtype=object)[yes]
-            for a, ii in pd.Series(np.arange(len(yes))).groupby(pd.Series(avy, dtype=object), dropna=True).indices.items():
-                cand = byval.get(a)
-                if cand is None or not len(cand) or w[cand].sum() <= 0:
-                    continue
-                q = cand[rng.choice(len(cand), size=len(ii), p=w[cand] / w[cand].sum())]
-                newk[yes[ii]] = kx[q]
-                changed.append(yes[ii])
-        # rows that should not match: a parent by weight, redrawn while it has the row's value
-        if len(no) and tot > 0:
-            left = no
-            for _ in range(8):
-                if not len(left):
-                    break
-                q = rng.choice(len(w), size=len(left), p=w / tot)
-                hit = np.array([pv[q_] == a for q_, a in zip(q, np.asarray(av, dtype=object)[left])], dtype=bool)
-                newk[left[~hit]] = kx[q[~hit]]
-                changed.append(left[~hit])
-                left = left[hit]
-        changed = np.concatenate(changed) if changed else np.zeros(0, np.int64)
-        if not len(changed):
-            return df
-        sub = df.iloc[changed].copy()
-        sub[m["fk"]] = newk[changed]
-        ok = self._keeps_done(f, df, sub, ents, done, changed)
-        col = df[m["fk"]].to_numpy(dtype=object).copy()
-        col[changed[ok]] = newk[changed[ok]]
-        df[m["fk"]] = col
+        avb = np.asarray(av, dtype=object)
+        wantb = np.asarray(want, bool)
+        left = bad
+        # each pass draws a candidate parent per row still to move and keeps the moves that keep the
+        # row's earlier agreements and rules (_keeps_done); the others are tried again with new draws
+        for _ in range(self.MATCH_REDRAWS):
+            if not len(left):
+                break
+            q = np.full(len(left), -1, np.int64)
+            yes = np.flatnonzero(wantb[left])
+            # rows that should match: a parent with the row's value, by weight (one draw per value)
+            if len(yes):
+                for a, ii in pd.Series(np.arange(len(yes))).groupby(pd.Series(avb[left[yes]], dtype=object),
+                                                                    dropna=True).indices.items():
+                    cand = byval.get(a)
+                    if cand is None or not len(cand) or w[cand].sum() <= 0:
+                        continue
+                    q[yes[ii]] = cand[rng.choice(len(cand), size=len(ii), p=w[cand] / w[cand].sum())]
+            # rows that should not match: a parent by weight without the row's value
+            no = np.flatnonzero(~wantb[left])
+            if len(no) and tot > 0:
+                qn = rng.choice(len(w), size=len(no), p=w / tot)
+                hit = np.array([pv[q_] == a for q_, a in zip(qn, avb[left[no]])], dtype=bool)
+                q[no[~hit]] = qn[~hit]
+            tried = np.flatnonzero(q >= 0)
+            if not len(tried):
+                break
+            rows = left[tried]
+            sub = df.iloc[rows].copy()
+            sub[m["fk"]] = kx[q[tried]]
+            ok = self._keeps_done(f, df, sub, ents, done, rows)
+            col[rows[ok]] = kx[q[tried]][ok]
+            df[m["fk"]] = col.copy()
+            keep = np.ones(len(left), bool)
+            keep[tried[ok]] = False
+            left = left[keep]
         return df
 
     def _fit_affinity(self, tables):
