@@ -1,0 +1,171 @@
+# UCI Census-Income (KDD), written from its documentation.
+# Sources:
+#  - https://archive.ics.uci.edu/dataset/117/census+income+kdd, census-income.names in the release
+#    (attributes and their value lists, the CPS column each one maps to, which are continuous and which
+#    nominal; "?" marks a missing value; incomes binned at $50K from total person income)
+# The SDV copy joins the .data and .test files (199,523 + 99,762 = 299,285 people) and drops the
+# instance weight, which the .names file says must not be used in classifiers.
+# Codes stored as numbers that the .names file lists as nominal (industry and occupation recodes, own
+# business, veterans benefits, year) are categorical. Each rule below was checked on the 299,285 rows
+# (0 violations):
+#  - the detailed industry recode determines the major industry code, and the detailed occupation
+#    recode the major occupation code (declared as dimensions: the major codes are recode groups);
+#  - education is "Children" exactly when age is below 15 (the CPS education universe starts at 15).
+# Not written as rules, because the expression language cannot name columns with spaces (follow-up:
+# quoted column names): class of worker "Not in universe" for everyone under 15; the state of previous
+# residence is "Not in universe" exactly when its region is; the four migration items are "?" on every
+# 1995 record. The model keeps them as dependencies of the data, not as guarantees.
+version: 1
+name: census_kdd
+source:
+  kind: sqlite
+  path: bench/.cache/census/census.db
+target:
+  kind: csv
+  path: synthetic
+tables:
+  census:
+    role: entity
+    columns:
+      row_id:
+        type: id
+        description: row number added by the SDV copy (not in the release)
+      age:
+        type: integer
+        min: 0
+        max: 90
+        description: years (0 to 90 in the release)
+      class of worker:
+        type: categorical
+      detailed industry recode:
+        type: categorical
+        description: CPS ADTIND code (52 values, 0 = not in universe or children)
+      detailed occupation recode:
+        type: categorical
+        description: CPS ADTOCC code (47 values, 0 = not in universe)
+      education:
+        type: categorical
+      wage per hour:
+        type: integer
+        min: 0
+        max: 9999
+        description: CPS AHRSPAY; 9999 is the largest value in the release
+      enroll in edu inst last wk:
+        type: categorical
+      marital stat:
+        type: categorical
+      major industry code:
+        type: categorical
+      major occupation code:
+        type: categorical
+      race:
+        type: categorical
+      hispanic origin:
+        type: categorical
+        description: '"?" marks a missing value'
+      sex:
+        type: categorical
+      member of a labor union:
+        type: categorical
+      reason for unemployment:
+        type: categorical
+      full or part time employment stat:
+        type: categorical
+      capital gains:
+        type: integer
+        min: 0
+        max: 99999
+        description: CPS CAPGAIN; 99999 is the largest value in the release
+      capital losses:
+        type: integer
+        min: 0
+        description: CPS CAPLOSS
+      dividends from stocks:
+        type: integer
+        min: 0
+        max: 99999
+        description: CPS DIVVAL; 99999 is the largest value in the release
+      tax filer stat:
+        type: categorical
+      region of previous residence:
+        type: categorical
+      state of previous residence:
+        type: categorical
+        description: '"?" marks a missing value'
+      detailed household and family stat:
+        type: categorical
+      detailed household summary in household:
+        type: categorical
+      migration code-change in msa:
+        type: categorical
+        description: '"?" on every 1995 record (the migration items are empty for year 95; 0 exceptions)'
+      migration code-change in reg:
+        type: categorical
+        description: '"?" on every 1995 record (the migration items are empty for year 95; 0 exceptions)'
+      migration code-move within reg:
+        type: categorical
+        description: '"?" on every 1995 record (the migration items are empty for year 95; 0 exceptions)'
+      live in this house 1 year ago:
+        type: categorical
+      migration prev res in sunbelt:
+        type: categorical
+        description: '"?" on every 1995 record (the migration items are empty for year 95; 0 exceptions)'
+      num persons worked for employer:
+        type: integer
+        min: 0
+        max: 6
+        description: CPS NOEMP, coded 0 to 6 (continuous in the .names file)
+      family members under 18:
+        type: categorical
+      country of birth father:
+        type: categorical
+        description: '"?" marks a missing value'
+      country of birth mother:
+        type: categorical
+        description: '"?" marks a missing value'
+      country of birth self:
+        type: categorical
+        description: '"?" marks a missing value'
+      citizenship:
+        type: categorical
+      own business or self employed:
+        type: categorical
+        description: CPS SEOTR, nominal 0, 1, 2
+      fill inc questionnaire for veteran's admin:
+        type: categorical
+      veterans benefits:
+        type: categorical
+        description: CPS VETYN, nominal 0, 1, 2
+      weeks worked in year:
+        type: integer
+        min: 0
+        max: 52
+        description: CPS WKSWORK, 0 to 52
+      year:
+        type: categorical
+        description: survey year, nominal 94 or 95
+      label:
+        type: categorical
+        description: 'total person income class: ''- 50000'' or ''50000+'''
+    primary_key: row_id
+    dimensions:
+    - key: detailed industry recode
+      columns:
+      - major industry code
+    - key: detailed occupation recode
+      columns:
+      - major occupation code
+relationships: []
+rules:
+- table: census
+  type: check
+  expr: (age < 15 and education == 'Children') or (age >= 15 and education != 'Children')
+synthesis:
+  seed: 7
+  scale:
+    default: 1.0
+  # wage per hour (94 % zeros), capital gains and losses, dividends: most rows hold one value, so the
+  # rest of each column gets its own quantile knots (marginals.point_mass_knots; without it the upper
+  # tail of wage per hour is spread evenly up to 9999)
+  marginals:
+    point_mass_knots: true

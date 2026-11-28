@@ -77,6 +77,7 @@ stress schema by `builders/stress_schema.py` from a seed).
 | `synthea_100k` | Synthea 3.4.0, 100,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
 | `synthea_1m` | Synthea 3.4.0, 1,000,000 generated patients (Massachusetts, seed 7) | 1 | bigger runner or maintainer machine |
 | `nyc_tlc_12m` | NYC TLC yellow taxi trips 2024 (12 months, about 41M trips) | 1 | bigger runner or maintainer machine |
+| `ibm_aml` | IBM Transactions for Anti-Money Laundering, HI-Small (5.08M transfers, 515k accounts, 30.5k banks; Kaggle, KAGGLE_API_TOKEN); checks M1-M12 | 1 | GitHub-hosted |
 | `open_food_facts` | Open Food Facts, 200,000-product extract of the 8 GB export (ODbL) | 1 | GitHub-hosted |
 | `tpch_sf10` | TPC-H data generator at SF10 (87M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
 | `tpch_sf100` | TPC-H data generator at SF100 (870M rows; not TPC-H results) | 1 | bigger runner or maintainer machine |
@@ -103,7 +104,7 @@ two-set requirement are marked extra in `bench/datasets.py` (`REQUIRED_FEATURES`
 | 10 or more tables (`tables_10_plus`) | adventureworks (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), rel_trial (monthly), tpcds_sf1 (weekly), tpcds_sf10 (monthly), stress_s (pr) | 9 |
 | 100 or more tables (`tables_100_plus`) | stress_m (weekly), stress_l (monthly) | 2 |
 | KB to tens of MB (`size_mb`) | chinook (pr), adult (pr), stress_s (pr), mongodb_samples (pr) | 4 |
-| about 100 MB to 1 GB (`size_100mb`) | contoso_parquet (weekly), berka (weekly), covtype (weekly), census_kdd (weekly), electricity (weekly), nyc_tlc_1m (weekly) | 6 |
+| about 100 MB to 1 GB (`size_100mb`) | contoso_parquet (weekly), berka (weekly), covtype (weekly), census_kdd (weekly), electricity (weekly), nyc_tlc_1m (weekly), ibm_aml (monthly) | 7 |
 | 1 GB to 10 GB (`size_gb`) | synthea_1k (weekly), rel_trial (monthly), nyc_tlc_12m (monthly), tpch_sf1 (weekly), tpcds_sf1 (weekly), stress_l (monthly) | 6 |
 | 10 GB to 100 GB (`size_10gb`) | synthea_100k (monthly), tpch_sf10 (monthly), tpcds_sf10 (monthly) | 3 |
 | 100 GB and more (`size_100gb`) | synthea_1m (monthly), tpch_sf100 (monthly) | 2 |
@@ -114,14 +115,14 @@ two-set requirement are marked extra in `bench/datasets.py` (`REQUIRED_FEATURES`
 | many-to-many bridges (`many_to_many`) | chinook (pr), berka (weekly), rel_trial (monthly), stress_s (pr), stress_m (weekly), imdb_movielens (local) | 6 |
 | composite primary and foreign keys (`composite_keys`) | mimic_demo (weekly), tpch_sf1 (weekly), tpch_sf10 (monthly), tpch_sf100 (monthly), tpcds_sf1 (weekly), tpcds_sf10 (monthly), stress_s (pr), stress_m (weekly) | 8 |
 | slowly changing dimensions (type 2) (`scd`) | adventureworks (weekly), tpcds_sf1 (weekly), tpcds_sf10 (monthly) | 3 |
-| dated events (facts with a time column) (`events`) | chinook (pr), adventureworks (weekly), contoso_sqlite (monthly), contoso_parquet (weekly), berka (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), online_retail_ii (weekly), rel_trial (monthly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly) | 13 |
+| dated events (facts with a time column) (`events`) | chinook (pr), adventureworks (weekly), contoso_sqlite (monthly), contoso_parquet (weekly), berka (weekly), synthea_1k (weekly), synthea_100k (monthly), synthea_1m (monthly), mimic_demo (weekly), online_retail_ii (weekly), rel_trial (monthly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly), ibm_aml (monthly) | 14 |
 | regular time series (one value per entity and step) (`regular_series`) | electricity (weekly), stress_s (pr), stress_m (weekly) | 3 |
 | long free text (`long_text`) | stackexchange (weekly), rel_trial (monthly), open_food_facts (monthly) | 3 |
 | nested documents and lists (`nested_documents`) | open_food_facts (monthly), mongodb_samples (pr) | 2 |
 | wide tables (50 or more columns) (`wide_tables`) | covtype (weekly), open_food_facts (monthly), stress_m (weekly), stress_l (monthly) | 4 |
 | binary columns (BLOB) (`binary_columns`) | stress_s (pr), stress_m (weekly), stress_l (monthly) | 3 |
-| high-cardinality categoricals (`high_cardinality`) | contoso_sqlite (monthly), contoso_parquet (weekly), acs (weekly), bi_corep_lr (local), census_kdd (weekly), synthea_1k (weekly), online_retail_ii (weekly), open_food_facts (monthly), mongodb_samples (pr) | 9 |
-| skew and imbalance (fan-out, classes) (`skew`) | berka (weekly), bi_corep_lr (local), adult (pr), covtype (weekly), census_kdd (weekly), online_retail_ii (weekly), stackexchange (weekly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly), stress_s (pr), stress_m (weekly), stress_l (monthly), imdb_movielens (local) | 13 |
+| high-cardinality categoricals (`high_cardinality`) | contoso_sqlite (monthly), contoso_parquet (weekly), acs (weekly), bi_corep_lr (local), census_kdd (weekly), synthea_1k (weekly), online_retail_ii (weekly), ibm_aml (monthly), open_food_facts (monthly), mongodb_samples (pr) | 10 |
+| skew and imbalance (fan-out, classes) (`skew`) | berka (weekly), bi_corep_lr (local), adult (pr), covtype (weekly), census_kdd (weekly), online_retail_ii (weekly), stackexchange (weekly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly), ibm_aml (monthly), stress_s (pr), stress_m (weekly), stress_l (monthly), imdb_movielens (local) | 14 |
 | messy values (codes for missing, negatives, outliers, stray text) (`messy_values`) | acs (weekly), adult (pr), census_kdd (weekly), online_retail_ii (weekly), stackexchange (weekly), nyc_tlc_1m (weekly), nyc_tlc_12m (monthly), open_food_facts (monthly), stress_s (pr), stress_m (weekly) | 10 |
 | small privacy units (under 200 people) (`small_privacy_units`) | chinook (pr), mimic_demo (weekly) | 2 |
 

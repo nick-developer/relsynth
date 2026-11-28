@@ -453,6 +453,48 @@ def _lookup_order(lk):
 _log = logging.getLogger("relsynth")
 
 
+AFFINITY_PASSES = 8          # passes of link-affinity moves under a unique key (_apply_affinity)
+
+
+def _ukey(values):
+    """A unique key's value as a hashable tuple of spellings; None when a part is null (NULLs are
+    distinct under a unique key)."""
+    out = []
+    for v in values:
+        if v is None or (isinstance(v, (float, np.floating)) and math.isnan(v)) or v is pd.NA or v is pd.NaT \
+                or (isinstance(v, (np.datetime64, np.timedelta64)) and np.isnat(v)):
+            return None
+        out.append(str(int(v)) if isinstance(v, (float, np.floating)) and float(v).is_integer() else str(v))
+    return tuple(out)
+
+
+def _dm_split_gain(L, P, W=None) -> float:
+    """log marginal likelihood of the partner rows P under one symmetric
+    Dirichlet-multinomial per level L (concentration 1 / number of partners) minus
+    that of one pooled Dirichlet-multinomial; W are row weights (counts).  Only
+    the non-empty (level, partner) cells enter: an empty cell adds
+    gammaln(alpha) - gammaln(alpha) = 0, so the sum over the cells that occur
+    equals the sum over every level and partner, in O(rows) rather than
+    O(levels x rows)."""
+    nP = int(P.max()) + 1
+    a = 1.0 / nP
+    w = np.ones(len(P)) if W is None else np.asarray(W, dtype=float)
+
+    def cells(key):
+        u, inv = np.unique(key, return_inverse=True)
+        return np.bincount(inv, weights=w, minlength=len(u))
+
+    lev = np.unique(L, return_inverse=True)[1]
+    c_kp = cells(lev.astype(np.int64) * nP + P)              # counts per occurring (level, partner)
+    n_k = np.bincount(lev, weights=w)                        # rows per level
+    c_p = np.bincount(P, weights=w, minlength=nP)            # pooled counts per partner
+    g = gammaln(a)
+    split = (len(n_k) * gammaln(nP * a) - gammaln(n_k + nP * a).sum()
+             + (gammaln(c_kp + a) - g).sum())
+    pooled = gammaln(nP * a) - gammaln(c_p.sum() + nP * a) + (gammaln(c_p + a) - g).sum()
+    return float(split - pooled)
+
+
 def say(msg):
     """Progress of long fits and samples, one INFO record per stage on the
     'relsynth' logger (the CLI shows them on stderr; RELSYNTH_QUIET=1 or
@@ -628,7 +670,13 @@ class Synthesizer:
         for t in T:
             excl = self._excluded(t)
             aux = self._aux_columns(t, tables) if T[t]["role"] == "fact" else None
-            self.tm[t] = TableModel(t, T[t], tables[t], table_config(cfg, t), exclude=excl, aux=aux)
+            # own columns a check rule constrains together (paths through keys excluded)
+            groups = [{c for c in names_in(r["expr"]) if "." not in c} for r in self.spec.get("rules", [])
+                      if r.get("table") == t and r.get("type") == "check"]
+            self.tm[t] = TableModel(t, T[t], tables[t], table_config(cfg, t), exclude=excl, aux=aux,
+                                    rule_groups=groups)
+            if self.tm[t].rule_groups:
+                self.log["decisions"].setdefault(t, {})["rule-linked joints"] = self.tm[t].rule_groups
             self._attach_generator(t)
         # ---- latent entity objects (strata = rows of small copied parents)
         E = {}
@@ -1242,17 +1290,9 @@ class Synthesizer:
                     continue
                 L, P = lev[pos[ok]], q[ok]
                 W = None if wt is None else wt[ok]
-                nP = int(P.max()) + 1
-                alpha = 1.0 / nP
-
-                def dm(cnt):
-                    return float(gammaln(nP * alpha) - gammaln(cnt.sum() + nP * alpha)
-                                 + (gammaln(cnt + alpha) - gammaln(alpha)).sum())
                 # a relation the levels do not explain contributes nothing (its rates
                 # may be equal across strata), not negative evidence
-                tot += max(0.0, sum(dm(np.bincount(P[L == k], weights=None if W is None else W[L == k],
-                                                   minlength=nP).astype(float)) for k in np.unique(L))
-                           - dm(np.bincount(P, weights=W, minlength=nP).astype(float)))
+                tot += max(0.0, _dm_split_gain(L, P, W))
         return tot
 
     def _strata(self, e, tables):
@@ -2698,7 +2738,16 @@ class Synthesizer:
             # number unique per customer): the attributes are drawn before the links,
             # so moving the links conditions on both (keys of attributes only: _finish)
             attrs = set(self.tm[t].out_cols) if t in getattr(self, "tm", {}) else set()
+            # a column that stratifies the entity's rows (_attribute_strata: a disposition's type) is set
+            # with the row's stratum, before its links, like a modelled attribute
+            if getattr(self, "attr_strata", {}).get(t):
+                attrs.add(self.attr_strata[t])
             ukeys = [u for u in T[t].get("unique", []) if set(u) & fkcols and set(u) <= fkcols | attrs]
+            for u in T[t].get("unique", []):
+                if set(u) & fkcols and not set(u) <= fkcols | attrs:
+                    self.log["warnings"].append(
+                        f"{t}: unique key {list(u)} is not enforced: {sorted(set(u) - fkcols - attrs)} "
+                        "is set after the links (a derived, aggregated or generated column)")
             # links fixed by stratification are not moved by the link sampler: a rule that
             # reads only those links and the row's attributes is a rule on the attributes
             fixed = set(getattr(self, "strata_info", {}).get(t, {}).get("by", [])) if T[t]["role"] == "entity" else set()
@@ -5338,19 +5387,33 @@ class Synthesizer:
         """Keys derived from other keys (offsets), lookups and derive rules, in that
         order: each reads only columns computed before it.  strict=False (an entity
         right after its links are drawn) skips what reads columns generated later."""
-        for r in self.derived_keys.get(t, []):
-            if r.get("offset_column") and r["offset_from"] in df.columns and r["offset_column"] in df.columns:
-                par = out[r["parent"]]
-                pk = self.spec["tables"][r["parent"]]["primary_key"]
-                df[r["child_key"]] = offset_keys(df[r["offset_from"]], df[r["offset_column"]], par[pk],
-                                                 par[r["order_by"]], r["unit"])
-        res = self._resolver(t, df, out)
-        for c in self.lookups[t]:
-            try:
-                df[c] = lookup_column(self.spec, t, c, df, out, res)
-            except KeyError:
-                if strict:
-                    raise
+        def offsets(header):
+            for r in self.derived_keys.get(t, []):
+                if r.get("offset_column") and bool(r.get("via_header")) == header and \
+                        r["offset_from"] in df.columns and r["offset_column"] in df.columns:
+                    par = out[r["parent"]]
+                    pk = self.spec["tables"][r["parent"]]["primary_key"]
+                    df[r["child_key"]] = offset_keys(df[r["offset_from"]], df[r["offset_column"]], par[pk],
+                                                     par[r["order_by"]], r["unit"])
+
+        def lookups(cols):
+            res = self._resolver(t, df, out)
+            for c in cols:
+                try:
+                    df[c] = lookup_column(self.spec, t, c, df, out, res)
+                except KeyError:
+                    if strict:
+                        raise
+
+        # keys offset from a header key read their base after the header lookups; a lookup
+        # through such a key (the ship date's year) is read once the key is set
+        late = {r["child_key"] for r in self.derived_keys.get(t, []) if r.get("via_header")}
+        through_late = [c for c, p in self.lookups[t].items() if isinstance(p, str) and p.split(".")[0] in late]
+        offsets(False)
+        lookups([c for c in self.lookups[t] if c not in through_late])
+        if late:
+            offsets(True)
+            lookups(through_late)
         if strict:
             df = self._apply_distributions(t, df)
             df, _ = self._apply_group_effects(t, df, out)
@@ -5366,7 +5429,51 @@ class Synthesizer:
                 df = self._cumulative(t, df, r, out)
         if strict:
             df = self._apply_soft(t, df, out)
+            df = self._after_soft(t, df, out)
             df[HIDDEN_SET] = True               # every row's stated draws are now made
+        return df
+
+    def _after_soft(self, t, df, out):
+        """Lookups, exact derives and running balances (cumulative rules) of t that read a soft rule's
+        column, directly or through it as a key, recomputed after the soft rules, in rule order.
+        Class: a rule that holds on most rows (Bitcoin payments in Bitcoin, a standard discount)
+        feeding an exact one (an amount converted at the payment currency's rate, a net price, a
+        running balance of net prices): soft rules are applied last, so the exact rule had read the
+        value before the soft rule changed it, and the two disagreed on the rows the soft rule
+        changed."""
+        soft = {st["lhs"] for st in getattr(self, "soft", {}).get(t, [])}
+        stale = set(soft)
+        if not stale or not len(df):
+            return df
+
+        def reads(names):
+            return any(n in stale or n.split(".")[0] in stale for n in names)
+
+        cols = [c for c, path in self.lookups[t].items() if isinstance(path, str) and path.split(".")[0] in stale]
+        if cols:
+            res = self._resolver(t, df, out)
+            for c in cols:
+                df[c] = lookup_column(self.spec, t, c, df, out, res)
+            stale |= set(cols)
+        for r in self.spec["rules"]:
+            if r["table"] != t:
+                continue
+            if r["type"] == "cumulative":
+                # a running balance whose step, groups or order read a changed column follows it
+                by = r["by"] if isinstance(r["by"], list) else [r["by"]]
+                if r["column"] in df.columns and r["column"] not in soft and \
+                        reads(list(names_in(str(r.get("step", "")))) + by + [r["order"]]):
+                    df = self._cumulative(t, df, r, out)    # keeps the run's floor choice
+                    stale.add(r["column"])
+                continue
+            if r["type"] != "derive":
+                continue
+            lhs = split_assignment(r["expr"])[0]
+            if lhs in self.late[t] or lhs in soft:
+                continue
+            if reads(names_in(split_assignment(r["expr"])[1])):
+                df = self._apply_derive(t, df, r, out)
+                stale.add(lhs)
         return df
 
     def _fit_group_effects(self, tables):
@@ -5436,8 +5543,13 @@ class Synthesizer:
         still holds."""
         for st in getattr(self, "affinity", {}).get(t, []):
             r = next((x for x in self.fk[t] if x["child_key"] == st["fk"]), None)
-            if r is None or not len(df) or any(st["fk"] in u for u in self.cons.get(t, {}).get("unique", [])):
+            if r is None or not len(df):
                 continue
+            # unique keys over the moved link (one owner per account): a move is kept only when the
+            # row's new key is not already held, so the moves keep every key unique
+            ukeys = [u for u in self.cons.get(t, {}).get("unique", []) if st["fk"] in u]
+            if any(c not in df for u in ukeys for c in u):
+                continue    # a key column not drawn yet: a move could not be checked, so none is made
             P = out[r["parent"]]
             pk = self.spec["tables"][r["parent"]]["primary_key"]
             if st["col"] not in P.columns:
@@ -5461,7 +5573,8 @@ class Synthesizer:
             nz = (getattr(self, "fact_info", {}).get(t) or {}).get("null2")
             if nz and st["fk"] == self.fact_info[t]["fks"][1]["child_key"]:
                 keep_null = df[st["fk"]].notna().to_numpy()    # a row without a partner keeps none
-            cand = np.flatnonzero(~same & np.array([x is not None and x in byval for x in av]) & keep_null)
+            eligible = np.array([x is not None and x in byval for x in av]) & keep_null
+            cand = np.flatnonzero(~same & eligible)
             cand = cand[self.rng.permutation(len(cand))]
             # every row rule is re-checked: a moved link can also break a rule that the
             # sampler treats as an attribute rule (a link fixed by stratification)
@@ -5473,30 +5586,94 @@ class Synthesizer:
             track = "__anchor_row__" in df and not fi.get("nested") and fi.get("fks") \
                 and st["fk"] == fi["fks"][0]["child_key"] and r["parent"] == fi.get("anchor")
             arow = df["__anchor_row__"].to_numpy().copy() if track else None
-            start = 0
-            while moved < need and start < len(cand):
-                # consecutive, non-overlapping windows: each candidate row is tried once
-                rows = cand[start:start + 2 * (need - moved)]
-                start += len(rows)
-                newk = np.empty(len(rows), dtype=object)
-                newp = np.empty(len(rows), dtype=np.int64)
-                for v, ii in pd.Series(np.arange(len(rows))).groupby(av[rows]).indices.items():
-                    m = byval[v]
-                    newp[ii] = m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]
-                    newk[ii] = pkeys[newp[ii]]
-                sub = df.iloc[rows].copy()
-                sub[st["fk"]] = newk
-                ok = np.ones(len(rows), bool)
-                if krules:
-                    sub = self._computed(t, sub, out, strict=False)
-                    rs = self._resolver(t, sub, out)
-                    for kr in krules:
-                        ok &= check_mask(sub, kr["expr"], rs)
-                acc = np.flatnonzero(ok)[:need - moved]
-                col[rows[acc]] = newk[acc]
-                if track:
-                    arow[rows[acc]] = newp[acc]
-                moved += len(acc)
+            # held[q]: row holding each value of unique key q; same: the rows already matching
+            held = []
+            for u in ukeys:
+                parts = [col if c == st["fk"] else df[c].to_numpy(dtype=object) for c in u]
+                held.append((u, parts, {k: i for i, k in enumerate(map(_ukey, zip(*parts))) if k is not None}))
+            swapped = 0
+
+            def key_of(q, rr, link, held=held, fk=st["fk"]):
+                """Value of unique key q on row rr with the moved link set to link."""
+                u, parts, _ = held[q]
+                return _ukey(tuple(link if c == fk else parts[p_][rr] for p_, c in enumerate(u)))
+            # under a unique key most targets are taken: the rows still not matching are tried again,
+            # with new targets, while a pass moves any (one pass otherwise, as each row is tried once)
+            for pass_ in range(AFFINITY_PASSES if held else 1):
+                if pass_:
+                    cand = np.flatnonzero(~same & eligible)
+                    cand = cand[self.rng.permutation(len(cand))]
+                before = moved
+                start = 0
+                while moved < need and start < len(cand):
+                    # consecutive, non-overlapping windows: each candidate row is tried once
+                    rows = cand[start:start + 2 * (need - moved)]
+                    start += len(rows)
+                    newk = np.empty(len(rows), dtype=object)
+                    newp = np.empty(len(rows), dtype=np.int64)
+                    for v, ii in pd.Series(np.arange(len(rows))).groupby(av[rows]).indices.items():
+                        m = byval[v]
+                        newp[ii] = m[self.rng.choice(len(m), size=len(ii), p=pw[m] / pw[m].sum())]
+                        newk[ii] = pkeys[newp[ii]]
+                    sub = df.iloc[rows].copy()
+                    sub[st["fk"]] = newk
+                    ok = np.ones(len(rows), bool)
+                    if krules:
+                        sub = self._computed(t, sub, out, strict=False)
+                        rs = self._resolver(t, sub, out)
+                        for kr in krules:
+                            ok &= check_mask(sub, kr["expr"], rs)
+                    acc = np.flatnonzero(ok)
+                    if held:
+                        keep = []
+                        for i in acc:
+                            if len(keep) + swapped >= need - moved:
+                                break
+                            row = rows[i]
+                            new_keys = [key_of(q, row, newk[i]) for q in range(len(held))]
+                            owners = {held[q][2].get(k) for q, k in enumerate(new_keys) if k is not None} - {None, row}
+                            if not owners:
+                                for q, k in enumerate(new_keys):
+                                    held[q][2].pop(key_of(q, row, col[row]), None)
+                                    if k is not None:
+                                        held[q][2][k] = row
+                                col[row] = newk[i]       # parts of the moved link read col
+                                same[row] = True
+                                keep.append(i)
+                                continue
+                            # the new key is held by one other row j that does not match: exchange the two
+                            # rows' links (the set of keys is unchanged, so every key stays unique); row i
+                            # then matches and j's match is not lost
+                            j = owners.pop() if len(owners) == 1 else None
+                            if j is None or same[j] or krules:
+                                continue
+                            old_i, old_j = col[row], col[j]
+                            ki_old = [key_of(q, row, old_i) for q in range(len(held))]
+                            kj_old = [key_of(q, j, old_j) for q in range(len(held))]
+                            kj_new = [key_of(q, j, old_i) for q in range(len(held))]
+                            if any(k is not None and held[q][2].get(k) not in (None, row, j) for q, k in enumerate(kj_new)):
+                                continue
+                            for q in range(len(held)):
+                                for k in (ki_old[q], kj_old[q]):
+                                    held[q][2].pop(k, None)
+                                if new_keys[q] is not None:
+                                    held[q][2][new_keys[q]] = row
+                                if kj_new[q] is not None:
+                                    held[q][2][kj_new[q]] = j
+                            col[row], col[j] = old_j, old_i
+                            same[row] = True
+                            if track:
+                                arow[row], arow[j] = arow[j], arow[row]
+                            swapped += 1
+                        acc = np.asarray(keep, dtype=np.int64)
+                    acc = acc[:need - moved]
+                    col[rows[acc]] = newk[acc]
+                    if track:
+                        arow[rows[acc]] = newp[acc]
+                    moved += len(acc) + swapped
+                    swapped = 0
+                if moved >= need or moved == before:
+                    break
             df[st["fk"]] = col
             if track:
                 df["__anchor_row__"] = arow
@@ -5693,6 +5870,17 @@ class Synthesizer:
             # lengths of closed latest versions (days), for a latest version drawn closed
             dur = (fr["e"] - fr["s"])[last].dt.days.dropna().to_numpy(dtype=float)
             dur = np.quantile(dur, np.linspace(0, 1, 51)) if len(dur) > 51 else dur
+            # days from one version's start to the next one's (a version's length): a start
+            # drawn on or before the previous version's start moves this far past it
+            step = (nxt - fr["s"]).dt.days.dropna().to_numpy(dtype=float)
+            step = step[step > 0]
+            step = np.quantile(step, np.linspace(0, 1, 51)) if len(step) > 51 else step
+            # start dates of later versions (51 quantiles, days since the epoch): a moved start
+            # lands on the first of them past the previous version, so release-style starts
+            # (a few shared dates) stay on the source's dates
+            later = fr["s"][fr.duplicated("k", keep="first") & fr["s"].notna()]
+            ls = later.to_numpy(dtype="datetime64[ns]").astype("datetime64[D]").astype(np.int64)
+            ls = np.unique(np.round(np.quantile(ls, np.linspace(0, 1, 51))).astype(np.int64)) if len(ls) else ls
             multi = sizes[sizes >= 2].index
             skip = {Tt.get("primary_key"), nk, vf, vt} | {r["child_key"] for r in self.fk[t]} | set(self.lookups[t]) \
                 | set(self.derived[t])
@@ -5721,7 +5909,7 @@ class Synthesizer:
                         break
             st = {"nk": nk, "vf": vf, "vt": vt if vt in df.columns else None, "vcount": vcount,
                   "cur_h": cur_h, "cur_n": cur_n, "gaps": gv, "gcount": gc.astype(float), "stable": stable,
-                  "current": cur, "dur": dur}
+                  "current": cur, "dur": dur, "step": step, "starts": ls}
 
             def draw(rng, st=st):
                 st["vw"] = rng.dirichlet(st["vcount"] + 0.5)
@@ -5823,10 +6011,45 @@ class Synthesizer:
         order = np.lexsort((s64.astype(np.int64), mo, gid))
         sv = s64[np.lexsort((s64.astype(np.int64), gid))]
         g_o = gid[order]
-        one = np.timedelta64(1, "D")
-        for i in range(1, n):           # strictly increasing within a key
-            if g_o[i] == g_o[i - 1] and not np.isnat(sv[i]) and not np.isnat(sv[i - 1]) and sv[i] <= sv[i - 1]:
-                sv[i] = sv[i - 1] + one
+        # strictly increasing within a key, versions no shorter than the source's shortest: a
+        # start closer to the previous one than that (two rows drew the same or nearby dates)
+        # moves to the first later-version start of the source (quantiles) past that point, or,
+        # past the last of them, by a version length drawn from the source's
+        stp = st.get("step")
+        has = stp is not None and len(stp) > 0
+        steps = (np.round(stp[rng.integers(0, len(stp), size=n)]).astype(np.int64) if has
+                 else np.ones(n, dtype=np.int64))
+        steps = np.maximum(steps, 1)
+        shortest = np.timedelta64(max(int(np.floor(stp.min())), 1) if has else 1, "D")
+        ls = st.get("starts")
+        ls = ls if ls is not None and len(ls) else None
+        for i in range(1, n):
+            if g_o[i] == g_o[i - 1] and not np.isnat(sv[i]) and not np.isnat(sv[i - 1]) \
+                    and sv[i] < sv[i - 1] + shortest:
+                target = (sv[i - 1] + shortest).astype("datetime64[D]").astype(np.int64)
+                j = np.searchsorted(ls, target) if ls is not None else 0
+                if ls is not None and j < len(ls):
+                    sv[i] = np.datetime64(int(ls[j]), "D").astype("datetime64[ns]")
+                else:
+                    sv[i] = sv[i - 1] + np.timedelta64(int(steps[i]), "D")
+        if ls is not None:
+            # a key with later versions that ran past the source's last later-version start takes
+            # the last of those starts for its later versions (in order) when there are enough and
+            # they follow its first start; the first version's start (when the entity appeared) is
+            # kept unless it leaves no room for them, and a key with one version is never moved
+            top = np.datetime64(int(ls[-1]), "D").astype("datetime64[ns]")
+            bounds = np.flatnonzero(np.r_[True, g_o[1:] != g_o[:-1], True])
+            for a, b in zip(bounds[:-1], bounds[1:]):
+                v = b - a
+                if v < 2 or v - 1 > len(ls) or np.isnat(sv[a:b]).any() or sv[b - 1] <= top:
+                    continue
+                later = np.array([np.datetime64(int(x), "D") for x in ls[-(v - 1):]], dtype="datetime64[ns]")
+                if later[0] >= sv[a] + shortest:
+                    sv[a + 1:b] = later
+                elif v <= len(ls):
+                    # the first start leaves no room for the later versions before the last
+                    # later-version start: the whole key takes the last v of those starts
+                    sv[a:b] = np.array([np.datetime64(int(x), "D") for x in ls[-v:]], dtype="datetime64[ns]")
         newstart = np.empty(n, dtype="datetime64[ns]")
         newstart[order] = sv
         is_last = np.r_[g_o[1:] != g_o[:-1], True]
@@ -5835,9 +6058,13 @@ class Synthesizer:
         if vt is not None:
             e_ = pd.to_datetime(df[vt], errors="coerce", format="mixed").to_numpy(dtype="datetime64[ns]")[order]
             gap = np.zeros(n) if st["gw"] is None else st["gaps"][rng.choice(len(st["gaps"]), size=n, p=st["gw"])]
-            if len(st["dur"]):
-                dd = st["dur"][rng.integers(0, len(st["dur"]), size=n)]
-                e_ = np.where(np.isnat(e_), sv + (dd * 86400e9).astype("timedelta64[ns]"), e_)
+            # a latest version drawn closed but ending on or before its (possibly moved) start
+            # takes a closed length from the source instead: a closed latest version's length,
+            # else (no closed latest version in the source) a version length
+            lens = st["dur"] if len(st["dur"]) else (st["step"] if has else np.ones(1))
+            dd = np.maximum(lens[rng.integers(0, len(lens), size=n)], 1)
+            fix = (e_ <= sv) if not len(st["dur"]) else (np.isnat(e_) | (e_ <= sv))
+            e_ = np.where(fix, sv + (dd * 86400e9).astype("timedelta64[ns]"), e_)
             ev = np.where(is_last, e_, nxt + (gap * 86400e9).astype("timedelta64[ns]"))
             # the open version is the row the model drew open (one per key after the spread)
             current = is_last & (mo[order] if mo.any() else (rng.random(n) < st["pcur"]))

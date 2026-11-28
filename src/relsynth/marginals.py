@@ -164,6 +164,35 @@ def _null_rate(S, T, al, be, pi_s, rng, bootstrap=True):
     return float(rng.beta(al + S, be + T - S))
 
 
+def _atom_knots(obs, w, cw, grid, tail_trim=0.0) -> np.ndarray:
+    """Extra quantile levels for the continuous part of a column with point masses.
+
+    Class: numeric columns where a few values hold much of the mass (zero-inflated
+    amounts, wages, capital gains, counts with a dominant 0). On a uniform grid of
+    `grid` levels, a value holding a share A of the rows takes A * grid knots, so the
+    rest of the law gets only (1 - A) * grid; with A = 0.94 that is 4 knots, and linear
+    interpolation between the last knot and the maximum spreads the upper tail evenly
+    up to the maximum. Here the values holding at least 1/grid of the weight are the
+    atoms; round(A * grid) extra levels are placed at equal steps of the non-atom
+    weight, so the continuous part has about `grid` knots, the resolution it would get
+    as a column of its own (no finer than the engine already uses for any column of
+    that many rows). Without atoms nothing is added."""
+    if grid < 2 or len(obs) < 2:
+        return np.empty(0)
+    tot = float(w.sum())
+    uv, inv = np.unique(obs, return_inverse=True)
+    share = np.bincount(inv, weights=w) / tot
+    atom = share >= 1.0 / grid
+    A = float(share[atom].sum())
+    k = int(round(A * grid))
+    if not atom.any() or k < 1 or A >= 1.0 - 1.0 / grid:
+        return np.empty(0)
+    keep = ~atom[inv]
+    cn = np.cumsum(w[keep]) / float(w[keep].sum())
+    t = np.interp(np.linspace(0, 1, k + 2)[1:-1], cn, cw[keep])
+    return np.clip(t, tail_trim, 1 - tail_trim)
+
+
 class Marginal:
     """Posterior draw of one column's marginal, on the codec's model space."""
 
@@ -180,7 +209,7 @@ class Marginal:
     @classmethod
     def fit(cls, codec, x, rng, prior: Marginal | None = None, dirichlet_a=2.0,
             grid=48, bootstrap=True, min_rows=0, tail_trim=0.0, max_obs=20000, structural=0.0,
-            shift_prior=False):
+            shift_prior=False, point_mass_knots=False):
         """structural: prior probability pi_s that the null rate is structurally 0 or
         1 (pi_s/2 each) and that an unobserved category level is structurally absent;
         the rest of the prior is the usual Beta / Dirichlet slab."""
@@ -242,6 +271,8 @@ class Marginal:
         cw = np.cumsum(w)
         cw = (cw - w / 2) / cw[-1]
         tau = np.linspace(tail_trim, 1 - tail_trim, grid + 1)
+        if point_mass_knots and tail_trim < 0.5:   # marginals.point_mass_knots (no room at the 0.5 bound)
+            tau = np.union1d(tau, _atom_knots(obs, w, cw, grid, tail_trim))
         # end knots at 1/(2 n_eff) from each end, so that prior pseudo-points with
         # negligible weight never become the support's endpoints
         eps = 0.5 * float((w ** 2).sum() / w.sum() ** 2)
@@ -250,7 +281,8 @@ class Marginal:
         if tail_trim > 0:   # extrapolate the trimmed tails linearly instead of exposing min/max
             v[0] -= (v[1] - v[0]) * 0.5
             v[-1] += (v[-1] - v[-2]) * 0.5
-            tau = np.linspace(0, 1, grid + 1)
+            span = 1 - 2 * tail_trim     # 0 at the setting's upper bound 0.5: every knot is the median
+            tau = (tau - tail_trim) / span if span > 0 else np.linspace(0, 1, len(tau))
         m.knots_v, m.knots_c = v, tau
         m.p_null = 0.0 if nnull == 0 else _null_rate(nnull, n, 1.0, 1.0, structural, rng, bootstrap)
         return m

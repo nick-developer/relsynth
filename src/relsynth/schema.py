@@ -457,6 +457,8 @@ SYNTH_DOC = {
     "marginals.dirichlet_prior": "Shrinkage of a segment's categorical law to the table's.",
     "marginals.max_levels": "Levels kept per categorical (rarer ones pooled).",
     "marginals.tail_trim": "Share trimmed from continuous tails.",
+    "marginals.point_mass_knots": ("Continuous columns with values holding at least 1/copula.grid of the rows (zero-inflated "
+                                   "amounts, wages): give the rest of the column about copula.grid quantile knots."),
     "marginals.min_dependence_rows": "Rows away from the mode needed to model a column's dependence, in the whole table and in each segment's copula sample.",
     "marginals.fd_bf": "Bayes factor to treat a categorical dependency as functional.",
     "marginals.joint_max_levels": "Largest joint of dependent categoricals.",

@@ -122,7 +122,9 @@ def cmd_compare(records: list[Path], baseline: Path, full: bool, summary_to: str
     base = _load_baseline(baseline)
     recs = [load_record(r) for r in records]
     rec = {**recs[0], "runs": [r for x in recs for r in x["runs"]]}
-    reg, notes, summ = regress.compare(base, rec, full=full, expected=expected)
+    from .datasets import DATASETS
+    accepted = {k: d.accepted for k, d in DATASETS.items() if d.accepted}
+    reg, notes, summ = regress.compare(base, rec, full=full, expected=expected, accepted=accepted)
     text = f"Record `{', '.join(r.name for r in records)}` against `{baseline.name}` ({', '.join(base['relsynth'])})\n\n" + \
         regress.report(reg, notes, summ)
     print(text)

@@ -236,3 +236,24 @@ def test_a_partial_rebuild_keeps_the_other_datasets():
     assert m["sources"] == ["old.json", "new.json"] and m["relsynth"] == ["2.1.0", "2.2.0"]
     assert regress.merge(old, regress.build([{"runs": [_run("a", 1), _run("gone", 1)]}]), keep={"a"})["datasets"].keys() \
         == {"a", "gone"}
+
+
+def test_accepted_drift_is_a_note_with_its_reason():
+    acc = {"db": ((r"^c4$|metric:m", "shrinkage on a small dimension, accepted by the owner"),)}
+    reg, notes, _ = regress.compare(_baseline(), {"runs": [_run("db", 1, fails=("c4", "c5"))]}, accepted=acc)
+    assert not any("c4" in r for r in reg) and any(r.startswith("R1 db seed 1") and "c5" in r for r in reg)
+    assert any("accepted drift (shrinkage on a small dimension" in n and "c4" in n for n in notes)
+    base = regress.build([{"runs": [_tracked(s, 0.90 + 0.001 * s) for s in range(1, 6)]}])
+    reg, notes, _ = regress.compare(base, {"runs": [_tracked(s, 0.85) for s in range(1, 4)]}, accepted=acc)
+    assert reg == [] and any("accepted drift" in n and "metric:m" in n for n in notes)
+
+
+def test_aw_accepted_drift_matches_dimproduct_checks_only():
+    from bench.datasets import DATASETS
+    acc = {"adventureworks": DATASETS["adventureworks"].accepted}
+    hit = lambda c: regress.accepted_reason(acc, "adventureworks", c)  # noqa: E731
+    assert hit("scorecard:DimProduct|association_max_diff")
+    assert hit("scorecard:FactResellerSales: pairs (ResellerKey, ProductKey)|pair_repeat_share_diff")
+    assert hit("scorecard:FactInternetSales.joined:ProductKey.Weight|join_ks")
+    assert not hit("scorecard:DimProductSubcategory|association_max_diff")
+    assert not hit("scorecard:FactFinance: pairs (OrganizationKey, AccountKey)|pair_repeat_share_diff")

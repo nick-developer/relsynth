@@ -1,3 +1,15 @@
+# ACS 2019 PUMS, NIST CRC "diverse communities" national excerpt, written from its data dictionary.
+# Sources:
+#  - SDNist v2.3.0 release, diverse_communities_data_excerpts.zip: data_dictionary.json (each variable,
+#    its codes and ranges, and what "N" means), national/national2019.json (the values on the excerpt)
+#    (https://github.com/usnistgov/SDNist/releases/tag/v2.3.0)
+#  - bench/builders/acs_sqlite.py writes "N" (not applicable) as NULL and adds the key pid
+# Every rule below follows from a code's "N" definition in the dictionary or from the group-quarters
+# coding, and holds on all 27,253 rows. The industry category is a function of the industry code, and
+# density a function of the PUMA (0 conflicts), so both are dimensions. Nominal codes are categorical;
+# EDU and PINCP_DECILE are ordinal and stay integers.
+# Not written as a rule: the income decile is the rank of income within the person's state (the state
+# is the PUMA's prefix), which the expression language cannot compute.
 version: 1
 name: acs
 source:
@@ -9,94 +21,165 @@ target:
 tables:
   acs:
     role: entity
+    description: one row per person (27,253, ACS 2019 PUMS national excerpt)
     columns:
       pid:
         type: id
+        description: surrogate key added by the bench builder (the excerpt has none)
       PUMA:
         type: categorical
+        description: Public use microdata area code
       AGEP:
         type: integer
+        min: 0
+        max: 99
+        description: Person's age
       SEX:
-        type: integer
+        type: categorical
+        description: Person's gender
       MSP:
-        type: integer
+        type: categorical
+        description: Marital Status; empty = N/A (age less than 15 years)
       HISP:
-        type: integer
+        type: categorical
+        description: Hispanic origin
       RAC1P:
-        type: integer
+        type: categorical
+        description: Person's Race
       NOC:
         type: integer
+        min: 0
+        max: 19
+        description: Number of own children in household (unweighted); empty = N/A (GQ/vacant)
       NPF:
         type: integer
+        min: 2
+        max: 20
+        description: Number of persons in family (unweighted); empty = N/A (GQ/vacant/non-family household
       HOUSING_TYPE:
-        type: integer
+        type: categorical
+        description: Housing unit or group quarters
       OWN_RENT:
-        type: integer
+        type: categorical
+        description: Housing unit rented or owned
       DENSITY:
         type: float
+        description: Population density among residents of each PUMA
       INDP:
-        type: integer
+        type: categorical
+        description: Industry codes. There are a total of 271 possible codes for INDP, 269 of these codes appear
+          in the Diverse Community Data Excerpts (233 in MA, 264 in Texas and National)
       INDP_CAT:
-        type: integer
+        type: categorical
+        description: Industry categories; empty = N/A (less than 16 years old, or last worked more than 5 years
+          ago, or never worked)
       EDU:
         type: integer
+        description: Educational attainment; empty = N/A (less than 3 years old) (ordinal levels 1 (no schooling)
+          to 12 (doctorate))
       PINCP:
         type: integer
+        min: -9000
+        description: Person's total income in dollars; empty = N/A (less than 15 years old)
       PINCP_DECILE:
         type: integer
+        description: Person's total income rank (with respect to their state) discretized into 10% bins.; empty
+          = N/A (less than 15 years old (ordinal 0 to 9 (10% bins of the income rank within the state))
       POVPIP:
         type: integer
+        min: 0
+        max: 501
+        description: 'Income-to-poverty ratio (ex: 250 = 2.5 x poverty line); empty = N/A (501 = income above 5
+          x poverty line)'
       DVET:
-        type: integer
+        type: categorical
+        description: Veteran service connected disability rating (percentage); empty = N/A (No service-connected
+          disability/never served in military
       DREM:
-        type: integer
+        type: categorical
+        description: Cognitive difficulty; empty = N/A (Less than 5 years old)
       DPHY:
-        type: integer
+        type: categorical
+        description: Ambulatory (walking) difficulty; empty = N/A (Less than 5 years old)
       DEYE:
-        type: integer
+        type: categorical
+        description: Vision difficulty
       DEAR:
-        type: integer
+        type: categorical
+        description: Hearing difficulty
       PWGTP:
         type: integer
+        min: 1
+        max: 9999
+        description: Person's sampling weight
       WGTP:
         type: integer
+        min: 0
+        max: 9999
+        description: Housing unit sampling weight
     primary_key: pid
     dimensions:
     - key: INDP
       columns:
       - INDP_CAT
+    - key: PUMA
+      columns:
+      - DENSITY
 relationships: []
 rules:
+# MSP is not asked under age 15
 - table: acs
   type: check
-  expr: EDU < AGEP
+  expr: (AGEP < 15 and isnull(MSP)) or (not (AGEP < 15) and notnull(MSP))
+# income is not asked under age 15
 - table: acs
   type: check
-  expr: NOC < NPF
+  expr: (AGEP < 15 and isnull(PINCP)) or (not (AGEP < 15) and notnull(PINCP))
+# income decile is not asked under age 15
 - table: acs
   type: check
-  expr: HOUSING_TYPE <= EDU
+  expr: (AGEP < 15 and isnull(PINCP_DECILE)) or (not (AGEP < 15) and notnull(PINCP_DECILE))
+# education is not asked under age 3
 - table: acs
   type: check
-  expr: OWN_RENT <= WGTP
+  expr: (AGEP < 3 and isnull(EDU)) or (not (AGEP < 3) and notnull(EDU))
+# cognitive difficulty is not asked under age 5
 - table: acs
   type: check
-  expr: PINCP_DECILE <= POVPIP
+  expr: (AGEP < 5 and isnull(DREM)) or (not (AGEP < 5) and notnull(DREM))
+# ambulatory difficulty is not asked under age 5
+- table: acs
+  type: check
+  expr: (AGEP < 5 and isnull(DPHY)) or (not (AGEP < 5) and notnull(DPHY))
+# no industry under age 16
+- table: acs
+  type: check
+  expr: AGEP >= 16 or isnull(INDP)
+# industry and industry category are empty together
+- table: acs
+  type: check
+  expr: (isnull(INDP) and isnull(INDP_CAT)) or (notnull(INDP) and notnull(INDP_CAT))
+# group quarters neither own nor rent
+- table: acs
+  type: check
+  expr: (HOUSING_TYPE == 1 and OWN_RENT != 0) or (HOUSING_TYPE != 1 and OWN_RENT == 0)
+# housing weight 0 is the group-quarters placeholder
+- table: acs
+  type: check
+  expr: (HOUSING_TYPE == 1 and WGTP >= 1) or (HOUSING_TYPE != 1 and WGTP == 0)
+# own children: N/A in group quarters
+- table: acs
+  type: check
+  expr: (HOUSING_TYPE != 1 and isnull(NOC)) or (not (HOUSING_TYPE != 1) and notnull(NOC))
+# family size: N/A in group quarters
+- table: acs
+  type: check
+  expr: HOUSING_TYPE == 1 or isnull(NPF)
+# own children are fewer than the persons in the family
+- table: acs
+  type: check
+  expr: isnull(NOC) or isnull(NPF) or NOC < NPF
 synthesis:
   seed: 7
   scale:
     default: 1.0
-review:
-- 'acs.MSP: integer (numeric strings)'
-- 'acs.INDP: integer (numeric strings)'
-- 'acs.INDP_CAT: integer (numeric strings)'
-- 'acs.PINCP: integer (numeric strings)'
-- 'acs.PINCP_DECILE: integer (numeric strings)'
-- 'acs.DVET: integer (numeric strings)'
-- 'acs: INDP (258 values) determines INDP_CAT on at least 99.9% of the sampled rows; generated through a copied
-  dimension of their observed combinations'
-- 'acs: check EDU < AGEP (holds on 100.0% of 19,436 sampled rows, 95.9% by chance)'
-- 'acs: check NOC < NPF (holds on 100.0% of 14,134 sampled rows, 94.0% by chance)'
-- 'acs: check HOUSING_TYPE <= EDU (holds on 99.9% of 19,436 sampled rows, 99.7% by chance)'
-- 'acs: check OWN_RENT <= WGTP (holds on 100.0% of 20,000 sampled rows, 93.8% by chance)'
-- 'acs: check PINCP_DECILE <= POVPIP (holds on 99.9% of 15,836 sampled rows, 97.3% by chance)'

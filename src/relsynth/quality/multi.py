@@ -42,9 +42,16 @@ def relations(spec):
     return out
 
 
-def counts_per_parent(parent, pk, child, fk):
-    """Number of child rows per parent row, in parent row order."""
-    vc = keystr(child[fk]).dropna().value_counts()
+def counts_per_parent(parent, pk, child, fk, exact=None):
+    """Number of child rows per parent row, in parent row order.  exact: the child's
+    exact statistics (pushdown), when `child` is only a sample of a large fact; the
+    counts then come from the source's GROUP BY instead of the sample."""
+    if exact is not None:
+        rc = exact.counts(fk)
+        vc = pd.Series(rc["n"].to_numpy(), index=keystr(rc[fk]).to_numpy())
+        vc = vc[vc.index.notna()].groupby(level=0).sum()
+    else:
+        vc = keystr(child[fk]).dropna().value_counts()
     return keystr(parent[pk]).map(vc).fillna(0).to_numpy(dtype=float)
 
 
@@ -72,9 +79,10 @@ def two_hop_chains(spec):
     return out
 
 
-def grandchild_counts(tables, gp, gpk, p, ppk, fk1, c, fk2):
-    """Rows of c per row of gp through p."""
-    cnt_p = pd.Series(counts_per_parent(tables[p], ppk, tables[c], fk2), index=keystr(tables[p][fk1]).to_numpy())
+def grandchild_counts(tables, gp, gpk, p, ppk, fk1, c, fk2, exact=None):
+    """Rows of c per row of gp through p (exact: c's exact statistics, see counts_per_parent)."""
+    cnt_p = pd.Series(counts_per_parent(tables[p], ppk, tables[c], fk2, exact),
+                      index=keystr(tables[p][fk1]).to_numpy())
     per_gp = cnt_p.groupby(level=0).sum()
     return keystr(tables[gp][gpk]).map(per_gp).fillna(0).to_numpy(dtype=float)
 

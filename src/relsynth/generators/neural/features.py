@@ -42,7 +42,8 @@ def marginal_kwargs(cfg: dict, bootstrap: bool) -> dict:
     mcfg, ccfg = cfg["marginals"], cfg["copula"]
     structural = (cfg.get("structure") or {}).get("structural_prior", 0.0)
     return dict(dirichlet_a=mcfg["dirichlet_prior"], grid=ccfg["grid"], bootstrap=bootstrap,
-                tail_trim=mcfg["tail_trim"], structural=structural, max_obs=int(mcfg.get("max_obs", 20000)))
+                tail_trim=mcfg["tail_trim"], structural=structural, max_obs=int(mcfg.get("max_obs", 20000)),
+                  point_mass_knots=bool(mcfg.get("point_mass_knots", False)))
 
 
 @dataclass

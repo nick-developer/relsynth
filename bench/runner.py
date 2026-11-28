@@ -24,6 +24,7 @@ from pathlib import Path
 
 import defusedxml.ElementTree as ET  # XML without entity expansion or external entities
 
+from . import regress
 from .datasets import DATASETS, INTROSPECT_MAX_GIB, _rss_gib, available, is_private, private_store, say
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -430,7 +431,14 @@ def run(datasets: list[str], seeds: list[int] | None, *, fake: bool = True, push
             f"identities broken, {failed('quality', 'area')} quality, {failed('privacy')} privacy and "
             f"{failed('goal')} goal checks failed, {r.get('seconds')} s (+{(r.get('quality') or {}).get('seconds', 0)} s "
             f"quality, +{(r.get('privacy') or {}).get('seconds', 0)} s privacy)"
-            + (f", ERROR {r['error'][:200]}" if r.get("error") else ""))
+            + (f", ERROR {regress.error_summary(r['error'])}" if r.get("error") else ""))
+        acc: dict = {}
+        for c in r.get("checks", []):
+            why = c["pass"] is False and regress.accepted_reason({name: DATASETS[name].accepted}, name, c["id"])
+            if why:
+                acc.setdefault(why, []).append(c["id"])
+        for why, ids in acc.items():
+            say(f"{name} seed {seed}: {len(ids)} failed check(s) are accepted drift: {why} (e.g. {ids[0]})")
         with lock:
             record["runs"].append(r)
             # the record lists runs in task order, whichever finished first

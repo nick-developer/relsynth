@@ -169,6 +169,12 @@ the seeds on which it failed. A new record regresses when
   a slow drift that no single pass or fail shows. Cost values depend on the
   machine and are only noted when they grow by more than 25%.
 
+**Accepted drift.** A dataset's `accepted` entries in `bench/datasets.py` (a regular expression over
+check ids and the reason) list drift the owner accepted, such as the cost of a privacy setting in the
+spec. A failed check that matches is logged with its reason during the run, and the comparison reports
+it as a note instead of an R1 or R4 regression, until a baseline that holds it is built. AdventureWorks
+accepts the DimProduct drift that its segment shrinkage causes.
+
 A check that failed on some baseline seed is unstable: a borderline statistical
 item that flips with the seed. It counts towards R2 but cannot trigger R1. The
 rule is a heuristic chosen for this harness, not a test with a stated level:

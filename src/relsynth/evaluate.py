@@ -96,8 +96,41 @@ def _canon_counts(a):
 
 
 def tvd(a, b):
-    pa = _canon_counts(a)
-    pb = _canon_counts(b)
+    return _tvd_shares(_canon_counts(a), _canon_counts(b))
+
+
+def _canon_counts_weighted(vals, w, first):
+    """_canon_counts of a column in which value vals[i] occurs w[i] times, first at row first[i]: the
+    same shares in the same order, without the repeated column (the level shares of an ancestor
+    attribute joined onto a fact of millions of rows are counted on the ancestor's rows).  None when
+    the values mix bools with numbers (True == 1 under hashing; _canon_counts spells those per row)."""
+    arr = vals.to_numpy(dtype=object) if isinstance(vals, (pd.Series, pd.Index)) else np.asarray(vals, dtype=object)
+    w, first = np.asarray(w, dtype=np.int64), np.asarray(first, dtype=np.int64)
+    keep = (w > 0) & ~pd.isna(arr)
+    arr, w, first = arr[keep], w[keep], first[keep]
+    if len(arr) == 0:
+        return None
+    kind = pd.api.types.infer_dtype(arr, skipna=True)
+    if kind not in ("string", "integer", "floating", "mixed-integer-float", "decimal", "datetime", "datetime64",
+                    "date", "empty", "boolean") and any(isinstance(v, (bool, np.bool_)) for v in arr):
+        return None
+    codes, uniq = pd.factorize(arr)
+    k = np.bincount(codes, weights=w, minlength=len(uniq)).astype(np.int64)
+    fr = np.full(len(uniq), np.iinfo(np.int64).max, dtype=np.int64)
+    np.minimum.at(fr, codes, first)
+    lab_first, cnt = {}, {}
+    for u, r, c in zip(uniq, fr, k):
+        lab = _canon(u)
+        lab_first[lab] = min(lab_first.get(lab, r), r)
+        cnt[lab] = cnt.get(lab, 0) + int(c)
+    labels = sorted(lab_first, key=lab_first.get)
+    counts = np.array([cnt[l] for l in labels], dtype=np.int64)
+    out = pd.Series(counts, index=pd.Index(labels, dtype=object)).sort_values(ascending=False)
+    return out / counts.sum()
+
+
+def _tvd_shares(pa, pb):
+    """Total variation distance between two level-share series (_canon_counts)."""
     idx = pa.index.union(pb.index)
     return float(0.5 * (pa.reindex(idx, fill_value=0) - pb.reindex(idx, fill_value=0)).abs().sum())
 
@@ -600,6 +633,22 @@ class _JoinedView:
                 break
         self.columns = pd.Index(list(self.src))
 
+    def level_shares(self, c):
+        """_canon_counts(self[c].dropna()) counted on the ancestor's rows (each weighted by its fact
+        rows), so the joined column is never gathered; None for the fact's own columns."""
+        s, pos = self.src[c]
+        if pos is None:
+            return None
+        cache = self.__dict__.setdefault("_weights", {})
+        if id(pos) not in cache:
+            ok = np.flatnonzero(pos >= 0)
+            w = np.bincount(pos[ok], minlength=len(s))
+            first = np.full(len(s), np.iinfo(np.int64).max, dtype=np.int64)
+            np.minimum.at(first, pos[ok], ok)
+            cache[id(pos)] = (pos, w, first)    # pos kept so that its id is not reused
+        _, w, first = cache[id(pos)]
+        return _canon_counts_weighted(s.reset_index(drop=True), w, first)
+
     def __getitem__(self, c):
         s, pos = self.src[c]
         s = s.reset_index(drop=True)
@@ -639,6 +688,13 @@ def _kish(view, keycol, default):
     return float(min(default, w.sum() ** 2 / max((w ** 2).sum(), 1.0))) if len(w) else default
 
 
+def _level_shares(view, c):
+    """Level shares of joined column c: on the ancestor's rows for a gathered view (a column of a
+    fact with millions of rows is not repeated as objects), else over the joined rows."""
+    pa = view.level_shares(c) if isinstance(view, _JoinedView) else None
+    return pa if pa is not None else _canon_counts(view[c].dropna())
+
+
 def join_metrics(spec, real, syn, fact):
     rv, sv = joined_view(spec, real, fact), joined_view(spec, syn, fact)
     out, kish = {}, {}
@@ -660,9 +716,14 @@ def join_metrics(spec, real, syn, fact):
         anc_rows, syn_rows = _kish(rv, kc, len(real[tbl])), _kish(sv, kc, len(syn[tbl]))
         nr_ = int(rv[c].notna().sum())
         if _is_cat(cs, rv[c]):
-            pr = rv[c].dropna().astype(str).value_counts(normalize=True).to_numpy()
+            # the level shares are counted once per distinct value (_canon_counts), not by spelling
+            # every row (astype(str) of a joined column of a fact with millions of rows held a
+            # second copy of it as text); the same shares in the same order for text and integer
+            # levels, and they also give the TVD
+            pa, pb = _level_shares(rv, c), _level_shares(sv, c)
+            pr = pa.to_numpy()
             mu, sd = tvd_null(pr, anc_rows, syn_rows)
-            out[c] = {"tvd": tvd(rv[c].dropna(), sv[c].dropna()),
+            out[c] = {"tvd": _tvd_shares(pa, pb),
                       "crit": tvd_crit(pr, anc_rows, syn_rows, pp=True), "n_eff": round(anc_rows, 1),
                       "n_eff_syn": round(syn_rows, 1), "tvd_mu": mu, "tvd_sd": sd, "n_real": nr_}
         else:
@@ -1448,32 +1509,55 @@ def grain_metrics(spec, real, syn, real_stats=None):
         names = sorted(refs)
         memo = {}
 
-        def refv(tabs, side, x):
-            if (side, x) not in memo:
-                memo[(side, x)] = _ref_values(spec, f, tabs, x)
-            return memo[(side, x)]
+        def refv(x):
+            """Real and synthetic codes of reference path x in one label space (the real side's
+            spellings first, a synthetic spelling the real side lacks gets -1), or None."""
+            if x not in memo:
+                r_, s_ = _ref_codes(spec, f, real, x), _ref_codes(spec, f, syn, x)
+                memo[x] = None if r_ is None or s_ is None else \
+                    (r_[0], len(r_[1]), np.asarray(pd.Index(r_[1]).get_indexer(s_[1]), dtype=np.int64)[s_[0]])
+            return memo[x]
         for i, a in enumerate(names):
             for b in names[i + 1:]:
-                va, vb = refv(real, "r", a), refv(real, "r", b)
-                sa, sb = refv(syn, "s", a), refv(syn, "s", b)
-                if va is None or sa is None or vb is None or sb is None:
+                ra_, rb_ = refv(a), refv(b)
+                if ra_ is None or rb_ is None:
                     continue
-                cnt = Counter(zip(va, vb))
-                if not cnt or len(va) / len(cnt) < 5:
+                (ca, _, sa), (cb, nb, sb) = ra_, rb_
+                # each (a, b) combination as one integer; the real combinations and their counts
+                comb, counts = np.unique(ca * nb + cb, return_counts=True)
+                if not len(comb) or len(ca) / len(comb) < 5:
                     continue                 # sparse support: novel combinations are expected
-                novel = float(np.mean([(x, y) not in cnt for x, y in zip(sa, sb)])) if len(sa) else 0.0
+                seen = (sa >= 0) & (sb >= 0)
+                novel = float(np.mean(~(seen & np.isin(np.where(seen, sa * nb + sb, -1), comb)))) if len(sa) else 0.0
                 # null value of the novel share: the real sample's missing mass, estimated
                 # by Good-Turing (N1/n), with Esty's (1983) variance plus the synthetic
                 # sample's binomial noise
-                n = len(va)
-                n1 = sum(1 for v in cnt.values() if v == 1)
-                n2 = sum(1 for v in cnt.values() if v == 2)
+                n = len(ca)
+                n1 = int((counts == 1).sum())
+                n2 = int((counts == 2).sum())
                 gt = n1 / n
                 sd = float(np.sqrt(max(n1 + 2 * n2 - n1 * n1 / n, 1) / n ** 2 + max(gt, 1 / n) / max(len(sa), 1)))
                 out[f"{f}: support ({a}, {b})"] = {"kind": "support", "real": 0.0, "syn": novel,
-                                                   "rows_per_combination": round(len(va) / len(cnt), 1),
+                                                   "rows_per_combination": round(len(ca) / len(comb), 1),
                                                    "good_turing": gt, "sd": sd, "crit": gt + 2.5 * sd}
     return out
+
+
+def _ref_codes(spec, t, tables, path):
+    """_ref_values as (codes, labels): labels[codes] is _ref_values, each distinct spelling once, so a
+    reference key of a fact with millions of rows is held as integers, not one string per row."""
+    from .prepare import make_resolver
+    df = tables[t]
+    try:
+        v = df[path] if "." not in path else make_resolver(spec, t, df, tables)(path)
+    except Exception:  # noqa: BLE001
+        return None
+    codes, uniq = pd.factorize(pd.Series(v), use_na_sentinel=True)
+    # spell the distinct values only, then merge values that spell alike (1 and 1.0); nulls are "__null__"
+    spell = keystr(pd.Series(uniq)).fillna("__null__").to_numpy(dtype=object)
+    labels = np.append(spell, "__null__")
+    merged, out_labels = pd.factorize(labels)
+    return merged[np.where(codes >= 0, codes, len(labels) - 1)].astype(np.int64), np.asarray(out_labels, dtype=object)
 
 
 def _ref_values(spec, t, tables, path):

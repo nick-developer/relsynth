@@ -1,3 +1,25 @@
+# Berka / PKDD'99 Discovery Challenge financial data (Czech bank, 1993-1998), as published in the
+# SDV public demo copy of the CTU "Financial" database (bench/datasets.py).
+# Source: the PKDD'99 data description as supplied by the owner on 2026-11-27 (berka_specs.md:
+# tables, columns, code meanings, relationships). Every key and rule below was also checked on the
+# full source data; where the description and the data disagree, the data is kept:
+# - client: the data has gender and birth_date (decoded from birth_number) instead of birth_number;
+#   the description's "YYMMDD" note on client.district_id is an error.
+# - order.k_symbol: the description lists POJISTNE, SIPO, LEASING, UVER; 1,379 source rows are empty.
+# - trans.type: the description lists PRIJEM (credit) and VYDAJ (withdrawal); 16,666 source rows
+#   have type VYBER (all with operation VYBER).
+# - the description's k_symbol codes for transactions sit under "balance"; they belong to k_symbol.
+# Relationships: the 8 arrows of the description's schema diagram, as declared below.
+# Keys: one disposition per client, at most one per account and type (one OWNER, at most one
+# DISPONENT), at most one loan per account (description). Cards are not unique per disposition:
+# the description allows more than one card per account (the source has at most one).
+# loan: amount = duration x payments (monthly payments); duration is 12, 24, 36, 48 or 60 months;
+# status A = finished, no problems; B = finished, loan not paid; C = running, OK so far;
+# D = running, client in debt.
+# Not written as rules: trans.balance is the balance after each transaction, but the source does
+# not record the order of transactions within a day (trans_id order gives the running balance on
+# 49 % of rows), so no cumulative rule is declared. "Only the owner can issue permanent orders and
+# ask for a loan" holds by construction: every account has exactly one OWNER disposition.
 version: 1
 name: berka
 source:
@@ -14,10 +36,13 @@ tables:
         type: id
       district_id:
         type: id
+        description: 'location of the branch'
       frequency:
         type: categorical
+        description: 'statement issuance: POPLATEK MESICNE monthly, POPLATEK TYDNE weekly, POPLATEK PO OBRATU after a transaction'
       date:
         type: date
+        description: 'date the account was created'
     primary_key: account_id
   card:
     role: entity
@@ -28,8 +53,10 @@ tables:
         type: id
       type:
         type: categorical
+        description: 'junior, classic or gold'
       issued:
         type: date
+        description: 'issue date'
     primary_key: card_id
   client:
     role: entity
@@ -42,6 +69,7 @@ tables:
         type: date
       district_id:
         type: id
+        description: 'address of the client'
     primary_key: client_id
   disp:
     role: entity
@@ -54,7 +82,11 @@ tables:
         type: id
       type:
         type: categorical
+        description: 'OWNER or DISPONENT (user); only the owner can issue permanent orders and ask for a loan'
     primary_key: disp_id
+    unique:
+    - [client_id]
+    - [account_id, type]
     link_affinity:
     - match:
       - client_id.district_id
@@ -66,34 +98,49 @@ tables:
         type: id
       A2:
         type: categorical
+        description: 'district name'
       A3:
         type: categorical
+        description: 'region'
       A4:
         type: integer
+        description: 'number of inhabitants'
       A5:
         type: integer
+        description: 'municipalities with fewer than 500 inhabitants'
       A6:
         type: integer
+        description: 'municipalities with 500-1999 inhabitants'
       A7:
         type: integer
+        description: 'municipalities with 2000-9999 inhabitants'
       A8:
         type: integer
+        description: 'municipalities with more than 10000 inhabitants'
       A9:
         type: integer
+        description: 'number of cities'
       A10:
         type: float
+        description: 'ratio of urban inhabitants'
       A11:
         type: integer
+        description: 'average salary'
       A12:
         type: float
+        description: 'unemployment rate 1995'
       A13:
         type: float
+        description: 'unemployment rate 1996'
       A14:
         type: integer
+        description: 'entrepreneurs per 1000 inhabitants'
       A15:
         type: integer
+        description: 'crimes committed 1995'
       A16:
         type: integer
+        description: 'crimes committed 1996'
     primary_key: district_id
     mode: copy
   loan:
@@ -105,15 +152,20 @@ tables:
         type: id
       date:
         type: date
+        description: 'date the loan was granted'
       amount:
         type: integer
       duration:
         type: integer
       payments:
         type: integer
+        description: 'monthly payments'
       status:
         type: categorical
+        description: 'A finished, no problems; B finished, loan not paid; C running, OK so far; D running, client in debt'
     primary_key: loan_id
+    unique:
+    - [account_id]
   order:
     role: entity
     columns:
@@ -123,12 +175,16 @@ tables:
         type: id
       bank_to:
         type: categorical
+        description: 'bank of the recipient (two-letter code)'
       account_to:
         type: integer
+        description: 'account of the recipient'
       amount:
         type: float
+        description: 'debited amount'
       k_symbol:
         type: categorical
+        description: 'type of payment: POJISTNE insurance, SIPO household, LEASING leasing, UVER loan payment'
     primary_key: order_id
   trans:
     role: fact
@@ -141,18 +197,24 @@ tables:
         type: date
       type:
         type: categorical
+        description: 'PRIJEM credit, VYDAJ withdrawal (VYBER also occurs in the source)'
       operation:
         type: categorical
+        description: 'VYBER KARTOU card withdrawal, VKLAD credit in cash, PREVOD Z UCTU collection from another bank, VYBER withdrawal in cash, PREVOD NA UCET remittance to another bank'
       amount:
         type: integer
       balance:
         type: integer
+        description: 'balance after the transaction'
       k_symbol:
         type: categorical
+        description: 'POJISTNE insurance, SLUZBY payment for statement, UROK interest credited, SANKC. UROK sanction interest if negative balance, SIPO household, DUCHOD old-age pension, UVER loan payment'
       bank:
         type: categorical
+        description: 'bank of the partner (two-letter code)'
       account:
         type: integer
+        description: 'account of the partner'
     primary_key: trans_id
     fact:
       anchor: account
@@ -207,22 +269,41 @@ rules:
 - table: trans
   type: check
   expr: days(account_id.date) <= days(date)
+# Checks below hold on every source row (card 892, trans 1,056,320, order 6,471).
+# In the source every card is on an OWNER disposition (892 of 892; 16 % of dispositions are
+# DISPONENT), and a card is issued after its account opens.
+- table: card
+  type: check
+  expr: disp_id.type == 'OWNER'
+- table: card
+  type: check
+  expr: days(disp_id.account_id.date) <= days(issued)
+# A transaction's operation follows its type: PRIJEM (credit) is a cash deposit (VKLAD), a
+# collection from another bank (PREVOD Z UCTU) or interest (no operation, k_symbol UROK); VYDAJ
+# (withdrawal) is a cash withdrawal (VYBER), a remittance (PREVOD NA UCET) or a card withdrawal
+# (VYBER KARTOU). The source also holds 16,666 rows of type VYBER, all with operation VYBER.
+- table: trans
+  type: check
+  expr: isnull(operation) == (notnull(k_symbol) and k_symbol == 'UROK')
+- table: trans
+  type: check
+  expr: "(type == 'PRIJEM' and (isnull(operation) or operation in ('PREVOD Z UCTU', 'VKLAD'))) or (type == 'VYDAJ'
+    and operation in ('PREVOD NA UCET', 'VYBER', 'VYBER KARTOU')) or (type == 'VYBER' and operation == 'VYBER')"
+# Pension (DUCHOD) and interest (UROK) are credits; insurance (POJISTNE), sanction interest
+# (SANKC. UROK), household (SIPO), statement (SLUZBY) and loan payments (UVER) are withdrawals.
+- table: trans
+  type: check
+  expr: type == 'PRIJEM' or isnull(k_symbol) or k_symbol not in ('DUCHOD', 'UROK')
+- table: trans
+  type: check
+  expr: type == 'VYDAJ' or isnull(k_symbol) or k_symbol not in ('POJISTNE', 'SANKC. UROK', 'SIPO', 'SLUZBY', 'UVER')
+- table: trans
+  type: check
+  expr: amount >= 0
+- table: order
+  type: check
+  expr: amount > 0
 synthesis:
   seed: 7
   scale:
     default: 1.0
-review:
-- 'card.issued: date (values parse as dates)'
-- 'district.A2: categorical (labels of a small reference table)'
-- 'trans.account: integer (numeric strings)'
-- 'district: 77 rows of reference data, copied as-is (set mode: synthesize if it holds confidential data)'
-- 'loan: derive rule amount = duration * payments (holds on the sampled rows)'
-- 'account.date = min(date) of trans: aggregate inferred (holds for every one of 400 parents checked)'
-- 'loan: check days(account_id.date) < days(date) (holds on 100.0% of 682 sampled rows with both dates, 71.2% by
-  chance)'
-- 'trans: check days(account_id.date) <= days(date) (holds on 100.0% of 20,000 sampled rows with both dates, 85.2%
-  by chance)'
-- 'disp: client_id.district_id = account_id.district_id on 90.8% of rows (by chance 2.7%); link affinity: account_id
-  is moved to a matching parent on the extra share'
-- 'trans: role fact (anchor account, time column date); check the anchor is the ''one'' side whose row counts should
-  be preserved'

@@ -812,11 +812,25 @@ def generate(model, draw="mean", seed=7, scale=1.0, reference=None):
                 if q["within"] in df.columns:
                     key = df[q["within"]].map(keystr).fillna("\x00null").to_numpy(dtype=object)
                     df[q["column"]] = pd.Series(key).groupby(key, sort=False).cumcount().to_numpy() + q["start"]
-            for o in S.get("offsets", {}).get(t, []):
-                if o["offset_from"] in df.columns and o["offset_column"] in df.columns:
-                    df[o["child_key"]] = offset_keys(df, o)
+            def offsets(header, df=df):
+                for o in S.get("offsets", {}).get(t, []):
+                    if bool(o.get("via_header")) == header and o["offset_from"] in df.columns and \
+                            o["offset_column"] in df.columns:
+                        df[o["child_key"]] = offset_keys(df, o)
+            offsets(False)
+            # keys offset from a header key read their base after the header lookups (below),
+            # and lookups through them are read once they are set
+            late = {o["child_key"] for o in S.get("offsets", {}).get(t, []) if o.get("via_header")}
+            lks = S["lookups"].get(t, [])
+            if late:
+                lks = [lk for lk in lks if lk["path"].split(".")[0] not in late]
+                lks = lks + [None] + [lk for lk in S["lookups"].get(t, []) if lk["path"].split(".")[0] in late]
             res = resolver(df, out, T, rels, t)
-            for lk in S["lookups"].get(t, []):
+            for lk in lks:
+                if lk is None:
+                    offsets(True)
+                    res = resolver(df, out, T, rels, t)
+                    continue
                 try:
                     v = res(lk["path"]).to_numpy(dtype=object)
                     if lk.get("map") is not None:          # a code mapped through a fixed table
